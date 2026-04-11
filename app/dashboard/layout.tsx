@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -60,9 +61,15 @@ export default function DashboardLayout({
           <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:items-center sm:gap-3 md:gap-4 sm:flex-1">
             <Link
               href="/"
-              className="text-sm font-semibold text-gray-900 tracking-tight shrink-0 hover:text-gray-700"
+              className="flex shrink-0 items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 hover:opacity-90"
             >
-              {PRODUCT_NAME}
+              <Image
+                src="/vinea-logo-v2.png"
+                alt={PRODUCT_NAME}
+                width={140}
+                height={40}
+                className="h-9 w-auto max-h-9 object-contain"
+              />
             </Link>
             <span
               className="hidden sm:block h-4 w-px bg-gray-200 shrink-0"

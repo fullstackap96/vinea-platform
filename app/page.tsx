@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import {
   PARISH_OPERATIONS_DESCRIPTOR,
@@ -35,6 +36,19 @@ export default function Home() {
         {/* Hero */}
         <section className="max-w-5xl mx-auto px-4 sm:px-6 pt-12 pb-16 sm:pt-20 sm:pb-24">
           <div className="max-w-2xl">
+            <Link
+              href="/"
+              className="mb-6 inline-flex max-w-full rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
+            >
+              <Image
+                src="/vinea-logo-v2.png"
+                alt={PRODUCT_NAME}
+                width={320}
+                height={80}
+                className="h-auto w-[148px] max-w-full object-contain sm:w-[160px]"
+                priority
+              />
+            </Link>
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight leading-tight">
               Baptism, funeral, and wedding requests—organized for your parish team.
             </h1>

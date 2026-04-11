@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { PRODUCT_NAME } from '@/lib/productBranding'
 
@@ -19,9 +20,15 @@ export function PublicIntakeShell({
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <Link
             href="/"
-            className="text-sm font-semibold text-gray-900 tracking-tight hover:text-gray-700 min-w-0"
+            className="flex min-w-0 shrink-0 items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 hover:opacity-90"
           >
-            {PRODUCT_NAME}
+            <Image
+              src="/vinea-logo-v2.png"
+              alt={PRODUCT_NAME}
+              width={140}
+              height={40}
+              className="h-9 w-auto max-h-9 object-contain"
+            />
           </Link>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm shrink-0 sm:justify-end">
             <Link

@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -112,6 +113,19 @@ function LoginForm() {
       <main className="flex-1 flex flex-col justify-center px-4 sm:px-6 py-8 sm:py-12">
         <div className="w-full max-w-md mx-auto">
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 sm:p-8">
+            <Link
+              href="/"
+              className="mb-5 inline-flex max-w-full rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
+            >
+              <Image
+                src="/vinea-logo-v2.png"
+                alt={PRODUCT_NAME}
+                width={200}
+                height={56}
+                className="h-auto w-[88px] object-contain sm:w-24"
+                priority
+              />
+            </Link>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
               Staff login
             </h1>
