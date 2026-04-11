@@ -1,0 +1,67 @@
+import React from 'react'
+
+/**
+ * Inline form feedback: error (red), instructional (amber), or success (green).
+ * Message text is rendered unchanged.
+ */
+function getInlineFeedbackStyle(message: string): {
+  className: string
+  role: 'alert' | 'status'
+} {
+  const lower = message.trim().toLowerCase()
+
+  const looksError =
+    lower.startsWith('error') ||
+    lower.includes('failed') ||
+    lower.includes('could not') ||
+    lower.includes('missing.') ||
+    lower.includes('is required.') ||
+    (lower.startsWith('please ') &&
+      (lower.includes('enter') ||
+        lower.includes('choose') ||
+        lower.includes('generate')))
+
+  if (looksError) {
+    return {
+      className:
+        'mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-950',
+      role: 'alert',
+    }
+  }
+
+  const looksNeutral =
+    lower.startsWith('set a confirmed') ||
+    lower.startsWith('a google calendar event already') ||
+    lower.startsWith('no google calendar event is linked')
+
+  if (looksNeutral) {
+    return {
+      className:
+        'mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950',
+      role: 'status',
+    }
+  }
+
+  return {
+    className:
+      'mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-950',
+    role: 'status',
+  }
+}
+
+export function InlineFormMessage({
+  message,
+  className: extraClass = '',
+}: {
+  message: string
+  className?: string
+}) {
+  const t = message.trim()
+  if (!t) return null
+  const { className, role } = getInlineFeedbackStyle(message)
+  return (
+    <p className={`${className} ${extraClass}`.trim()} role={role}>
+      {message}
+    </p>
+  )
+}
