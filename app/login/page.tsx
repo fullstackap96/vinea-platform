@@ -126,7 +126,7 @@ function LoginForm() {
 
             <form onSubmit={onSubmit} className="space-y-4">
               <input
-                className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                className="w-full border border-gray-300 rounded-md bg-white p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
                 placeholder="Email"
                 type="email"
                 value={email}
@@ -136,7 +136,7 @@ function LoginForm() {
               />
 
               <input
-                className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                className="w-full border border-gray-300 rounded-md bg-white p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
                 placeholder="Password"
                 type="password"
                 value={password}
