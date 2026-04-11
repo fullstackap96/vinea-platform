@@ -41,12 +41,13 @@ export default function Home() {
               className="mb-6 inline-flex max-w-full rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
             >
               <Image
-                src="/vinea-logo-v2.png"
+                src="/vinea-logo.png"
                 alt={PRODUCT_NAME}
                 width={320}
                 height={80}
                 className="h-auto w-[148px] max-w-full object-contain sm:w-[160px]"
                 priority
+                unoptimized
               />
             </Link>
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight leading-tight">

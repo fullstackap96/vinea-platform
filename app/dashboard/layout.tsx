@@ -64,7 +64,7 @@ export default function DashboardLayout({
               className="flex shrink-0 items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 hover:opacity-90"
             >
               <Image
-                src="/vinea-logo-v2.png"
+                src="/vinea-logo.png"
                 alt={PRODUCT_NAME}
                 width={140}
                 height={40}
