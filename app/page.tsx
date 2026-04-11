@@ -5,17 +5,11 @@ import {
 } from '@/lib/productBranding'
 
 /** Replace the address with your sales or pilot inbox before sharing widely. */
-const REQUEST_DEMO_MAILTO = `mailto:alex.j.perez@hotmail.com?subject=${encodeURIComponent("Request a Demo — Vinea Platform")}&body=${encodeURIComponent(
-  `Hi,
-  
-  I’m interested in seeing a demo of Vinea Platform.
-  
-  Parish Name:
-  Your Name:
-  Best Time to Connect:
-  
-  Thanks,`
-  )}`
+const REQUEST_DEMO_MAILTO = `mailto:alex@vineaplatform.com?subject=${encodeURIComponent(
+  "Vinea Platform — Demo Request"
+)}&body=${encodeURIComponent(
+  "Hi Alex,\n\nI’d love to schedule a demo of Vinea Platform for our parish.\n\nParish Name:\nApprox. number of requests per month:\nPreferred time to connect:\n\nThank you!"
+)}`
 
 export default function Home() {
   return (
