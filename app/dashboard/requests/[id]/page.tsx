@@ -16,6 +16,7 @@ import { FuneralDetailsSection } from './_components/FuneralDetailsSection'
 import { ConfirmedFuneralServiceSection } from './_components/ConfirmedFuneralServiceSection'
 import { WeddingDetailsSection } from './_components/WeddingDetailsSection'
 import { ConfirmedWeddingCeremonySection } from './_components/ConfirmedWeddingCeremonySection'
+import { AssignmentSection } from './_components/AssignmentSection'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -953,6 +954,13 @@ async function deleteGoogleCalendarEvent() {
       <ChecklistSection
         checklistItems={checklistItems}
         onToggleChecklistItem={toggleChecklistItem}
+      />
+
+      <AssignmentSection
+        requestId={routeId}
+        assignedStaffName={request?.assigned_staff_name}
+        assignedPriestName={request?.assigned_priest_name}
+        onSaved={loadRequest}
       />
 
       {isBaptism && (

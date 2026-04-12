@@ -12,6 +12,7 @@ import {
 import { primaryButtonMd, primaryButtonSm, secondaryButtonMd, secondaryButtonSm } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { chipBase } from '@/lib/chipStyles'
+import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -196,6 +197,12 @@ export default function DashboardPage() {
         </p>
         <p>
           <strong>Email:</strong> {request.parishioner?.email}
+        </p>
+        <p>
+          <strong>Staff:</strong> {assignmentDisplayLabel(request.assigned_staff_name)}
+        </p>
+        <p>
+          <strong>Priest:</strong> {assignmentDisplayLabel(request.assigned_priest_name)}
         </p>
         {isFuneral ? (
           <>
@@ -761,7 +768,9 @@ export default function DashboardPage() {
         created_at,
         parishioner_id,
         confirmed_baptism_date,
-        last_contacted_at
+        last_contacted_at,
+        assigned_staff_name,
+        assigned_priest_name
       `)
       .order('created_at', { ascending: false })
 
@@ -905,13 +914,17 @@ export default function DashboardPage() {
       const deceased = normalize(request.funeral_detail?.deceased_name)
       const p1 = normalize(request.wedding_detail?.partner_one_name)
       const p2 = normalize(request.wedding_detail?.partner_two_name)
+      const staffAssignee = normalize(request.assigned_staff_name)
+      const priestAssignee = normalize(request.assigned_priest_name)
       return (
         parentName.includes(q) ||
         email.includes(q) ||
         childName.includes(q) ||
         deceased.includes(q) ||
         p1.includes(q) ||
-        p2.includes(q)
+        p2.includes(q) ||
+        staffAssignee.includes(q) ||
+        priestAssignee.includes(q)
       )
     })
   })()
