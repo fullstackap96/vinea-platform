@@ -16,6 +16,7 @@ import { ConfirmedFuneralServiceSection } from './_components/ConfirmedFuneralSe
 import { WeddingDetailsSection } from './_components/WeddingDetailsSection'
 import { ConfirmedWeddingCeremonySection } from './_components/ConfirmedWeddingCeremonySection'
 import { AssignmentSection } from './_components/AssignmentSection'
+import { NextFollowUpSection } from './_components/NextFollowUpSection'
 import { InternalNotesSection } from './_components/InternalNotesSection'
 
 export default function RequestDetailPage() {
@@ -976,6 +977,12 @@ async function deleteGoogleCalendarEvent() {
         requestId={routeId}
         assignedStaffName={request?.assigned_staff_name}
         assignedPriestName={request?.assigned_priest_name}
+        onSaved={loadRequest}
+      />
+
+      <NextFollowUpSection
+        requestId={routeId}
+        nextFollowUpDate={request?.next_follow_up_date}
         onSaved={loadRequest}
       />
 

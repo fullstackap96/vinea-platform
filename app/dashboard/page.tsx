@@ -19,6 +19,12 @@ import {
   requestStatusRankForSort,
   REQUEST_STATUS_VALUES,
 } from '@/lib/requestStatus'
+import {
+  formatNextFollowUpDateCompact,
+  isNextFollowUpDueToday,
+  isNextFollowUpOverdue,
+  parseFollowUpCalendarDate,
+} from '@/lib/nextFollowUpDate'
 
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -245,6 +251,32 @@ export default function DashboardPage() {
             {formatRequestStatus(request.status)}
           </span>
         </p>
+        {parseFollowUpCalendarDate(request.next_follow_up_date) ? (
+          <p className="flex flex-wrap items-center gap-2">
+            <strong>Next follow-up:</strong>
+            {isNextFollowUpOverdue(request.next_follow_up_date, request.status) && (
+              <span
+                className={`${chipBase} bg-red-50 text-red-900 border border-red-200`}
+              >
+                Overdue
+              </span>
+            )}
+            {isNextFollowUpDueToday(request.next_follow_up_date, request.status) &&
+              !isNextFollowUpOverdue(
+                request.next_follow_up_date,
+                request.status
+              ) && (
+                <span
+                  className={`${chipBase} bg-amber-50 text-amber-900 border border-amber-200`}
+                >
+                  Due today
+                </span>
+              )}
+            <span className="text-gray-800">
+              {formatNextFollowUpDateCompact(request.next_follow_up_date)}
+            </span>
+          </p>
+        ) : null}
         <p>
           <strong>Last Contacted:</strong> {formatDateTime(request.last_contacted_at)}
         </p>
@@ -284,6 +316,21 @@ export default function DashboardPage() {
         label: 'Checklist incomplete',
         className: 'bg-amber-50 text-amber-900 border border-amber-200',
       })
+    if (isNextFollowUpOverdue(request.next_follow_up_date, request.status)) {
+      badges.push({
+        key: 'follow_up_overdue',
+        label: 'Follow-up overdue',
+        className: 'bg-red-50 text-red-900 border border-red-200',
+      })
+    } else if (
+      isNextFollowUpDueToday(request.next_follow_up_date, request.status)
+    ) {
+      badges.push({
+        key: 'follow_up_today',
+        label: 'Follow-up due today',
+        className: 'bg-amber-50 text-amber-900 border border-amber-200',
+      })
+    }
 
     return (
       <>
@@ -330,6 +377,21 @@ export default function DashboardPage() {
       reasonChips.push({
         key: 'checklist',
         label: 'Checklist Incomplete',
+        className: 'bg-amber-50 text-amber-900 border border-amber-200',
+      })
+    }
+    if (isNextFollowUpOverdue(request.next_follow_up_date, request.status)) {
+      reasonChips.push({
+        key: 'follow_up_overdue',
+        label: 'Follow-up Overdue',
+        className: 'bg-red-50 text-red-900 border border-red-200',
+      })
+    } else if (
+      isNextFollowUpDueToday(request.next_follow_up_date, request.status)
+    ) {
+      reasonChips.push({
+        key: 'follow_up_today',
+        label: 'Follow-up Due Today',
         className: 'bg-amber-50 text-amber-900 border border-amber-200',
       })
     }
@@ -766,7 +828,8 @@ export default function DashboardPage() {
         confirmed_baptism_date,
         last_contacted_at,
         assigned_staff_name,
-        assigned_priest_name
+        assigned_priest_name,
+        next_follow_up_date
       `)
       .order('created_at', { ascending: false })
 
@@ -912,6 +975,10 @@ export default function DashboardPage() {
       const p2 = normalize(request.wedding_detail?.partner_two_name)
       const staffAssignee = normalize(request.assigned_staff_name)
       const priestAssignee = normalize(request.assigned_priest_name)
+      const followUpYmd = normalize(parseFollowUpCalendarDate(request.next_follow_up_date))
+      const followUpCompact = normalize(
+        formatNextFollowUpDateCompact(request.next_follow_up_date)
+      )
       return (
         parentName.includes(q) ||
         email.includes(q) ||
@@ -920,7 +987,9 @@ export default function DashboardPage() {
         p1.includes(q) ||
         p2.includes(q) ||
         staffAssignee.includes(q) ||
-        priestAssignee.includes(q)
+        priestAssignee.includes(q) ||
+        followUpYmd.includes(q) ||
+        followUpCompact.includes(q)
       )
     })
   })()

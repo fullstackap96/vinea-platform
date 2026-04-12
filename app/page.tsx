@@ -5,13 +5,6 @@ import {
   PRODUCT_NAME,
 } from '@/lib/productBranding'
 
-/** Replace the address with your sales or pilot inbox before sharing widely. */
-const REQUEST_DEMO_MAILTO = `mailto:alex@vineaplatform.com?subject=${encodeURIComponent(
-  "Vinea Platform — Demo Request"
-)}&body=${encodeURIComponent(
-  "Hi Alex,\n\nI’d love to schedule a demo of Vinea Platform for our parish.\n\nParish Name:\nApprox. number of requests per month:\nPreferred time to connect:\n\nThank you!"
-)}`
-
 export default function Home() {
   return (
     <div className="min-h-full flex flex-col bg-gray-50 text-gray-900 font-sans">
@@ -82,12 +75,6 @@ export default function Home() {
               >
                 Explore Intake Forms
               </Link>
-              <a
-                href={REQUEST_DEMO_MAILTO}
-                className="inline-flex items-center justify-center w-full sm:w-auto border border-gray-800 text-gray-900 px-6 py-3 rounded text-base font-medium hover:bg-gray-50 transition-colors"
-              >
-                Request a Demo
-              </a>
             </div>
             <p className="mt-4 text-sm text-gray-600 leading-relaxed max-w-2xl">
               Securely manage parish requests. Submissions are reviewed by parish staff.
@@ -183,12 +170,6 @@ export default function Home() {
               >
                 Staff Sign In
               </Link>
-              <a
-                href={REQUEST_DEMO_MAILTO}
-                className="inline-flex items-center justify-center border border-gray-800 text-gray-900 px-6 py-3 rounded text-base font-medium hover:bg-gray-50 transition-colors"
-              >
-                Request a Demo
-              </a>
               <Link
                 href="/baptism-request"
                 className="inline-flex items-center justify-center border border-gray-800 text-gray-900 px-6 py-3 rounded text-base font-medium hover:bg-gray-50 transition-colors"
