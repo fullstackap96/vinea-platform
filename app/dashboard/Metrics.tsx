@@ -24,6 +24,9 @@ export default function Metrics({ requests = [], loading = false }: Props) {
 
   const newCount = requests.filter((r) => r.status === 'new').length
   const inProgressCount = requests.filter((r) => r.status === 'in_progress').length
+  const waitingOnFamilyCount = requests.filter(
+    (r) => r.status === 'waiting_on_family'
+  ).length
   const scheduledCount = requests.filter((r) => hasConfirmedSchedule(r)).length
   const missingConfirmedCount = requests.filter((r) =>
     isMissingConfirmedSchedule(r)
@@ -38,7 +41,18 @@ export default function Metrics({ requests = [], loading = false }: Props) {
 
   const cards = [
     { key: 'new', label: 'New Requests', count: newCount, color: 'bg-blue-50 text-blue-950' },
-    { key: 'in_progress', label: 'In Progress', count: inProgressCount, color: 'bg-amber-50 text-amber-950' },
+    {
+      key: 'in_progress',
+      label: 'In Progress',
+      count: inProgressCount,
+      color: 'bg-amber-50 text-amber-950',
+    },
+    {
+      key: 'waiting_on_family',
+      label: 'Waiting on Family',
+      count: waitingOnFamilyCount,
+      color: 'bg-violet-50 text-violet-950',
+    },
     { key: 'scheduled', label: 'Scheduled', count: scheduledCount, color: 'bg-green-50 text-green-950' },
     { key: 'needs_contact', label: 'Needs Contact', count: needsContactCount, color: 'bg-red-50 text-red-950' },
     { key: 'no_confirmed', label: 'Missing confirmed schedule', count: missingConfirmedCount, color: 'bg-orange-50 text-orange-950' },
@@ -47,7 +61,7 @@ export default function Metrics({ requests = [], loading = false }: Props) {
 
   return (
     <div className="mb-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {cards.map((c) => (
           <div
             key={c.key}

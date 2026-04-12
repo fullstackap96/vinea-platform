@@ -1,5 +1,10 @@
 import React from 'react'
 import { RequestTypeBadge } from './RequestTypeBadge'
+import {
+  formatRequestStatus,
+  requestStatusBadgeClasses,
+  REQUEST_STATUS_SEGMENTS,
+} from '@/lib/requestStatus'
 
 export function RequestHeader({
   parishioner,
@@ -42,12 +47,6 @@ export function RequestHeader({
     if (Number.isNaN(d.getTime())) return 'Not set'
     return d.toLocaleString()
   })()
-
-  const statusSegments = [
-    { value: 'new', label: 'New' },
-    { value: 'in_progress', label: 'In progress' },
-    { value: 'complete', label: 'Complete' },
-  ] as const
 
   return (
     <div className="space-y-2 border-b border-gray-200 pb-6 sm:pb-8 text-sm sm:text-base text-gray-800 [&_strong]:text-gray-900">
@@ -126,8 +125,11 @@ export function RequestHeader({
       <p className="break-words">
         <strong>Notes:</strong> {request?.notes}
       </p>
-      <p className="break-words">
-        <strong>Status:</strong> {request?.status}
+      <p className="flex flex-wrap items-center gap-2 break-words">
+        <strong>Status:</strong>{' '}
+        <span className={requestStatusBadgeClasses(request?.status)}>
+          {formatRequestStatus(request?.status)}
+        </span>
       </p>
 
       <div className="pt-4">
@@ -138,7 +140,7 @@ export function RequestHeader({
           role="group"
           aria-label="Set request status"
         >
-          {statusSegments.map(({ value, label }) => (
+          {REQUEST_STATUS_SEGMENTS.map(({ value, label }) => (
             <button
               key={value}
               type="button"

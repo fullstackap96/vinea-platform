@@ -13,6 +13,12 @@ import { primaryButtonMd, primaryButtonSm, secondaryButtonMd, secondaryButtonSm 
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { chipBase } from '@/lib/chipStyles'
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
+import {
+  formatRequestStatus,
+  requestStatusBadgeClasses,
+  requestStatusRankForSort,
+  REQUEST_STATUS_VALUES,
+} from '@/lib/requestStatus'
 
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -101,19 +107,6 @@ export default function DashboardPage() {
     return String(value || '').toLowerCase().trim()
   }
 
-  function statusRank(status: any) {
-    switch (String(status)) {
-      case 'new':
-        return 0
-      case 'in_progress':
-        return 1
-      case 'complete':
-        return 2
-      default:
-        return 99
-    }
-  }
-
   function sortWithNullsLast(list: any[]) {
     const copy = [...list]
     copy.sort((a, b) => {
@@ -142,8 +135,8 @@ export default function DashboardPage() {
       }
 
       // status
-      const ar = statusRank(a.status)
-      const br = statusRank(b.status)
+      const ar = requestStatusRankForSort(a.status)
+      const br = requestStatusRankForSort(b.status)
       if (ar !== br) return ar - br
       // stable-ish fallback
       const at = toTime(a.created_at) ?? 0
@@ -246,8 +239,11 @@ export default function DashboardPage() {
             </p>
           </>
         )}
-        <p>
-          <strong>Status:</strong> {request.status}
+        <p className="flex flex-wrap items-center gap-2">
+          <strong>Status:</strong>{' '}
+          <span className={requestStatusBadgeClasses(request.status)}>
+            {formatRequestStatus(request.status)}
+          </span>
         </p>
         <p>
           <strong>Last Contacted:</strong> {formatDateTime(request.last_contacted_at)}
@@ -1020,9 +1016,10 @@ export default function DashboardPage() {
 
   const statusFilterOptions = [
     { value: 'all' as const, label: 'All' },
-    { value: 'new' as const, label: 'New' },
-    { value: 'in_progress' as const, label: 'In progress' },
-    { value: 'complete' as const, label: 'Complete' },
+    ...REQUEST_STATUS_VALUES.map((value) => ({
+      value,
+      label: formatRequestStatus(value),
+    })),
   ]
 
   return (
@@ -1061,8 +1058,8 @@ export default function DashboardPage() {
           aria-live="polite"
           aria-label="Loading dashboard"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            {Array.from({ length: 7 }).map((_, i) => (
               <div
                 key={i}
                 className="h-[4.5rem] rounded-lg border border-gray-200 bg-white shadow-sm animate-pulse"
