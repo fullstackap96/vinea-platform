@@ -20,6 +20,7 @@ import {
   REQUEST_STATUS_VALUES,
 } from '@/lib/requestStatus'
 import {
+  followUpSortPriority,
   formatNextFollowUpDateCompact,
   isNextFollowUpDueToday,
   isNextFollowUpOverdue,
@@ -117,6 +118,10 @@ export default function DashboardPage() {
     const copy = [...list]
     copy.sort((a, b) => {
       if (sortBy === 'created_desc' || sortBy === 'created_asc') {
+        const fp =
+          followUpSortPriority(a.next_follow_up_date, a.status) -
+          followUpSortPriority(b.next_follow_up_date, b.status)
+        if (fp !== 0) return fp
         const at = toTime(a.created_at) ?? 0
         const bt = toTime(b.created_at) ?? 0
         return sortBy === 'created_desc' ? bt - at : at - bt
@@ -253,7 +258,7 @@ export default function DashboardPage() {
         </p>
         {parseFollowUpCalendarDate(request.next_follow_up_date) ? (
           <p className="flex flex-wrap items-center gap-2">
-            <strong>Next follow-up:</strong>
+            <strong>Follow-up:</strong>
             {isNextFollowUpOverdue(request.next_follow_up_date, request.status) && (
               <span
                 className={`${chipBase} bg-red-50 text-red-900 border border-red-200`}
@@ -455,11 +460,17 @@ export default function DashboardPage() {
   }
 
   function dashboardRequestLink(request: any) {
+    const followUpOverdue = isNextFollowUpOverdue(
+      request.next_follow_up_date,
+      request.status
+    )
     return (
       <Link
         key={request.id}
         href={`/dashboard/requests/${request.id}`}
-        className="block border border-gray-200 rounded-lg p-4 sm:p-5 bg-white shadow-sm hover:border-gray-300 transition-colors"
+        className={`block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 sm:p-5 ${
+          followUpOverdue ? 'border-l-4 border-l-red-600' : ''
+        }`}
       >
         {renderRequestSummary(request)}
       </Link>
@@ -743,10 +754,17 @@ export default function DashboardPage() {
       !hasDraft ||
       !hasRecipient
 
+    const followUpOverdue = isNextFollowUpOverdue(
+      request.next_follow_up_date,
+      request.status
+    )
+
     return (
       <div
         key={id}
-        className="border border-gray-200 rounded-lg p-4 sm:p-5 bg-white shadow-sm space-y-3"
+        className={`space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5 ${
+          followUpOverdue ? 'border-l-4 border-l-red-600' : ''
+        }`}
       >
         <div className="flex gap-3 items-start">
           <label className="flex items-center gap-2 pt-0.5 shrink-0 cursor-pointer select-none">

@@ -77,3 +77,17 @@ export function formatNextFollowUpDateCompact(value: unknown): string {
     year: 'numeric',
   })
 }
+
+/**
+ * Lower = sort earlier (higher attention). Used only for default created-date sorts on the dashboard.
+ */
+export function followUpSortPriority(
+  nextFollowUpDate: unknown,
+  status: unknown,
+  now: Date = new Date()
+): number {
+  if (isNextFollowUpOverdue(nextFollowUpDate, status, now)) return 0
+  if (isNextFollowUpDueToday(nextFollowUpDate, status, now)) return 1
+  if (parseFollowUpCalendarDate(nextFollowUpDate)) return 2
+  return 3
+}

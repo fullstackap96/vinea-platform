@@ -74,9 +74,9 @@ export function NextFollowUpSection({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-2xl font-semibold text-gray-900">Next Follow-Up</h2>
+    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">Next Follow-Up</h2>
         {!editing && (
           <button
             type="button"
