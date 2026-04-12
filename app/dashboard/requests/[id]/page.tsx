@@ -17,6 +17,7 @@ import { ConfirmedFuneralServiceSection } from './_components/ConfirmedFuneralSe
 import { WeddingDetailsSection } from './_components/WeddingDetailsSection'
 import { ConfirmedWeddingCeremonySection } from './_components/ConfirmedWeddingCeremonySection'
 import { AssignmentSection } from './_components/AssignmentSection'
+import { InternalNotesSection } from './_components/InternalNotesSection'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -48,6 +49,9 @@ const [replyDraft, setReplyDraft] = useState('')
 const [aiLoading, setAiLoading] = useState(false)
 const [copyMessage, setCopyMessage] = useState('')
 const [staffNotes, setStaffNotes] = useState('')
+  const [requestNotes, setRequestNotes] = useState<
+    Array<{ id: string; body: string; created_at: string }>
+  >([])
   const [suggested1, setSuggested1] = useState('')
   const [suggested2, setSuggested2] = useState('')
   const [suggested3, setSuggested3] = useState('')
@@ -156,6 +160,19 @@ setStaffNotes(requestData.staff_notes || '')
       .order('contacted_at', { ascending: false })
 
     setCommunications(communicationsData || [])
+
+    const { data: notesData, error: notesError } = await supabase
+      .from('request_notes')
+      .select('id, body, created_at')
+      .eq('request_id', requestData.id)
+      .order('created_at', { ascending: false })
+
+    if (notesError) {
+      console.error('Error loading request notes:', notesError)
+      setRequestNotes([])
+    } else {
+      setRequestNotes(notesData || [])
+    }
 
     if (requestData.request_type === 'funeral') {
       const { data: fDetail } = await supabase
@@ -1068,6 +1085,12 @@ async function deleteGoogleCalendarEvent() {
         staffNotes={staffNotes}
         setStaffNotes={setStaffNotes}
         onSaveStaffNotes={saveStaffNotes}
+      />
+
+      <InternalNotesSection
+        requestId={routeId}
+        notes={requestNotes}
+        onAdded={loadRequest}
       />
 
       <AiToolsSection
