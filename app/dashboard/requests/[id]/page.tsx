@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { RequestHeader } from './_components/RequestHeader'
 import { ChecklistSection } from './_components/ChecklistSection'
-import { StaffNotesSection } from './_components/StaffNotesSection'
 import { AiToolsSection } from './_components/AiToolsSection'
 import { SuggestedDatesSection } from './_components/SuggestedDatesSection'
 import { ConfirmedBaptismDateSection } from './_components/ConfirmedBaptismDateSection'
@@ -1079,12 +1078,6 @@ async function deleteGoogleCalendarEvent() {
         saving={commSaving}
         message={commMessage}
         history={communications}
-      />
-
-      <StaffNotesSection
-        staffNotes={staffNotes}
-        setStaffNotes={setStaffNotes}
-        onSaveStaffNotes={saveStaffNotes}
       />
 
       <InternalNotesSection
