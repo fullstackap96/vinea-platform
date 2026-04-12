@@ -760,10 +760,13 @@ export default function DashboardPage() {
             <span className="sr-only">Select for batch actions</span>
           </label>
           <div className="min-w-0 flex-1 space-y-3">
-        <div>
+        <div className="min-w-0">
+          <div className="text-base font-medium leading-snug text-gray-900 break-words">
+            {String(request.parishioner?.full_name ?? '').trim() || '—'}
+          </div>
           <Link
             href={`/dashboard/requests/${id}`}
-            className="text-sm font-medium text-blue-900 underline decoration-blue-900/80 underline-offset-2"
+            className="mt-1 inline-block text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
           >
             Open full request
           </Link>
