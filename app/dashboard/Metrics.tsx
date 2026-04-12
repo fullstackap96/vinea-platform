@@ -61,16 +61,20 @@ export default function Metrics({ requests = [], loading = false }: Props) {
 
   return (
     <div className="mb-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-stretch">
         {cards.map((c) => (
           <div
             key={c.key}
-            className="min-w-0 border border-gray-200 rounded-lg p-3 bg-white shadow-sm"
+            className="flex h-full min-h-0 min-w-0 flex-col rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
           >
-            <div className="text-sm font-medium text-gray-900 mb-2 leading-snug break-words">
+            <div className="mb-2 min-h-[2.75rem] flex-1 text-sm font-medium leading-snug text-gray-900 break-words">
               {c.label}
             </div>
-            <div className={`text-2xl font-bold ${c.color}`}>{loading ? '—' : c.count}</div>
+            <div
+              className={`shrink-0 text-2xl font-bold tabular-nums ${c.color}`}
+            >
+              {loading ? '—' : c.count}
+            </div>
           </div>
         ))}
       </div>

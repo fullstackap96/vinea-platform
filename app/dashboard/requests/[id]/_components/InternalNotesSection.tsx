@@ -70,7 +70,7 @@ export function InternalNotesSection({
       </div>
 
       <div className="mt-6">
-        <h3 className="mb-3 text-xl font-semibold text-gray-900">Timeline</h3>
+        <h3 className="mb-3 text-xl font-semibold text-gray-900">Internal Notes Timeline</h3>
         {notes.length === 0 ? (
           <p className="text-sm text-gray-800">No notes yet.</p>
         ) : (
