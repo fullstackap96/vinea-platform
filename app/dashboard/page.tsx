@@ -1267,14 +1267,14 @@ export default function DashboardPage() {
             <>
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch mb-6">
                 <input
-                  className="border border-gray-300 rounded-lg p-3 w-full min-w-0 flex-1 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                  className="w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
                   placeholder="Search parent, child, or email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
 
                 <select
-                  className="border border-gray-300 rounded-lg p-3 w-full sm:w-auto sm:min-w-[11rem] shrink-0 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                  className="w-full shrink-0 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm sm:w-auto sm:min-w-[11rem] focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
                   value={sortBy}
                   onChange={(e) =>
                     setSortBy(
