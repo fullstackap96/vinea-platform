@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Metrics from './Metrics'
@@ -26,6 +26,11 @@ import {
   isNextFollowUpOverdue,
   parseFollowUpCalendarDate,
 } from '@/lib/nextFollowUpDate'
+import { needsAttentionEligible, sortNeedsAttentionRequests } from '@/lib/needsAttention'
+import {
+  labelSacramentalBackground,
+  labelSeeking,
+} from '@/lib/ociaIntakeOptions'
 
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -42,6 +47,10 @@ function followUpEmailSubject(request: any) {
     const b = String(request.wedding_detail?.partner_two_name ?? '').trim()
     const couple = [a, b].filter(Boolean).join(' & ')
     return `Following up: Wedding for ${couple || 'your wedding'}`
+  }
+  if (request.request_type === 'ocia') {
+    const n = String(request.parishioner?.full_name ?? '').trim()
+    return `Following up: OCIA inquiry — ${n || 'your inquiry'}`
   }
   const child = String(request.child_name ?? '').trim()
   return `Following up: Baptism for ${child || 'your family'}`
@@ -194,6 +203,7 @@ export default function DashboardPage() {
     const rt = String(request.request_type || 'baptism')
     const isFuneral = rt === 'funeral'
     const isWedding = rt === 'wedding'
+    const isOcia = rt === 'ocia'
     return (
       <div className="text-sm text-gray-900 space-y-1 leading-relaxed">
         <p>
@@ -235,6 +245,21 @@ export default function DashboardPage() {
               {request.wedding_detail?.proposed_wedding_date
                 ? String(request.wedding_detail.proposed_wedding_date)
                 : '—'}
+            </p>
+          </>
+        ) : isOcia ? (
+          <>
+            <p>
+              <strong>Seeking:</strong>{' '}
+              {labelSeeking(request.ocia_detail?.seeking)}
+            </p>
+            <p>
+              <strong>Sacramental background:</strong>{' '}
+              {labelSacramentalBackground(request.ocia_detail?.sacramental_background)}
+            </p>
+            <p>
+              <strong>Parishioner status:</strong>{' '}
+              {request.ocia_detail?.parishioner_status || '—'}
             </p>
           </>
         ) : (
@@ -459,6 +484,77 @@ export default function DashboardPage() {
     )
   }
 
+  function renderNeedsAttentionCard(request: any) {
+    const id = String(request.id)
+    const name = String(request.parishioner?.full_name ?? '').trim() || '—'
+    const priest = String(request.assigned_priest_name ?? '').trim()
+    const overdue = isNextFollowUpOverdue(request.next_follow_up_date, request.status)
+    const dueToday = isNextFollowUpDueToday(request.next_follow_up_date, request.status)
+    const hasFollowUpDate = Boolean(parseFollowUpCalendarDate(request.next_follow_up_date))
+    const dateLabel = hasFollowUpDate
+      ? formatNextFollowUpDateCompact(request.next_follow_up_date)
+      : 'Not set'
+
+    return (
+      <div
+        key={id}
+        className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5 ${
+          overdue ? 'border-l-4 border-l-red-600' : ''
+        }`}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div>
+              <RequestTypeBadge requestType={request.request_type} />
+            </div>
+            <p className="text-sm font-semibold text-gray-900 break-words">{name}</p>
+            <p className="flex flex-wrap items-center gap-2 text-sm text-gray-800">
+              <span className="font-semibold text-gray-900">Status</span>
+              <span className={requestStatusBadgeClasses(request.status)}>
+                {formatRequestStatus(request.status)}
+              </span>
+            </p>
+            <p className="text-sm text-gray-800">
+              <strong className="text-gray-900">Staff:</strong>{' '}
+              {assignmentDisplayLabel(request.assigned_staff_name)}
+            </p>
+            {priest ? (
+              <p className="text-sm text-gray-800">
+                <strong className="text-gray-900">Priest:</strong> {priest}
+              </p>
+            ) : null}
+            <p className="flex flex-wrap items-center gap-2 text-sm text-gray-800">
+              <strong className="text-gray-900">Follow-up:</strong>
+              {overdue ? (
+                <span
+                  className={`${chipBase} bg-red-50 text-red-900 border border-red-200`}
+                >
+                  Overdue
+                </span>
+              ) : null}
+              {dueToday && !overdue ? (
+                <span
+                  className={`${chipBase} bg-amber-50 text-amber-900 border border-amber-200`}
+                >
+                  Due today
+                </span>
+              ) : null}
+              <span className="text-gray-800">{dateLabel}</span>
+            </p>
+          </div>
+          <div className="shrink-0 sm:pt-0.5">
+            <Link
+              href={`/dashboard/requests/${id}`}
+              className="inline-flex text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
+            >
+              Open full request
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   function dashboardRequestLink(request: any) {
     const followUpOverdue = isNextFollowUpOverdue(
       request.next_follow_up_date,
@@ -521,6 +617,16 @@ export default function DashboardPage() {
         payload.partnerTwoName = wd?.partner_two_name ?? ''
         payload.proposedWeddingDate = wd?.proposed_wedding_date ?? ''
         payload.ceremonyNotes = wd?.ceremony_notes ?? ''
+      } else if (requestType === 'ocia') {
+        const od = request.ocia_detail
+        payload.phone = request.parishioner?.phone ?? ''
+        payload.dateOfBirth = od?.date_of_birth ?? ''
+        payload.ageOrDobNote = od?.age_or_dob_note ?? ''
+        payload.sacramentalBackground = od?.sacramental_background ?? ''
+        payload.seeking = od?.seeking ?? ''
+        payload.parishionerStatus = od?.parishioner_status ?? ''
+        payload.preferredContactMethod = od?.preferred_contact_method ?? ''
+        payload.availability = od?.availability ?? ''
       } else {
         payload.childName = request.child_name ?? ''
         payload.preferredDates = request.preferred_dates ?? ''
@@ -957,12 +1063,34 @@ export default function DashboardPage() {
       }
     }
 
-    const withDetails = withFuneral.map((r) => ({
+    const withWedding = withFuneral.map((r) => ({
       ...r,
       wedding_detail:
         r.request_type === 'wedding'
           ? weddingById.get(String(r.id)) ?? null
           : null,
+    }))
+
+    const ociaIds = withWedding
+      .filter((r) => r.request_type === 'ocia')
+      .map((r) => String(r.id))
+
+    let ociaById = new Map<string, Record<string, unknown>>()
+    if (ociaIds.length > 0) {
+      const { data: ociaRows } = await supabase
+        .from('ocia_request_details')
+        .select('*')
+        .in('request_id', ociaIds)
+
+      for (const row of ociaRows || []) {
+        ociaById.set(String(row.request_id), row as Record<string, unknown>)
+      }
+    }
+
+    const withDetails = withWedding.map((r) => ({
+      ...r,
+      ocia_detail:
+        r.request_type === 'ocia' ? ociaById.get(String(r.id)) ?? null : null,
     }))
 
     setRequests(withDetails)
@@ -994,6 +1122,11 @@ export default function DashboardPage() {
       const deceased = normalize(request.funeral_detail?.deceased_name)
       const p1 = normalize(request.wedding_detail?.partner_one_name)
       const p2 = normalize(request.wedding_detail?.partner_two_name)
+      const ociaSeek = normalize(labelSeeking(request.ocia_detail?.seeking))
+      const ociaSac = normalize(
+        labelSacramentalBackground(request.ocia_detail?.sacramental_background)
+      )
+      const ociaParish = normalize(request.ocia_detail?.parishioner_status)
       const staffAssignee = normalize(request.assigned_staff_name)
       const priestAssignee = normalize(request.assigned_priest_name)
       const followUpYmd = normalize(parseFollowUpCalendarDate(request.next_follow_up_date))
@@ -1007,6 +1140,9 @@ export default function DashboardPage() {
         deceased.includes(q) ||
         p1.includes(q) ||
         p2.includes(q) ||
+        ociaSeek.includes(q) ||
+        ociaSac.includes(q) ||
+        ociaParish.includes(q) ||
         staffAssignee.includes(q) ||
         priestAssignee.includes(q) ||
         followUpYmd.includes(q) ||
@@ -1017,6 +1153,11 @@ export default function DashboardPage() {
 
   const visibleRequests = sortWithNullsLast(searchedRequests)
   const followUpVisible = sortWithNullsLast(searchedRequests.filter(inFollowUpQueue))
+
+  const needsAttentionSorted = useMemo(
+    () => sortNeedsAttentionRequests(requests.filter(needsAttentionEligible)),
+    [requests]
+  )
 
   const followUpToolbarLocked =
     loading ||
@@ -1166,6 +1307,32 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
+          <section className="mb-10" aria-labelledby="needs-attention-heading">
+            <h2
+              id="needs-attention-heading"
+              className="text-xl font-semibold text-gray-900 mb-2"
+            >
+              Needs Attention
+            </h2>
+            <p className="text-sm text-gray-600 mb-4 max-w-2xl leading-relaxed">
+              Overdue, due today, or unassigned requests. Sorted by urgency, then newest first.
+            </p>
+            {needsAttentionSorted.length === 0 ? (
+              <div
+                className="rounded-lg border border-dashed border-gray-300 bg-white px-5 py-8 text-center shadow-sm"
+                role="status"
+              >
+                <p className="text-sm font-medium text-gray-900">
+                  Nothing needs attention in this category right now.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {needsAttentionSorted.map((request) => renderNeedsAttentionCard(request))}
+              </div>
+            )}
+          </section>
+
           <section className="mb-10" aria-labelledby="follow-up-queue-heading">
             <h2
               id="follow-up-queue-heading"

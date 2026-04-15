@@ -58,6 +58,33 @@ Confirmed ceremony: ${body.confirmedCeremonyAt || '—'}
 Notes: ${body.notes}
 Status: ${body.status}
 `
+    } else if (requestType === 'ocia') {
+      prompt = `
+You are helping Catholic parish staff review an OCIA / RCIA inquiry.
+
+Write a short internal summary for staff.
+
+Include:
+1. inquirer's contact information
+2. sacramental background and what they are seeking
+3. parish connection and preferred contact method
+4. availability and intake notes
+5. suggested next pastoral step
+
+Request data:
+Contact Name: ${body.fullName}
+Email: ${body.email}
+Phone: ${body.phone || '—'}
+Date of birth: ${body.dateOfBirth || '—'}
+Age / DOB note: ${body.ageOrDobNote || '—'}
+Sacramental background: ${body.sacramentalBackground || '—'}
+Seeking: ${body.seeking || '—'}
+Parishioner status: ${body.parishionerStatus || '—'}
+Preferred contact: ${body.preferredContactMethod || '—'}
+Availability: ${body.availability || '—'}
+Notes: ${body.notes}
+Status: ${body.status}
+`
     } else {
       prompt = `
 You are helping Catholic parish staff review a baptism request.

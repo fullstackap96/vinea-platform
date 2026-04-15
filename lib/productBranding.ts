@@ -8,7 +8,7 @@ export const PRODUCT_NAME = 'Vinea Platform'
 export const PARISH_OPERATIONS_DESCRIPTOR = 'Parish Operations'
 
 /** Default document title for the root layout. */
-export const SITE_DOCUMENT_TITLE = `${PRODUCT_NAME} — Baptism, funeral & wedding requests`
+export const SITE_DOCUMENT_TITLE = `${PRODUCT_NAME} — Baptism, funeral, wedding & OCIA requests`
 
 /** Default meta description (search / sharing). */
-export const SITE_DOCUMENT_DESCRIPTION = `${PRODUCT_NAME} connects families with parish staff for baptism, funeral, and wedding requests. The ${PARISH_OPERATIONS_DESCRIPTOR} workspace includes follow-ups, AI-assisted drafts, and Google Calendar sync.`
+export const SITE_DOCUMENT_DESCRIPTION = `${PRODUCT_NAME} connects families with parish staff for baptism, funeral, wedding, and OCIA (RCIA) requests. The ${PARISH_OPERATIONS_DESCRIPTOR} workspace includes follow-ups, AI-assisted drafts, and Google Calendar sync.`

@@ -42,6 +42,20 @@ Proposed wedding date: ${body.proposedWeddingDate || '—'}
 Ceremony notes: ${body.ceremonyNotes || '—'}
 Notes: ${body.notes}`
   }
+  if (requestType === 'ocia') {
+    return `Request data:
+Contact Name: ${body.fullName}
+Email: ${body.email}
+Phone: ${body.phone || '—'}
+Date of birth: ${body.dateOfBirth || '—'}
+Age / DOB note: ${body.ageOrDobNote || '—'}
+Sacramental background: ${body.sacramentalBackground || '—'}
+Seeking: ${body.seeking || '—'}
+Parishioner status: ${body.parishionerStatus || '—'}
+Preferred contact: ${body.preferredContactMethod || '—'}
+Availability: ${body.availability || '—'}
+Notes: ${body.notes}`
+  }
   return `Request data:
 Parent Name: ${body.fullName}
 Email: ${body.email}
@@ -126,6 +140,36 @@ Include:
 1. acknowledgment that the request was received
 2. appreciation for considering the parish
 3. brief next steps for wedding planning at the parish
+4. a note that parish staff will follow up regarding details
+
+${block}
+`
+    } else if (requestType === 'ocia') {
+      prompt = isFollowUp
+        ? `
+You are helping a Catholic parish send a FOLLOW-UP email to someone who inquired about OCIA / RCIA.
+
+This is not the first acknowledgment. Write a warm, respectful, professional follow-up.
+
+Staff context on why this follow-up is needed:
+${String(body.followUpContext || '').trim() || '(No extra context provided.)'}
+
+${block}
+
+Include:
+1. a brief, pastoral opening appropriate to a follow-up
+2. concrete next steps (meeting, inquiry session, or how to connect with the parish OCIA team)
+3. an invitation to reply with questions
+`
+        : `
+You are helping a Catholic parish reply by email to someone who submitted an OCIA / RCIA inquiry.
+
+Write a warm, respectful, professional reply. The tone should be welcoming and clear without pressure.
+
+Include:
+1. acknowledgment that the inquiry was received
+2. appreciation for reaching out
+3. brief next steps for learning more about OCIA at the parish
 4. a note that parish staff will follow up regarding details
 
 ${block}

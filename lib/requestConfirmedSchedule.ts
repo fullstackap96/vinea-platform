@@ -3,6 +3,7 @@
  * Baptism: requests.confirmed_baptism_date
  * Funeral: funeral_request_details.confirmed_service_at
  * Wedding: wedding_request_details.confirmed_ceremony_at
+ * OCIA (V1): no confirmed liturgy milestone — excluded from “missing schedule” attention.
  */
 
 export type RequestScheduleRow = {
@@ -14,6 +15,9 @@ export type RequestScheduleRow = {
 
 export function hasConfirmedSchedule(request: RequestScheduleRow): boolean {
   const t = String(request.request_type || 'baptism').toLowerCase()
+  if (t === 'ocia') {
+    return true
+  }
   if (t === 'funeral') {
     return Boolean(request.funeral_detail?.confirmed_service_at)
   }
@@ -30,6 +34,14 @@ export function isMissingConfirmedSchedule(request: RequestScheduleRow): boolean
 /** Copy for list badges, queue chips, and follow-up context (single source of truth). */
 export function missingConfirmedScheduleCopy(requestType: string | null | undefined) {
   const t = String(requestType || 'baptism').toLowerCase()
+  if (t === 'ocia') {
+    return {
+      badge: 'No calendar milestone',
+      chip: 'OCIA (no schedule milestone)',
+      listHeading: 'OCIA intake',
+      followUpContextLine: '- OCIA requests do not use a confirmed liturgy date in V1.',
+    }
+  }
   if (t === 'funeral') {
     return {
       badge: 'No confirmed service',

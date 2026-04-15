@@ -44,7 +44,7 @@ export default function Home() {
               />
             </Link>
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight leading-tight">
-              Baptism, funeral, and wedding requests—organized for your parish team.
+              Baptism, funeral, wedding, and OCIA requests—organized for your parish team.
             </h1>
             <p className="mt-3 text-xl sm:text-2xl font-semibold text-gray-700 tracking-tight leading-snug">
               Parish Operations Simplified
@@ -92,11 +92,10 @@ export default function Home() {
               Family-facing intake
             </h2>
             <p className="mt-2 text-gray-600 max-w-2xl">
-              Share these links with parishioners. Baptism, funeral, and wedding each have
-              a dedicated form; every submission creates a structured request your team sees
-              on the dashboard.
+              Share these links with parishioners. Each sacramental path has a dedicated form;
+              every submission creates a structured request your team sees on the dashboard.
             </p>
-            <div className="mt-10 grid gap-6 sm:grid-cols-3">
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
               <WorkflowCard
                 title="Baptism requests"
                 description="Parents share child details, preferred timing, and notes for preparation."
@@ -118,6 +117,13 @@ export default function Home() {
                 cta="Open wedding form"
                 accent="border-rose-200 bg-rose-50/50"
               />
+              <WorkflowCard
+                title="OCIA (RCIA) inquiry"
+                description="Inquirers share their background, what they are seeking, and how to reach them."
+                href="/ocia-request"
+                cta="Open OCIA form"
+                accent="border-emerald-200 bg-emerald-50/50"
+              />
             </div>
           </div>
         </section>
@@ -135,7 +141,7 @@ export default function Home() {
             <ul className="mt-10 grid gap-6 sm:grid-cols-2">
               <FeatureItem
                 title="Intake forms"
-                body="Structured submissions for baptism, funeral, and wedding—no more scattered emails or sticky notes."
+                body="Structured submissions for baptism, funeral, wedding, and OCIA—no more scattered emails or sticky notes."
               />
               <FeatureItem
                 title="Follow-up queue"

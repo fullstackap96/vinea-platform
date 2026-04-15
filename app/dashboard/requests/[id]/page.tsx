@@ -15,6 +15,7 @@ import { FuneralDetailsSection } from './_components/FuneralDetailsSection'
 import { ConfirmedFuneralServiceSection } from './_components/ConfirmedFuneralServiceSection'
 import { WeddingDetailsSection } from './_components/WeddingDetailsSection'
 import { ConfirmedWeddingCeremonySection } from './_components/ConfirmedWeddingCeremonySection'
+import { OciaDetailsSection } from './_components/OciaDetailsSection'
 import { AssignmentSection } from './_components/AssignmentSection'
 import { NextFollowUpSection } from './_components/NextFollowUpSection'
 import { InternalNotesSection } from './_components/InternalNotesSection'
@@ -99,6 +100,8 @@ const [staffNotes, setStaffNotes] = useState('')
   const [confirmedWeddingCeremony, setConfirmedWeddingCeremony] = useState('')
   const [weddingConfirmedSaving, setWeddingConfirmedSaving] = useState(false)
   const [weddingConfirmedMessage, setWeddingConfirmedMessage] = useState('')
+
+  const [ociaDetail, setOciaDetail] = useState<any | null>(null)
 
   function nowDatetimeLocal() {
     const d = new Date()
@@ -196,6 +199,8 @@ setStaffNotes(requestData.staff_notes || '')
       setWeddingProposedDate('')
       setWeddingCeremonyNotes('')
       setConfirmedWeddingCeremony('')
+
+      setOciaDetail(null)
     } else if (requestData.request_type === 'wedding') {
       const { data: wDetail } = await supabase
         .from('wedding_request_details')
@@ -220,6 +225,30 @@ setStaffNotes(requestData.staff_notes || '')
       setFuneralHome('')
       setFuneralPreferredNotes('')
       setConfirmedFuneralService('')
+
+      setOciaDetail(null)
+    } else if (requestData.request_type === 'ocia') {
+      const { data: oDetail } = await supabase
+        .from('ocia_request_details')
+        .select('*')
+        .eq('request_id', requestData.id)
+        .maybeSingle()
+
+      setOciaDetail(oDetail)
+
+      setFuneralDetail(null)
+      setFuneralDeceasedName('')
+      setFuneralDateOfDeath('')
+      setFuneralHome('')
+      setFuneralPreferredNotes('')
+      setConfirmedFuneralService('')
+
+      setWeddingDetail(null)
+      setWeddingPartnerOne('')
+      setWeddingPartnerTwo('')
+      setWeddingProposedDate('')
+      setWeddingCeremonyNotes('')
+      setConfirmedWeddingCeremony('')
     } else {
       setFuneralDetail(null)
       setFuneralDeceasedName('')
@@ -234,6 +263,8 @@ setStaffNotes(requestData.staff_notes || '')
       setWeddingProposedDate('')
       setWeddingCeremonyNotes('')
       setConfirmedWeddingCeremony('')
+
+      setOciaDetail(null)
     }
 
     setLoading(false)
@@ -297,6 +328,22 @@ async function generateSummary() {
         ceremonyNotes: weddingDetail?.ceremony_notes || weddingCeremonyNotes,
         confirmedCeremonyAt: weddingDetail?.confirmed_ceremony_at,
       }
+    } else if (requestType === 'ocia') {
+      body = {
+        requestType: 'ocia',
+        fullName: parishioner.full_name,
+        email: parishioner.email,
+        phone: parishioner.phone,
+        notes: request.notes,
+        status: request.status,
+        dateOfBirth: ociaDetail?.date_of_birth,
+        ageOrDobNote: ociaDetail?.age_or_dob_note,
+        sacramentalBackground: ociaDetail?.sacramental_background,
+        seeking: ociaDetail?.seeking,
+        parishionerStatus: ociaDetail?.parishioner_status,
+        preferredContactMethod: ociaDetail?.preferred_contact_method,
+        availability: ociaDetail?.availability,
+      }
     } else {
       body = {
         requestType: 'baptism',
@@ -351,6 +398,7 @@ async function generateReplyDraft() {
       requestType,
       fullName: parishioner.full_name,
       email: parishioner.email,
+      phone: parishioner.phone,
       notes: request.notes,
     }
     if (requestType === 'funeral') {
@@ -365,6 +413,14 @@ async function generateReplyDraft() {
       replyBody.proposedWeddingDate =
         weddingDetail?.proposed_wedding_date || weddingProposedDate
       replyBody.ceremonyNotes = weddingDetail?.ceremony_notes || weddingCeremonyNotes
+    } else if (requestType === 'ocia') {
+      replyBody.dateOfBirth = ociaDetail?.date_of_birth
+      replyBody.ageOrDobNote = ociaDetail?.age_or_dob_note
+      replyBody.sacramentalBackground = ociaDetail?.sacramental_background
+      replyBody.seeking = ociaDetail?.seeking
+      replyBody.parishionerStatus = ociaDetail?.parishioner_status
+      replyBody.preferredContactMethod = ociaDetail?.preferred_contact_method
+      replyBody.availability = ociaDetail?.availability
     } else {
       replyBody.childName = request.child_name
       replyBody.preferredDates = request.preferred_dates
@@ -787,6 +843,10 @@ async function sendEmail() {
 
 async function createGoogleCalendarEvent() {
   const rt = String(request?.request_type || 'baptism')
+  if (rt === 'ocia') {
+    setGcalMessage('Google Calendar is not used for OCIA requests in V1.')
+    return
+  }
   if (rt === 'funeral') {
     if (!funeralDetail?.confirmed_service_at) {
       setGcalMessage('Set a confirmed funeral service time first.')
@@ -834,6 +894,10 @@ async function createGoogleCalendarEvent() {
 
 async function updateGoogleCalendarEvent() {
   const rt = String(request?.request_type || 'baptism')
+  if (rt === 'ocia') {
+    setGcalMessage('Google Calendar is not used for OCIA requests in V1.')
+    return
+  }
   if (rt === 'funeral') {
     if (!funeralDetail?.confirmed_service_at) {
       setGcalMessage('Set a confirmed funeral service time first.')
@@ -953,6 +1017,7 @@ async function deleteGoogleCalendarEvent() {
   const isBaptism = requestType === 'baptism'
   const isFuneral = requestType === 'funeral'
   const isWedding = requestType === 'wedding'
+  const isOcia = requestType === 'ocia'
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 text-gray-900">
@@ -965,6 +1030,7 @@ async function deleteGoogleCalendarEvent() {
         request={request}
         funeralDetail={funeralDetail}
         weddingDetail={weddingDetail}
+        ociaDetail={ociaDetail}
         onUpdateStatus={updateRequestStatus}
       />
 
@@ -1071,6 +1137,8 @@ async function deleteGoogleCalendarEvent() {
         </>
       )}
 
+      {isOcia ? <OciaDetailsSection detail={ociaDetail} /> : null}
+
       <CommunicationSection
         lastContactedAtIso={request?.last_contacted_at}
         lastContactMethod={request?.last_contact_method}
@@ -1115,18 +1183,22 @@ async function deleteGoogleCalendarEvent() {
 
       <GoogleCalendarSection
         confirmedIso={
-          isFuneral
-            ? funeralDetail?.confirmed_service_at
-            : isWedding
-              ? weddingDetail?.confirmed_ceremony_at
-              : request?.confirmed_baptism_date
+          isOcia
+            ? undefined
+            : isFuneral
+              ? funeralDetail?.confirmed_service_at
+              : isWedding
+                ? weddingDetail?.confirmed_ceremony_at
+                : request?.confirmed_baptism_date
         }
         unconfirmedHint={
-          isFuneral
-            ? 'Set a confirmed funeral service time first to create or update a calendar event.'
-            : isWedding
-              ? 'Set a confirmed wedding ceremony time first to create or update a calendar event.'
-              : undefined
+          isOcia
+            ? 'Google Calendar sync is not available for OCIA requests in V1.'
+            : isFuneral
+              ? 'Set a confirmed funeral service time first to create or update a calendar event.'
+              : isWedding
+                ? 'Set a confirmed wedding ceremony time first to create or update a calendar event.'
+                : undefined
         }
         eventId={request?.google_calendar_event_id}
         eventLink={request?.google_calendar_event_html_link}

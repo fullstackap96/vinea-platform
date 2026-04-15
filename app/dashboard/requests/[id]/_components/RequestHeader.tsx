@@ -5,23 +5,31 @@ import {
   requestStatusBadgeClasses,
   REQUEST_STATUS_SEGMENTS,
 } from '@/lib/requestStatus'
+import {
+  labelContactMethod,
+  labelSacramentalBackground,
+  labelSeeking,
+} from '@/lib/ociaIntakeOptions'
 
 export function RequestHeader({
   parishioner,
   request,
   funeralDetail,
   weddingDetail,
+  ociaDetail,
   onUpdateStatus,
 }: {
   parishioner: any
   request: any
   funeralDetail?: any | null
   weddingDetail?: any | null
+  ociaDetail?: any | null
   onUpdateStatus: (newStatus: string) => void
 }) {
   const requestType = String(request?.request_type || 'baptism')
   const isFuneral = requestType === 'funeral'
   const isWedding = requestType === 'wedding'
+  const isOcia = requestType === 'ocia'
   const currentStatus = String(request?.status || '')
 
   const confirmedBaptismLabel = (() => {
@@ -106,6 +114,33 @@ export function RequestHeader({
           </p>
           <p className="break-words">
             <strong>Confirmed ceremony time:</strong> {confirmedWeddingLabel}
+          </p>
+        </>
+      ) : isOcia ? (
+        <>
+          <p className="break-words">
+            <strong>Date of birth:</strong>{' '}
+            {ociaDetail?.date_of_birth ? String(ociaDetail.date_of_birth) : '—'}
+          </p>
+          <p className="break-words">
+            <strong>Age / DOB note:</strong> {ociaDetail?.age_or_dob_note || '—'}
+          </p>
+          <p className="break-words">
+            <strong>Sacramental background:</strong>{' '}
+            {labelSacramentalBackground(ociaDetail?.sacramental_background)}
+          </p>
+          <p className="break-words">
+            <strong>Seeking:</strong> {labelSeeking(ociaDetail?.seeking)}
+          </p>
+          <p className="break-words">
+            <strong>Parishioner status:</strong> {ociaDetail?.parishioner_status || '—'}
+          </p>
+          <p className="break-words">
+            <strong>Preferred contact:</strong>{' '}
+            {labelContactMethod(ociaDetail?.preferred_contact_method)}
+          </p>
+          <p className="break-words">
+            <strong>Availability:</strong> {ociaDetail?.availability || '—'}
           </p>
         </>
       ) : (
