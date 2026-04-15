@@ -19,6 +19,9 @@ import { OciaDetailsSection } from './_components/OciaDetailsSection'
 import { AssignmentSection } from './_components/AssignmentSection'
 import { NextFollowUpSection } from './_components/NextFollowUpSection'
 import { InternalNotesSection } from './_components/InternalNotesSection'
+import { parseAiEmailDraft } from '@/lib/parseAiEmailDraft'
+import { EditRequestDetailsSection } from './_components/EditRequestDetailsSection'
+import { secondaryButtonMd } from '@/lib/buttonStyles'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -103,6 +106,8 @@ const [staffNotes, setStaffNotes] = useState('')
 
   const [ociaDetail, setOciaDetail] = useState<any | null>(null)
 
+  const [editingIntake, setEditingIntake] = useState(false)
+
   function nowDatetimeLocal() {
     const d = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')
@@ -134,19 +139,31 @@ const [staffNotes, setStaffNotes] = useState('')
 
     setRequest(requestData)
 setAiSummary(requestData.ai_summary || '')
-setReplyDraft(requestData.reply_draft || '')
+    {
+      const draftRaw = requestData.reply_draft || ''
+      const parsed = parseAiEmailDraft(draftRaw)
+      setReplyDraft(parsed.hadSubjectLine ? parsed.body : draftRaw)
+      if (parsed.hadSubjectLine) {
+        setEmailSubject(parsed.subject)
+      }
+    }
 setStaffNotes(requestData.staff_notes || '')
     setSuggested1(isoToDatetimeLocal(requestData.suggested_date_1))
     setSuggested2(isoToDatetimeLocal(requestData.suggested_date_2))
     setSuggested3(isoToDatetimeLocal(requestData.suggested_date_3))
     setConfirmedBaptismDate(isoToDatetimeLocal(requestData.confirmed_baptism_date))
-    const { data: parishionerData } = await supabase
+    const { data: parishionerData, error: parishionerError } = await supabase
       .from('parishioners')
       .select('*')
       .eq('id', requestData.parishioner_id)
       .single()
 
-    setParishioner(parishionerData)
+    if (parishionerError) {
+      console.error('Error loading parishioner:', parishionerError)
+    }
+    if (parishionerData) {
+      setParishioner(parishionerData)
+    }
 
     const { data: checklistData } = await supabase
       .from('checklist_items')
@@ -442,14 +459,22 @@ async function generateReplyDraft() {
     }
 
     const data = await res.json()
-const replyText = data.reply || 'No reply returned.'
-
-setReplyDraft(replyText)
-
-await supabase
-  .from('requests')
-  .update({ reply_draft: replyText })
-  .eq('id', routeId)
+    const replyText = data.reply || 'No reply returned.'
+    const parsed = parseAiEmailDraft(replyText)
+    if (parsed.hadSubjectLine) {
+      setEmailSubject(parsed.subject)
+      setReplyDraft(parsed.body)
+      await supabase
+        .from('requests')
+        .update({ reply_draft: parsed.body })
+        .eq('id', routeId)
+    } else {
+      setReplyDraft(replyText)
+      await supabase
+        .from('requests')
+        .update({ reply_draft: replyText })
+        .eq('id', routeId)
+    }
   } catch (error: any) {
     setReplyDraft(`Error: ${error.message}`)
   } finally {
@@ -976,6 +1001,14 @@ async function deleteGoogleCalendarEvent() {
 }
 
   useEffect(() => {
+    setEmailSubject('')
+  }, [routeId])
+
+  useEffect(() => {
+    setEditingIntake(false)
+  }, [routeId])
+
+  useEffect(() => {
     loadRequest()
   }, [routeId])
 
@@ -1031,8 +1064,44 @@ async function deleteGoogleCalendarEvent() {
         funeralDetail={funeralDetail}
         weddingDetail={weddingDetail}
         ociaDetail={ociaDetail}
+        intakeDetailsHidden={editingIntake}
         onUpdateStatus={updateRequestStatus}
       />
+
+      {parishioner?.id ? (
+        editingIntake ? (
+          <div className="mb-6 sm:mb-8">
+            <EditRequestDetailsSection
+              open={editingIntake}
+              requestId={routeId}
+              requestType={
+                isBaptism ? 'baptism' : isFuneral ? 'funeral' : isWedding ? 'wedding' : 'ocia'
+              }
+              parishionerId={String(request?.parishioner_id ?? parishioner.id ?? '')}
+              parishioner={parishioner}
+              request={request}
+              funeralDetail={funeralDetail}
+              weddingDetail={weddingDetail}
+              ociaDetail={ociaDetail}
+              onClose={() => setEditingIntake(false)}
+              onSaved={async () => {
+                await loadRequest()
+                setEditingIntake(false)
+              }}
+            />
+          </div>
+        ) : (
+          <div className="mb-6 sm:mb-8">
+            <button
+              type="button"
+              onClick={() => setEditingIntake(true)}
+              className={secondaryButtonMd}
+            >
+              Edit request details
+            </button>
+          </div>
+        )
+      ) : null}
 
       <ChecklistSection
         checklistItems={checklistItems}
@@ -1083,19 +1152,21 @@ async function deleteGoogleCalendarEvent() {
 
       {isFuneral && (
         <>
-          <FuneralDetailsSection
-            deceasedName={funeralDeceasedName}
-            setDeceasedName={setFuneralDeceasedName}
-            dateOfDeath={funeralDateOfDeath}
-            setDateOfDeath={setFuneralDateOfDeath}
-            funeralHome={funeralHome}
-            setFuneralHome={setFuneralHome}
-            preferredServiceNotes={funeralPreferredNotes}
-            setPreferredServiceNotes={setFuneralPreferredNotes}
-            onSave={saveFuneralDetails}
-            saving={funeralSaving}
-            message={funeralMessage}
-          />
+          {!editingIntake ? (
+            <FuneralDetailsSection
+              deceasedName={funeralDeceasedName}
+              setDeceasedName={setFuneralDeceasedName}
+              dateOfDeath={funeralDateOfDeath}
+              setDateOfDeath={setFuneralDateOfDeath}
+              funeralHome={funeralHome}
+              setFuneralHome={setFuneralHome}
+              preferredServiceNotes={funeralPreferredNotes}
+              setPreferredServiceNotes={setFuneralPreferredNotes}
+              onSave={saveFuneralDetails}
+              saving={funeralSaving}
+              message={funeralMessage}
+            />
+          ) : null}
 
           <ConfirmedFuneralServiceSection
             confirmedValue={confirmedFuneralService}
@@ -1111,19 +1182,21 @@ async function deleteGoogleCalendarEvent() {
 
       {isWedding && (
         <>
-          <WeddingDetailsSection
-            partnerOneName={weddingPartnerOne}
-            setPartnerOneName={setWeddingPartnerOne}
-            partnerTwoName={weddingPartnerTwo}
-            setPartnerTwoName={setWeddingPartnerTwo}
-            proposedWeddingDate={weddingProposedDate}
-            setProposedWeddingDate={setWeddingProposedDate}
-            ceremonyNotes={weddingCeremonyNotes}
-            setCeremonyNotes={setWeddingCeremonyNotes}
-            onSave={saveWeddingDetails}
-            saving={weddingSaving}
-            message={weddingMessage}
-          />
+          {!editingIntake ? (
+            <WeddingDetailsSection
+              partnerOneName={weddingPartnerOne}
+              setPartnerOneName={setWeddingPartnerOne}
+              partnerTwoName={weddingPartnerTwo}
+              setPartnerTwoName={setWeddingPartnerTwo}
+              proposedWeddingDate={weddingProposedDate}
+              setProposedWeddingDate={setWeddingProposedDate}
+              ceremonyNotes={weddingCeremonyNotes}
+              setCeremonyNotes={setWeddingCeremonyNotes}
+              onSave={saveWeddingDetails}
+              saving={weddingSaving}
+              message={weddingMessage}
+            />
+          ) : null}
 
           <ConfirmedWeddingCeremonySection
             confirmedValue={confirmedWeddingCeremony}
@@ -1137,7 +1210,7 @@ async function deleteGoogleCalendarEvent() {
         </>
       )}
 
-      {isOcia ? <OciaDetailsSection detail={ociaDetail} /> : null}
+      {isOcia && !editingIntake ? <OciaDetailsSection detail={ociaDetail} /> : null}
 
       <CommunicationSection
         lastContactedAtIso={request?.last_contacted_at}

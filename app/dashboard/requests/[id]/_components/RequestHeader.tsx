@@ -17,6 +17,7 @@ export function RequestHeader({
   funeralDetail,
   weddingDetail,
   ociaDetail,
+  intakeDetailsHidden,
   onUpdateStatus,
 }: {
   parishioner: any
@@ -24,6 +25,8 @@ export function RequestHeader({
   funeralDetail?: any | null
   weddingDetail?: any | null
   ociaDetail?: any | null
+  /** When true, hide contact + intake + notes (used while staff edit intake in a separate form). */
+  intakeDetailsHidden?: boolean
   onUpdateStatus: (newStatus: string) => void
 }) {
   const requestType = String(request?.request_type || 'baptism')
@@ -62,6 +65,8 @@ export function RequestHeader({
         <RequestTypeBadge requestType={requestType} />
       </div>
 
+      {!intakeDetailsHidden ? (
+        <>
       <p className="break-words">
         <strong>Contact:</strong> {parishioner?.full_name}
       </p>
@@ -160,6 +165,12 @@ export function RequestHeader({
       <p className="break-words">
         <strong>Notes:</strong> {request?.notes}
       </p>
+        </>
+      ) : (
+        <p className="text-sm text-gray-600 mb-2">
+          Intake details are open for editing below.
+        </p>
+      )}
       <p className="flex flex-wrap items-center gap-2 break-words">
         <strong>Status:</strong>{' '}
         <span className={requestStatusBadgeClasses(request?.status)}>

@@ -29,24 +29,35 @@ export function SendEmailSection({
           <strong>To:</strong> {toEmail || '—'}
         </p>
 
-        <input
-          className="w-full border p-3 rounded"
-          placeholder="Email subject"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-        />
+        <div>
+          <label
+            htmlFor="send-email-subject"
+            className="mb-1 block text-sm font-medium text-gray-900"
+          >
+            Email subject
+          </label>
+          <input
+            id="send-email-subject"
+            className="w-full border p-3 rounded"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+          />
+        </div>
 
-        <div className="border rounded p-3 bg-gray-50 text-gray-800">
-          <p className="text-sm mb-2 [&_strong]:text-gray-900">
-            <strong>Body (from AI reply draft):</strong>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-900">Email body</label>
+          <p className="mb-2 text-xs text-gray-600 leading-relaxed">
+            Drafted by AI. Review before sending.
           </p>
-          {body ? (
-            <p className="whitespace-pre-wrap">{body}</p>
-          ) : (
-            <p className="text-sm text-gray-800">
-              Generate a reply draft first, then send it.
-            </p>
-          )}
+          <div className="border rounded p-3 bg-gray-50 text-gray-800">
+            {body ? (
+              <p className="whitespace-pre-wrap">{body}</p>
+            ) : (
+              <p className="text-sm text-gray-800">
+                Generate a reply draft first, then send it.
+              </p>
+            )}
+          </div>
         </div>
 
         <button

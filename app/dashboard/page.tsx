@@ -27,6 +27,7 @@ import {
   parseFollowUpCalendarDate,
 } from '@/lib/nextFollowUpDate'
 import { needsAttentionEligible, sortNeedsAttentionRequests } from '@/lib/needsAttention'
+import { dashboardOverdueFollowUpCardClasses } from '@/lib/dashboardOverdueCardStyle'
 import {
   labelSacramentalBackground,
   labelSeeking,
@@ -498,8 +499,8 @@ export default function DashboardPage() {
     return (
       <div
         key={id}
-        className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5 ${
-          overdue ? 'border-l-4 border-l-red-600' : ''
+        className={`rounded-lg border border-gray-200 p-4 shadow-sm sm:p-5 ${
+          overdue ? dashboardOverdueFollowUpCardClasses : 'bg-white'
         }`}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -564,8 +565,8 @@ export default function DashboardPage() {
       <Link
         key={request.id}
         href={`/dashboard/requests/${request.id}`}
-        className={`block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-gray-300 sm:p-5 ${
-          followUpOverdue ? 'border-l-4 border-l-red-600' : ''
+        className={`block rounded-lg border border-gray-200 p-4 shadow-sm transition-colors hover:border-gray-300 sm:p-5 ${
+          followUpOverdue ? dashboardOverdueFollowUpCardClasses : 'bg-white'
         }`}
       >
         {renderRequestSummary(request)}
@@ -868,8 +869,8 @@ export default function DashboardPage() {
     return (
       <div
         key={id}
-        className={`space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5 ${
-          followUpOverdue ? 'border-l-4 border-l-red-600' : ''
+        className={`space-y-3 rounded-lg border border-gray-200 p-4 shadow-sm sm:p-5 ${
+          followUpOverdue ? dashboardOverdueFollowUpCardClasses : 'bg-white'
         }`}
       >
         <div className="flex gap-3 items-start">
@@ -1312,18 +1313,22 @@ export default function DashboardPage() {
               id="needs-attention-heading"
               className="text-xl font-semibold text-gray-900 mb-2"
             >
-              Needs Attention
+              Needs Attention ({needsAttentionSorted.length})
             </h2>
             <p className="text-sm text-gray-600 mb-4 max-w-2xl leading-relaxed">
               Overdue, due today, or unassigned requests. Sorted by urgency, then newest first.
             </p>
             {needsAttentionSorted.length === 0 ? (
               <div
-                className="rounded-lg border border-dashed border-gray-300 bg-white px-5 py-8 text-center shadow-sm"
+                className="rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
                 role="status"
               >
                 <p className="text-sm font-medium text-gray-900">
-                  Nothing needs attention in this category right now.
+                  No urgent items right now
+                </p>
+                <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
+                  This list stays empty when every open request has a staff assignee and no
+                  follow-up date is overdue or due today.
                 </p>
               </div>
             ) : (
@@ -1338,11 +1343,11 @@ export default function DashboardPage() {
               id="follow-up-queue-heading"
               className="text-xl font-semibold text-gray-900 mb-2"
             >
-              Follow-Up Queue
+              Follow-Up Queue ({followUpVisible.length})
             </h2>
             <p className="text-sm text-gray-900 mb-3 leading-relaxed">
               Open requests (not complete) that need contact, a confirmed date, or checklist work.
-              Showing {followUpVisible.length} for the current status filter and search.
+              Uses the same status filter and search as the request list.
             </p>
             {followUpVisible.length > 0 && (
               <>
@@ -1411,7 +1416,12 @@ export default function DashboardPage() {
                 role="status"
               >
                 <p className="text-sm font-medium text-gray-900">
-                  Nothing in the follow-up queue for this filter and search.
+                  Follow-up queue is empty for this view
+                </p>
+                <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
+                  Open requests that need contact, a confirmed schedule, or checklist work
+                  show here. Clear the search box or try another status tab if you expected
+                  to see someone listed.
                 </p>
               </div>
             ) : (
@@ -1421,52 +1431,65 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {visibleRequests.length === 0 ? (
-            <div
-              className="rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
-              role="status"
+          <section className="mb-10" aria-labelledby="dashboard-requests-heading">
+            <h2
+              id="dashboard-requests-heading"
+              className="text-xl font-semibold text-gray-900 mb-4"
             >
-              <p className="text-sm font-medium text-gray-900">
-                No requests found for this filter.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch mb-6">
-                <input
-                  className="w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
-                  placeholder="Search parent, child, or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-
-                <select
-                  className="w-full shrink-0 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm sm:w-auto sm:min-w-[11rem] focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
-                  value={sortBy}
-                  onChange={(e) =>
-                    setSortBy(
-                      e.target.value as
-                        | 'created_desc'
-                        | 'created_asc'
-                        | 'confirmed_baptism_date'
-                        | 'last_contacted'
-                        | 'status'
-                    )
-                  }
-                >
-                  <option value="created_desc">Newest created</option>
-                  <option value="created_asc">Oldest created</option>
-                  <option value="confirmed_baptism_date">Confirmed baptism date</option>
-                  <option value="last_contacted">Last contacted</option>
-                  <option value="status">Status</option>
-                </select>
+              Requests ({visibleRequests.length})
+            </h2>
+            {visibleRequests.length === 0 ? (
+              <div
+                className="rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
+                role="status"
+              >
+                <p className="text-sm font-medium text-gray-900">
+                  {requests.length === 0 ? 'No requests yet' : 'No requests in this view'}
+                </p>
+                <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
+                  {requests.length === 0
+                    ? 'When families submit an intake form, the request will appear here for your team to pick up.'
+                    : 'Adjust the status filter above or clear the search field to see other requests in the list.'}
+                </p>
               </div>
+            ) : (
+              <>
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch mb-6">
+                  <input
+                    className="w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                    placeholder="Search parent, child, or email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
 
-              <div className="space-y-4">
-                {visibleRequests.map((request) => dashboardRequestLink(request))}
-              </div>
-            </>
-          )}
+                  <select
+                    className="w-full shrink-0 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm sm:w-auto sm:min-w-[11rem] focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                    value={sortBy}
+                    onChange={(e) =>
+                      setSortBy(
+                        e.target.value as
+                          | 'created_desc'
+                          | 'created_asc'
+                          | 'confirmed_baptism_date'
+                          | 'last_contacted'
+                          | 'status'
+                      )
+                    }
+                  >
+                    <option value="created_desc">Newest created</option>
+                    <option value="created_asc">Oldest created</option>
+                    <option value="confirmed_baptism_date">Confirmed baptism date</option>
+                    <option value="last_contacted">Last contacted</option>
+                    <option value="status">Status</option>
+                  </select>
+                </div>
+
+                <div className="space-y-4">
+                  {visibleRequests.map((request) => dashboardRequestLink(request))}
+                </div>
+              </>
+            )}
+          </section>
         </>
       )}
     </main>

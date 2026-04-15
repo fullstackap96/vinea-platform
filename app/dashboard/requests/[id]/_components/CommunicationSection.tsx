@@ -112,7 +112,7 @@ export function CommunicationSection({
       </div>
 
       <div className="mt-6">
-        <h3 className="text-xl font-semibold mb-3 text-gray-900">History</h3>
+        <h3 className="text-xl font-semibold mb-3 text-gray-900">Communication History</h3>
         {history.length === 0 ? (
           <p className="text-sm text-gray-800">No communication logged yet.</p>
         ) : (
