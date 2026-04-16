@@ -1263,7 +1263,7 @@ export default function DashboardPage() {
       <Metrics requests={requests} loading={loading} />
 
       <div
-        className="inline-flex rounded-lg border border-gray-200 bg-gray-100/90 p-1 gap-1 mb-6 flex-wrap sm:flex-nowrap"
+        className="inline-flex rounded-lg border border-gray-200 bg-gray-100/90 p-1 gap-1 mb-8 flex-wrap sm:flex-nowrap"
         role="group"
         aria-label="Filter by status"
       >
@@ -1285,7 +1285,7 @@ export default function DashboardPage() {
 
       {loading ? (
         <div
-          className="space-y-6"
+          className="space-y-8"
           aria-busy="true"
           aria-live="polite"
           aria-label="Loading dashboard"
@@ -1308,50 +1308,51 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <section className="mb-10" aria-labelledby="needs-attention-heading">
+          <section className="mb-12" aria-labelledby="needs-attention-heading">
             <h2
               id="needs-attention-heading"
-              className="text-xl font-semibold text-gray-900 mb-2"
+              className="text-xl font-semibold text-gray-900 mb-1.5"
             >
               Needs Attention ({needsAttentionSorted.length})
             </h2>
-            <p className="text-sm text-gray-600 mb-4 max-w-2xl leading-relaxed">
+            <p className="text-sm text-gray-600 mb-5 max-w-2xl leading-relaxed">
               Overdue, due today, or unassigned requests. Sorted by urgency, then newest first.
             </p>
             {needsAttentionSorted.length === 0 ? (
               <div
-                className="rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
+                className="mx-auto max-w-2xl rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
                 role="status"
               >
                 <p className="text-sm font-medium text-gray-900">
-                  No urgent items right now
+                  No requests need attention
                 </p>
                 <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
-                  This list stays empty when every open request has a staff assignee and no
-                  follow-up date is overdue or due today.
+                  Open requests appear here when a follow-up is overdue or due today, or when
+                  no staff member is assigned. If those are up to date, an empty list means you
+                  are in good shape.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {needsAttentionSorted.map((request) => renderNeedsAttentionCard(request))}
               </div>
             )}
           </section>
 
-          <section className="mb-10" aria-labelledby="follow-up-queue-heading">
+          <section className="mb-12" aria-labelledby="follow-up-queue-heading">
             <h2
               id="follow-up-queue-heading"
-              className="text-xl font-semibold text-gray-900 mb-2"
+              className="text-xl font-semibold text-gray-900 mb-1.5"
             >
               Follow-Up Queue ({followUpVisible.length})
             </h2>
-            <p className="text-sm text-gray-900 mb-3 leading-relaxed">
+            <p className="text-sm text-gray-600 mb-5 max-w-2xl leading-relaxed">
               Open requests (not complete) that need contact, a confirmed date, or checklist work.
               Uses the same status filter and search as the request list.
             </p>
             {followUpVisible.length > 0 && (
               <>
-                <div className="mb-3 flex flex-col gap-3 text-sm text-gray-900 sm:flex-row sm:flex-wrap sm:items-center">
+                <div className="mb-4 flex flex-col gap-3 text-sm text-gray-900 sm:flex-row sm:flex-wrap sm:items-center">
                   <span className="font-medium shrink-0">
                     {selectedFollowUpIds.size} selected
                   </span>
@@ -1401,7 +1402,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 {followUpBatchMessage && (
-                  <div className="mb-3">
+                  <div className="mb-4">
                     <InlineFormMessage
                       message={followUpBatchMessage}
                       className="!mt-0"
@@ -1412,16 +1413,16 @@ export default function DashboardPage() {
             )}
             {followUpVisible.length === 0 ? (
               <div
-                className="rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
+                className="mx-auto max-w-2xl rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
                 role="status"
               >
                 <p className="text-sm font-medium text-gray-900">
-                  Follow-up queue is empty for this view
+                  No requests in the Follow-Up Queue
                 </p>
                 <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
-                  Open requests that need contact, a confirmed schedule, or checklist work
-                  show here. Clear the search box or try another status tab if you expected
-                  to see someone listed.
+                  This queue lists open requests that still need contact, a confirmed schedule, or
+                  checklist work, using the same search and status filter as your main list below.
+                  Clear the search field or switch status if you expected someone here.
                 </p>
               </div>
             ) : (
@@ -1431,30 +1432,32 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <section className="mb-10" aria-labelledby="dashboard-requests-heading">
+          <section className="mb-12" aria-labelledby="dashboard-requests-heading">
             <h2
               id="dashboard-requests-heading"
-              className="text-xl font-semibold text-gray-900 mb-4"
+              className="text-xl font-semibold text-gray-900 mb-6"
             >
               Requests ({visibleRequests.length})
             </h2>
             {visibleRequests.length === 0 ? (
               <div
-                className="rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
+                className="mx-auto max-w-2xl rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
                 role="status"
               >
                 <p className="text-sm font-medium text-gray-900">
-                  {requests.length === 0 ? 'No requests yet' : 'No requests in this view'}
+                  {requests.length === 0
+                    ? 'No requests yet'
+                    : 'No requests match your filters'}
                 </p>
                 <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
                   {requests.length === 0
-                    ? 'When families submit an intake form, the request will appear here for your team to pick up.'
-                    : 'Adjust the status filter above or clear the search field to see other requests in the list.'}
+                    ? 'When a family submits an intake form, the request will show up here so your team can review it and take the next step.'
+                    : 'Try another status tab, clear the search field, or change the sort option to see more requests.'}
                 </p>
               </div>
             ) : (
               <>
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch mb-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch mb-5">
                   <input
                     className="w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
                     placeholder="Search parent, child, or email..."

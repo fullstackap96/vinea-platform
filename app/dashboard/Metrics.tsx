@@ -60,7 +60,7 @@ export default function Metrics({ requests = [], loading = false }: Props) {
   ]
 
   return (
-    <div className="mb-6">
+    <div className="mb-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-stretch">
         {cards.map((c) => (
           <div
