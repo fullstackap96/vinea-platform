@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { RequestHeader } from './_components/RequestHeader'
@@ -1032,6 +1033,14 @@ async function deleteGoogleCalendarEvent() {
   if (errorMessage) {
     return (
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <p className="mb-3">
+          <Link
+            href="/dashboard"
+            className="text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
+          >
+            ← Back to Dashboard
+          </Link>
+        </p>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">Request details</h1>
         <div
           className="rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-950"
@@ -1054,6 +1063,14 @@ async function deleteGoogleCalendarEvent() {
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 text-gray-900">
+      <p className="mb-3">
+        <Link
+          href="/dashboard"
+          className="text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
+        >
+          ← Back to Dashboard
+        </Link>
+      </p>
       <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">
         Request details
       </h1>
