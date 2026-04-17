@@ -93,7 +93,7 @@ export default function BaptismRequestPage() {
   return (
     <PublicIntakeShell
       title="Baptism request"
-      description="Share your family's details below. A staff member will follow up with you."
+      description="Share your family's details below. A parish staff member will follow up with you."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <input

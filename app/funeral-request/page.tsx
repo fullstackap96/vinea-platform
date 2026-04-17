@@ -111,7 +111,7 @@ export default function FuneralRequestPage() {
   return (
     <PublicIntakeShell
       title="Funeral / memorial request"
-      description="Submit a request for funeral or memorial liturgy planning. A staff member will contact you."
+      description="Submit a request for funeral or memorial liturgy planning. A parish staff member will contact you."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <h2 className={intakeSectionHeadingClass}>Family contact</h2>

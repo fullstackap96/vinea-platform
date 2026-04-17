@@ -13,9 +13,19 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <Link
             href="/"
-            className="text-sm font-semibold text-gray-900 tracking-tight hover:text-gray-700 min-w-0"
+            className="flex items-center gap-3 min-w-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 hover:opacity-90"
           >
-            {PRODUCT_NAME}
+            <Image
+              src="/vinea-icon.png"
+              alt=""
+              width={40}
+              height={40}
+              className="h-8 w-auto object-contain shrink-0"
+              priority
+            />
+            <span className="text-sm font-semibold text-gray-900 tracking-tight truncate">
+              {PRODUCT_NAME}
+            </span>
           </Link>
           <Link
             href="/login"
@@ -28,18 +38,18 @@ export default function Home() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="max-w-5xl mx-auto px-4 sm:px-6 pt-12 pb-16 sm:pt-20 sm:pb-24">
+        <section className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-14 sm:pt-18 sm:pb-22">
           <div className="max-w-2xl">
             <Link
               href="/"
-              className="mb-6 inline-flex max-w-full rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
+              className="block w-fit max-w-full rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
             >
               <Image
                 src="/vinea-logo.png"
                 alt={PRODUCT_NAME}
-                width={320}
-                height={80}
-                className="h-auto w-[148px] max-w-full object-contain sm:w-[160px]"
+                width={900}
+                height={360}
+                className="h-32 w-auto mx-auto mb-5"
                 priority
                 unoptimized
               />
@@ -47,10 +57,10 @@ export default function Home() {
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight leading-tight">
               Baptism, funeral, wedding, and OCIA requests—organized for your parish team.
             </h1>
-            <p className="mt-3 text-xl sm:text-2xl font-semibold text-gray-700 tracking-tight leading-snug">
+            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-700 tracking-tight leading-snug">
               Parish Operations Simplified
             </p>
-            <p className="mt-4 text-sm text-gray-600 leading-relaxed max-w-2xl">
+            <p className="mt-3 text-sm text-gray-600 leading-relaxed max-w-2xl">
               <span className="font-semibold text-gray-900">{PRODUCT_NAME}</span>
               {' is the parish staff hub for '}
               <span className="font-medium text-gray-800">
@@ -58,12 +68,12 @@ export default function Home() {
               </span>
               {': one place for intake, follow-up, and sacramental coordination.'}
             </p>
-            <p className="mt-5 text-lg text-gray-600 leading-relaxed">
+            <p className="mt-4 text-lg text-gray-600 leading-relaxed">
               Families submit online. Staff work from one dashboard: status, checklists,
               communications, AI-assisted drafts, and Google Calendar—without losing the
               pastoral thread.
             </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:flex-wrap">
+            <div className="mt-7 flex flex-col sm:flex-row gap-3 sm:flex-wrap">
               <Link
                 href="/login"
                 className="inline-flex items-center justify-center w-full sm:w-auto bg-black text-white px-6 py-3 rounded text-base font-medium hover:bg-gray-800 transition-colors"
@@ -74,10 +84,10 @@ export default function Home() {
                 href="#intake"
                 className="inline-flex items-center justify-center w-full sm:w-auto border border-gray-800 text-gray-900 px-6 py-3 rounded text-base font-medium hover:bg-gray-50 transition-colors"
               >
-                Explore Intake Forms
+                View Request Forms
               </Link>
             </div>
-            <p className="mt-4 text-sm text-gray-600 leading-relaxed max-w-2xl">
+            <p className="mt-3 text-sm text-gray-600 leading-relaxed max-w-2xl">
               Securely manage parish requests. Submissions are reviewed by parish staff.
             </p>
           </div>
@@ -101,28 +111,28 @@ export default function Home() {
                 title="Baptism requests"
                 description="Parents share child details, preferred timing, and notes for preparation."
                 href="/baptism-request"
-                cta="Open baptism form"
+                cta="Open form →"
                 accent="border-blue-200 bg-blue-50/50"
               />
               <WorkflowCard
                 title="Funeral planning"
                 description="Families reach out for liturgy planning with clear, compassionate intake fields."
                 href="/funeral-request"
-                cta="Open funeral form"
+                cta="Open form →"
                 accent="border-slate-200 bg-slate-50/80"
               />
               <WorkflowCard
                 title="Wedding preparation"
                 description="Couples submit names, proposed dates, and ceremony notes in one place."
                 href="/wedding-request"
-                cta="Open wedding form"
+                cta="Open form →"
                 accent="border-rose-200 bg-rose-50/50"
               />
               <WorkflowCard
                 title="OCIA (RCIA) inquiry"
                 description="Inquirers share their background, what they are seeking, and how to reach them."
                 href="/ocia-request"
-                cta="Open OCIA form"
+                cta="Open form →"
                 accent="border-emerald-200 bg-emerald-50/50"
               />
             </div>
@@ -229,12 +239,14 @@ function WorkflowCard({
   accent: string
 }) {
   return (
-    <div className={`border rounded-lg p-6 flex flex-col ${accent} shadow-sm`}>
+    <div
+      className={`group border rounded-lg p-6 flex flex-col ${accent} shadow-sm transition-shadow transition-colors hover:shadow-md hover:border-gray-300`}
+    >
       <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
       <p className="mt-2 text-sm text-gray-600 leading-relaxed flex-1">{description}</p>
       <Link
         href={href}
-        className="mt-6 inline-flex items-center text-sm font-semibold text-blue-800 underline underline-offset-2 hover:text-blue-900"
+        className="mt-6 inline-flex items-center text-sm font-semibold text-blue-800 underline underline-offset-2 hover:text-blue-900 group-hover:text-blue-900"
       >
         {cta}
       </Link>

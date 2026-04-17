@@ -110,7 +110,7 @@ export default function WeddingRequestPage() {
   return (
     <PublicIntakeShell
       title="Wedding request"
-      description="Submit a request to celebrate your wedding at the parish. A staff member will contact you."
+      description="Submit a request to celebrate your wedding at the parish. A parish staff member will contact you."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <h2 className={intakeSectionHeadingClass}>Primary contact</h2>

@@ -61,15 +61,19 @@ export default function DashboardLayout({
           <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:items-center sm:gap-3 md:gap-4 sm:flex-1">
             <Link
               href="/"
-              className="flex shrink-0 items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 hover:opacity-90"
+              className="flex shrink-0 items-center gap-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 hover:opacity-90 min-w-0"
             >
               <Image
-                src="/vinea-logo.png"
-                alt={PRODUCT_NAME}
-                width={140}
+                src="/vinea-icon.png"
+                alt=""
+                width={40}
                 height={40}
-                className="h-9 w-auto max-h-9 object-contain"
+                className="h-8 w-auto object-contain shrink-0"
+                priority
               />
+              <span className="text-sm font-semibold text-gray-900 tracking-tight truncate">
+                {PRODUCT_NAME}
+              </span>
             </Link>
             <span
               className="hidden sm:block h-4 w-px bg-gray-200 shrink-0"

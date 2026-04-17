@@ -140,7 +140,7 @@ export default function OciaRequestPage() {
   return (
     <PublicIntakeShell
       title="OCIA (RCIA) inquiry"
-      description="Share your story and how we can walk with you toward full communion. A staff member will contact you."
+      description="Share your story and how we can walk with you toward full communion. A parish staff member will contact you."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <h2 className={intakeSectionHeadingClass}>Your contact information</h2>
