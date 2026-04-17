@@ -1,6 +1,9 @@
 /** Primary product name — landing, login, staff header, public intake. */
 export const PRODUCT_NAME = 'Vinea Platform'
 
+/** Legal entity line for footers only — not for product header or page titles. */
+export const LEGAL_ENTITY_FOOTER_LINE = '© 2026 Vinea Technologies LLC'
+
 /**
  * Staff sacramental workflow label — taglines and supporting copy only,
  * not as the main header brand.

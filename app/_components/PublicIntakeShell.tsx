@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { PRODUCT_NAME } from '@/lib/productBranding'
+import { LEGAL_ENTITY_FOOTER_LINE, PRODUCT_NAME } from '@/lib/productBranding'
 
 export function PublicIntakeShell({
   title,
@@ -62,8 +62,8 @@ export function PublicIntakeShell({
       </main>
 
       <footer className="border-t border-gray-200 bg-white mt-auto py-6 shrink-0">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center text-xs text-gray-500 leading-relaxed">
-          <span className="font-medium text-gray-600">{PRODUCT_NAME}</span>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-left text-xs text-gray-500 leading-relaxed">
+          <span className="font-medium text-gray-600">{LEGAL_ENTITY_FOOTER_LINE}</span>
           <span className="block mt-1">
             Secure intake for your parish. Your request is shared only with parish staff.
           </span>

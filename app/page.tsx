@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import {
+  LEGAL_ENTITY_FOOTER_LINE,
   PARISH_OPERATIONS_DESCRIPTOR,
   PRODUCT_NAME,
 } from '@/lib/productBranding'
@@ -201,7 +202,7 @@ export default function Home() {
 
       <footer className="border-t bg-gray-50 py-8">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
-          <span>{PRODUCT_NAME}</span>
+          <span>{LEGAL_ENTITY_FOOTER_LINE}</span>
           <Link
             href="/login"
             className="font-medium text-blue-800 underline underline-offset-2 hover:text-blue-900"
