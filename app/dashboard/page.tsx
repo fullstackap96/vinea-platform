@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Metrics from './Metrics'
+import { RequestLinksSection } from './RequestLinksSection'
 import { RequestTypeBadge } from './requests/[id]/_components/RequestTypeBadge'
 import {
   isMissingConfirmedSchedule,
@@ -1261,6 +1262,8 @@ export default function DashboardPage() {
       </h1>
       {/* Metrics summary (global counts from the full loaded requests array) */}
       <Metrics requests={requests} loading={loading} />
+
+      <RequestLinksSection />
 
       <div
         className="inline-flex rounded-lg border border-gray-200 bg-gray-100/90 p-1 gap-1 mb-8 flex-wrap sm:flex-nowrap"
