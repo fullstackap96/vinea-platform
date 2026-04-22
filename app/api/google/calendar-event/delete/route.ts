@@ -1,39 +1,31 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { google } from 'googleapis'
 import {
+  googleCalendarNotConnectedUserMessage,
   serializeGoogleCalendarErrorForLogs,
   userFacingGoogleCalendarErrorMessage,
 } from '@/lib/googleCalendarUserErrors'
+import {
+  getGoogleCalendarClient,
+  handleGoogleCalendarOAuthFailureIfNeeded,
+  loadParishGoogleCalendarIntegration,
+  requireGoogleOAuthClientEnv,
+  resolveUsableParishGoogleCalendar,
+} from '@/lib/parishGoogleCalendarServer'
+import { createSupabaseRouteHandlerClient } from '@/lib/supabase/routeHandlerClient'
 
-function getSupabaseServerClient(request: NextRequest, response: NextResponse) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options)
-        })
-      },
-    },
-  })
-}
-
-function isNotFoundGoogleError(error: any) {
-  const status = error?.response?.status ?? error?.code
+function isNotFoundGoogleError(error: unknown): boolean {
+  const e = error as { response?: { status?: number }; code?: number }
+  const status = e?.response?.status ?? e?.code
   return status === 404
 }
 
 export async function POST(request: NextRequest) {
   const response = NextResponse.json({ ok: false })
+  let parishId: string | null = null
+
   try {
-    const supabase = getSupabaseServerClient(request, response)
+    const supabase = createSupabaseRouteHandlerClient(request, response)
     const {
       data: { user },
       error: userError,
@@ -49,23 +41,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Missing requestId' }, { status: 400 })
     }
 
-    const envCalendarId = process.env.GOOGLE_CALENDAR_ID
-    if (!envCalendarId) {
+    const oauthEnv = requireGoogleOAuthClientEnv()
+    if (!oauthEnv.ok) {
       return NextResponse.json(
-        { ok: false, error: 'Server missing GOOGLE_CALENDAR_ID' },
+        { ok: false, error: 'Google Calendar is not configured on this server.' },
         { status: 500 }
       )
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-    const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
-    if (!clientId || !clientSecret || !refreshToken) {
+    const integration = await loadParishGoogleCalendarIntegration()
+    const usable = resolveUsableParishGoogleCalendar(integration)
+    if (!usable.ok) {
       return NextResponse.json(
-        { ok: false, error: 'Server missing Google OAuth configuration' },
-        { status: 500 }
+        { ok: false, error: googleCalendarNotConnectedUserMessage() },
+        { status: 503 }
       )
     }
+    parishId = usable.parishId
 
     const { data: reqRow, error: reqErr } = await supabase
       .from('requests')
@@ -85,18 +77,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const calendarId = String(reqRow.google_calendar_id || envCalendarId)
+    const calendarId = String(reqRow.google_calendar_id || usable.calendarId)
 
-    const oauth2 = new google.auth.OAuth2(clientId, clientSecret)
-    oauth2.setCredentials({ refresh_token: refreshToken })
+    const calendar = getGoogleCalendarClient(
+      usable.refreshToken,
+      oauthEnv.clientId,
+      oauthEnv.clientSecret
+    )
 
-    const calendar = google.calendar({ version: 'v3', auth: oauth2 })
     try {
       await calendar.events.delete({
         calendarId,
         eventId,
       })
-    } catch (gErr: any) {
+    } catch (gErr: unknown) {
       if (!isNotFoundGoogleError(gErr)) {
         throw gErr
       }
@@ -128,6 +122,7 @@ export async function POST(request: NextRequest) {
       serializeGoogleCalendarErrorForLogs(error),
       error
     )
+    await handleGoogleCalendarOAuthFailureIfNeeded(parishId, error)
     return NextResponse.json(
       { ok: false, error: userFacingGoogleCalendarErrorMessage(error) },
       { status: 500 }

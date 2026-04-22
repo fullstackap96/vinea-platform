@@ -15,6 +15,13 @@ import { ConfirmedBaptismDateSection } from './_components/ConfirmedBaptismDateS
 import { CommunicationSection, type CommunicationMethod } from './_components/CommunicationSection'
 import { SendEmailSection } from './_components/SendEmailSection'
 import { GoogleCalendarSection } from './_components/GoogleCalendarSection'
+import { RequestNextStepCard } from './_components/RequestNextStepCard'
+import {
+  RequestQuickActionsCard,
+  REQUEST_QUICK_ACTION_SECTION_IDS,
+} from './_components/RequestQuickActionsCard'
+import { RequestProgressCard } from './_components/RequestProgressCard'
+import { RequestDetailControlBar } from './_components/RequestDetailControlBar'
 import { ConfirmedOciaSessionSection } from './_components/ConfirmedOciaSessionSection'
 import { FuneralDetailsSection } from './_components/FuneralDetailsSection'
 import { ConfirmedFuneralServiceSection } from './_components/ConfirmedFuneralServiceSection'
@@ -35,17 +42,21 @@ import {
 
 function DetailSectionCard({
   isFirst,
+  id,
   children,
 }: {
   isFirst?: boolean
+  id?: string
   children: ReactNode
 }) {
+  const scrollTarget = id ? ' scroll-mt-6 sm:scroll-mt-8' : ''
   return (
     <section
+      id={id}
       className={
-        isFirst
+        (isFirst
           ? 'rounded-xl bg-white p-5 shadow-sm sm:p-6'
-          : 'rounded-xl bg-white p-5 shadow-sm sm:p-6 mt-8 border-t border-gray-100 pt-4'
+          : 'rounded-xl bg-white p-5 shadow-sm sm:p-6 mt-8 border-t border-gray-100 pt-4') + scrollTarget
       }
     >
       {children}
@@ -1213,6 +1224,26 @@ async function deleteGoogleCalendarEvent() {
   const isWedding = requestType === 'wedding'
   const isOcia = requestType === 'ocia'
 
+  const quickSectionIds = REQUEST_QUICK_ACTION_SECTION_IDS
+
+  const scheduleRowForProgress = {
+    request_type: request?.request_type,
+    confirmed_baptism_date: request?.confirmed_baptism_date,
+    funeral_detail: funeralDetail
+      ? { confirmed_service_at: funeralDetail.confirmed_service_at }
+      : null,
+    wedding_detail: weddingDetail
+      ? { confirmed_ceremony_at: weddingDetail.confirmed_ceremony_at }
+      : null,
+    ocia_detail: ociaDetail
+      ? { confirmed_session_at: ociaDetail.confirmed_session_at }
+      : null,
+  }
+
+  const requestIdentityName =
+    String(parishioner?.full_name ?? '').trim() || 'Unnamed contact'
+  const requestIdentitySubtitle = String(parishioner?.email ?? '').trim() || null
+
   return (
     <main className="mx-auto max-w-6xl px-4 pb-6 pt-4 text-gray-900 sm:px-6 sm:pb-8 sm:pt-5">
       <p className="mb-3">
@@ -1223,14 +1254,37 @@ async function deleteGoogleCalendarEvent() {
           ← Back to Dashboard
         </Link>
       </p>
-      <header className="mb-6 sm:mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Request details</h1>
-        <p className="mt-1 text-sm text-gray-500">Manage and track this request</p>
-      </header>
+
+      <RequestDetailControlBar
+        requestType={requestType}
+        primaryHeading={requestIdentityName}
+        subtitle={requestIdentitySubtitle}
+        status={request?.status}
+        canEditIntake={Boolean(parishioner?.id)}
+        editingIntake={editingIntake}
+        onEditIntake={() => setEditingIntake(true)}
+        onMarkComplete={() => updateRequestStatus('complete')}
+      />
+
+      <RequestNextStepCard
+        assignedStaffName={request?.assigned_staff_name}
+        nextFollowUpDate={request?.next_follow_up_date}
+        lastContactedAt={request?.last_contacted_at}
+        scheduleRow={scheduleRowForProgress}
+      />
+
+      <RequestQuickActionsCard />
+
+      <RequestProgressCard
+        assignedStaffName={request?.assigned_staff_name}
+        nextFollowUpDate={request?.next_follow_up_date}
+        lastContactedAt={request?.last_contacted_at}
+        scheduleRow={scheduleRowForProgress}
+      />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-10">
         <div className="flex flex-col lg:col-span-2">
-          <DetailSectionCard isFirst>
+          <DetailSectionCard isFirst id="request-intake">
             <RequestContactIntakeSection
               parishioner={parishioner}
               request={request}
@@ -1243,7 +1297,7 @@ async function deleteGoogleCalendarEvent() {
 
           {parishioner?.id ? (
             editingIntake ? (
-              <DetailSectionCard>
+              <DetailSectionCard id="request-intake-editor">
                 <EditRequestDetailsSection
                   open={editingIntake}
                   requestId={routeId}
@@ -1318,7 +1372,7 @@ async function deleteGoogleCalendarEvent() {
             </DetailSectionCard>
           ) : null}
 
-          <DetailSectionCard>
+          <DetailSectionCard id={quickSectionIds.communication}>
             <CommunicationSection
               lastContactedAtIso={request?.last_contacted_at}
               lastContactMethod={request?.last_contact_method}
@@ -1353,7 +1407,7 @@ async function deleteGoogleCalendarEvent() {
             />
           </DetailSectionCard>
 
-          <DetailSectionCard>
+          <DetailSectionCard id={quickSectionIds.assignment}>
             <AssignmentSection
               requestId={routeId}
               assignedStaffName={request?.assigned_staff_name}
@@ -1362,7 +1416,7 @@ async function deleteGoogleCalendarEvent() {
             />
           </DetailSectionCard>
 
-          <DetailSectionCard>
+          <DetailSectionCard id={quickSectionIds.nextFollowUp}>
             <NextFollowUpSection
               requestId={routeId}
               nextFollowUpDate={request?.next_follow_up_date}
@@ -1456,7 +1510,7 @@ async function deleteGoogleCalendarEvent() {
             />
           </DetailSectionCard>
 
-          <DetailSectionCard>
+          <DetailSectionCard id={quickSectionIds.sendEmail}>
             <SendEmailSection
               toEmail={String(parishioner?.email || '')}
               subject={emailSubject}
