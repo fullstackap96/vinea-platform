@@ -1,5 +1,7 @@
 import React from 'react'
 import { primaryButtonMd } from '@/lib/buttonStyles'
+import { MissingValue } from '@/lib/missingValue'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 export function ChecklistSection({
   checklistItems,
@@ -9,19 +11,23 @@ export function ChecklistSection({
   onToggleChecklistItem: (itemId: string, currentValue: boolean) => void
 }) {
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-semibold text-gray-900">Checklist</h2>
+    <div>
+      <h2 className={sectionHeadingClassName}>Checklist</h2>
 
-      <div className="space-y-3">
+      <div className="divide-y divide-gray-100">
         {checklistItems.map((item) => (
           <div
             key={item.id}
-            className="border border-gray-200 rounded-lg p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white shadow-sm"
+            className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
           >
             <div>
               <p className="font-medium text-gray-900">{item.item_name}</p>
               <p className="text-sm text-gray-700">
-                {item.is_complete ? 'Complete' : 'Incomplete'}
+                {item.is_complete ? (
+                  'Complete'
+                ) : (
+                  <MissingValue>Incomplete</MissingValue>
+                )}
               </p>
             </div>
 

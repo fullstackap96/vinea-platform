@@ -69,7 +69,8 @@ Include:
 2. sacramental background and what they are seeking
 3. parish connection and preferred contact method
 4. availability and intake notes
-5. suggested next pastoral step
+5. confirmed OCIA meeting time if set
+6. suggested next pastoral step
 
 Request data:
 Contact Name: ${body.fullName}
@@ -82,6 +83,7 @@ Seeking: ${body.seeking || '—'}
 Parishioner status: ${body.parishionerStatus || '—'}
 Preferred contact: ${body.preferredContactMethod || '—'}
 Availability: ${body.availability || '—'}
+Confirmed OCIA meeting: ${body.confirmedSessionAt || '—'}
 Notes: ${body.notes}
 Status: ${body.status}
 `

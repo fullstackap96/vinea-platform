@@ -1,5 +1,12 @@
 import React from 'react'
+import { primaryButtonMd, secondaryButtonMd, secondaryButtonSm } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import {
+  sectionHeadingClassName,
+  sectionHeadingRowClassName,
+  sectionHeadingTitleClassName,
+  sectionSubheadingClassName,
+} from '@/lib/sectionHeader'
 
 export function AiToolsSection({
   aiLoading,
@@ -20,13 +27,13 @@ export function AiToolsSection({
 }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4 text-gray-900">AI Tools</h2>
+      <h2 className={sectionHeadingClassName}>AI Tools</h2>
 
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
           type="button"
           onClick={onGenerateSummary}
-          className="inline-flex w-full items-center justify-center bg-purple-700 text-white px-4 py-2 rounded sm:w-auto"
+          className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
         >
           Generate AI Summary
         </button>
@@ -34,7 +41,7 @@ export function AiToolsSection({
         <button
           type="button"
           onClick={onGenerateReplyDraft}
-          className="inline-flex w-full items-center justify-center bg-indigo-700 text-white px-4 py-2 rounded sm:w-auto"
+          className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
         >
           Generate Reply Draft
         </button>
@@ -42,7 +49,7 @@ export function AiToolsSection({
 
       {aiLoading && (
         <div
-          className="mb-4 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm"
+          className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-900"
           aria-live="polite"
         >
           <span
@@ -54,21 +61,23 @@ export function AiToolsSection({
       )}
 
       {aiSummary && (
-        <div className="border rounded p-4 mb-4 text-gray-800">
-          <h3 className="font-semibold mb-2 text-gray-900">AI Summary</h3>
-          <p className="whitespace-pre-wrap">{aiSummary}</p>
+        <div className="mb-4 border-t border-gray-100 pt-4 text-gray-800">
+          <h3 className={sectionSubheadingClassName}>AI Summary</h3>
+          <p className="mt-2 whitespace-pre-wrap">{aiSummary}</p>
         </div>
       )}
 
       {replyDraft && (
-        <div className="border rounded p-4 text-gray-800">
-          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="font-semibold text-gray-900">Reply Draft</h3>
+        <div
+          className={`text-gray-800 ${aiSummary ? 'border-t border-gray-100 pt-4' : 'mt-4 border-t border-gray-100 pt-4'}`}
+        >
+          <div className={sectionHeadingRowClassName}>
+            <h3 className={sectionHeadingTitleClassName}>Reply Draft</h3>
 
             <button
               type="button"
               onClick={onCopyReplyDraft}
-              className="inline-flex w-full shrink-0 items-center justify-center bg-gray-700 text-white px-3 py-2 rounded sm:w-auto"
+              className={`${secondaryButtonSm} w-full shrink-0 justify-center sm:w-auto`}
             >
               Copy Reply Draft
             </button>

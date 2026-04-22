@@ -1,4 +1,8 @@
 import React from 'react'
+import { maybeMissingValue } from '@/lib/missingValue'
+import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
+import { primaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 
 export function SendEmailSection({
@@ -22,18 +26,18 @@ export function SendEmailSection({
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4 text-gray-900">Send Email</h2>
+      <h2 className={sectionHeadingClassName}>Send Email</h2>
 
-      <div className="border rounded p-4 space-y-3">
-        <p className="text-gray-800 [&_strong]:text-gray-900">
-          <strong>To:</strong> {toEmail || '—'}
-        </p>
+      <div className="space-y-4">
+        <LabelValueGrid>
+          <LabelValueRow
+            label="To"
+            value={maybeMissingValue(String(toEmail ?? '').trim() ? String(toEmail) : '—')}
+          />
+        </LabelValueGrid>
 
         <div>
-          <label
-            htmlFor="send-email-subject"
-            className="mb-1 block text-sm font-medium text-gray-900"
-          >
+          <label htmlFor="send-email-subject" className="mb-1 block text-sm text-gray-500">
             Email subject
           </label>
           <input
@@ -49,7 +53,7 @@ export function SendEmailSection({
           <p className="mb-2 text-xs text-gray-600 leading-relaxed">
             Drafted by AI. Review before sending.
           </p>
-          <div className="border rounded p-3 bg-gray-50 text-gray-800">
+          <div className="rounded-lg border border-gray-200 p-3 text-gray-800">
             {body ? (
               <p className="whitespace-pre-wrap">{body}</p>
             ) : (
@@ -64,7 +68,7 @@ export function SendEmailSection({
           type="button"
           onClick={onSend}
           disabled={!canSend}
-          className="inline-flex w-full items-center justify-center bg-black text-white px-4 py-2 rounded disabled:opacity-50 sm:w-auto"
+          className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
         >
           {sending ? 'Sending...' : 'Send email'}
         </button>

@@ -1,5 +1,9 @@
 import React from 'react'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { maybeMissingValue, MissingValue } from '@/lib/missingValue'
+import { primaryButtonMd } from '@/lib/buttonStyles'
+import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
+import { sectionHeadingClassName, sectionSubheadingClassName } from '@/lib/sectionHeader'
 
 export type CommunicationMethod =
   | 'email'
@@ -51,24 +55,32 @@ export function CommunicationSection({
     created_at?: string
   }>
 }) {
-  const lastLabel = lastContactMethod
-    ? `${formatWhenLabel(lastContactedAtIso)} (${lastContactMethod})`
-    : formatWhenLabel(lastContactedAtIso)
-
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-2 text-gray-900">Communication</h2>
+      <h2 className={sectionHeadingClassName}>Communication</h2>
 
-      <div className="border rounded p-4">
-        <p className="mb-2 text-gray-800 [&_strong]:text-gray-900">
-          <strong>Last contacted:</strong> {lastLabel}
-        </p>
-        <p className="text-sm text-gray-800 [&_strong]:text-gray-900">
-          <strong>Latest notes:</strong> {communicationNotes || '—'}
-        </p>
+      <div className="space-y-4">
+        <LabelValueGrid>
+          <LabelValueRow
+            label="Last contacted"
+            value={
+              lastContactMethod ? (
+                <>
+                  {maybeMissingValue(formatWhenLabel(lastContactedAtIso))} ({lastContactMethod})
+                </>
+              ) : (
+                maybeMissingValue(formatWhenLabel(lastContactedAtIso))
+              )
+            }
+          />
+          <LabelValueRow
+            label="Latest notes"
+            value={maybeMissingValue(communicationNotes || '—')}
+          />
+        </LabelValueGrid>
 
-        <div className="mt-4 space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+        <div className="border-t border-gray-100 pt-4 space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch">
             <select
               className="w-full min-w-0 border p-3 rounded sm:w-auto sm:min-w-[10rem]"
               value={method}
@@ -102,7 +114,7 @@ export function CommunicationSection({
             type="button"
             onClick={onLog}
             disabled={saving}
-            className="inline-flex w-full items-center justify-center bg-black text-white px-4 py-2 rounded sm:w-auto"
+            className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
           >
             {saving ? 'Logging...' : 'Log communication'}
           </button>
@@ -111,22 +123,26 @@ export function CommunicationSection({
         </div>
       </div>
 
-      <div className="mt-6">
-        <h3 className="text-xl font-semibold mb-3 text-gray-900">Communication History</h3>
+      <div className="mt-6 border-t border-gray-100 pt-4">
+        <h3 className={sectionSubheadingClassName}>Communication History</h3>
         {history.length === 0 ? (
           <p className="text-sm text-gray-800">No communication logged yet.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="divide-y divide-gray-100">
             {history.map((item) => (
-              <div key={item.id} className="border rounded p-3">
+              <div key={item.id} className="py-4 first:pt-0 last:pb-0">
                 <p className="text-gray-800">
-                  <strong className="text-gray-900">{formatWhenLabel(item.contacted_at)}</strong>{' '}
+                  <strong className="text-gray-900">
+                    {maybeMissingValue(formatWhenLabel(item.contacted_at))}
+                  </strong>{' '}
                   <span className="text-sm text-gray-800">({item.method})</span>
                 </p>
                 {item.notes ? (
                   <p className="mt-2 whitespace-pre-wrap text-gray-800">{item.notes}</p>
                 ) : (
-                  <p className="mt-2 text-sm text-gray-800">—</p>
+                  <p className="mt-2 text-sm text-gray-800">
+                    <MissingValue>—</MissingValue>
+                  </p>
                 )}
               </div>
             ))}

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { Calendar } from 'lucide-react'
 import { updateRequestNextFollowUpDate } from '../../actions'
 import {
   formatNextFollowUpDateDisplay,
@@ -8,6 +9,11 @@ import {
 } from '@/lib/nextFollowUpDate'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { MissingValue } from '@/lib/missingValue'
+import {
+  sectionHeadingRowClassName,
+  sectionHeadingTitleClassName,
+} from '@/lib/sectionHeader'
 
 export function NextFollowUpSection({
   requestId,
@@ -74,9 +80,14 @@ export function NextFollowUpSection({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Next Follow-Up</h2>
+    <div>
+      <div className={sectionHeadingRowClassName}>
+        <h2
+          className={`${sectionHeadingTitleClassName} inline-flex items-center gap-2`}
+        >
+          <Calendar className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+          Next Follow-Up
+        </h2>
         {!editing && (
           <button
             type="button"
@@ -102,7 +113,7 @@ export function NextFollowUpSection({
               onChange={(e) => setDraftDate(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
               type="button"
               disabled={saving}
@@ -115,7 +126,7 @@ export function NextFollowUpSection({
               type="button"
               disabled={saving || !currentYmd}
               onClick={clearDate}
-              className={`${secondaryButtonMd} w-full justify-center sm:w-auto disabled:opacity-50`}
+              className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
             >
               Clear
             </button>
@@ -135,7 +146,7 @@ export function NextFollowUpSection({
           {currentYmd ? (
             <span className="text-gray-900">{formatNextFollowUpDateDisplay(nextFollowUpDate)}</span>
           ) : (
-            <span className="text-gray-600">Not set</span>
+            <MissingValue>Not set</MissingValue>
           )}
         </p>
       )}

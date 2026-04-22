@@ -341,6 +341,12 @@ export async function saveRequestIntakeDetails(
       return { ok: false, error: 'OCIA background, seeking, parishioner status, and contact method are required.' }
     }
 
+    const { data: existingOcia } = await supabase
+      .from('ocia_request_details')
+      .select('confirmed_session_at')
+      .eq('request_id', requestId)
+      .maybeSingle()
+
     const { error: oErr } = await supabase.from('ocia_request_details').upsert(
       {
         request_id: requestId,
@@ -351,6 +357,7 @@ export async function saveRequestIntakeDetails(
         parishioner_status: o.parishionerStatus.trim(),
         preferred_contact_method: o.preferredContactMethod.trim(),
         availability: o.availability?.trim() || null,
+        confirmed_session_at: existingOcia?.confirmed_session_at ?? null,
       },
       { onConflict: 'request_id' }
     )

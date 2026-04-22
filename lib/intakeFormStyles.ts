@@ -1,3 +1,5 @@
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
+
 /**
  * Shared field styles for public intake forms — align with landing/login inputs.
  */
@@ -6,7 +8,8 @@ export const intakeInputClass =
 
 export const intakeTextareaClass = `${intakeInputClass} min-h-[88px] resize-y leading-relaxed`
 
-export const intakeSectionHeadingClass = 'text-base font-semibold text-gray-900'
+/** Same rhythm as dashboard section headers. */
+export const intakeSectionHeadingClass = sectionHeadingClassName
 
 export const intakeLabelClass = 'block text-sm font-medium text-gray-700'
 

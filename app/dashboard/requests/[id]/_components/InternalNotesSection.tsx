@@ -4,6 +4,8 @@ import React, { useState } from 'react'
 import { addRequestNote } from '../../actions'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { maybeMissingValue } from '@/lib/missingValue'
+import { sectionHeadingClassName, sectionSubheadingClassName } from '@/lib/sectionHeader'
 
 function formatNoteTimestamp(iso: string | null | undefined) {
   if (!iso) return '—'
@@ -48,9 +50,9 @@ export function InternalNotesSection({
 
   return (
     <div>
-      <h2 className="mb-4 text-2xl font-semibold text-gray-900">Internal Notes</h2>
+      <h2 className={sectionHeadingClassName}>Internal Notes</h2>
 
-      <div className="space-y-3 border rounded p-4">
+      <div className="space-y-3">
         <textarea
           className="w-full min-h-[120px] rounded border p-3"
           placeholder="Add an internal note…"
@@ -69,16 +71,16 @@ export function InternalNotesSection({
         {message && <InlineFormMessage message={message} className="!mt-2" />}
       </div>
 
-      <div className="mt-6">
-        <h3 className="mb-3 text-xl font-semibold text-gray-900">Internal Notes Timeline</h3>
+      <div className="mt-6 border-t border-gray-100 pt-4">
+        <h3 className={sectionSubheadingClassName}>Internal Notes Timeline</h3>
         {notes.length === 0 ? (
           <p className="text-sm text-gray-800">No notes yet.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="divide-y divide-gray-100">
             {notes.map((item) => (
-              <div key={item.id} className="rounded border border-gray-200 bg-white p-3 shadow-sm">
+              <div key={item.id} className="py-4 first:pt-0 last:pb-0">
                 <p className="text-sm font-semibold text-gray-900">
-                  {formatNoteTimestamp(item.created_at)}
+                  {maybeMissingValue(formatNoteTimestamp(item.created_at))}
                 </p>
                 <p className="mt-2 whitespace-pre-wrap text-gray-800">{item.body}</p>
               </div>

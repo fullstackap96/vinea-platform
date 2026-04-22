@@ -10,6 +10,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Brand (violet) — primary actions, selection, sparse accents; WCAG-friendly on white */
+  --color-brand: #5b21b6;
+  --color-brand-hover: #4c1d95;
+  --color-brand-active: #2e1065;
+  --color-brand-muted: #ede9fe;
+  --color-brand-foreground: #2e1065;
+  --color-brand-ring: #7c3aed;
 }
 
 @media (prefers-color-scheme: dark) {

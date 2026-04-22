@@ -1,5 +1,7 @@
 import React from 'react'
+import { primaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 export function WeddingDetailsSection({
   partnerOneName,
@@ -28,7 +30,7 @@ export function WeddingDetailsSection({
 }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4 text-gray-900">Wedding details</h2>
+      <h2 className={sectionHeadingClassName}>Wedding details</h2>
       <div className="space-y-3">
         <input
           className="w-full border p-3 rounded"
@@ -60,7 +62,7 @@ export function WeddingDetailsSection({
           type="button"
           onClick={onSave}
           disabled={saving || !partnerOneName.trim()}
-          className="inline-flex w-full items-center justify-center bg-black text-white px-4 py-2 rounded disabled:opacity-50 sm:w-auto"
+          className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
         >
           {saving ? 'Saving...' : 'Save wedding details'}
         </button>

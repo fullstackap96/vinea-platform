@@ -3,6 +3,10 @@ import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { google } from 'googleapis'
 import { buildCalendarEventFromRequest } from '@/lib/calendarEventFromRequest'
+import {
+  serializeGoogleCalendarErrorForLogs,
+  userFacingGoogleCalendarErrorMessage,
+} from '@/lib/googleCalendarUserErrors'
 
 function getSupabaseServerClient(request: NextRequest, response: NextResponse) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -138,10 +142,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, eventId, htmlLink })
-  } catch (error: any) {
-    console.error('GOOGLE CALENDAR CREATE EVENT ERROR:', error)
+  } catch (error: unknown) {
+    console.error(
+      'GOOGLE CALENDAR CREATE EVENT ERROR (technical):',
+      serializeGoogleCalendarErrorForLogs(error),
+      error
+    )
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Unknown error' },
+      { ok: false, error: userFacingGoogleCalendarErrorMessage(error) },
       { status: 500 }
     )
   }

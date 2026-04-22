@@ -18,7 +18,7 @@ export type CalendarEventBuildResult =
   | { ok: false; error: string }
 
 /**
- * Builds Google Calendar event fields from requests + parishioner (+ funeral row when needed).
+ * Builds Google Calendar event fields from requests + parishioner (+ type-specific detail rows).
  */
 export async function buildCalendarEventFromRequest(
   supabase: SupabaseClient,
@@ -159,6 +159,56 @@ export async function buildCalendarEventFromRequest(
     const description = lines.join('\n')
     const couple = [wd.partner_one_name, wd.partner_two_name].filter(Boolean).join(' & ')
     const summary = `Wedding: ${couple || parishionerName}`
+    return { ok: true, start, end, summary, description }
+  }
+
+  if (requestType === 'ocia') {
+    const { data: od, error: odErr } = await supabase
+      .from('ocia_request_details')
+      .select('*')
+      .eq('request_id', reqRow.id as string)
+      .maybeSingle()
+
+    if (odErr || !od) {
+      return { ok: false, error: 'OCIA details not found' }
+    }
+
+    const startIso = toIso(od.confirmed_session_at)
+    if (!startIso) {
+      return { ok: false, error: 'Confirmed OCIA meeting time is not set' }
+    }
+    const start = new Date(startIso)
+    const end = new Date(start.getTime() + 60 * 60 * 1000)
+
+    const lines: string[] = []
+    lines.push('OCIA / RCIA request details')
+    lines.push('')
+    lines.push(`Request ID: ${reqRow.id}`)
+    lines.push(`Contact: ${parishionerName}`)
+    lines.push(`Email: ${parishionerEmail}`)
+    if (parishionerPhone) lines.push(`Phone: ${parishionerPhone}`)
+    if (od.date_of_birth) lines.push(`Date of birth: ${od.date_of_birth}`)
+    if (od.age_or_dob_note) lines.push(`Age / DOB note: ${od.age_or_dob_note}`)
+    if (od.sacramental_background) lines.push(`Sacramental background: ${od.sacramental_background}`)
+    if (od.seeking) lines.push(`Seeking: ${od.seeking}`)
+    if (od.parishioner_status) lines.push(`Parishioner status: ${od.parishioner_status}`)
+    if (od.preferred_contact_method) {
+      lines.push(`Preferred contact: ${od.preferred_contact_method}`)
+    }
+    if (od.availability) lines.push(`Availability: ${od.availability}`)
+    if (reqRow.notes) {
+      lines.push('')
+      lines.push('Intake notes:')
+      lines.push(String(reqRow.notes))
+    }
+    if (reqRow.staff_notes) {
+      lines.push('')
+      lines.push('Staff notes:')
+      lines.push(String(reqRow.staff_notes))
+    }
+
+    const description = lines.join('\n')
+    const summary = `OCIA meeting — ${parishionerName}`
     return { ok: true, start, end, summary, description }
   }
 

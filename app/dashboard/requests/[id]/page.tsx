@@ -1,10 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { RequestHeader } from './_components/RequestHeader'
+import {
+  RequestContactIntakeSection,
+  RequestStatusSection,
+} from './_components/RequestHeader'
 import { ChecklistSection } from './_components/ChecklistSection'
 import { AiToolsSection } from './_components/AiToolsSection'
 import { SuggestedDatesSection } from './_components/SuggestedDatesSection'
@@ -12,6 +15,7 @@ import { ConfirmedBaptismDateSection } from './_components/ConfirmedBaptismDateS
 import { CommunicationSection, type CommunicationMethod } from './_components/CommunicationSection'
 import { SendEmailSection } from './_components/SendEmailSection'
 import { GoogleCalendarSection } from './_components/GoogleCalendarSection'
+import { ConfirmedOciaSessionSection } from './_components/ConfirmedOciaSessionSection'
 import { FuneralDetailsSection } from './_components/FuneralDetailsSection'
 import { ConfirmedFuneralServiceSection } from './_components/ConfirmedFuneralServiceSection'
 import { WeddingDetailsSection } from './_components/WeddingDetailsSection'
@@ -22,7 +26,32 @@ import { NextFollowUpSection } from './_components/NextFollowUpSection'
 import { InternalNotesSection } from './_components/InternalNotesSection'
 import { parseAiEmailDraft } from '@/lib/parseAiEmailDraft'
 import { EditRequestDetailsSection } from './_components/EditRequestDetailsSection'
+import { ensureOciaRequestDetailsIfMissing } from '@/lib/ensureOciaRequestDetails'
 import { secondaryButtonMd } from '@/lib/buttonStyles'
+import {
+  isGoogleOAuthReconnectError,
+  userFacingGoogleCalendarErrorMessage,
+} from '@/lib/googleCalendarUserErrors'
+
+function DetailSectionCard({
+  isFirst,
+  children,
+}: {
+  isFirst?: boolean
+  children: ReactNode
+}) {
+  return (
+    <section
+      className={
+        isFirst
+          ? 'rounded-xl bg-white p-5 shadow-sm sm:p-6'
+          : 'rounded-xl bg-white p-5 shadow-sm sm:p-6 mt-8 border-t border-gray-100 pt-4'
+      }
+    >
+      {children}
+    </section>
+  )
+}
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -106,6 +135,9 @@ const [staffNotes, setStaffNotes] = useState('')
   const [weddingConfirmedMessage, setWeddingConfirmedMessage] = useState('')
 
   const [ociaDetail, setOciaDetail] = useState<any | null>(null)
+  const [confirmedOciaSession, setConfirmedOciaSession] = useState('')
+  const [ociaSessionSaving, setOciaSessionSaving] = useState(false)
+  const [ociaSessionMessage, setOciaSessionMessage] = useState('')
 
   const [editingIntake, setEditingIntake] = useState(false)
 
@@ -219,6 +251,7 @@ setStaffNotes(requestData.staff_notes || '')
       setConfirmedWeddingCeremony('')
 
       setOciaDetail(null)
+      setConfirmedOciaSession('')
     } else if (requestData.request_type === 'wedding') {
       const { data: wDetail } = await supabase
         .from('wedding_request_details')
@@ -245,14 +278,24 @@ setStaffNotes(requestData.staff_notes || '')
       setConfirmedFuneralService('')
 
       setOciaDetail(null)
+      setConfirmedOciaSession('')
     } else if (requestData.request_type === 'ocia') {
-      const { data: oDetail } = await supabase
+      let { data: oDetail } = await supabase
         .from('ocia_request_details')
         .select('*')
         .eq('request_id', requestData.id)
         .maybeSingle()
 
-      setOciaDetail(oDetail)
+      if (!oDetail) {
+        const ensured = await ensureOciaRequestDetailsIfMissing(supabase, String(requestData.id))
+        if (ensured.error) {
+          console.error('ensureOciaRequestDetailsIfMissing:', ensured.error)
+        }
+        oDetail = ensured.data as typeof oDetail
+      }
+
+      setOciaDetail(oDetail ?? null)
+      setConfirmedOciaSession(isoToDatetimeLocal(oDetail?.confirmed_session_at))
 
       setFuneralDetail(null)
       setFuneralDeceasedName('')
@@ -283,6 +326,7 @@ setStaffNotes(requestData.staff_notes || '')
       setConfirmedWeddingCeremony('')
 
       setOciaDetail(null)
+      setConfirmedOciaSession('')
     }
 
     setLoading(false)
@@ -361,6 +405,7 @@ async function generateSummary() {
         parishionerStatus: ociaDetail?.parishioner_status,
         preferredContactMethod: ociaDetail?.preferred_contact_method,
         availability: ociaDetail?.availability,
+        confirmedSessionAt: ociaDetail?.confirmed_session_at,
       }
     } else {
       body = {
@@ -439,6 +484,7 @@ async function generateReplyDraft() {
       replyBody.parishionerStatus = ociaDetail?.parishioner_status
       replyBody.preferredContactMethod = ociaDetail?.preferred_contact_method
       replyBody.availability = ociaDetail?.availability
+      replyBody.confirmedSessionAt = ociaDetail?.confirmed_session_at
     } else {
       replyBody.childName = request.child_name
       replyBody.preferredDates = request.preferred_dates
@@ -734,6 +780,77 @@ async function clearConfirmedWeddingCeremony() {
   loadRequest()
 }
 
+async function saveConfirmedOciaSession() {
+  if (!request || request.request_type !== 'ocia') return
+
+  setOciaSessionSaving(true)
+  setOciaSessionMessage('')
+
+  if (!ociaDetail) {
+    const ensured = await ensureOciaRequestDetailsIfMissing(supabase, routeId)
+    if (ensured.error || !ensured.data) {
+      setOciaSessionMessage(
+        `Unable to create OCIA intake record: ${ensured.error || 'Unknown error'}`
+      )
+      setOciaSessionSaving(false)
+      return
+    }
+    setOciaDetail(ensured.data)
+  }
+
+  const { error } = await supabase
+    .from('ocia_request_details')
+    .update({
+      confirmed_session_at: datetimeLocalToIso(confirmedOciaSession),
+    })
+    .eq('request_id', routeId)
+
+  if (error) {
+    setOciaSessionMessage(`Error saving: ${error.message}`)
+    setOciaSessionSaving(false)
+    return
+  }
+
+  setOciaSessionMessage('Confirmed OCIA meeting time saved.')
+  setOciaSessionSaving(false)
+  loadRequest()
+}
+
+async function clearConfirmedOciaSession() {
+  if (!request || request.request_type !== 'ocia') return
+
+  setOciaSessionSaving(true)
+  setOciaSessionMessage('')
+  setConfirmedOciaSession('')
+
+  if (!ociaDetail) {
+    const ensured = await ensureOciaRequestDetailsIfMissing(supabase, routeId)
+    if (ensured.error || !ensured.data) {
+      setOciaSessionMessage(
+        ensured.error ? `Unable to access OCIA record: ${ensured.error}` : 'Unable to access OCIA record.'
+      )
+      setOciaSessionSaving(false)
+      return
+    }
+    setOciaDetail(ensured.data)
+  }
+
+  const { error } = await supabase
+    .from('ocia_request_details')
+    .update({ confirmed_session_at: null })
+    .eq('request_id', routeId)
+
+  if (error) {
+    setOciaSessionMessage(`Error clearing: ${error.message}`)
+    setOciaSessionSaving(false)
+    return
+  }
+
+  setOciaSessionMessage('Cleared.')
+  setOciaSessionSaving(false)
+  loadRequest()
+}
+
 async function logCommunication() {
   setCommSaving(true)
   setCommMessage('')
@@ -869,10 +986,6 @@ async function sendEmail() {
 
 async function createGoogleCalendarEvent() {
   const rt = String(request?.request_type || 'baptism')
-  if (rt === 'ocia') {
-    setGcalMessage('Google Calendar is not used for OCIA requests in V1.')
-    return
-  }
   if (rt === 'funeral') {
     if (!funeralDetail?.confirmed_service_at) {
       setGcalMessage('Set a confirmed funeral service time first.')
@@ -881,6 +994,11 @@ async function createGoogleCalendarEvent() {
   } else if (rt === 'wedding') {
     if (!weddingDetail?.confirmed_ceremony_at) {
       setGcalMessage('Set a confirmed wedding ceremony time first.')
+      return
+    }
+  } else if (rt === 'ocia') {
+    if (!ociaDetail?.confirmed_session_at) {
+      setGcalMessage('Set a confirmed OCIA meeting time first.')
       return
     }
   } else if (!request?.confirmed_baptism_date) {
@@ -905,14 +1023,24 @@ async function createGoogleCalendarEvent() {
     const payload = await res.json().catch(() => ({} as any))
     if (!res.ok || !payload?.ok) {
       const err = payload?.error || `Create failed (${res.status})`
-      setGcalMessage(String(err))
+      setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
     setGcalMessage('Google Calendar event created.')
     loadRequest()
-  } catch (error: any) {
-    setGcalMessage(`Create failed: ${error?.message || 'Unknown error'}`)
+  } catch (error: unknown) {
+    if (isGoogleOAuthReconnectError(error)) {
+      setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
+    } else {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Unknown error'
+      setGcalMessage(`Create failed: ${msg}`)
+    }
   } finally {
     setGcalCreating(false)
   }
@@ -920,10 +1048,6 @@ async function createGoogleCalendarEvent() {
 
 async function updateGoogleCalendarEvent() {
   const rt = String(request?.request_type || 'baptism')
-  if (rt === 'ocia') {
-    setGcalMessage('Google Calendar is not used for OCIA requests in V1.')
-    return
-  }
   if (rt === 'funeral') {
     if (!funeralDetail?.confirmed_service_at) {
       setGcalMessage('Set a confirmed funeral service time first.')
@@ -932,6 +1056,11 @@ async function updateGoogleCalendarEvent() {
   } else if (rt === 'wedding') {
     if (!weddingDetail?.confirmed_ceremony_at) {
       setGcalMessage('Set a confirmed wedding ceremony time first.')
+      return
+    }
+  } else if (rt === 'ocia') {
+    if (!ociaDetail?.confirmed_session_at) {
+      setGcalMessage('Set a confirmed OCIA meeting time first.')
       return
     }
   } else if (!request?.confirmed_baptism_date) {
@@ -956,14 +1085,24 @@ async function updateGoogleCalendarEvent() {
     const payload = await res.json().catch(() => ({} as any))
     if (!res.ok || !payload?.ok) {
       const err = payload?.error || `Update failed (${res.status})`
-      setGcalMessage(String(err))
+      setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
     setGcalMessage('Google Calendar event updated.')
     loadRequest()
-  } catch (error: any) {
-    setGcalMessage(`Update failed: ${error?.message || 'Unknown error'}`)
+  } catch (error: unknown) {
+    if (isGoogleOAuthReconnectError(error)) {
+      setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
+    } else {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Unknown error'
+      setGcalMessage(`Update failed: ${msg}`)
+    }
   } finally {
     setGcalUpdating(false)
   }
@@ -988,14 +1127,24 @@ async function deleteGoogleCalendarEvent() {
     const payload = await res.json().catch(() => ({} as any))
     if (!res.ok || !payload?.ok) {
       const err = payload?.error || `Delete failed (${res.status})`
-      setGcalMessage(String(err))
+      setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
     setGcalMessage('Google Calendar event removed and link cleared.')
     loadRequest()
-  } catch (error: any) {
-    setGcalMessage(`Delete failed: ${error?.message || 'Unknown error'}`)
+  } catch (error: unknown) {
+    if (isGoogleOAuthReconnectError(error)) {
+      setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
+    } else {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Unknown error'
+      setGcalMessage(`Delete failed: ${msg}`)
+    }
   } finally {
     setGcalDeleting(false)
   }
@@ -1032,7 +1181,7 @@ async function deleteGoogleCalendarEvent() {
 
   if (errorMessage) {
     return (
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="mx-auto max-w-3xl px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
         <p className="mb-3">
           <Link
             href="/dashboard"
@@ -1041,7 +1190,10 @@ async function deleteGoogleCalendarEvent() {
             ← Back to Dashboard
           </Link>
         </p>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">Request details</h1>
+        <header className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Request details</h1>
+          <p className="mt-1 text-sm text-gray-500">Manage and track this request</p>
+        </header>
         <div
           className="rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-950"
           role="alert"
@@ -1062,7 +1214,7 @@ async function deleteGoogleCalendarEvent() {
   const isOcia = requestType === 'ocia'
 
   return (
-    <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 text-gray-900">
+    <main className="mx-auto max-w-6xl px-4 pb-6 pt-4 text-gray-900 sm:px-6 sm:pb-8 sm:pt-5">
       <p className="mb-3">
         <Link
           href="/dashboard"
@@ -1071,235 +1223,283 @@ async function deleteGoogleCalendarEvent() {
           ← Back to Dashboard
         </Link>
       </p>
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">
-        Request details
-      </h1>
-      <div className="space-y-8 sm:space-y-10">
-      <RequestHeader
-        parishioner={parishioner}
-        request={request}
-        funeralDetail={funeralDetail}
-        weddingDetail={weddingDetail}
-        ociaDetail={ociaDetail}
-        intakeDetailsHidden={editingIntake}
-        onUpdateStatus={updateRequestStatus}
-      />
+      <header className="mb-6 sm:mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Request details</h1>
+        <p className="mt-1 text-sm text-gray-500">Manage and track this request</p>
+      </header>
 
-      {parishioner?.id ? (
-        editingIntake ? (
-          <div className="mb-6 sm:mb-8">
-            <EditRequestDetailsSection
-              open={editingIntake}
-              requestId={routeId}
-              requestType={
-                isBaptism ? 'baptism' : isFuneral ? 'funeral' : isWedding ? 'wedding' : 'ocia'
-              }
-              parishionerId={String(request?.parishioner_id ?? parishioner.id ?? '')}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-10">
+        <div className="flex flex-col lg:col-span-2">
+          <DetailSectionCard isFirst>
+            <RequestContactIntakeSection
               parishioner={parishioner}
               request={request}
               funeralDetail={funeralDetail}
               weddingDetail={weddingDetail}
               ociaDetail={ociaDetail}
-              onClose={() => setEditingIntake(false)}
-              onSaved={async () => {
-                await loadRequest()
-                setEditingIntake(false)
-              }}
+              intakeDetailsHidden={editingIntake}
             />
-          </div>
-        ) : (
-          <div className="mb-6 sm:mb-8">
-            <button
-              type="button"
-              onClick={() => setEditingIntake(true)}
-              className={secondaryButtonMd}
-            >
-              Edit request details
-            </button>
-          </div>
-        )
-      ) : null}
+          </DetailSectionCard>
 
-      <ChecklistSection
-        checklistItems={checklistItems}
-        onToggleChecklistItem={toggleChecklistItem}
-      />
-
-      <AssignmentSection
-        requestId={routeId}
-        assignedStaffName={request?.assigned_staff_name}
-        assignedPriestName={request?.assigned_priest_name}
-        onSaved={loadRequest}
-      />
-
-      <NextFollowUpSection
-        requestId={routeId}
-        nextFollowUpDate={request?.next_follow_up_date}
-        onSaved={loadRequest}
-      />
-
-      {isBaptism && (
-        <>
-          <SuggestedDatesSection
-            suggested1={suggested1}
-            suggested2={suggested2}
-            suggested3={suggested3}
-            setSuggested1={setSuggested1}
-            setSuggested2={setSuggested2}
-            setSuggested3={setSuggested3}
-            onSaveSuggestedDates={saveSuggestedDates}
-            saving={suggestedSaving}
-            message={suggestedMessage}
-          />
-
-          <ConfirmedBaptismDateSection
-            confirmedValue={confirmedBaptismDate}
-            setConfirmedValue={setConfirmedBaptismDate}
-            confirmedIso={request?.confirmed_baptism_date}
-            suggested1={suggested1}
-            suggested2={suggested2}
-            suggested3={suggested3}
-            onSave={saveConfirmedBaptismDate}
-            onClear={clearConfirmedBaptismDate}
-            saving={confirmedSaving}
-            message={confirmedMessage}
-          />
-        </>
-      )}
-
-      {isFuneral && (
-        <>
-          {!editingIntake ? (
-            <FuneralDetailsSection
-              deceasedName={funeralDeceasedName}
-              setDeceasedName={setFuneralDeceasedName}
-              dateOfDeath={funeralDateOfDeath}
-              setDateOfDeath={setFuneralDateOfDeath}
-              funeralHome={funeralHome}
-              setFuneralHome={setFuneralHome}
-              preferredServiceNotes={funeralPreferredNotes}
-              setPreferredServiceNotes={setFuneralPreferredNotes}
-              onSave={saveFuneralDetails}
-              saving={funeralSaving}
-              message={funeralMessage}
-            />
+          {parishioner?.id ? (
+            editingIntake ? (
+              <DetailSectionCard>
+                <EditRequestDetailsSection
+                  open={editingIntake}
+                  requestId={routeId}
+                  requestType={
+                    isBaptism ? 'baptism' : isFuneral ? 'funeral' : isWedding ? 'wedding' : 'ocia'
+                  }
+                  parishionerId={String(request?.parishioner_id ?? parishioner.id ?? '')}
+                  parishioner={parishioner}
+                  request={request}
+                  funeralDetail={funeralDetail}
+                  weddingDetail={weddingDetail}
+                  ociaDetail={ociaDetail}
+                  onClose={() => setEditingIntake(false)}
+                  onSaved={async () => {
+                    await loadRequest()
+                    setEditingIntake(false)
+                  }}
+                />
+              </DetailSectionCard>
+            ) : (
+              <DetailSectionCard>
+                <button
+                  type="button"
+                  onClick={() => setEditingIntake(true)}
+                  className={secondaryButtonMd}
+                >
+                  Edit request details
+                </button>
+              </DetailSectionCard>
+            )
           ) : null}
 
-          <ConfirmedFuneralServiceSection
-            confirmedValue={confirmedFuneralService}
-            setConfirmedValue={setConfirmedFuneralService}
-            confirmedIso={funeralDetail?.confirmed_service_at}
-            onSave={saveConfirmedFuneralService}
-            onClear={clearConfirmedFuneralService}
-            saving={funeralConfirmedSaving}
-            message={funeralConfirmedMessage}
-          />
-        </>
-      )}
-
-      {isWedding && (
-        <>
-          {!editingIntake ? (
-            <WeddingDetailsSection
-              partnerOneName={weddingPartnerOne}
-              setPartnerOneName={setWeddingPartnerOne}
-              partnerTwoName={weddingPartnerTwo}
-              setPartnerTwoName={setWeddingPartnerTwo}
-              proposedWeddingDate={weddingProposedDate}
-              setProposedWeddingDate={setWeddingProposedDate}
-              ceremonyNotes={weddingCeremonyNotes}
-              setCeremonyNotes={setWeddingCeremonyNotes}
-              onSave={saveWeddingDetails}
-              saving={weddingSaving}
-              message={weddingMessage}
-            />
+          {isFuneral && !editingIntake ? (
+            <DetailSectionCard>
+              <FuneralDetailsSection
+                deceasedName={funeralDeceasedName}
+                setDeceasedName={setFuneralDeceasedName}
+                dateOfDeath={funeralDateOfDeath}
+                setDateOfDeath={setFuneralDateOfDeath}
+                funeralHome={funeralHome}
+                setFuneralHome={setFuneralHome}
+                preferredServiceNotes={funeralPreferredNotes}
+                setPreferredServiceNotes={setFuneralPreferredNotes}
+                onSave={saveFuneralDetails}
+                saving={funeralSaving}
+                message={funeralMessage}
+              />
+            </DetailSectionCard>
           ) : null}
 
-          <ConfirmedWeddingCeremonySection
-            confirmedValue={confirmedWeddingCeremony}
-            setConfirmedValue={setConfirmedWeddingCeremony}
-            confirmedIso={weddingDetail?.confirmed_ceremony_at}
-            onSave={saveConfirmedWeddingCeremony}
-            onClear={clearConfirmedWeddingCeremony}
-            saving={weddingConfirmedSaving}
-            message={weddingConfirmedMessage}
-          />
-        </>
-      )}
+          {isWedding && !editingIntake ? (
+            <DetailSectionCard>
+              <WeddingDetailsSection
+                partnerOneName={weddingPartnerOne}
+                setPartnerOneName={setWeddingPartnerOne}
+                partnerTwoName={weddingPartnerTwo}
+                setPartnerTwoName={setWeddingPartnerTwo}
+                proposedWeddingDate={weddingProposedDate}
+                setProposedWeddingDate={setWeddingProposedDate}
+                ceremonyNotes={weddingCeremonyNotes}
+                setCeremonyNotes={setWeddingCeremonyNotes}
+                onSave={saveWeddingDetails}
+                saving={weddingSaving}
+                message={weddingMessage}
+              />
+            </DetailSectionCard>
+          ) : null}
 
-      {isOcia && !editingIntake ? <OciaDetailsSection detail={ociaDetail} /> : null}
+          {isOcia && !editingIntake ? (
+            <DetailSectionCard>
+              <OciaDetailsSection detail={ociaDetail} />
+            </DetailSectionCard>
+          ) : null}
 
-      <CommunicationSection
-        lastContactedAtIso={request?.last_contacted_at}
-        lastContactMethod={request?.last_contact_method}
-        communicationNotes={request?.communication_notes}
-        method={commMethod}
-        setMethod={setCommMethod}
-        contactedAtValue={commContactedAt}
-        setContactedAtValue={setCommContactedAt}
-        notes={commNotes}
-        setNotes={setCommNotes}
-        onLog={logCommunication}
-        saving={commSaving}
-        message={commMessage}
-        history={communications}
-      />
+          <DetailSectionCard>
+            <CommunicationSection
+              lastContactedAtIso={request?.last_contacted_at}
+              lastContactMethod={request?.last_contact_method}
+              communicationNotes={request?.communication_notes}
+              method={commMethod}
+              setMethod={setCommMethod}
+              contactedAtValue={commContactedAt}
+              setContactedAtValue={setCommContactedAt}
+              notes={commNotes}
+              setNotes={setCommNotes}
+              onLog={logCommunication}
+              saving={commSaving}
+              message={commMessage}
+              history={communications}
+            />
+          </DetailSectionCard>
 
-      <InternalNotesSection
-        requestId={routeId}
-        notes={requestNotes}
-        onAdded={loadRequest}
-      />
+          <DetailSectionCard>
+            <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
+          </DetailSectionCard>
+        </div>
 
-      <AiToolsSection
-        aiLoading={aiLoading}
-        aiSummary={aiSummary}
-        replyDraft={replyDraft}
-        copyMessage={copyMessage}
-        onGenerateSummary={generateSummary}
-        onGenerateReplyDraft={generateReplyDraft}
-        onCopyReplyDraft={copyReplyDraft}
-      />
+        <div className="flex flex-col lg:col-span-1">
+          <DetailSectionCard isFirst>
+            <RequestStatusSection request={request} onUpdateStatus={updateRequestStatus} />
+          </DetailSectionCard>
 
-      <SendEmailSection
-        toEmail={String(parishioner?.email || '')}
-        subject={emailSubject}
-        setSubject={setEmailSubject}
-        body={replyDraft}
-        onSend={sendEmail}
-        sending={emailSending}
-        message={emailMessage}
-      />
+          <DetailSectionCard>
+            <ChecklistSection
+              checklistItems={checklistItems}
+              onToggleChecklistItem={toggleChecklistItem}
+            />
+          </DetailSectionCard>
 
-      <GoogleCalendarSection
-        confirmedIso={
-          isOcia
-            ? undefined
-            : isFuneral
-              ? funeralDetail?.confirmed_service_at
-              : isWedding
-                ? weddingDetail?.confirmed_ceremony_at
-                : request?.confirmed_baptism_date
-        }
-        unconfirmedHint={
-          isOcia
-            ? 'Google Calendar sync is not available for OCIA requests in V1.'
-            : isFuneral
-              ? 'Set a confirmed funeral service time first to create or update a calendar event.'
-              : isWedding
-                ? 'Set a confirmed wedding ceremony time first to create or update a calendar event.'
-                : undefined
-        }
-        eventId={request?.google_calendar_event_id}
-        eventLink={request?.google_calendar_event_html_link}
-        onCreate={createGoogleCalendarEvent}
-        onUpdate={updateGoogleCalendarEvent}
-        onDelete={deleteGoogleCalendarEvent}
-        creating={gcalCreating}
-        updating={gcalUpdating}
-        deleting={gcalDeleting}
-        message={gcalMessage}
-      />
+          <DetailSectionCard>
+            <AssignmentSection
+              requestId={routeId}
+              assignedStaffName={request?.assigned_staff_name}
+              assignedPriestName={request?.assigned_priest_name}
+              onSaved={loadRequest}
+            />
+          </DetailSectionCard>
+
+          <DetailSectionCard>
+            <NextFollowUpSection
+              requestId={routeId}
+              nextFollowUpDate={request?.next_follow_up_date}
+              onSaved={loadRequest}
+            />
+          </DetailSectionCard>
+
+          {isBaptism ? (
+            <>
+              <DetailSectionCard>
+                <SuggestedDatesSection
+                  suggested1={suggested1}
+                  suggested2={suggested2}
+                  suggested3={suggested3}
+                  setSuggested1={setSuggested1}
+                  setSuggested2={setSuggested2}
+                  setSuggested3={setSuggested3}
+                  onSaveSuggestedDates={saveSuggestedDates}
+                  saving={suggestedSaving}
+                  message={suggestedMessage}
+                />
+              </DetailSectionCard>
+              <DetailSectionCard>
+                <ConfirmedBaptismDateSection
+                  confirmedValue={confirmedBaptismDate}
+                  setConfirmedValue={setConfirmedBaptismDate}
+                  confirmedIso={request?.confirmed_baptism_date}
+                  suggested1={suggested1}
+                  suggested2={suggested2}
+                  suggested3={suggested3}
+                  onSave={saveConfirmedBaptismDate}
+                  onClear={clearConfirmedBaptismDate}
+                  saving={confirmedSaving}
+                  message={confirmedMessage}
+                />
+              </DetailSectionCard>
+            </>
+          ) : null}
+
+          {isFuneral ? (
+            <DetailSectionCard>
+              <ConfirmedFuneralServiceSection
+                confirmedValue={confirmedFuneralService}
+                setConfirmedValue={setConfirmedFuneralService}
+                confirmedIso={funeralDetail?.confirmed_service_at}
+                onSave={saveConfirmedFuneralService}
+                onClear={clearConfirmedFuneralService}
+                saving={funeralConfirmedSaving}
+                message={funeralConfirmedMessage}
+              />
+            </DetailSectionCard>
+          ) : null}
+
+          {isWedding ? (
+            <DetailSectionCard>
+              <ConfirmedWeddingCeremonySection
+                confirmedValue={confirmedWeddingCeremony}
+                setConfirmedValue={setConfirmedWeddingCeremony}
+                confirmedIso={weddingDetail?.confirmed_ceremony_at}
+                onSave={saveConfirmedWeddingCeremony}
+                onClear={clearConfirmedWeddingCeremony}
+                saving={weddingConfirmedSaving}
+                message={weddingConfirmedMessage}
+              />
+            </DetailSectionCard>
+          ) : null}
+
+          {isOcia ? (
+            <DetailSectionCard>
+              <ConfirmedOciaSessionSection
+                confirmedValue={confirmedOciaSession}
+                setConfirmedValue={setConfirmedOciaSession}
+                confirmedIso={ociaDetail?.confirmed_session_at}
+                onSave={saveConfirmedOciaSession}
+                onClear={clearConfirmedOciaSession}
+                saving={ociaSessionSaving}
+                message={ociaSessionMessage}
+              />
+            </DetailSectionCard>
+          ) : null}
+
+          <DetailSectionCard>
+            <AiToolsSection
+              aiLoading={aiLoading}
+              aiSummary={aiSummary}
+              replyDraft={replyDraft}
+              copyMessage={copyMessage}
+              onGenerateSummary={generateSummary}
+              onGenerateReplyDraft={generateReplyDraft}
+              onCopyReplyDraft={copyReplyDraft}
+            />
+          </DetailSectionCard>
+
+          <DetailSectionCard>
+            <SendEmailSection
+              toEmail={String(parishioner?.email || '')}
+              subject={emailSubject}
+              setSubject={setEmailSubject}
+              body={replyDraft}
+              onSend={sendEmail}
+              sending={emailSending}
+              message={emailMessage}
+            />
+          </DetailSectionCard>
+
+          <DetailSectionCard>
+            <GoogleCalendarSection
+              confirmedIso={
+                isFuneral
+                  ? funeralDetail?.confirmed_service_at
+                  : isWedding
+                    ? weddingDetail?.confirmed_ceremony_at
+                    : isOcia
+                      ? ociaDetail?.confirmed_session_at
+                      : request?.confirmed_baptism_date
+              }
+              unconfirmedHint={
+                isFuneral
+                  ? 'Set a confirmed funeral service time first to create or update a calendar event.'
+                  : isWedding
+                    ? 'Set a confirmed wedding ceremony time first to create or update a calendar event.'
+                    : isOcia
+                      ? 'Set a confirmed OCIA meeting time first to create or update a calendar event.'
+                      : undefined
+              }
+              eventId={request?.google_calendar_event_id}
+              eventLink={request?.google_calendar_event_html_link}
+              onCreate={createGoogleCalendarEvent}
+              onUpdate={updateGoogleCalendarEvent}
+              onDelete={deleteGoogleCalendarEvent}
+              creating={gcalCreating}
+              updating={gcalUpdating}
+              deleting={gcalDeleting}
+              message={gcalMessage}
+            />
+          </DetailSectionCard>
+        </div>
       </div>
     </main>
   )

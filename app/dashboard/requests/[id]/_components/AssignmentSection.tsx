@@ -5,6 +5,12 @@ import { updateRequestAssignment } from '../../actions'
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { maybeMissingValue } from '@/lib/missingValue'
+import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
+import {
+  sectionHeadingRowClassName,
+  sectionHeadingTitleClassName,
+} from '@/lib/sectionHeader'
 
 export function AssignmentSection({
   requestId,
@@ -55,9 +61,9 @@ export function AssignmentSection({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-2xl font-semibold text-gray-900">Assignment</h2>
+    <div>
+      <div className={sectionHeadingRowClassName}>
+        <h2 className={sectionHeadingTitleClassName}>Assignment</h2>
         {!editing && (
           <button
             type="button"
@@ -72,7 +78,7 @@ export function AssignmentSection({
       {editing ? (
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-800" htmlFor="assign-staff">
+            <label className="mb-1 block text-sm text-gray-500" htmlFor="assign-staff">
               Assigned staff
             </label>
             <input
@@ -86,7 +92,7 @@ export function AssignmentSection({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-800" htmlFor="assign-priest">
+            <label className="mb-1 block text-sm text-gray-500" htmlFor="assign-priest">
               Assigned priest
             </label>
             <input
@@ -99,7 +105,7 @@ export function AssignmentSection({
               placeholder="Name or leave blank"
             />
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
               disabled={saving}
@@ -120,16 +126,16 @@ export function AssignmentSection({
           {message && <InlineFormMessage message={message} />}
         </div>
       ) : (
-        <dl className="space-y-2 text-sm text-gray-900 sm:text-base">
-          <div>
-            <dt className="font-semibold text-gray-900">Assigned staff</dt>
-            <dd className="text-gray-800">{assignmentDisplayLabel(assignedStaffName)}</dd>
-          </div>
-          <div>
-            <dt className="font-semibold text-gray-900">Assigned priest</dt>
-            <dd className="text-gray-800">{assignmentDisplayLabel(assignedPriestName)}</dd>
-          </div>
-        </dl>
+        <LabelValueGrid>
+          <LabelValueRow
+            label="Assigned staff"
+            value={maybeMissingValue(assignmentDisplayLabel(assignedStaffName))}
+          />
+          <LabelValueRow
+            label="Assigned priest"
+            value={maybeMissingValue(assignmentDisplayLabel(assignedPriestName))}
+          />
+        </LabelValueGrid>
       )}
     </div>
   )

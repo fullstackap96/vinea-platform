@@ -6,6 +6,7 @@ import {
   type SaveRequestIntakeDetailsInput,
 } from '@/app/dashboard/requests/actions'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import {
   CONTACT_METHOD_LABEL,
@@ -186,8 +187,8 @@ export function EditRequestDetailsSection({
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-      <h2 className="text-xl font-semibold mb-4 text-gray-900">Edit request details</h2>
-      <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+      <h2 className={sectionHeadingClassName}>Edit request details</h2>
+      <p className="mb-3 text-sm leading-relaxed text-gray-600">
         Correct intake information submitted by the family. Confirmed dates and checklist are
         unchanged here.
       </p>
@@ -458,7 +459,7 @@ export function EditRequestDetailsSection({
           </>
         )}
 
-        <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap">
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             disabled={saving}

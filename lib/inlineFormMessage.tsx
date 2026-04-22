@@ -16,6 +16,8 @@ function getInlineFeedbackStyle(message: string): {
     lower.includes('could not') ||
     lower.includes('missing.') ||
     lower.includes('is required.') ||
+    lower.includes('needs to be reconnected') ||
+    lower.includes('connection has expired') ||
     (lower.startsWith('please ') &&
       (lower.includes('enter') ||
         lower.includes('choose') ||

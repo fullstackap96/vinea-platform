@@ -138,7 +138,7 @@ export default function WeddingRequestPage() {
           onChange={(e) => setPhone(e.target.value)}
         />
 
-        <h2 className={`${intakeSectionHeadingClass} pt-2 border-t border-gray-100 mt-8`}>
+        <h2 className={`${intakeSectionHeadingClass} mt-6 border-t border-gray-100 pt-2`}>
           Couple
         </h2>
         <input

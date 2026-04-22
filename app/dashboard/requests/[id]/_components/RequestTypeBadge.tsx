@@ -20,7 +20,8 @@ export function RequestTypeBadge({ requestType }: { requestType?: string | null 
           : t === 'baptism'
             ? 'Baptism'
             : t
-  const palette = STYLES[t] || 'bg-gray-100 text-gray-900 border border-gray-300'
+  const palette =
+    STYLES[t] || 'bg-brand-muted text-brand-foreground border border-brand/30'
 
   return (
     <span className={`${chipBase} ${palette}`} title={`Request type: ${label}`}>

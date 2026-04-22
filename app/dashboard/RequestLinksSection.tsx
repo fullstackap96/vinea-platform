@@ -1,7 +1,9 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { dashboardCardHoverPolish } from '@/lib/cardStyles'
 import { secondaryButtonSm } from '@/lib/buttonStyles'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 const DOMAIN = 'https://usevinea.com'
 
@@ -33,18 +35,18 @@ export function RequestLinksSection() {
   }
 
   return (
-    <section className="mb-8" aria-labelledby="request-links-heading">
-      <h2
-        id="request-links-heading"
-        className="text-xl font-semibold text-gray-900 mb-1.5"
-      >
+    <section
+      className={`rounded-xl bg-white p-5 shadow-sm ${dashboardCardHoverPolish}`}
+      aria-labelledby="request-links-heading"
+    >
+      <h2 id="request-links-heading" className={sectionHeadingClassName}>
         Request Links
       </h2>
-      <p className="text-sm text-gray-600 mb-4 max-w-2xl leading-relaxed">
+      <p className="mb-3 max-w-2xl text-xs leading-relaxed text-gray-500">
         Share these links on your parish website so parishioners can submit requests.
       </p>
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <ul className="divide-y divide-gray-200">
+      <div className="overflow-hidden rounded-lg border border-gray-200">
+        <ul className="divide-y divide-gray-200 px-4 sm:px-5">
           {ROWS.map(({ key, label, path }) => {
             const fullUrl = `${DOMAIN}${path}`
             return (

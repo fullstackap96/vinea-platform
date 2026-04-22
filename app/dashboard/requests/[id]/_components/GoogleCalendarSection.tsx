@@ -1,5 +1,9 @@
 import React from 'react'
+import { Calendar } from 'lucide-react'
+import { dangerButtonMd, primaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { MissingValue } from '@/lib/missingValue'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 export function GoogleCalendarSection({
   confirmedIso,
@@ -36,11 +40,18 @@ export function GoogleCalendarSection({
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4 text-gray-900">Google Calendar</h2>
+      <h2 className={`${sectionHeadingClassName} flex items-center gap-2`}>
+        <Calendar className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+        Google Calendar
+      </h2>
 
-      <div className="border rounded p-4 space-y-3">
+      <div className="space-y-4">
         <p className="text-sm font-medium text-gray-900">
-          {synced ? 'Google Calendar Synced' : 'No Calendar Event Created'}
+          {synced ? (
+            'Google Calendar Synced'
+          ) : (
+            <MissingValue>No calendar event</MissingValue>
+          )}
         </p>
 
         {!hasConfirmed && (
@@ -64,17 +75,19 @@ export function GoogleCalendarSection({
                 </a>
               </p>
             ) : (
-              <p className="text-gray-800">(No event link saved.)</p>
+              <p className="text-gray-800">
+                <MissingValue>(No event link saved.)</MissingValue>
+              </p>
             )}
           </div>
         )}
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             onClick={onCreate}
             disabled={createDisabled}
-            className="inline-flex w-full items-center justify-center bg-black text-white px-4 py-2 rounded disabled:opacity-50 sm:w-auto"
+            className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
           >
             {creating ? 'Creating...' : 'Create Google Calendar Event'}
           </button>
@@ -85,7 +98,7 @@ export function GoogleCalendarSection({
                 type="button"
                 onClick={onUpdate}
                 disabled={updateDisabled}
-                className="inline-flex w-full items-center justify-center bg-black text-white px-4 py-2 rounded disabled:opacity-50 sm:w-auto"
+                className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
               >
                 {updating ? 'Updating...' : 'Update Calendar Event'}
               </button>
@@ -93,7 +106,7 @@ export function GoogleCalendarSection({
                 type="button"
                 onClick={onDelete}
                 disabled={deleteDisabled}
-                className="inline-flex w-full items-center justify-center border border-red-700 text-red-800 px-4 py-2 rounded disabled:opacity-50 sm:w-auto"
+                className={`${dangerButtonMd} w-full justify-center sm:w-auto`}
               >
                 {deleting ? 'Deleting...' : 'Delete Calendar Event'}
               </button>

@@ -1,5 +1,9 @@
 import React from 'react'
+import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { maybeMissingValue } from '@/lib/missingValue'
+import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 function formatConfirmedLabel(confirmedIso: string | null | undefined) {
   if (!confirmedIso) return 'Not set'
@@ -29,10 +33,13 @@ export function ConfirmedWeddingCeremonySection({
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-2 text-gray-900">Confirmed wedding ceremony time</h2>
-      <p className="text-sm text-gray-800 mb-4 [&_strong]:text-gray-900">
-        <strong>Confirmed:</strong> {formatConfirmedLabel(confirmedIso)}
-      </p>
+      <h2 className={sectionHeadingClassName}>Confirmed wedding ceremony time</h2>
+      <LabelValueGrid className="mb-3">
+        <LabelValueRow
+          label="Confirmed"
+          value={maybeMissingValue(formatConfirmedLabel(confirmedIso))}
+        />
+      </LabelValueGrid>
 
       <div className="space-y-3">
         <input
@@ -42,12 +49,12 @@ export function ConfirmedWeddingCeremonySection({
           onChange={(e) => setConfirmedValue(e.target.value)}
         />
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="inline-flex w-full items-center justify-center bg-black text-white px-4 py-2 rounded sm:w-auto"
+            className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
           >
             {saving ? 'Saving...' : 'Save confirmed time'}
           </button>
@@ -56,7 +63,7 @@ export function ConfirmedWeddingCeremonySection({
             type="button"
             onClick={onClear}
             disabled={saving || !canClear}
-            className="inline-flex w-full items-center justify-center border px-4 py-2 rounded sm:w-auto"
+            className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
           >
             Clear
           </button>

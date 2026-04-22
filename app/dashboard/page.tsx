@@ -2,9 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Metrics from './Metrics'
 import { RequestLinksSection } from './RequestLinksSection'
+import {
+  FieldLabel,
+  LabelValueGrid,
+  LabelValueRow,
+} from './requests/[id]/_components/LabelValueGrid'
 import { RequestTypeBadge } from './requests/[id]/_components/RequestTypeBadge'
 import {
   isMissingConfirmedSchedule,
@@ -12,14 +18,16 @@ import {
 } from '@/lib/requestConfirmedSchedule'
 import { primaryButtonMd, primaryButtonSm, secondaryButtonMd, secondaryButtonSm } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { FormattedDateTimeOrMissing, maybeMissingValue } from '@/lib/missingValue'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { chipBase } from '@/lib/chipStyles'
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import {
-  formatRequestStatus,
-  requestStatusBadgeClasses,
+  getStatusLabel,
   requestStatusRankForSort,
   REQUEST_STATUS_VALUES,
 } from '@/lib/requestStatus'
+import { RequestStatusBadgeWithTooltip } from '@/lib/RequestStatusBadgeWithTooltip'
 import {
   followUpSortPriority,
   formatNextFollowUpDateCompact,
@@ -29,6 +37,11 @@ import {
 } from '@/lib/nextFollowUpDate'
 import { needsAttentionEligible, sortNeedsAttentionRequests } from '@/lib/needsAttention'
 import { dashboardOverdueFollowUpCardClasses } from '@/lib/dashboardOverdueCardStyle'
+import {
+  dashboardCardHoverPolish,
+  dashboardRequestLinkCardP4,
+  dashboardRequestLinkCardP5,
+} from '@/lib/cardStyles'
 import {
   labelSacramentalBackground,
   labelSeeking,
@@ -88,37 +101,6 @@ export default function DashboardPage() {
 
   function wholeDaysSinceTimestamp(ts: number) {
     return Math.floor((Date.now() - ts) / DAY_MS)
-  }
-
-  function followUpContactDetailLine(request: any) {
-    const last = toTime(request.last_contacted_at)
-    if (last === null) return 'Never contacted'
-    const days = wholeDaysSinceTimestamp(last)
-    if (days <= 0) return 'Last contacted today'
-    if (days === 1) return 'Last contacted 1 day ago'
-    return `Last contacted ${days} days ago`
-  }
-
-  function followUpMissingDateDetailLine(request: any) {
-    const created = toTime(request.created_at)
-    if (created === null) return 'Request submitted — date unknown'
-    const days = wholeDaysSinceTimestamp(created)
-    if (days <= 0) return 'Request submitted today'
-    if (days === 1) return 'Request submitted 1 day ago'
-    return `Request submitted ${days} days ago`
-  }
-
-  function followUpChecklistDetailLine(request: any) {
-    const n = Number(request.checklist_incomplete_count ?? 0)
-    if (n === 1) return '1 item remaining'
-    return `${n} items remaining`
-  }
-
-  function formatDateTime(value: any) {
-    if (!value) return '—'
-    const d = new Date(String(value))
-    if (Number.isNaN(d.getTime())) return '—'
-    return d.toLocaleString()
   }
 
   function normalize(value: any) {
@@ -207,115 +189,141 @@ export default function DashboardPage() {
     const isWedding = rt === 'wedding'
     const isOcia = rt === 'ocia'
     return (
-      <div className="text-sm text-gray-900 space-y-1 leading-relaxed">
-        <p>
-          <strong>Contact:</strong> {request.parishioner?.full_name}
-        </p>
-        <p>
-          <strong>Email:</strong> {request.parishioner?.email}
-        </p>
-        <p>
-          <strong>Staff:</strong> {assignmentDisplayLabel(request.assigned_staff_name)}
-        </p>
-        <p>
-          <strong>Priest:</strong> {assignmentDisplayLabel(request.assigned_priest_name)}
-        </p>
+      <LabelValueGrid>
+        <LabelValueRow
+          label={<FieldLabel icon={User}>Contact</FieldLabel>}
+          value={maybeMissingValue(String(request.parishioner?.full_name ?? '').trim() || '—')}
+        />
+        <LabelValueRow
+          label={<FieldLabel icon={Mail}>Email</FieldLabel>}
+          value={maybeMissingValue(String(request.parishioner?.email ?? '').trim() || '—')}
+        />
+        <LabelValueRow
+          label="Staff"
+          value={maybeMissingValue(assignmentDisplayLabel(request.assigned_staff_name))}
+        />
+        <LabelValueRow
+          label="Priest"
+          value={maybeMissingValue(assignmentDisplayLabel(request.assigned_priest_name))}
+        />
         {isFuneral ? (
           <>
-            <p>
-              <strong>Deceased:</strong> {request.funeral_detail?.deceased_name || '—'}
-            </p>
-            <p>
-              <strong>Confirmed service:</strong>{' '}
-              {formatDateTime(request.funeral_detail?.confirmed_service_at)}
-            </p>
+            <LabelValueRow
+              label="Deceased"
+              value={maybeMissingValue(String(request.funeral_detail?.deceased_name ?? '').trim() || '—')}
+            />
+            <LabelValueRow
+              label={<FieldLabel icon={Calendar}>Confirmed service</FieldLabel>}
+              value={<FormattedDateTimeOrMissing value={request.funeral_detail?.confirmed_service_at} />}
+            />
           </>
         ) : isWedding ? (
           <>
-            <p>
-              <strong>Partners:</strong>{' '}
-              {[request.wedding_detail?.partner_one_name, request.wedding_detail?.partner_two_name]
-                .filter(Boolean)
-                .join(' & ') || '—'}
-            </p>
-            <p>
-              <strong>Confirmed ceremony:</strong>{' '}
-              {formatDateTime(request.wedding_detail?.confirmed_ceremony_at)}
-            </p>
-            <p>
-              <strong>Proposed date:</strong>{' '}
-              {request.wedding_detail?.proposed_wedding_date
-                ? String(request.wedding_detail.proposed_wedding_date)
-                : '—'}
-            </p>
+            <LabelValueRow
+              label="Partners"
+              value={maybeMissingValue(
+                [request.wedding_detail?.partner_one_name, request.wedding_detail?.partner_two_name]
+                  .filter(Boolean)
+                  .join(' & ') || '—'
+              )}
+            />
+            <LabelValueRow
+              label={<FieldLabel icon={Calendar}>Confirmed ceremony</FieldLabel>}
+              value={<FormattedDateTimeOrMissing value={request.wedding_detail?.confirmed_ceremony_at} />}
+            />
+            <LabelValueRow
+              label={<FieldLabel icon={Calendar}>Proposed date</FieldLabel>}
+              value={maybeMissingValue(
+                request.wedding_detail?.proposed_wedding_date
+                  ? String(request.wedding_detail.proposed_wedding_date)
+                  : '—'
+              )}
+            />
           </>
         ) : isOcia ? (
           <>
-            <p>
-              <strong>Seeking:</strong>{' '}
-              {labelSeeking(request.ocia_detail?.seeking)}
-            </p>
-            <p>
-              <strong>Sacramental background:</strong>{' '}
-              {labelSacramentalBackground(request.ocia_detail?.sacramental_background)}
-            </p>
-            <p>
-              <strong>Parishioner status:</strong>{' '}
-              {request.ocia_detail?.parishioner_status || '—'}
-            </p>
+            <LabelValueRow
+              label="Seeking"
+              value={maybeMissingValue(labelSeeking(request.ocia_detail?.seeking))}
+            />
+            <LabelValueRow
+              label="Sacramental background"
+              value={maybeMissingValue(
+                labelSacramentalBackground(request.ocia_detail?.sacramental_background)
+              )}
+            />
+            <LabelValueRow
+              label="Parishioner status"
+              value={maybeMissingValue(String(request.ocia_detail?.parishioner_status ?? '').trim() || '—')}
+            />
+            <LabelValueRow
+              label={<FieldLabel icon={Calendar}>Confirmed OCIA meeting</FieldLabel>}
+              value={<FormattedDateTimeOrMissing value={request.ocia_detail?.confirmed_session_at} />}
+            />
           </>
         ) : (
           <>
-            <p>
-              <strong>Child:</strong> {request.child_name}
-            </p>
-            <p>
-              <strong>Confirmed Date:</strong> {formatDateTime(request.confirmed_baptism_date)}
-            </p>
-            <p>
-              <strong>Preferred Dates:</strong> {request.preferred_dates}
-            </p>
+            <LabelValueRow
+              label="Child"
+              value={maybeMissingValue(String(request.child_name ?? '').trim() || '—')}
+            />
+            <LabelValueRow
+              label={<FieldLabel icon={Calendar}>Confirmed date</FieldLabel>}
+              value={<FormattedDateTimeOrMissing value={request.confirmed_baptism_date} />}
+            />
+            <LabelValueRow
+              label={<FieldLabel icon={Calendar}>Preferred dates</FieldLabel>}
+              value={maybeMissingValue(String(request.preferred_dates ?? '').trim() || '—')}
+            />
           </>
         )}
-        <p className="flex flex-wrap items-center gap-2">
-          <strong>Status:</strong>{' '}
-          <span className={requestStatusBadgeClasses(request.status)}>
-            {formatRequestStatus(request.status)}
-          </span>
-        </p>
-        {parseFollowUpCalendarDate(request.next_follow_up_date) ? (
-          <p className="flex flex-wrap items-center gap-2">
-            <strong>Follow-up:</strong>
-            {isNextFollowUpOverdue(request.next_follow_up_date, request.status) && (
-              <span
-                className={`${chipBase} bg-red-50 text-red-900 border border-red-200`}
-              >
-                Overdue
-              </span>
-            )}
-            {isNextFollowUpDueToday(request.next_follow_up_date, request.status) &&
-              !isNextFollowUpOverdue(
-                request.next_follow_up_date,
-                request.status
-              ) && (
-                <span
-                  className={`${chipBase} bg-amber-50 text-amber-900 border border-amber-200`}
-                >
-                  Due today
-                </span>
-              )}
-            <span className="text-gray-800">
-              {formatNextFollowUpDateCompact(request.next_follow_up_date)}
+        <LabelValueRow
+          label={<FieldLabel icon={Activity}>Status</FieldLabel>}
+          value={
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <RequestStatusBadgeWithTooltip status={request.status} />
             </span>
-          </p>
-        ) : null}
-        <p>
-          <strong>Last Contacted:</strong> {formatDateTime(request.last_contacted_at)}
-        </p>
-        <p>
-          <strong>Request ID:</strong> {request.id}
-        </p>
-      </div>
+          }
+        />
+        {parseFollowUpCalendarDate(request.next_follow_up_date) ? (
+          <LabelValueRow
+            label={<FieldLabel icon={Calendar}>Follow-up</FieldLabel>}
+            value={
+              <span className="flex flex-wrap items-center gap-2">
+                {isNextFollowUpOverdue(request.next_follow_up_date, request.status) && (
+                  <span
+                    className={`${chipBase} bg-red-50 text-red-900 border border-red-200`}
+                  >
+                    Overdue
+                  </span>
+                )}
+                {isNextFollowUpDueToday(request.next_follow_up_date, request.status) &&
+                  !isNextFollowUpOverdue(
+                    request.next_follow_up_date,
+                    request.status
+                  ) && (
+                    <span
+                      className={`${chipBase} bg-amber-50 text-amber-900 border border-amber-200`}
+                    >
+                      Due today
+                    </span>
+                  )}
+                <span>{formatNextFollowUpDateCompact(request.next_follow_up_date)}</span>
+              </span>
+            }
+          />
+        ) : (
+          <LabelValueRow
+            label={<FieldLabel icon={Calendar}>Follow-up</FieldLabel>}
+            value={maybeMissingValue('Not set')}
+          />
+        )}
+        <LabelValueRow
+          label={<FieldLabel icon={Calendar}>Last contacted</FieldLabel>}
+          value={<FormattedDateTimeOrMissing value={request.last_contacted_at} />}
+        />
+        <LabelValueRow label="Request ID" value={String(request.id)} />
+      </LabelValueGrid>
     )
   }
 
@@ -327,7 +335,7 @@ export default function DashboardPage() {
     if (isNew)
       badges.push({
         key: 'new',
-        label: 'New',
+        label: getStatusLabel('new'),
         className: 'bg-blue-50 text-blue-900 border border-blue-200',
       })
     if (needsConfirmed)
@@ -386,110 +394,40 @@ export default function DashboardPage() {
     )
   }
 
-  /** Queue rows: reason chips + New badge only (no overlapping status badges). */
-  function renderFollowUpQueueBody(request: any) {
+  /** Short highlight lines for Follow-Up Queue cards (scan-friendly). */
+  function followUpQueueHighlightLines(request: any): string[] {
     const { needsConfirmed, needsContact, checklistIncomplete } = getAttentionState(request)
-    const isNew = request.status === 'new'
-    const reasonChips: Array<{ key: string; label: string; className: string }> = []
+    const lines: string[] = []
     if (needsContact) {
-      reasonChips.push({
-        key: 'needs_contact',
-        label: 'Needs Contact',
-        className: 'bg-red-50 text-red-900 border border-red-200',
-      })
+      const last = toTime(request.last_contacted_at)
+      if (last === null) {
+        lines.push('Never contacted')
+      } else {
+        const days = wholeDaysSinceTimestamp(last)
+        lines.push(days <= 0 ? 'Last touch: today' : `${days}d since last contact`)
+      }
     }
     if (needsConfirmed) {
-      reasonChips.push({
-        key: 'missing_confirmed',
-        label: missingConfirmedScheduleCopy(request.request_type).chip,
-        className: 'bg-orange-50 text-orange-900 border border-orange-200',
-      })
+      lines.push(missingConfirmedScheduleCopy(request.request_type).badge)
     }
     if (checklistIncomplete) {
-      reasonChips.push({
-        key: 'checklist',
-        label: 'Checklist Incomplete',
-        className: 'bg-amber-50 text-amber-900 border border-amber-200',
-      })
+      const n = Number(request.checklist_incomplete_count ?? 0)
+      lines.push(n === 1 ? '1 checklist item open' : `${n} checklist items open`)
     }
     if (isNextFollowUpOverdue(request.next_follow_up_date, request.status)) {
-      reasonChips.push({
-        key: 'follow_up_overdue',
-        label: 'Follow-up Overdue',
-        className: 'bg-red-50 text-red-900 border border-red-200',
-      })
+      lines.push('Follow-up overdue')
     } else if (
       isNextFollowUpDueToday(request.next_follow_up_date, request.status)
     ) {
-      reasonChips.push({
-        key: 'follow_up_today',
-        label: 'Follow-up Due Today',
-        className: 'bg-amber-50 text-amber-900 border border-amber-200',
-      })
+      lines.push('Follow-up due today')
     }
-
-    const hasDraft = Boolean(String(request.reply_draft || '').trim())
-
-    return (
-      <>
-        <div className="mb-2">
-          <RequestTypeBadge requestType={request.request_type} />
-        </div>
-        <div className="flex gap-2 flex-wrap mb-2" aria-label="Follow-up reasons">
-          {reasonChips.map((c) => (
-            <span
-              key={c.key}
-              className={`${chipBase} ${c.className}`}
-            >
-              {c.label}
-            </span>
-          ))}
-          {isNew && (
-            <span
-              className={`${chipBase} bg-blue-50 text-blue-900 border border-blue-200`}
-            >
-              New
-            </span>
-          )}
-        </div>
-        <ul className="text-sm text-gray-900 space-y-1 mb-2 list-disc list-inside">
-          {needsContact && (
-            <li>
-              <span className="font-semibold text-gray-900">Needs contact</span>
-              {' — '}
-              {followUpContactDetailLine(request)}
-            </li>
-          )}
-          {needsConfirmed && (
-            <li>
-              <span className="font-semibold text-gray-900">
-                {missingConfirmedScheduleCopy(request.request_type).listHeading}
-              </span>
-              {' — '}
-              {followUpMissingDateDetailLine(request)}
-            </li>
-          )}
-          {checklistIncomplete && (
-            <li>
-              <span className="font-semibold text-gray-900">Checklist incomplete</span>
-              {' — '}
-              {followUpChecklistDetailLine(request)}
-            </li>
-          )}
-        </ul>
-        <p className="text-sm text-gray-900 mb-2">
-          <strong>Follow-up draft:</strong>{' '}
-          {hasDraft ? 'Ready to send.' : 'No draft saved yet.'}
-        </p>
-        {renderRequestDetailLines(request)}
-      </>
-    )
+    return lines
   }
 
   function renderNeedsAttentionCard(request: any) {
     const id = String(request.id)
     const name = String(request.parishioner?.full_name ?? '').trim() || '—'
-    const priest = String(request.assigned_priest_name ?? '').trim()
+    const priestLabel = assignmentDisplayLabel(request.assigned_priest_name)
     const overdue = isNextFollowUpOverdue(request.next_follow_up_date, request.status)
     const dueToday = isNextFollowUpDueToday(request.next_follow_up_date, request.status)
     const hasFollowUpDate = Boolean(parseFollowUpCalendarDate(request.next_follow_up_date))
@@ -498,62 +436,61 @@ export default function DashboardPage() {
       : 'Not set'
 
     return (
-      <div
+      <Link
         key={id}
-        className={`rounded-lg border border-gray-200 p-4 shadow-sm sm:p-5 ${
-          overdue ? dashboardOverdueFollowUpCardClasses : 'bg-white'
-        }`}
+        href={`/dashboard/requests/${id}`}
+        className={`${dashboardRequestLinkCardP5} ${
+          overdue ? dashboardOverdueFollowUpCardClasses : ''
+        }`.trim()}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
           <div className="min-w-0 flex-1 space-y-2">
             <div>
               <RequestTypeBadge requestType={request.request_type} />
             </div>
-            <p className="text-sm font-semibold text-gray-900 break-words">{name}</p>
-            <p className="flex flex-wrap items-center gap-2 text-sm text-gray-800">
-              <span className="font-semibold text-gray-900">Status</span>
-              <span className={requestStatusBadgeClasses(request.status)}>
-                {formatRequestStatus(request.status)}
+            <p className="text-lg font-semibold text-gray-900 break-words">
+              {maybeMissingValue(name)}
+            </p>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-sm text-gray-500">Status</span>
+              <RequestStatusBadgeWithTooltip status={request.status} />
+            </p>
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+              <span className="text-gray-500">Staff</span>
+              <span className="font-medium text-gray-800">
+                {maybeMissingValue(assignmentDisplayLabel(request.assigned_staff_name))}
               </span>
             </p>
-            <p className="text-sm text-gray-800">
-              <strong className="text-gray-900">Staff:</strong>{' '}
-              {assignmentDisplayLabel(request.assigned_staff_name)}
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+              <span className="text-gray-500">Priest</span>
+              <span className="font-medium text-gray-800">{maybeMissingValue(priestLabel)}</span>
             </p>
-            {priest ? (
-              <p className="text-sm text-gray-800">
-                <strong className="text-gray-900">Priest:</strong> {priest}
-              </p>
-            ) : null}
-            <p className="flex flex-wrap items-center gap-2 text-sm text-gray-800">
-              <strong className="text-gray-900">Follow-up:</strong>
-              {overdue ? (
-                <span
-                  className={`${chipBase} bg-red-50 text-red-900 border border-red-200`}
-                >
-                  Overdue
-                </span>
-              ) : null}
-              {dueToday && !overdue ? (
-                <span
-                  className={`${chipBase} bg-amber-50 text-amber-900 border border-amber-200`}
-                >
-                  Due today
-                </span>
-              ) : null}
-              <span className="text-gray-800">{dateLabel}</span>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
+              <span className="shrink-0 text-gray-500">Follow-up</span>
+              <span className="inline-flex flex-wrap items-center gap-2">
+                {overdue ? (
+                  <span
+                    className={`${chipBase} bg-red-50 text-red-900 border border-red-200`}
+                  >
+                    Overdue
+                  </span>
+                ) : null}
+                {dueToday && !overdue ? (
+                  <span
+                    className={`${chipBase} bg-amber-50 text-amber-900 border border-amber-200`}
+                  >
+                    Due today
+                  </span>
+                ) : null}
+                <span className="font-medium text-gray-800">{maybeMissingValue(dateLabel)}</span>
+              </span>
             </p>
           </div>
-          <div className="shrink-0 sm:pt-0.5">
-            <Link
-              href={`/dashboard/requests/${id}`}
-              className="inline-flex text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
-            >
-              Open full request
-            </Link>
+          <div className="shrink-0 w-full sm:w-auto sm:pt-0.5">
+            <span className={`${secondaryButtonMd} w-full sm:w-auto`}>Open Request</span>
           </div>
         </div>
-      </div>
+      </Link>
     )
   }
 
@@ -566,9 +503,9 @@ export default function DashboardPage() {
       <Link
         key={request.id}
         href={`/dashboard/requests/${request.id}`}
-        className={`block rounded-lg border border-gray-200 p-4 shadow-sm transition-colors hover:border-gray-300 sm:p-5 ${
-          followUpOverdue ? dashboardOverdueFollowUpCardClasses : 'bg-white'
-        }`}
+        className={`${dashboardRequestLinkCardP4} ${
+          followUpOverdue ? dashboardOverdueFollowUpCardClasses : ''
+        }`.trim()}
       >
         {renderRequestSummary(request)}
       </Link>
@@ -867,15 +804,24 @@ export default function DashboardPage() {
       request.status
     )
 
+    const displayName =
+      String(request.parishioner?.full_name ?? '').trim() || '—'
+    const email = String(request.parishioner?.email ?? '').trim()
+    const phone = String(request.parishioner?.phone ?? '').trim()
+    const staff = assignmentDisplayLabel(request.assigned_staff_name)
+    const priest = assignmentDisplayLabel(request.assigned_priest_name)
+    const highlightLines = followUpQueueHighlightLines(request)
+    const emailSubject = followUpEmailSubject(request)
+
     return (
       <div
         key={id}
-        className={`space-y-3 rounded-lg border border-gray-200 p-4 shadow-sm sm:p-5 ${
+        className={`rounded-xl border border-gray-200 p-4 shadow-sm ${dashboardCardHoverPolish} ${
           followUpOverdue ? dashboardOverdueFollowUpCardClasses : 'bg-white'
         }`}
       >
         <div className="flex gap-3 items-start">
-          <label className="flex items-center gap-2 pt-0.5 shrink-0 cursor-pointer select-none">
+          <label className="flex items-center gap-2 pt-1 shrink-0 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={selectedFollowUpIds.has(id)}
@@ -885,54 +831,122 @@ export default function DashboardPage() {
             />
             <span className="sr-only">Select for batch actions</span>
           </label>
-          <div className="min-w-0 flex-1 space-y-3">
-        <div className="min-w-0">
-          <div className="text-base font-medium leading-snug text-gray-900 break-words">
-            {String(request.parishioner?.full_name ?? '').trim() || '—'}
-          </div>
-          <Link
-            href={`/dashboard/requests/${id}`}
-            className="mt-1 inline-block text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
-          >
-            Open full request
-          </Link>
-        </div>
-        {renderFollowUpQueueBody(request)}
-        <p className="text-sm text-gray-900 break-words">
-          <strong>Send subject:</strong> {followUpEmailSubject(request)}
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <button
-            type="button"
-            disabled={loading || followUpGlobalBusy}
-            onClick={() => draftFollowUpEmail(request)}
-            className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
-          >
-            {followUpDraftingId === id ? 'Drafting...' : 'Draft follow-up email'}
-          </button>
-          <button
-            type="button"
-            disabled={sendDisabled}
-            onClick={() => sendFollowUpEmail(request)}
-            className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
-          >
-            {followUpSendingId === id ? 'Sending...' : 'Send follow-up email'}
-          </button>
-          <button
-            type="button"
-            disabled={loading || followUpGlobalBusy}
-            onClick={() => markFollowUpAsContacted(request)}
-            className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
-          >
-            {followUpMarkingId === id ? 'Saving...' : 'Mark as Contacted'}
-          </button>
-        </div>
-        {followUpRowMessages[id] && (
-          <InlineFormMessage
-            message={followUpRowMessages[id]}
-            className="!mt-2"
-          />
-        )}
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="space-y-1.5">
+              <p className="text-base font-bold text-gray-900 break-words">
+                {maybeMissingValue(displayName)}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <RequestTypeBadge requestType={request.request_type} />
+                <RequestStatusBadgeWithTooltip status={request.status} />
+              </div>
+            </div>
+
+            {highlightLines.length > 0 ? (
+              <div className="rounded-md bg-gray-50 px-3 py-2">
+                <p className="mb-1 text-xs uppercase text-gray-400">Highlights</p>
+                <ul className="space-y-1" aria-label="Queue highlights">
+                  {highlightLines.map((line, idx) => (
+                    <li key={idx} className="flex gap-2 text-sm text-gray-700">
+                      <span className="shrink-0 text-gray-400" aria-hidden>
+                        ·
+                      </span>
+                      <span className="min-w-0 leading-snug">{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div>
+              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
+                <User className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                Contact
+              </p>
+              <div className="space-y-1">
+                {email ? (
+                  <p className="flex gap-1.5 break-all text-sm font-medium text-gray-800">
+                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                    <span className="min-w-0">{email}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs">{maybeMissingValue('No email on file')}</p>
+                )}
+                {phone ? (
+                  <p className="flex gap-1.5 text-xs text-gray-600">
+                    <Phone className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                    <span className="min-w-0">{phone}</span>
+                  </p>
+                ) : null}
+                <p className="text-xs text-gray-600">
+                  <span className="text-gray-500">Staff</span>{' '}
+                  <span className="font-medium text-gray-800">{maybeMissingValue(staff)}</span>
+                  {' · '}
+                  <span className="text-gray-500">Priest</span>{' '}
+                  <span className="font-medium text-gray-800">{maybeMissingValue(priest)}</span>
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
+                Email subject
+              </p>
+              <p
+                className="line-clamp-2 text-sm font-medium leading-snug text-gray-800"
+                title={emailSubject}
+              >
+                {emailSubject}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Actions
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <button
+                  type="button"
+                  disabled={loading || followUpGlobalBusy}
+                  onClick={() => draftFollowUpEmail(request)}
+                  className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
+                >
+                  {followUpDraftingId === id ? 'Drafting...' : 'Draft follow-up email'}
+                </button>
+                <button
+                  type="button"
+                  disabled={sendDisabled}
+                  onClick={() => sendFollowUpEmail(request)}
+                  className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
+                >
+                  {followUpSendingId === id ? 'Sending...' : 'Send follow-up email'}
+                </button>
+                <button
+                  type="button"
+                  disabled={loading || followUpGlobalBusy}
+                  onClick={() => markFollowUpAsContacted(request)}
+                  className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
+                >
+                  {followUpMarkingId === id ? 'Saving...' : 'Mark as Contacted'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500">
+                {hasDraft ? 'Draft ready to send' : maybeMissingValue('No draft saved yet')}
+              </p>
+              <Link
+                href={`/dashboard/requests/${id}`}
+                className="inline-block text-xs font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
+              >
+                Open full request
+              </Link>
+            </div>
+
+            {followUpRowMessages[id] ? (
+              <InlineFormMessage
+                message={followUpRowMessages[id]}
+                className="!mt-0"
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -1251,105 +1265,138 @@ export default function DashboardPage() {
     { value: 'all' as const, label: 'All' },
     ...REQUEST_STATUS_VALUES.map((value) => ({
       value,
-      label: formatRequestStatus(value),
+      label: getStatusLabel(value),
     })),
   ]
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-6">
-        Dashboard
-      </h1>
+    <main className="mx-auto min-h-full w-full max-w-5xl bg-gray-50 px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
+      <header className="mb-4 sm:mb-5">
+        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Dashboard</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Overview of parish requests and activity
+        </p>
+      </header>
+
+      <div className="space-y-4 sm:space-y-5">
+      <section
+        className="rounded-xl bg-white p-5 shadow-sm"
+        aria-labelledby="action-required-heading"
+        aria-busy={loading}
+      >
+        <h2 id="action-required-heading" className={sectionHeadingClassName}>
+          Action Required
+        </h2>
+        <p className="text-sm text-gray-600 max-w-2xl leading-relaxed">
+          These requests need your attention today.
+        </p>
+        <div className="mt-3 space-y-3">
+          {loading ? (
+            <div
+              role="status"
+              aria-live="polite"
+              aria-label="Loading action required requests"
+              className="space-y-4"
+            >
+              {[0, 1].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm animate-pulse"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="h-6 w-28 rounded-md bg-gray-200" />
+                      <div className="h-4 w-[85%] max-w-xs rounded-md bg-gray-200 sm:w-72" />
+                      <div className="h-4 w-40 rounded-md bg-gray-200" />
+                      <div className="h-4 w-52 rounded-md bg-gray-200" />
+                      <div className="h-4 w-44 rounded-md bg-gray-200" />
+                    </div>
+                    <div className="h-10 w-full shrink-0 rounded-md bg-gray-200 sm:mt-0.5 sm:w-[8.75rem]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : needsAttentionSorted.length === 0 ? (
+            <div
+              className="mx-auto max-w-2xl rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
+              role="status"
+            >
+              <p className="text-sm font-medium text-gray-900">
+                No requests need attention
+              </p>
+              <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
+                Open requests appear here when a follow-up is overdue or due today, or when
+                no staff member is assigned. If those are up to date, an empty list means you
+                are in good shape.
+              </p>
+            </div>
+          ) : (
+            needsAttentionSorted.map((request) => renderNeedsAttentionCard(request))
+          )}
+        </div>
+      </section>
+
       {/* Metrics summary (global counts from the full loaded requests array) */}
       <Metrics requests={requests} loading={loading} />
 
       <RequestLinksSection />
 
-      <div
-        className="inline-flex rounded-lg border border-gray-200 bg-gray-100/90 p-1 gap-1 mb-8 flex-wrap sm:flex-nowrap"
-        role="group"
-        aria-label="Filter by status"
-      >
-        {statusFilterOptions.map(({ value, label }) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setStatusFilter(value)}
-            className={
-              statusFilter === value
-                ? 'rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-gray-200/90'
-                : 'rounded-md px-4 py-2 text-sm font-medium text-gray-800 hover:text-gray-950 hover:bg-white/80'
-            }
-          >
-            {label}
-          </button>
-        ))}
+      <div className="rounded-xl bg-white p-4 shadow-sm">
+        <div
+          className="inline-flex w-full flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1 sm:flex-nowrap"
+          role="group"
+          aria-label="Filter by status"
+        >
+          {statusFilterOptions.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setStatusFilter(value)}
+              className={
+                statusFilter === value
+                  ? 'rounded-lg bg-brand-muted px-3.5 py-1.5 text-xs font-semibold text-brand-foreground shadow-sm ring-1 ring-brand/25 transition-all duration-150 active:scale-[0.98] sm:px-4 sm:py-2 sm:text-sm'
+                  : 'rounded-lg px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all duration-150 hover:bg-brand-muted/40 hover:text-gray-900 active:scale-[0.98] sm:px-4 sm:py-2 sm:text-sm'
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
         <div
-          className="space-y-8"
+          className="space-y-5 rounded-xl bg-white p-5 shadow-sm"
           aria-busy="true"
           aria-live="polite"
           aria-label="Loading dashboard"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             {Array.from({ length: 7 }).map((_, i) => (
               <div
                 key={i}
-                className="h-[4.5rem] rounded-lg border border-gray-200 bg-white shadow-sm animate-pulse"
+                className="h-[5.25rem] rounded-lg border border-gray-200 bg-gray-50 animate-pulse"
               />
             ))}
           </div>
           <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-4 shadow-sm">
             <span
               className="h-5 w-5 shrink-0 rounded-full border-2 border-gray-200 border-t-gray-800 animate-spin"
-              aria-hidden
+              aria-hidden="true"
             />
             <p className="text-sm font-medium text-gray-900">Loading requests…</p>
           </div>
         </div>
       ) : (
         <>
-          <section className="mb-12" aria-labelledby="needs-attention-heading">
-            <h2
-              id="needs-attention-heading"
-              className="text-xl font-semibold text-gray-900 mb-1.5"
-            >
-              Needs Attention ({needsAttentionSorted.length})
-            </h2>
-            <p className="text-sm text-gray-600 mb-5 max-w-2xl leading-relaxed">
-              Overdue, due today, or unassigned requests. Sorted by urgency, then newest first.
-            </p>
-            {needsAttentionSorted.length === 0 ? (
-              <div
-                className="mx-auto max-w-2xl rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
-                role="status"
-              >
-                <p className="text-sm font-medium text-gray-900">
-                  No requests need attention
-                </p>
-                <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
-                  Open requests appear here when a follow-up is overdue or due today, or when
-                  no staff member is assigned. If those are up to date, an empty list means you
-                  are in good shape.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {needsAttentionSorted.map((request) => renderNeedsAttentionCard(request))}
-              </div>
-            )}
-          </section>
-
-          <section className="mb-12" aria-labelledby="follow-up-queue-heading">
-            <h2
-              id="follow-up-queue-heading"
-              className="text-xl font-semibold text-gray-900 mb-1.5"
-            >
+          <section
+            className="rounded-xl bg-white p-5 shadow-sm"
+            aria-labelledby="follow-up-queue-heading"
+          >
+            <h2 id="follow-up-queue-heading" className={sectionHeadingClassName}>
               Follow-Up Queue ({followUpVisible.length})
             </h2>
-            <p className="text-sm text-gray-600 mb-5 max-w-2xl leading-relaxed">
+            <p className="mb-3 max-w-2xl text-xs leading-relaxed text-gray-500">
               Open requests (not complete) that need contact, a confirmed date, or checklist work.
               Uses the same status filter and search as the request list.
             </p>
@@ -1416,7 +1463,7 @@ export default function DashboardPage() {
             )}
             {followUpVisible.length === 0 ? (
               <div
-                className="mx-auto max-w-2xl rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
+                className="mx-auto max-w-2xl rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
                 role="status"
               >
                 <p className="text-sm font-medium text-gray-900">
@@ -1435,16 +1482,16 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <section className="mb-12" aria-labelledby="dashboard-requests-heading">
-            <h2
-              id="dashboard-requests-heading"
-              className="text-xl font-semibold text-gray-900 mb-6"
-            >
+          <section
+            className="rounded-xl bg-white p-5 shadow-sm"
+            aria-labelledby="dashboard-requests-heading"
+          >
+            <h2 id="dashboard-requests-heading" className={sectionHeadingClassName}>
               Requests ({visibleRequests.length})
             </h2>
             {visibleRequests.length === 0 ? (
               <div
-                className="mx-auto max-w-2xl rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
+                className="mx-auto max-w-2xl rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
                 role="status"
               >
                 <p className="text-sm font-medium text-gray-900">
@@ -1460,7 +1507,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch mb-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch mb-4">
                   <input
                     className="w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
                     placeholder="Search parent, child, or email..."
@@ -1498,6 +1545,7 @@ export default function DashboardPage() {
           </section>
         </>
       )}
+      </div>
     </main>
   )
 }

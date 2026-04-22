@@ -1,4 +1,6 @@
 import React from 'react'
+import { primaryButtonMd } from '@/lib/buttonStyles'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 export function StaffNotesSection({
   staffNotes,
@@ -11,7 +13,7 @@ export function StaffNotesSection({
 }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4 text-gray-900">Internal Staff Notes</h2>
+      <h2 className={sectionHeadingClassName}>Internal Staff Notes</h2>
 
       <textarea
         value={staffNotes}
@@ -23,7 +25,7 @@ export function StaffNotesSection({
       <button
         type="button"
         onClick={onSaveStaffNotes}
-        className="mt-3 inline-flex w-full items-center justify-center bg-black text-white px-4 py-2 rounded sm:w-auto"
+        className={`${primaryButtonMd} mt-3 w-full justify-center sm:w-auto`}
       >
         Save Notes
       </button>

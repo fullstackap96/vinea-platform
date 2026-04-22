@@ -3,7 +3,7 @@
  * Baptism: requests.confirmed_baptism_date
  * Funeral: funeral_request_details.confirmed_service_at
  * Wedding: wedding_request_details.confirmed_ceremony_at
- * OCIA (V1): no confirmed liturgy milestone — excluded from “missing schedule” attention.
+ * OCIA: ocia_request_details.confirmed_session_at
  */
 
 export type RequestScheduleRow = {
@@ -11,12 +11,13 @@ export type RequestScheduleRow = {
   confirmed_baptism_date?: string | null
   funeral_detail?: { confirmed_service_at?: string | null } | null
   wedding_detail?: { confirmed_ceremony_at?: string | null } | null
+  ocia_detail?: { confirmed_session_at?: string | null } | null
 }
 
 export function hasConfirmedSchedule(request: RequestScheduleRow): boolean {
   const t = String(request.request_type || 'baptism').toLowerCase()
   if (t === 'ocia') {
-    return true
+    return Boolean(request.ocia_detail?.confirmed_session_at)
   }
   if (t === 'funeral') {
     return Boolean(request.funeral_detail?.confirmed_service_at)
@@ -36,10 +37,11 @@ export function missingConfirmedScheduleCopy(requestType: string | null | undefi
   const t = String(requestType || 'baptism').toLowerCase()
   if (t === 'ocia') {
     return {
-      badge: 'No calendar milestone',
-      chip: 'OCIA (no schedule milestone)',
-      listHeading: 'OCIA intake',
-      followUpContextLine: '- OCIA requests do not use a confirmed liturgy date in V1.',
+      badge: 'No confirmed OCIA meeting',
+      chip: 'Missing Confirmed OCIA Meeting',
+      listHeading: 'Missing confirmed OCIA meeting',
+      followUpContextLine:
+        '- There is no confirmed OCIA meeting time set yet.',
     }
   }
   if (t === 'funeral') {

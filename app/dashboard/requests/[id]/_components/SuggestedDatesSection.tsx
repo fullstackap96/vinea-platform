@@ -1,5 +1,7 @@
 import React from 'react'
+import { primaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 export function SuggestedDatesSection({
   suggested1,
@@ -24,7 +26,7 @@ export function SuggestedDatesSection({
 }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4 text-gray-900">Suggested Dates</h2>
+      <h2 className={sectionHeadingClassName}>Suggested Dates</h2>
 
       <div className="space-y-3">
         <input
@@ -56,7 +58,7 @@ export function SuggestedDatesSection({
         type="button"
         onClick={onSaveSuggestedDates}
         disabled={saving}
-        className="mt-3 inline-flex w-full items-center justify-center bg-black text-white px-4 py-2 rounded sm:w-auto"
+        className={`${primaryButtonMd} mt-3 w-full justify-center sm:w-auto`}
       >
         {saving ? 'Saving...' : 'Save Suggested Dates'}
       </button>

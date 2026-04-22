@@ -54,6 +54,7 @@ Seeking: ${body.seeking || '—'}
 Parishioner status: ${body.parishionerStatus || '—'}
 Preferred contact: ${body.preferredContactMethod || '—'}
 Availability: ${body.availability || '—'}
+Confirmed OCIA meeting: ${body.confirmedSessionAt || '—'}
 Notes: ${body.notes}`
   }
   return `Request data:

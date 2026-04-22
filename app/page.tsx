@@ -5,6 +5,8 @@ import {
   PARISH_OPERATIONS_DESCRIPTOR,
   PRODUCT_NAME,
 } from '@/lib/productBranding'
+import { primaryButtonLanding, secondaryButtonLanding } from '@/lib/buttonStyles'
+import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 export default function Home() {
   return (
@@ -74,16 +76,10 @@ export default function Home() {
               pastoral thread.
             </p>
             <div className="mt-7 flex flex-col sm:flex-row gap-3 sm:flex-wrap">
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center w-full sm:w-auto bg-black text-white px-6 py-3 rounded text-base font-medium hover:bg-gray-800 transition-colors"
-              >
+              <Link href="/login" className={primaryButtonLanding}>
                 Staff Sign In
               </Link>
-              <Link
-                href="#intake"
-                className="inline-flex items-center justify-center w-full sm:w-auto border border-gray-800 text-gray-900 px-6 py-3 rounded text-base font-medium hover:bg-gray-50 transition-colors"
-              >
+              <Link href="#intake" className={secondaryButtonLanding}>
                 View Request Forms
               </Link>
             </div>
@@ -99,14 +95,12 @@ export default function Home() {
           className="border-t bg-white py-16 sm:py-20 scroll-mt-20"
         >
           <div className="max-w-5xl mx-auto px-4 sm:px-6">
-            <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl">
-              Family-facing intake
-            </h2>
-            <p className="mt-2 text-gray-600 max-w-2xl">
+            <h2 className={sectionHeadingClassName}>Family-facing intake</h2>
+            <p className="text-gray-600 max-w-2xl">
               Share these links with parishioners. Each sacramental path has a dedicated form;
               every submission creates a structured request your team sees on the dashboard.
             </p>
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
               <WorkflowCard
                 title="Baptism requests"
                 description="Parents share child details, preferred timing, and notes for preparation."
@@ -142,14 +136,12 @@ export default function Home() {
         {/* Features */}
         <section className="border-t bg-gray-50 py-16 sm:py-20">
           <div className="max-w-5xl mx-auto px-4 sm:px-6">
-            <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl">
-              Built for parish staff
-            </h2>
-            <p className="mt-2 text-gray-600 max-w-2xl">
+            <h2 className={sectionHeadingClassName}>Built for parish staff</h2>
+            <p className="text-gray-600 max-w-2xl">
               Everything ties back to a single request record—so nothing falls through
               the cracks between the front desk and the pastor.
             </p>
-            <ul className="mt-10 grid gap-6 sm:grid-cols-2">
+            <ul className="mt-6 grid gap-6 sm:grid-cols-2">
               <FeatureItem
                 title="Intake forms"
                 body="Structured submissions for baptism, funeral, wedding, and OCIA—no more scattered emails or sticky notes."
@@ -173,36 +165,22 @@ export default function Home() {
         {/* Footer CTA */}
         <section className="border-t bg-white py-16 sm:py-20">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center sm:text-left">
-            <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl">
-              Ready to see your dashboard?
-            </h2>
-            <p className="mt-3 text-gray-600 max-w-xl mx-auto sm:mx-0">
+            <h2 className={sectionHeadingClassName}>Ready to see your dashboard?</h2>
+            <p className="mx-auto max-w-xl text-gray-600 sm:mx-0">
               Sign in with your parish staff account to review requests, run follow-ups,
               and keep sacramental care coordinated.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap justify-center sm:justify-start">
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center bg-black text-white px-6 py-3 rounded text-base font-medium hover:bg-gray-800 transition-colors"
-              >
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap justify-center sm:justify-start">
+              <Link href="/login" className={primaryButtonLanding}>
                 Staff Sign In
               </Link>
-              <Link
-                href="/baptism-request"
-                className="inline-flex items-center justify-center border border-gray-800 text-gray-900 px-6 py-3 rounded text-base font-medium hover:bg-gray-50 transition-colors"
-              >
+              <Link href="/baptism-request" className={secondaryButtonLanding}>
                 Baptism Request
               </Link>
-              <Link
-                href="/funeral-request"
-                className="inline-flex items-center justify-center border border-gray-800 text-gray-900 px-6 py-3 rounded text-base font-medium hover:bg-gray-50 transition-colors"
-              >
+              <Link href="/funeral-request" className={secondaryButtonLanding}>
                 Funeral Request
               </Link>
-              <Link
-                href="/wedding-request"
-                className="inline-flex items-center justify-center border border-gray-800 text-gray-900 px-6 py-3 rounded text-base font-medium hover:bg-gray-50 transition-colors"
-              >
+              <Link href="/wedding-request" className={secondaryButtonLanding}>
                 Wedding Request
               </Link>
             </div>
