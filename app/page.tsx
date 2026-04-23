@@ -51,7 +51,7 @@ export default function Home() {
                 alt={PRODUCT_NAME}
                 width={900}
                 height={360}
-                className="h-32 w-auto mx-auto mb-5"
+                className="h-40 w-auto mx-auto mb-5 object-contain sm:h-48"
                 priority
                 unoptimized
               />
