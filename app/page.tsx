@@ -51,7 +51,7 @@ export default function Home() {
                 alt={PRODUCT_NAME}
                 width={900}
                 height={360}
-                className="h-40 w-auto mx-auto mb-5 object-contain sm:h-48"
+                className="h-44 w-auto mx-auto mb-6 object-contain sm:h-52 lg:h-56"
                 priority
                 unoptimized
               />
@@ -182,6 +182,9 @@ export default function Home() {
               </Link>
               <Link href="/wedding-request" className={secondaryButtonLanding}>
                 Wedding Request
+              </Link>
+              <Link href="/ocia-request" className={secondaryButtonLanding}>
+                OCIA Request
               </Link>
             </div>
           </div>

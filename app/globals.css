@@ -32,3 +32,89 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Request detail: hash targets — fade background/shadow when highlight class is removed */
+section#assignment,
+section#next-follow-up,
+section#send-email,
+section#communication,
+section#confirmed-time,
+section#request-intake,
+section#request-intake-editor {
+  transition:
+    background-color 0.45s ease-out,
+    box-shadow 0.45s ease-out;
+}
+
+/* Request detail: hash navigation — soft brand glow, keyframed in/out (see useHashSectionHighlight) */
+@keyframes request-detail-hash-glow {
+  0% {
+    background-color: transparent;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-brand-ring) 0%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--color-brand-ring) 0%, transparent);
+  }
+  16% {
+    background-color: color-mix(in srgb, var(--color-brand-muted) 38%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-brand-ring) 14%, transparent),
+      0 0 0 3px color-mix(in srgb, var(--color-brand-ring) 5%, transparent);
+  }
+  42% {
+    background-color: color-mix(in srgb, var(--color-brand-muted) 52%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-brand-ring) 18%, transparent),
+      0 0 0 5px color-mix(in srgb, var(--color-brand-ring) 4%, transparent);
+  }
+  68% {
+    background-color: color-mix(in srgb, var(--color-brand-muted) 28%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-brand-ring) 10%, transparent),
+      0 0 0 4px color-mix(in srgb, var(--color-brand-ring) 2.5%, transparent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-brand-ring) 0%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--color-brand-ring) 0%, transparent);
+  }
+}
+
+@keyframes request-detail-hash-glow-quiet {
+  0%,
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+  40%,
+  58% {
+    background-color: color-mix(in srgb, var(--color-brand-muted) 44%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand-ring) 9%, transparent);
+  }
+}
+
+.request-detail-hash-highlight {
+  will-change: background-color, box-shadow;
+  transition:
+    background-color 0.45s ease-out,
+    box-shadow 0.45s ease-out;
+  animation: request-detail-hash-glow 2.65s cubic-bezier(0.33, 0.86, 0.24, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  section#assignment,
+  section#next-follow-up,
+  section#send-email,
+  section#communication,
+  section#confirmed-time,
+  section#request-intake,
+  section#request-intake-editor {
+    transition-duration: 0.18s;
+  }
+
+  .request-detail-hash-highlight {
+    will-change: auto;
+    transition-duration: 0.18s;
+    animation: request-detail-hash-glow-quiet 1.5s ease forwards;
+  }
+}

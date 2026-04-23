@@ -4,10 +4,15 @@ import {
   type RequestScheduleRow,
 } from '@/lib/requestConfirmedSchedule'
 
+/** Minimal `requests` fields used for next-step copy and in-page anchor routing. */
+export type RequestNextStepRequestFields = {
+  assigned_staff_name?: unknown
+  next_follow_up_date?: unknown
+  last_contacted_at?: unknown
+}
+
 export type RequestNextStepCardProps = {
-  assignedStaffName: unknown
-  nextFollowUpDate: unknown
-  lastContactedAt: unknown
+  request: RequestNextStepRequestFields | null
   scheduleRow: RequestScheduleRow
 }
 
@@ -17,36 +22,61 @@ function isBlank(value: unknown): boolean {
   return false
 }
 
-export function resolveRequestNextStepDescription(
-  props: RequestNextStepCardProps
+/**
+ * Target section for the current next step (same priority as {@link resolveRequestNextStepDescription}).
+ */
+export function resolveNextStepAnchorId(
+  request: RequestNextStepRequestFields | null | undefined,
+  scheduleRow: RequestScheduleRow
 ): string {
-  if (isBlank(props.assignedStaffName)) {
+  const r = request ?? {}
+  if (isBlank(r.assigned_staff_name)) {
+    return 'assignment'
+  }
+  if (isBlank(r.next_follow_up_date)) {
+    return 'next-follow-up'
+  }
+  if (isMissingConfirmedSchedule(scheduleRow)) {
+    return 'confirmed-time'
+  }
+  if (isBlank(r.last_contacted_at)) {
+    return 'send-email'
+  }
+  return 'communication'
+}
+
+export function resolveRequestNextStepDescription(
+  request: RequestNextStepRequestFields | null | undefined,
+  scheduleRow: RequestScheduleRow
+): string {
+  if (isBlank(request?.assigned_staff_name)) {
     return 'Assign a staff member to this request'
   }
 
-  if (isBlank(props.nextFollowUpDate)) {
+  if (isBlank(request?.next_follow_up_date)) {
     return 'Set a follow-up date to stay on track'
   }
 
-  if (isMissingConfirmedSchedule(props.scheduleRow)) {
+  if (isMissingConfirmedSchedule(scheduleRow)) {
     return 'Confirm the date/time for this request'
   }
 
-  if (isBlank(props.lastContactedAt)) {
+  if (isBlank(request?.last_contacted_at)) {
     return 'Send your first message to this person'
   }
 
   return "You're on track. Continue managing this request."
 }
 
-export function RequestNextStepCard(props: RequestNextStepCardProps) {
-  const description = resolveRequestNextStepDescription(props)
+export function RequestNextStepCard({ request, scheduleRow }: RequestNextStepCardProps) {
+  const description = resolveRequestNextStepDescription(request, scheduleRow)
+  const anchorId = resolveNextStepAnchorId(request, scheduleRow)
 
   return (
-    <div
-      className="mb-6 sm:mb-8 rounded-xl border border-purple-200/80 bg-purple-50 p-4 shadow-sm sm:p-5"
-      role="region"
-      aria-labelledby="request-next-step-heading"
+    <a
+      href={`#${anchorId}`}
+      className="mb-6 sm:mb-8 block cursor-pointer rounded-xl border border-purple-200/80 bg-purple-50 p-4 text-inherit no-underline shadow-sm transition-colors duration-150 hover:bg-purple-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:ring-offset-2 sm:p-5"
+      aria-label={`Next step: ${description}`}
     >
       <div className="flex gap-3 sm:gap-4">
         <div
@@ -67,6 +97,6 @@ export function RequestNextStepCard(props: RequestNextStepCardProps) {
           </p>
         </div>
       </div>
-    </div>
+    </a>
   )
 }

@@ -22,6 +22,7 @@ import {
 } from './_components/RequestQuickActionsCard'
 import { RequestProgressCard } from './_components/RequestProgressCard'
 import { RequestDetailControlBar } from './_components/RequestDetailControlBar'
+import { RequestSectionHashNavigator } from './_components/RequestSectionHashNavigator'
 import { ConfirmedOciaSessionSection } from './_components/ConfirmedOciaSessionSection'
 import { FuneralDetailsSection } from './_components/FuneralDetailsSection'
 import { ConfirmedFuneralServiceSection } from './_components/ConfirmedFuneralServiceSection'
@@ -43,22 +44,23 @@ import {
 function DetailSectionCard({
   isFirst,
   id,
+  tightTop,
   children,
 }: {
   isFirst?: boolean
   id?: string
+  /** When set on a non-first card, use a smaller top margin (e.g. pair Reply Assistance + Send Email). */
+  tightTop?: boolean
   children: ReactNode
 }) {
   const scrollTarget = id ? ' scroll-mt-6 sm:scroll-mt-8' : ''
+  const stacked = isFirst
+    ? 'rounded-xl bg-white p-5 shadow-sm sm:p-6'
+    : tightTop
+      ? 'rounded-xl bg-white p-5 shadow-sm sm:p-6 mt-4 border-t border-gray-100 pt-4'
+      : 'rounded-xl bg-white p-5 shadow-sm sm:p-6 mt-8 border-t border-gray-100 pt-4'
   return (
-    <section
-      id={id}
-      className={
-        (isFirst
-          ? 'rounded-xl bg-white p-5 shadow-sm sm:p-6'
-          : 'rounded-xl bg-white p-5 shadow-sm sm:p-6 mt-8 border-t border-gray-100 pt-4') + scrollTarget
-      }
-    >
+    <section id={id} className={stacked + scrollTarget}>
       {children}
     </section>
   )
@@ -1246,6 +1248,7 @@ async function deleteGoogleCalendarEvent() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-6 pt-4 text-gray-900 sm:px-6 sm:pb-8 sm:pt-5">
+      <RequestSectionHashNavigator />
       <p className="mb-3">
         <Link
           href="/dashboard"
@@ -1266,12 +1269,7 @@ async function deleteGoogleCalendarEvent() {
         onMarkComplete={() => updateRequestStatus('complete')}
       />
 
-      <RequestNextStepCard
-        assignedStaffName={request?.assigned_staff_name}
-        nextFollowUpDate={request?.next_follow_up_date}
-        lastContactedAt={request?.last_contacted_at}
-        scheduleRow={scheduleRowForProgress}
-      />
+      <RequestNextStepCard request={request} scheduleRow={scheduleRowForProgress} />
 
       <RequestQuickActionsCard />
 
@@ -1282,8 +1280,8 @@ async function deleteGoogleCalendarEvent() {
         scheduleRow={scheduleRowForProgress}
       />
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-10">
-        <div className="flex flex-col lg:col-span-2">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
+        <div className="flex flex-col lg:col-span-7">
           <DetailSectionCard isFirst id="request-intake">
             <RequestContactIntakeSection
               parishioner={parishioner}
@@ -1372,6 +1370,9 @@ async function deleteGoogleCalendarEvent() {
             </DetailSectionCard>
           ) : null}
 
+          <div className="mt-8 mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Communication Workflow
+          </div>
           <DetailSectionCard id={quickSectionIds.communication}>
             <CommunicationSection
               lastContactedAtIso={request?.last_contacted_at}
@@ -1391,11 +1392,31 @@ async function deleteGoogleCalendarEvent() {
           </DetailSectionCard>
 
           <DetailSectionCard>
-            <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
+            <AiToolsSection
+              aiLoading={aiLoading}
+              aiSummary={aiSummary}
+              replyDraft={replyDraft}
+              copyMessage={copyMessage}
+              onGenerateSummary={generateSummary}
+              onGenerateReplyDraft={generateReplyDraft}
+              onCopyReplyDraft={copyReplyDraft}
+            />
+          </DetailSectionCard>
+
+          <DetailSectionCard id={quickSectionIds.sendEmail} tightTop>
+            <SendEmailSection
+              toEmail={String(parishioner?.email || '')}
+              subject={emailSubject}
+              setSubject={setEmailSubject}
+              body={replyDraft}
+              onSend={sendEmail}
+              sending={emailSending}
+              message={emailMessage}
+            />
           </DetailSectionCard>
         </div>
 
-        <div className="flex flex-col lg:col-span-1">
+        <div className="flex flex-col lg:col-span-5">
           <DetailSectionCard isFirst>
             <RequestStatusSection request={request} onUpdateStatus={updateRequestStatus} />
           </DetailSectionCard>
@@ -1424,6 +1445,9 @@ async function deleteGoogleCalendarEvent() {
             />
           </DetailSectionCard>
 
+          <div className="mt-8 mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Scheduling & Records
+          </div>
           {isBaptism ? (
             <>
               <DetailSectionCard>
@@ -1439,7 +1463,7 @@ async function deleteGoogleCalendarEvent() {
                   message={suggestedMessage}
                 />
               </DetailSectionCard>
-              <DetailSectionCard>
+              <DetailSectionCard id="confirmed-time">
                 <ConfirmedBaptismDateSection
                   confirmedValue={confirmedBaptismDate}
                   setConfirmedValue={setConfirmedBaptismDate}
@@ -1457,7 +1481,7 @@ async function deleteGoogleCalendarEvent() {
           ) : null}
 
           {isFuneral ? (
-            <DetailSectionCard>
+            <DetailSectionCard id="confirmed-time">
               <ConfirmedFuneralServiceSection
                 confirmedValue={confirmedFuneralService}
                 setConfirmedValue={setConfirmedFuneralService}
@@ -1471,7 +1495,7 @@ async function deleteGoogleCalendarEvent() {
           ) : null}
 
           {isWedding ? (
-            <DetailSectionCard>
+            <DetailSectionCard id="confirmed-time">
               <ConfirmedWeddingCeremonySection
                 confirmedValue={confirmedWeddingCeremony}
                 setConfirmedValue={setConfirmedWeddingCeremony}
@@ -1485,7 +1509,7 @@ async function deleteGoogleCalendarEvent() {
           ) : null}
 
           {isOcia ? (
-            <DetailSectionCard>
+            <DetailSectionCard id="confirmed-time">
               <ConfirmedOciaSessionSection
                 confirmedValue={confirmedOciaSession}
                 setConfirmedValue={setConfirmedOciaSession}
@@ -1497,30 +1521,6 @@ async function deleteGoogleCalendarEvent() {
               />
             </DetailSectionCard>
           ) : null}
-
-          <DetailSectionCard>
-            <AiToolsSection
-              aiLoading={aiLoading}
-              aiSummary={aiSummary}
-              replyDraft={replyDraft}
-              copyMessage={copyMessage}
-              onGenerateSummary={generateSummary}
-              onGenerateReplyDraft={generateReplyDraft}
-              onCopyReplyDraft={copyReplyDraft}
-            />
-          </DetailSectionCard>
-
-          <DetailSectionCard id={quickSectionIds.sendEmail}>
-            <SendEmailSection
-              toEmail={String(parishioner?.email || '')}
-              subject={emailSubject}
-              setSubject={setEmailSubject}
-              body={replyDraft}
-              onSend={sendEmail}
-              sending={emailSending}
-              message={emailMessage}
-            />
-          </DetailSectionCard>
 
           <DetailSectionCard>
             <GoogleCalendarSection
@@ -1552,6 +1552,10 @@ async function deleteGoogleCalendarEvent() {
               deleting={gcalDeleting}
               message={gcalMessage}
             />
+          </DetailSectionCard>
+
+          <DetailSectionCard>
+            <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
           </DetailSectionCard>
         </div>
       </div>

@@ -27,7 +27,7 @@ export function AiToolsSection({
 }) {
   return (
     <div>
-      <h2 className={sectionHeadingClassName}>AI Tools</h2>
+      <h2 className={sectionHeadingClassName}>Reply Assistance</h2>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
