@@ -9,6 +9,7 @@ import {
 import {
   getGoogleCalendarClient,
   handleGoogleCalendarOAuthFailureIfNeeded,
+  listParishGoogleCalendarConflicts,
   loadParishGoogleCalendarIntegration,
   requireGoogleOAuthClientEnv,
   resolveUsableParishGoogleCalendar,
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const requestId = String(body?.requestId || '').trim()
+    const forceCreate = Boolean(body?.forceCreate)
     if (!requestId) {
       return NextResponse.json({ ok: false, error: 'Missing requestId' }, { status: 400 })
     }
@@ -89,6 +91,27 @@ export async function POST(request: NextRequest) {
       oauthEnv.clientId,
       oauthEnv.clientSecret
     )
+
+    if (!forceCreate) {
+      const conflicts = await listParishGoogleCalendarConflicts({
+        calendar,
+        calendarId: usable.calendarId,
+        start,
+        end,
+        ignoreEventId: null,
+      })
+
+      if (conflicts.length) {
+        return NextResponse.json(
+          {
+            error: 'CALENDAR_CONFLICT',
+            message: 'There is already something scheduled at this time.',
+            conflicts,
+          },
+          { status: 409 }
+        )
+      }
+    }
 
     const insertRes = await calendar.events.insert({
       calendarId: usable.calendarId,

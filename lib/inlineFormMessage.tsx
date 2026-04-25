@@ -34,7 +34,8 @@ function getInlineFeedbackStyle(message: string): {
   const looksNeutral =
     lower.startsWith('set a confirmed') ||
     lower.startsWith('a google calendar event already') ||
-    lower.startsWith('no google calendar event is linked')
+    lower.startsWith('no google calendar event is linked') ||
+    lower.startsWith('there is already something scheduled at this time')
 
   if (looksNeutral) {
     return {

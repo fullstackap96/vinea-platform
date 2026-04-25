@@ -9,6 +9,7 @@ import {
 import {
   getGoogleCalendarClient,
   handleGoogleCalendarOAuthFailureIfNeeded,
+  listParishGoogleCalendarConflicts,
   loadParishGoogleCalendarIntegration,
   requireGoogleOAuthClientEnv,
   resolveUsableParishGoogleCalendar,
@@ -92,6 +93,25 @@ export async function POST(request: NextRequest) {
       oauthEnv.clientId,
       oauthEnv.clientSecret
     )
+
+    const conflicts = await listParishGoogleCalendarConflicts({
+      calendar,
+      calendarId,
+      start,
+      end,
+      ignoreEventId: String(eventId),
+    })
+
+    if (conflicts.length) {
+      return NextResponse.json(
+        {
+          error: 'CALENDAR_CONFLICT',
+          message: 'There is already something scheduled at this time.',
+          conflicts,
+        },
+        { status: 409 }
+      )
+    }
 
     const patchRes = await calendar.events.patch({
       calendarId,

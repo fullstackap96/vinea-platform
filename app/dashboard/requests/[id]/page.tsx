@@ -124,6 +124,9 @@ const [staffNotes, setStaffNotes] = useState('')
   const [gcalUpdating, setGcalUpdating] = useState(false)
   const [gcalDeleting, setGcalDeleting] = useState(false)
   const [gcalMessage, setGcalMessage] = useState('')
+  const [gcalConflicts, setGcalConflicts] = useState<
+    Array<{ summary: string | null; start: string | null; end: string | null; htmlLink: string | null }>
+  >([])
 
   const [funeralDetail, setFuneralDetail] = useState<any | null>(null)
   const [funeralDeceasedName, setFuneralDeceasedName] = useState('')
@@ -998,49 +1001,69 @@ async function sendEmail() {
 }
 
 async function createGoogleCalendarEvent() {
+  return createGoogleCalendarEventInternal(false)
+}
+
+async function forceCreateGoogleCalendarEvent() {
+  return createGoogleCalendarEventInternal(true)
+}
+
+async function createGoogleCalendarEventInternal(forceCreate: boolean) {
   const rt = String(request?.request_type || 'baptism')
   if (rt === 'funeral') {
     if (!funeralDetail?.confirmed_service_at) {
       setGcalMessage('Set a confirmed funeral service time first.')
+      setGcalConflicts([])
       return
     }
   } else if (rt === 'wedding') {
     if (!weddingDetail?.confirmed_ceremony_at) {
       setGcalMessage('Set a confirmed wedding ceremony time first.')
+      setGcalConflicts([])
       return
     }
   } else if (rt === 'ocia') {
     if (!ociaDetail?.confirmed_session_at) {
       setGcalMessage('Set a confirmed OCIA meeting time first.')
+      setGcalConflicts([])
       return
     }
   } else if (!request?.confirmed_baptism_date) {
     setGcalMessage('Set a confirmed baptism date first.')
+    setGcalConflicts([])
     return
   }
   if (request?.google_calendar_event_id) {
     setGcalMessage('A Google Calendar event already exists for this request.')
+    setGcalConflicts([])
     return
   }
 
   try {
     setGcalCreating(true)
     setGcalMessage('')
+    if (!forceCreate) setGcalConflicts([])
 
     const res = await fetch('/api/google/calendar-event/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestId: routeId }),
+      body: JSON.stringify({ requestId: routeId, forceCreate }),
     })
 
     const payload = await res.json().catch(() => ({} as any))
+    if (res.status === 409 && payload?.error === 'CALENDAR_CONFLICT') {
+      setGcalMessage(String(payload?.message || 'There is already something scheduled at this time.'))
+      setGcalConflicts(Array.isArray(payload?.conflicts) ? payload.conflicts : [])
+      return
+    }
     if (!res.ok || !payload?.ok) {
       const err = payload?.error || `Create failed (${res.status})`
       setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
-    setGcalMessage('Google Calendar event created.')
+    setGcalMessage('Calendar event saved. No conflicts found.')
+    setGcalConflicts([])
     loadRequest()
   } catch (error: unknown) {
     if (isGoogleOAuthReconnectError(error)) {
@@ -1054,6 +1077,7 @@ async function createGoogleCalendarEvent() {
             : 'Unknown error'
       setGcalMessage(`Create failed: ${msg}`)
     }
+    setGcalConflicts([])
   } finally {
     setGcalCreating(false)
   }
@@ -1064,30 +1088,36 @@ async function updateGoogleCalendarEvent() {
   if (rt === 'funeral') {
     if (!funeralDetail?.confirmed_service_at) {
       setGcalMessage('Set a confirmed funeral service time first.')
+      setGcalConflicts([])
       return
     }
   } else if (rt === 'wedding') {
     if (!weddingDetail?.confirmed_ceremony_at) {
       setGcalMessage('Set a confirmed wedding ceremony time first.')
+      setGcalConflicts([])
       return
     }
   } else if (rt === 'ocia') {
     if (!ociaDetail?.confirmed_session_at) {
       setGcalMessage('Set a confirmed OCIA meeting time first.')
+      setGcalConflicts([])
       return
     }
   } else if (!request?.confirmed_baptism_date) {
     setGcalMessage('Set a confirmed baptism date first.')
+    setGcalConflicts([])
     return
   }
   if (!request?.google_calendar_event_id) {
     setGcalMessage('No Google Calendar event is linked to this request.')
+    setGcalConflicts([])
     return
   }
 
   try {
     setGcalUpdating(true)
     setGcalMessage('')
+    setGcalConflicts([])
 
     const res = await fetch('/api/google/calendar-event/update', {
       method: 'POST',
@@ -1096,13 +1126,19 @@ async function updateGoogleCalendarEvent() {
     })
 
     const payload = await res.json().catch(() => ({} as any))
+    if (res.status === 409 && payload?.error === 'CALENDAR_CONFLICT') {
+      setGcalMessage(String(payload?.message || 'There is already something scheduled at this time.'))
+      setGcalConflicts(Array.isArray(payload?.conflicts) ? payload.conflicts : [])
+      return
+    }
     if (!res.ok || !payload?.ok) {
       const err = payload?.error || `Update failed (${res.status})`
       setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
-    setGcalMessage('Google Calendar event updated.')
+    setGcalMessage('Calendar event saved. No conflicts found.')
+    setGcalConflicts([])
     loadRequest()
   } catch (error: unknown) {
     if (isGoogleOAuthReconnectError(error)) {
@@ -1116,6 +1152,7 @@ async function updateGoogleCalendarEvent() {
             : 'Unknown error'
       setGcalMessage(`Update failed: ${msg}`)
     }
+    setGcalConflicts([])
   } finally {
     setGcalUpdating(false)
   }
@@ -1546,12 +1583,14 @@ async function deleteGoogleCalendarEvent() {
               eventId={request?.google_calendar_event_id}
               eventLink={request?.google_calendar_event_html_link}
               onCreate={createGoogleCalendarEvent}
+              onForceCreate={forceCreateGoogleCalendarEvent}
               onUpdate={updateGoogleCalendarEvent}
               onDelete={deleteGoogleCalendarEvent}
               creating={gcalCreating}
               updating={gcalUpdating}
               deleting={gcalDeleting}
               message={gcalMessage}
+              conflicts={gcalConflicts}
             />
           </DetailSectionCard>
 

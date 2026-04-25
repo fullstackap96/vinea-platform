@@ -5,6 +5,13 @@ import {
 } from '@/lib/googleCalendarUserErrors'
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/serviceRoleClient'
 
+export type GoogleCalendarConflict = {
+  summary: string | null
+  start: string | null
+  end: string | null
+  htmlLink: string | null
+}
+
 export type ParishGoogleCalendarIntegration = {
   parish_id: string
   refresh_token: string | null
@@ -76,6 +83,66 @@ export function getGoogleCalendarClient(
   const oauth2 = new google.auth.OAuth2(clientId, clientSecret)
   oauth2.setCredentials({ refresh_token: refreshToken })
   return google.calendar({ version: 'v3', auth: oauth2 })
+}
+
+function eventDateTimeToDate(value: { dateTime?: string | null; date?: string | null } | null | undefined) {
+  const raw = value?.dateTime ?? value?.date
+  if (!raw) return null
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return null
+  return d
+}
+
+function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): boolean {
+  return aStart.getTime() < bEnd.getTime() && aEnd.getTime() > bStart.getTime()
+}
+
+/**
+ * Lists conflicts for a proposed event window on the parish calendar.
+ * Uses events.list (timeMin/timeMax + singleEvents) then performs explicit overlap checks.
+ */
+export async function listParishGoogleCalendarConflicts(args: {
+  calendar: ReturnType<typeof getGoogleCalendarClient>
+  calendarId: string
+  start: Date
+  end: Date
+  ignoreEventId?: string | null
+}): Promise<GoogleCalendarConflict[]> {
+  const { calendar, calendarId, start, end, ignoreEventId } = args
+
+  const res = await calendar.events.list({
+    calendarId,
+    timeMin: start.toISOString(),
+    timeMax: end.toISOString(),
+    singleEvents: true,
+    orderBy: 'startTime',
+  })
+
+  const items = res.data.items ?? []
+  const conflicts: GoogleCalendarConflict[] = []
+
+  for (const ev of items) {
+    if (!ev) continue
+    if (ignoreEventId && ev.id === ignoreEventId) continue
+    if (ev.status === 'cancelled') continue
+
+    const evStart = eventDateTimeToDate(ev.start)
+    const evEnd = eventDateTimeToDate(ev.end)
+    if (!evStart || !evEnd) continue
+
+    // For all-day events, Google returns {start:{date}, end:{date}} which already represents a day span.
+    // We still only treat it as a conflict when it overlaps the requested date/time window.
+    if (!overlaps(evStart, evEnd, start, end)) continue
+
+    conflicts.push({
+      summary: ev.summary ?? null,
+      start: evStart.toISOString(),
+      end: evEnd.toISOString(),
+      htmlLink: ev.htmlLink ?? null,
+    })
+  }
+
+  return conflicts
 }
 
 export async function markParishGoogleCalendarAuthError(parishId: string, error: unknown) {
