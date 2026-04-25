@@ -7,6 +7,8 @@ import {
 /** Minimal `requests` fields used for next-step copy and in-page anchor routing. */
 export type RequestNextStepRequestFields = {
   assigned_staff_name?: unknown
+  assigned_priest_name?: unknown
+  assigned_deacon_name?: unknown
   next_follow_up_date?: unknown
   last_contacted_at?: unknown
 }
@@ -30,7 +32,10 @@ export function resolveNextStepAnchorId(
   scheduleRow: RequestScheduleRow
 ): string {
   const r = request ?? {}
-  if (isBlank(r.assigned_staff_name)) {
+  const staffBlank = isBlank(r.assigned_staff_name)
+  const priestBlank = isBlank(r.assigned_priest_name)
+  const deaconBlank = isBlank(r.assigned_deacon_name)
+  if (staffBlank && priestBlank && deaconBlank) {
     return 'assignment'
   }
   if (isBlank(r.next_follow_up_date)) {
@@ -49,8 +54,11 @@ export function resolveRequestNextStepDescription(
   request: RequestNextStepRequestFields | null | undefined,
   scheduleRow: RequestScheduleRow
 ): string {
-  if (isBlank(request?.assigned_staff_name)) {
-    return 'Assign a staff member to this request'
+  const staffBlank = isBlank(request?.assigned_staff_name)
+  const priestBlank = isBlank(request?.assigned_priest_name)
+  const deaconBlank = isBlank(request?.assigned_deacon_name)
+  if (staffBlank && priestBlank && deaconBlank) {
+    return 'Assign a staff member, priest, or deacon to this request'
   }
 
   if (isBlank(request?.next_follow_up_date)) {

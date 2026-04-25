@@ -80,6 +80,31 @@ export default function BaptismRequestPage() {
       return
     }
 
+    try {
+      const res = await fetch('/api/request-notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId: request.id,
+          requestType: 'baptism',
+          contactName: fullName,
+          contactEmail: email,
+          contactPhone: phone || '—',
+          childName,
+          notes,
+          requestSpecificSummary: preferredDates
+            ? `Preferred dates: ${preferredDates}`
+            : undefined,
+        }),
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        console.warn('Request notification failed:', res.status, txt)
+      }
+    } catch (err) {
+      console.warn('Request notification error:', err)
+    }
+
     setMessage('Request submitted successfully.')
     setFullName('')
     setEmail('')

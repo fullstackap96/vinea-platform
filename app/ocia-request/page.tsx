@@ -122,6 +122,40 @@ export default function OciaRequestPage() {
       return
     }
 
+    try {
+      const res = await fetch('/api/request-notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId: request.id,
+          requestType: 'ocia',
+          contactName: fullName,
+          contactEmail: email,
+          contactPhone: phone || '—',
+          notes,
+          requestSpecificSummary: [
+            dateOfBirth ? `Date of birth: ${dateOfBirth}` : null,
+            ageOrDobNote ? `Age/DOB note: ${ageOrDobNote.trim()}` : null,
+            sacramentalBackground ? `Sacramental background: ${sacramentalBackground}` : null,
+            seeking ? `Seeking: ${seeking}` : null,
+            parishionerStatus ? `Parishioner status: ${parishionerStatus.trim()}` : null,
+            preferredContactMethod
+              ? `Preferred contact method: ${preferredContactMethod}`
+              : null,
+            availability ? `Availability: ${availability.trim()}` : null,
+          ]
+            .filter(Boolean)
+            .join('\n'),
+        }),
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        console.warn('Request notification failed:', res.status, txt)
+      }
+    } catch (err) {
+      console.warn('Request notification error:', err)
+    }
+
     setMessage('Request submitted successfully.')
     setFullName('')
     setEmail('')

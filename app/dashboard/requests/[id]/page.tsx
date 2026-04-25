@@ -1433,6 +1433,7 @@ async function deleteGoogleCalendarEvent() {
               requestId={routeId}
               assignedStaffName={request?.assigned_staff_name}
               assignedPriestName={request?.assigned_priest_name}
+              assignedDeaconName={request?.assigned_deacon_name}
               onSaved={loadRequest}
             />
           </DetailSectionCard>

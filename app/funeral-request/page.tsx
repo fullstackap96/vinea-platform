@@ -96,6 +96,37 @@ export default function FuneralRequestPage() {
       return
     }
 
+    try {
+      const res = await fetch('/api/request-notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId: request.id,
+          requestType: 'funeral',
+          contactName: fullName,
+          contactEmail: email,
+          contactPhone: phone || '—',
+          notes,
+          requestSpecificSummary: [
+            deceasedName ? `Deceased: ${deceasedName.trim()}` : null,
+            dateOfDeath ? `Date of death: ${dateOfDeath}` : null,
+            funeralHome ? `Funeral home/location: ${funeralHome.trim()}` : null,
+            preferredServiceNotes
+              ? `Preferred dates/times/notes: ${preferredServiceNotes.trim()}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join('\n'),
+        }),
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        console.warn('Request notification failed:', res.status, txt)
+      }
+    } catch (err) {
+      console.warn('Request notification error:', err)
+    }
+
     setMessage('Request submitted successfully.')
     setFullName('')
     setEmail('')

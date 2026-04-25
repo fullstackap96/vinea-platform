@@ -4,11 +4,13 @@ export type { RequestStatus } from '../requestStatus'
 export type RequestAssignmentColumns = {
   assigned_staff_name: string | null
   assigned_priest_name: string | null
+  assigned_deacon_name: string | null
 }
 
 export type RequestAssignmentUpdate = {
   assigned_staff_name: string | null
   assigned_priest_name: string | null
+  assigned_deacon_name: string | null
 }
 
 /** Optional `date` on `public.requests` for staff follow-up scheduling. */

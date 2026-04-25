@@ -206,6 +206,10 @@ export default function DashboardPage() {
           label="Priest"
           value={maybeMissingValue(assignmentDisplayLabel(request.assigned_priest_name))}
         />
+        <LabelValueRow
+          label="Deacon"
+          value={maybeMissingValue(assignmentDisplayLabel(request.assigned_deacon_name))}
+        />
         {isFuneral ? (
           <>
             <LabelValueRow
@@ -428,6 +432,7 @@ export default function DashboardPage() {
     const id = String(request.id)
     const name = String(request.parishioner?.full_name ?? '').trim() || '—'
     const priestLabel = assignmentDisplayLabel(request.assigned_priest_name)
+    const deaconLabel = assignmentDisplayLabel(request.assigned_deacon_name)
     const overdue = isNextFollowUpOverdue(request.next_follow_up_date, request.status)
     const dueToday = isNextFollowUpDueToday(request.next_follow_up_date, request.status)
     const hasFollowUpDate = Boolean(parseFollowUpCalendarDate(request.next_follow_up_date))
@@ -464,6 +469,10 @@ export default function DashboardPage() {
             <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
               <span className="text-gray-500">Priest</span>
               <span className="font-medium text-gray-800">{maybeMissingValue(priestLabel)}</span>
+            </p>
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+              <span className="text-gray-500">Deacon</span>
+              <span className="font-medium text-gray-800">{maybeMissingValue(deaconLabel)}</span>
             </p>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
               <span className="shrink-0 text-gray-500">Follow-up</span>
@@ -810,6 +819,7 @@ export default function DashboardPage() {
     const phone = String(request.parishioner?.phone ?? '').trim()
     const staff = assignmentDisplayLabel(request.assigned_staff_name)
     const priest = assignmentDisplayLabel(request.assigned_priest_name)
+    const deacon = assignmentDisplayLabel(request.assigned_deacon_name)
     const highlightLines = followUpQueueHighlightLines(request)
     const emailSubject = followUpEmailSubject(request)
 
@@ -892,6 +902,11 @@ export default function DashboardPage() {
                         <span className="text-gray-500">Priest</span>{' '}
                         <span className="font-medium text-gray-800">
                           {maybeMissingValue(priest)}
+                        </span>
+                        {' · '}
+                        <span className="text-gray-500">Deacon</span>{' '}
+                        <span className="font-medium text-gray-800">
+                          {maybeMissingValue(deacon)}
                         </span>
                       </p>
                     </div>
@@ -983,6 +998,7 @@ export default function DashboardPage() {
         last_contacted_at,
         assigned_staff_name,
         assigned_priest_name,
+        assigned_deacon_name,
         next_follow_up_date
       `)
       .order('created_at', { ascending: false })
@@ -1156,6 +1172,7 @@ export default function DashboardPage() {
       const ociaParish = normalize(request.ocia_detail?.parishioner_status)
       const staffAssignee = normalize(request.assigned_staff_name)
       const priestAssignee = normalize(request.assigned_priest_name)
+      const deaconAssignee = normalize(request.assigned_deacon_name)
       const followUpYmd = normalize(parseFollowUpCalendarDate(request.next_follow_up_date))
       const followUpCompact = normalize(
         formatNextFollowUpDateCompact(request.next_follow_up_date)
@@ -1172,6 +1189,7 @@ export default function DashboardPage() {
         ociaParish.includes(q) ||
         staffAssignee.includes(q) ||
         priestAssignee.includes(q) ||
+        deaconAssignee.includes(q) ||
         followUpYmd.includes(q) ||
         followUpCompact.includes(q)
       )

@@ -26,6 +26,7 @@ export async function updateRequestAssignment(input: {
   requestId: string
   assignedStaffName: unknown
   assignedPriestName: unknown
+  assignedDeaconName: unknown
 }): Promise<UpdateRequestAssignmentResult> {
   const requestId = String(input.requestId ?? '').trim()
   if (!requestId) {
@@ -45,6 +46,7 @@ export async function updateRequestAssignment(input: {
   const payload: RequestAssignmentUpdate = {
     assigned_staff_name: normalizeOptionalName(input.assignedStaffName),
     assigned_priest_name: normalizeOptionalName(input.assignedPriestName),
+    assigned_deacon_name: normalizeOptionalName(input.assignedDeaconName),
   }
 
   const { error } = await supabase

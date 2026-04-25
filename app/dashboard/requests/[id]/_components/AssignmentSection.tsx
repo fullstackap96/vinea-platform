@@ -16,22 +16,38 @@ export function AssignmentSection({
   requestId,
   assignedStaffName,
   assignedPriestName,
+  assignedDeaconName,
   onSaved,
 }: {
   requestId: string
   assignedStaffName: string | null | undefined
   assignedPriestName: string | null | undefined
+  assignedDeaconName: string | null | undefined
   onSaved: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draftStaff, setDraftStaff] = useState('')
   const [draftPriest, setDraftPriest] = useState('')
+  const [draftDeacon, setDraftDeacon] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+
+  function renderAssigneeDotLabel(value: unknown) {
+    const label = assignmentDisplayLabel(value)
+    const isUnassigned = String(label).trim().toLowerCase() === 'unassigned'
+    if (!isUnassigned) return maybeMissingValue(label)
+    return (
+      <span className="inline-flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-orange-400" aria-hidden />
+        <span>{label}</span>
+      </span>
+    )
+  }
 
   function beginEdit() {
     setDraftStaff(String(assignedStaffName ?? '').trim())
     setDraftPriest(String(assignedPriestName ?? '').trim())
+    setDraftDeacon(String(assignedDeaconName ?? '').trim())
     setMessage('')
     setEditing(true)
   }
@@ -48,6 +64,7 @@ export function AssignmentSection({
       requestId,
       assignedStaffName: draftStaff,
       assignedPriestName: draftPriest,
+      assignedDeaconName: draftDeacon,
     })
     setSaving(false)
 
@@ -88,7 +105,7 @@ export function AssignmentSection({
               autoComplete="name"
               value={draftStaff}
               onChange={(e) => setDraftStaff(e.target.value)}
-              placeholder="Name or leave blank"
+              placeholder="Enter name or leave blank"
             />
           </div>
           <div>
@@ -102,7 +119,21 @@ export function AssignmentSection({
               autoComplete="name"
               value={draftPriest}
               onChange={(e) => setDraftPriest(e.target.value)}
-              placeholder="Name or leave blank"
+              placeholder="Enter name or leave blank"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-gray-500" htmlFor="assign-deacon">
+              Assigned deacon
+            </label>
+            <input
+              id="assign-deacon"
+              className="w-full rounded border p-3"
+              type="text"
+              autoComplete="name"
+              value={draftDeacon}
+              onChange={(e) => setDraftDeacon(e.target.value)}
+              placeholder="Enter name or leave blank"
             />
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -129,11 +160,15 @@ export function AssignmentSection({
         <LabelValueGrid>
           <LabelValueRow
             label="Assigned staff"
-            value={maybeMissingValue(assignmentDisplayLabel(assignedStaffName))}
+            value={renderAssigneeDotLabel(assignedStaffName)}
           />
           <LabelValueRow
             label="Assigned priest"
-            value={maybeMissingValue(assignmentDisplayLabel(assignedPriestName))}
+            value={renderAssigneeDotLabel(assignedPriestName)}
+          />
+          <LabelValueRow
+            label="Assigned deacon"
+            value={renderAssigneeDotLabel(assignedDeaconName)}
           />
         </LabelValueGrid>
       )}
