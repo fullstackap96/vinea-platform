@@ -816,7 +816,7 @@ export default function DashboardPage() {
     return (
       <div
         key={id}
-        className={`rounded-xl border border-gray-200 p-4 shadow-sm ${dashboardCardHoverPolish} ${
+        className={`rounded-xl border border-gray-200 p-3 shadow-sm ${dashboardCardHoverPolish} ${
           followUpOverdue ? dashboardOverdueFollowUpCardClasses : 'bg-white'
         }`}
       >
@@ -831,122 +831,133 @@ export default function DashboardPage() {
             />
             <span className="sr-only">Select for batch actions</span>
           </label>
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="space-y-1.5">
-              <p className="text-base font-bold text-gray-900 break-words">
-                {maybeMissingValue(displayName)}
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <RequestTypeBadge requestType={request.request_type} />
-                <RequestStatusBadgeWithTooltip status={request.status} />
-              </div>
-            </div>
-
-            {highlightLines.length > 0 ? (
-              <div className="rounded-md bg-gray-50 px-3 py-2">
-                <p className="mb-1 text-xs uppercase text-gray-400">Highlights</p>
-                <ul className="space-y-1" aria-label="Queue highlights">
-                  {highlightLines.map((line, idx) => (
-                    <li key={idx} className="flex gap-2 text-sm text-gray-700">
-                      <span className="shrink-0 text-gray-400" aria-hidden>
-                        ·
-                      </span>
-                      <span className="min-w-0 leading-snug">{line}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            <div>
-              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
-                <User className="h-4 w-4 shrink-0 text-brand" aria-hidden />
-                Contact
-              </p>
-              <div className="space-y-1">
-                {email ? (
-                  <p className="flex gap-1.5 break-all text-sm font-medium text-gray-800">
-                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
-                    <span className="min-w-0">{email}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="space-y-1">
+                  <p className="text-base font-bold text-gray-900 break-words">
+                    {maybeMissingValue(displayName)}
                   </p>
-                ) : (
-                  <p className="text-xs">{maybeMissingValue('No email on file')}</p>
-                )}
-                {phone ? (
-                  <p className="flex gap-1.5 text-xs text-gray-600">
-                    <Phone className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
-                    <span className="min-w-0">{phone}</span>
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <RequestTypeBadge requestType={request.request_type} />
+                    <RequestStatusBadgeWithTooltip status={request.status} />
+                  </div>
+                </div>
+
+                {highlightLines.length > 0 ? (
+                  <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
+                    <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                      Highlights
+                    </p>
+                    <ul className="space-y-0.5" aria-label="Queue highlights">
+                      {highlightLines.map((line, idx) => (
+                        <li key={idx} className="flex gap-2 text-sm text-gray-700">
+                          <span className="shrink-0 text-gray-300" aria-hidden>
+                            ·
+                          </span>
+                          <span className="min-w-0 leading-snug">{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
-                <p className="text-xs text-gray-600">
-                  <span className="text-gray-500">Staff</span>{' '}
-                  <span className="font-medium text-gray-800">{maybeMissingValue(staff)}</span>
-                  {' · '}
-                  <span className="text-gray-500">Priest</span>{' '}
-                  <span className="font-medium text-gray-800">{maybeMissingValue(priest)}</span>
-                </p>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                  <div>
+                    <p className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                      <User className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                      Contact
+                    </p>
+                    <div className="space-y-0.5">
+                      {email ? (
+                        <p className="flex gap-1.5 break-all text-sm font-medium text-gray-800">
+                          <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                          <span className="min-w-0">{email}</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs">{maybeMissingValue('No email on file')}</p>
+                      )}
+                      {phone ? (
+                        <p className="flex gap-1.5 text-xs text-gray-600">
+                          <Phone className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                          <span className="min-w-0">{phone}</span>
+                        </p>
+                      ) : null}
+                      <p className="text-xs text-gray-600">
+                        <span className="text-gray-500">Staff</span>{' '}
+                        <span className="font-medium text-gray-800">
+                          {maybeMissingValue(staff)}
+                        </span>
+                        {' · '}
+                        <span className="text-gray-500">Priest</span>{' '}
+                        <span className="font-medium text-gray-800">
+                          {maybeMissingValue(priest)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                      Email subject
+                    </p>
+                    <p
+                      className="line-clamp-2 text-sm font-medium leading-snug text-gray-800"
+                      title={emailSubject}
+                    >
+                      {emailSubject}
+                    </p>
+                  </div>
+                </div>
+
+                {followUpRowMessages[id] ? (
+                  <InlineFormMessage message={followUpRowMessages[id]} className="!mt-0" />
+                ) : null}
+              </div>
+
+              <div className="shrink-0 sm:w-[18rem]">
+                <div className="space-y-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    Actions
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      disabled={loading || followUpGlobalBusy}
+                      onClick={() => draftFollowUpEmail(request)}
+                      className={`${primaryButtonMd} w-full justify-center`}
+                    >
+                      {followUpDraftingId === id ? 'Drafting...' : 'Draft follow-up email'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sendDisabled}
+                      onClick={() => sendFollowUpEmail(request)}
+                      className={`${primaryButtonMd} w-full justify-center`}
+                    >
+                      {followUpSendingId === id ? 'Sending...' : 'Send follow-up email'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading || followUpGlobalBusy}
+                      onClick={() => markFollowUpAsContacted(request)}
+                      className={`${secondaryButtonMd} w-full justify-center`}
+                    >
+                      {followUpMarkingId === id ? 'Saving...' : 'Mark as Contacted'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {hasDraft ? 'Draft ready to send' : maybeMissingValue('No draft saved yet')}
+                  </p>
+                  <Link
+                    href={`/dashboard/requests/${id}`}
+                    className="inline-block text-xs font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
+                  >
+                    Open full request
+                  </Link>
+                </div>
               </div>
             </div>
-
-            <div>
-              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
-                Email subject
-              </p>
-              <p
-                className="line-clamp-2 text-sm font-medium leading-snug text-gray-800"
-                title={emailSubject}
-              >
-                {emailSubject}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Actions
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <button
-                  type="button"
-                  disabled={loading || followUpGlobalBusy}
-                  onClick={() => draftFollowUpEmail(request)}
-                  className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
-                >
-                  {followUpDraftingId === id ? 'Drafting...' : 'Draft follow-up email'}
-                </button>
-                <button
-                  type="button"
-                  disabled={sendDisabled}
-                  onClick={() => sendFollowUpEmail(request)}
-                  className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
-                >
-                  {followUpSendingId === id ? 'Sending...' : 'Send follow-up email'}
-                </button>
-                <button
-                  type="button"
-                  disabled={loading || followUpGlobalBusy}
-                  onClick={() => markFollowUpAsContacted(request)}
-                  className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
-                >
-                  {followUpMarkingId === id ? 'Saving...' : 'Mark as Contacted'}
-                </button>
-              </div>
-              <p className="text-xs text-gray-500">
-                {hasDraft ? 'Draft ready to send' : maybeMissingValue('No draft saved yet')}
-              </p>
-              <Link
-                href={`/dashboard/requests/${id}`}
-                className="inline-block text-xs font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
-              >
-                Open full request
-              </Link>
-            </div>
-
-            {followUpRowMessages[id] ? (
-              <InlineFormMessage
-                message={followUpRowMessages[id]}
-                className="!mt-0"
-              />
-            ) : null}
           </div>
         </div>
       </div>
@@ -1280,7 +1291,7 @@ export default function DashboardPage() {
 
       <div className="space-y-4 sm:space-y-5">
       <section
-        className="rounded-xl bg-white p-5 shadow-sm"
+        className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm ring-1 ring-brand/10 sm:p-6"
         aria-labelledby="action-required-heading"
         aria-busy={loading}
       >
@@ -1339,8 +1350,6 @@ export default function DashboardPage() {
       {/* Metrics summary (global counts from the full loaded requests array) */}
       <Metrics requests={requests} loading={loading} />
 
-      <RequestLinksSection />
-
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <div
           className="inline-flex w-full flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1 sm:flex-nowrap"
@@ -1390,15 +1399,14 @@ export default function DashboardPage() {
       ) : (
         <>
           <section
-            className="rounded-xl bg-white p-5 shadow-sm"
+            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
             aria-labelledby="follow-up-queue-heading"
           >
             <h2 id="follow-up-queue-heading" className={sectionHeadingClassName}>
               Follow-Up Queue ({followUpVisible.length})
             </h2>
-            <p className="mb-3 max-w-2xl text-xs leading-relaxed text-gray-500">
-              Open requests (not complete) that need contact, a confirmed date, or checklist work.
-              Uses the same status filter and search as the request list.
+            <p className="mb-3 max-w-2xl text-sm leading-relaxed text-gray-600">
+              Open requests that need contact, scheduling, or checklist work.
             </p>
             {followUpVisible.length > 0 && (
               <>
@@ -1489,6 +1497,9 @@ export default function DashboardPage() {
             <h2 id="dashboard-requests-heading" className={sectionHeadingClassName}>
               Requests ({visibleRequests.length})
             </h2>
+            <p className="mb-3 max-w-2xl text-sm leading-relaxed text-gray-600">
+              Search and review all submitted requests.
+            </p>
             {visibleRequests.length === 0 ? (
               <div
                 className="mx-auto max-w-2xl rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
@@ -1545,6 +1556,8 @@ export default function DashboardPage() {
           </section>
         </>
       )}
+
+      <RequestLinksSection />
       </div>
     </main>
   )

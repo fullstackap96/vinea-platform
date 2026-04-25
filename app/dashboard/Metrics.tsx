@@ -104,18 +104,21 @@ export default function Metrics({ requests = [], loading = false }: Props) {
   ]
 
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm sm:p-5">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
       <h2 className={sectionHeadingClassName}>Summary</h2>
+      <p className="mb-3 max-w-2xl text-sm leading-relaxed text-gray-600">
+        Quick snapshot of request counts by status.
+      </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 items-stretch">
         {cards.map((c) => (
           <div
             key={c.key}
-            className={`flex min-h-0 min-w-0 flex-col justify-between gap-1.5 rounded-lg border p-4 shadow-sm ${dashboardCardHoverPolish} ${c.tint}`}
+            className={`flex min-h-0 min-w-0 flex-col justify-between gap-1 rounded-lg border p-3 shadow-sm ${dashboardCardHoverPolish} ${c.tint}`}
           >
             <div className="min-h-0 flex-1 text-xs font-medium leading-snug text-gray-500 break-words">
               {c.label}
             </div>
-            <div className={`shrink-0 text-2xl font-bold tabular-nums ${c.num}`}>
+            <div className={`shrink-0 text-xl font-bold tabular-nums ${c.num}`}>
               {loading ? '—' : c.count}
             </div>
           </div>

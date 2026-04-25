@@ -36,14 +36,14 @@ export function RequestLinksSection() {
 
   return (
     <section
-      className={`rounded-xl bg-white p-5 shadow-sm ${dashboardCardHoverPolish}`}
+      className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5 ${dashboardCardHoverPolish}`}
       aria-labelledby="request-links-heading"
     >
       <h2 id="request-links-heading" className={sectionHeadingClassName}>
-        Request Links
+        Setup Links
       </h2>
       <p className="mb-3 max-w-2xl text-xs leading-relaxed text-gray-500">
-        Share these links on your parish website so parishioners can submit requests.
+        Use these links when adding request forms to your parish website or sharing them with parishioners.
       </p>
       <div className="overflow-hidden rounded-lg border border-gray-200">
         <ul className="divide-y divide-gray-200 px-4 sm:px-5">
