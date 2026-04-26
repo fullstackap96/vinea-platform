@@ -284,7 +284,7 @@ export default function Home() {
                 Tell us a little about your parish, and we’ll reach out personally to set up a
                 short walkthrough.
               </p>
-              <ScheduleDemoForm secondaryButtonClassName={secondaryButton} />
+              <ScheduleDemoForm submitButtonClassName={primaryButton} />
             </div>
           </div>
         </section>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -15,11 +15,7 @@ import { ConfirmedBaptismDateSection } from './_components/ConfirmedBaptismDateS
 import { CommunicationSection, type CommunicationMethod } from './_components/CommunicationSection'
 import { SendEmailSection } from './_components/SendEmailSection'
 import { GoogleCalendarSection } from './_components/GoogleCalendarSection'
-import { RequestNextStepCard } from './_components/RequestNextStepCard'
-import {
-  RequestQuickActionsCard,
-  REQUEST_QUICK_ACTION_SECTION_IDS,
-} from './_components/RequestQuickActionsCard'
+import { RequestNextStepCard, resolveRequestNextStep } from './_components/RequestNextStepCard'
 import { RequestProgressCard } from './_components/RequestProgressCard'
 import { RequestDetailControlBar } from './_components/RequestDetailControlBar'
 import { RequestSectionHashNavigator } from './_components/RequestSectionHashNavigator'
@@ -33,10 +29,11 @@ import { JoinParishDetailsSection } from './_components/JoinParishDetailsSection
 import { AssignmentSection } from './_components/AssignmentSection'
 import { NextFollowUpSection } from './_components/NextFollowUpSection'
 import { InternalNotesSection } from './_components/InternalNotesSection'
+import { AccordionCard } from './_components/AccordionCard'
 import { parseAiEmailDraft } from '@/lib/parseAiEmailDraft'
 import { EditRequestDetailsSection } from './_components/EditRequestDetailsSection'
 import { ensureOciaRequestDetailsIfMissing } from '@/lib/ensureOciaRequestDetails'
-import { secondaryButtonMd } from '@/lib/buttonStyles'
+import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import {
   validateConfirmedDateTimeNotPast,
   validateSuggestedDateNotPast,
@@ -163,6 +160,10 @@ const [staffNotes, setStaffNotes] = useState('')
   const [joinParishDetail, setJoinParishDetail] = useState<any | null>(null)
 
   const [editingIntake, setEditingIntake] = useState(false)
+  const [openAccordionId, setOpenAccordionId] = useState<string | null>(null)
+  const [confirmMarkCompleteOpen, setConfirmMarkCompleteOpen] = useState(false)
+  const lastManualAccordionToggleAtRef = useRef<number>(0)
+  const lastAutoNextStepKeyRef = useRef<string | null>(null)
 
   function nowDatetimeLocal() {
     const d = new Date()
@@ -403,6 +404,45 @@ async function updateRequestStatus(newStatus: string) {
   if (!error) {
     loadRequest()
   }
+}
+
+function isBlank(value: unknown) {
+  return String(value ?? '').trim().length === 0
+}
+
+function userIsActivelyTyping(): boolean {
+  if (typeof document === 'undefined') return false
+  const el = document.activeElement as HTMLElement | null
+  if (!el) return false
+  const tag = el.tagName?.toLowerCase()
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
+  return el.getAttribute?.('contenteditable') === 'true'
+}
+
+function hasHashOverride(): boolean {
+  if (typeof window === 'undefined') return false
+  return Boolean(window.location.hash && window.location.hash.trim() !== '')
+}
+
+function highlightSectionById(id: string) {
+  if (typeof window === 'undefined') return
+  const el = document.getElementById(id) as HTMLElement | null
+  if (!el) return
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const cls = 'request-detail-hash-highlight'
+  el.classList.add(cls)
+  el.style.animationDuration = reduced ? '2200ms' : '3500ms'
+  const timeout = reduced ? 2600 : 3900
+  window.setTimeout(() => {
+    el.classList.remove(cls)
+    el.style.animationDuration = ''
+  }, timeout)
+}
+
+function toggleAccordion(id: string) {
+  lastManualAccordionToggleAtRef.current = Date.now()
+  setOpenAccordionId((prev) => (prev === id ? null : id))
 }
 async function generateSummary() {
   if (!request || !parishioner) return
@@ -1286,8 +1326,88 @@ async function deleteGoogleCalendarEvent() {
   }, [routeId])
 
   useEffect(() => {
+    function syncHashToAccordion() {
+      const raw = typeof window !== 'undefined' ? window.location.hash : ''
+      const id = raw ? raw.replace(/^#/, '') : ''
+      if (!id) return
+      const allowed = new Set([
+        'request-details',
+        'checklist',
+        'assignment',
+        'next-follow-up',
+        'confirmed-time',
+        'communication',
+        'send-email',
+        'ai-tools',
+        'internal-notes',
+      ])
+      if (allowed.has(id)) setOpenAccordionId(id)
+    }
+
+    syncHashToAccordion()
+    window.addEventListener('hashchange', syncHashToAccordion)
+    return () => window.removeEventListener('hashchange', syncHashToAccordion)
+  }, [])
+
+  useEffect(() => {
     loadRequest()
   }, [routeId])
+
+  // Derived workflow state (safe even while loading).
+  const scheduleRowForProgress = {
+    request_type: request?.request_type,
+    confirmed_baptism_date: request?.confirmed_baptism_date,
+    funeral_detail: funeralDetail
+      ? { confirmed_service_at: funeralDetail.confirmed_service_at }
+      : null,
+    wedding_detail: weddingDetail
+      ? { confirmed_ceremony_at: weddingDetail.confirmed_ceremony_at }
+      : null,
+    ocia_detail: ociaDetail ? { confirmed_session_at: ociaDetail.confirmed_session_at } : null,
+  }
+
+  const checklistIncomplete = checklistItems.some((i: any) => i?.is_complete === false)
+  const nextStep = resolveRequestNextStep({
+    request,
+    scheduleRow: scheduleRowForProgress,
+    checklistIncomplete,
+  })
+
+  useEffect(() => {
+    // Auto-advance accordion to match Next Step.
+    // - Never override explicit hash navigation.
+    // - Don’t fight manual accordion toggles.
+    // - Scroll only when it won’t interrupt typing.
+    if (hasHashOverride()) return
+
+    const now = Date.now()
+    if (now - lastManualAccordionToggleAtRef.current < 2500) return
+
+    const key = nextStep.priorityKey
+    const prevKey = lastAutoNextStepKeyRef.current
+    lastAutoNextStepKeyRef.current = key
+
+    const targetId = nextStep.targetSectionId
+    const stepChanged = prevKey == null || prevKey !== key
+
+    if (openAccordionId !== targetId) {
+      setOpenAccordionId(targetId)
+      highlightSectionById(targetId)
+    } else if (stepChanged) {
+      highlightSectionById(targetId)
+    }
+
+    if (!stepChanged) return
+    if (!request) return
+    if (userIsActivelyTyping()) return
+
+    requestAnimationFrame(() => {
+      const el = document.getElementById(targetId)
+      if (!el) return
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
+    })
+  }, [request, nextStep.priorityKey, nextStep.targetSectionId, openAccordionId])
 
   if (loading) {
     return (
@@ -1341,25 +1461,122 @@ async function deleteGoogleCalendarEvent() {
   const isOcia = requestType === 'ocia'
   const isJoinParish = requestType === 'join_parish'
 
-  const quickSectionIds = REQUEST_QUICK_ACTION_SECTION_IDS
-
-  const scheduleRowForProgress = {
-    request_type: request?.request_type,
-    confirmed_baptism_date: request?.confirmed_baptism_date,
-    funeral_detail: funeralDetail
-      ? { confirmed_service_at: funeralDetail.confirmed_service_at }
-      : null,
-    wedding_detail: weddingDetail
-      ? { confirmed_ceremony_at: weddingDetail.confirmed_ceremony_at }
-      : null,
-    ocia_detail: ociaDetail
-      ? { confirmed_session_at: ociaDetail.confirmed_session_at }
-      : null,
-  }
-
   const requestIdentityName =
     String(parishioner?.full_name ?? '').trim() || 'Unnamed contact'
   const requestIdentitySubtitle = String(parishioner?.email ?? '').trim() || null
+
+  const hasAnyAssignment =
+    !isBlank(request?.assigned_staff_name) ||
+    !isBlank(request?.assigned_priest_name) ||
+    !isBlank(request?.assigned_deacon_name)
+  const assignmentSummary = hasAnyAssignment
+    ? [
+        String(request?.assigned_staff_name || '').trim(),
+        String(request?.assigned_priest_name || '').trim(),
+        String(request?.assigned_deacon_name || '').trim(),
+      ]
+        .filter(Boolean)
+        .join(' • ')
+    : 'Unassigned'
+
+  const hasCommunication = !isBlank(request?.last_contacted_at)
+  const communicationSummary = hasCommunication ? 'Contact logged' : 'No contact logged'
+
+  const hasFollowUp = !isBlank(request?.next_follow_up_date)
+  const followUpSummary = hasFollowUp ? 'Set' : 'Not set'
+
+  const requiresConfirmedSchedule = isBaptism || isFuneral || isWedding || isOcia
+  const confirmedIso = isFuneral
+    ? funeralDetail?.confirmed_service_at
+    : isWedding
+      ? weddingDetail?.confirmed_ceremony_at
+      : isOcia
+        ? ociaDetail?.confirmed_session_at
+        : request?.confirmed_baptism_date
+  const hasConfirmedSchedule = requiresConfirmedSchedule ? Boolean(confirmedIso) : true
+  const schedulingSummary = requiresConfirmedSchedule
+    ? hasConfirmedSchedule
+      ? 'Confirmed'
+      : 'No confirmed date'
+    : 'Not applicable'
+
+  const remainingChecklistCount = checklistItems.filter((i: any) => i?.is_complete === false).length
+  const checklistSummary =
+    remainingChecklistCount === 0
+      ? 'All complete'
+      : `${remainingChecklistCount} item${remainingChecklistCount === 1 ? '' : 's'} remaining`
+
+  const hasEmailDraft = !isBlank(replyDraft)
+  const sendEmailSummary = hasEmailDraft ? 'Draft ready' : 'No draft yet'
+  const notesSummary = !isBlank(requestNotes) ? 'Has notes' : 'None'
+
+  const followUpNotNeeded = String(request?.status || '') === 'complete'
+  const followUpReady = hasFollowUp || followUpNotNeeded
+
+  const checklistReady = remainingChecklistCount === 0
+
+  const confirmedScheduleReady = !requiresConfirmedSchedule || hasConfirmedSchedule
+
+  const completionRequirements = [
+    {
+      key: 'assignment',
+      label: 'Assignment completed?',
+      ok: hasAnyAssignment,
+      missingText: 'Assign a staff member, priest, or deacon.',
+      jumpTo: 'assignment',
+    },
+    {
+      key: 'first-contact',
+      label: 'First contact logged?',
+      ok: hasCommunication,
+      missingText: 'Log the first communication with this family.',
+      jumpTo: 'communication',
+    },
+    {
+      key: 'follow-up',
+      label: 'Next follow-up set or not needed?',
+      ok: followUpReady,
+      missingText: 'Set a next follow-up date.',
+      jumpTo: 'next-follow-up',
+    },
+    {
+      key: 'schedule',
+      label: 'Confirmed schedule set?',
+      ok: confirmedScheduleReady,
+      missingText: 'Set the confirmed date and time.',
+      jumpTo: 'confirmed-time',
+    },
+    {
+      key: 'checklist',
+      label: 'Checklist complete?',
+      ok: checklistReady,
+      missingText: 'Complete the remaining checklist items.',
+      jumpTo: 'checklist',
+    },
+  ] as const
+
+  const missingCompletionItems = completionRequirements.filter((r) => !r.ok)
+  const canMarkComplete = Boolean(request) && missingCompletionItems.length === 0
+
+  const markCompleteDisabledReason =
+    missingCompletionItems.length === 0
+      ? ''
+      : `To mark complete, review: ${missingCompletionItems
+          .map((m) => m.jumpTo.replace('-', ' '))
+          .join(', ')}.`
+
+  function jumpToCompletion() {
+    if (typeof window === 'undefined') return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    requestAnimationFrame(() => {
+      const el = document.getElementById('completion')
+      if (!el) return
+      el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
+      highlightSectionById('completion')
+      window.location.hash = '#completion'
+    })
+  }
+
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-6 pt-4 text-gray-900 sm:px-6 sm:pb-8 sm:pt-5">
@@ -1381,12 +1598,16 @@ async function deleteGoogleCalendarEvent() {
         canEditIntake={Boolean(parishioner?.id)}
         editingIntake={editingIntake}
         onEditIntake={() => setEditingIntake(true)}
-        onMarkComplete={() => updateRequestStatus('complete')}
+        onMarkComplete={() => {
+          jumpToCompletion()
+        }}
       />
 
-      <RequestNextStepCard request={request} scheduleRow={scheduleRowForProgress} />
-
-      <RequestQuickActionsCard />
+      <RequestNextStepCard
+        request={request}
+        scheduleRow={scheduleRowForProgress}
+        checklistIncomplete={checklistIncomplete}
+      />
 
       <RequestProgressCard
         assignedStaffName={request?.assigned_staff_name}
@@ -1395,106 +1616,142 @@ async function deleteGoogleCalendarEvent() {
         scheduleRow={scheduleRowForProgress}
       />
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
-        <div className="flex flex-col lg:col-span-7">
-          <DetailSectionCard isFirst id="request-intake">
+      <div className="mt-8 space-y-6">
+        <DetailSectionCard isFirst id="request-details">
+          <AccordionCard
+            title="Request Details"
+            helperText="Review the intake information and edit if needed."
+            open={openAccordionId === 'request-details'}
+            onToggle={() => toggleAccordion('request-details')}
+            statusSummary={editingIntake ? 'Editing' : 'View'}
+            isComplete
+          >
             <RequestContactIntakeSection
               parishioner={parishioner}
               request={request}
               funeralDetail={funeralDetail}
               weddingDetail={weddingDetail}
               ociaDetail={ociaDetail}
-              intakeDetailsHidden={editingIntake}
+              intakeDetailsHidden={false}
             />
-          </DetailSectionCard>
 
-          {parishioner?.id ? (
-            editingIntake ? (
-              <DetailSectionCard id="request-intake-editor">
-                <EditRequestDetailsSection
-                  open={editingIntake}
-                  requestId={routeId}
-                  requestType={
-                    isBaptism ? 'baptism' : isFuneral ? 'funeral' : isWedding ? 'wedding' : 'ocia'
-                  }
-                  parishionerId={String(request?.parishioner_id ?? parishioner.id ?? '')}
-                  parishioner={parishioner}
-                  request={request}
-                  funeralDetail={funeralDetail}
-                  weddingDetail={weddingDetail}
-                  ociaDetail={ociaDetail}
-                  onClose={() => setEditingIntake(false)}
-                  onSaved={async () => {
-                    await loadRequest()
-                    setEditingIntake(false)
-                  }}
+            {!isJoinParish && parishioner?.id ? (
+              editingIntake ? (
+                <div className="mt-6 border-t border-gray-100 pt-5">
+                  <EditRequestDetailsSection
+                    open={editingIntake}
+                    requestId={routeId}
+                    requestType={
+                      isBaptism ? 'baptism' : isFuneral ? 'funeral' : isWedding ? 'wedding' : 'ocia'
+                    }
+                    parishionerId={String(request?.parishioner_id ?? parishioner.id ?? '')}
+                    parishioner={parishioner}
+                    request={request}
+                    funeralDetail={funeralDetail}
+                    weddingDetail={weddingDetail}
+                    ociaDetail={ociaDetail}
+                    onClose={() => setEditingIntake(false)}
+                    onSaved={async () => {
+                      await loadRequest()
+                      setEditingIntake(false)
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="mt-6 border-t border-gray-100 pt-5">
+                  <button
+                    type="button"
+                    onClick={() => setEditingIntake(true)}
+                    className={secondaryButtonMd}
+                  >
+                    Edit request details
+                  </button>
+                </div>
+              )
+            ) : null}
+
+            {isFuneral && !editingIntake ? (
+              <div className="mt-6 border-t border-gray-100 pt-5">
+                <FuneralDetailsSection
+                  deceasedName={funeralDeceasedName}
+                  setDeceasedName={setFuneralDeceasedName}
+                  dateOfDeath={funeralDateOfDeath}
+                  setDateOfDeath={setFuneralDateOfDeath}
+                  funeralHome={funeralHome}
+                  setFuneralHome={setFuneralHome}
+                  preferredServiceNotes={funeralPreferredNotes}
+                  setPreferredServiceNotes={setFuneralPreferredNotes}
+                  onSave={saveFuneralDetails}
+                  saving={funeralSaving}
+                  message={funeralMessage}
                 />
-              </DetailSectionCard>
-            ) : (
-              <DetailSectionCard>
-                <button
-                  type="button"
-                  onClick={() => setEditingIntake(true)}
-                  className={secondaryButtonMd}
-                >
-                  Edit request details
-                </button>
-              </DetailSectionCard>
-            )
-          ) : null}
+              </div>
+            ) : null}
 
-          {isFuneral && !editingIntake ? (
-            <DetailSectionCard>
-              <FuneralDetailsSection
-                deceasedName={funeralDeceasedName}
-                setDeceasedName={setFuneralDeceasedName}
-                dateOfDeath={funeralDateOfDeath}
-                setDateOfDeath={setFuneralDateOfDeath}
-                funeralHome={funeralHome}
-                setFuneralHome={setFuneralHome}
-                preferredServiceNotes={funeralPreferredNotes}
-                setPreferredServiceNotes={setFuneralPreferredNotes}
-                onSave={saveFuneralDetails}
-                saving={funeralSaving}
-                message={funeralMessage}
-              />
-            </DetailSectionCard>
-          ) : null}
+            {isWedding && !editingIntake ? (
+              <div className="mt-6 border-t border-gray-100 pt-5">
+                <WeddingDetailsSection
+                  partnerOneName={weddingPartnerOne}
+                  setPartnerOneName={setWeddingPartnerOne}
+                  partnerTwoName={weddingPartnerTwo}
+                  setPartnerTwoName={setWeddingPartnerTwo}
+                  proposedWeddingDate={weddingProposedDate}
+                  setProposedWeddingDate={setWeddingProposedDate}
+                  ceremonyNotes={weddingCeremonyNotes}
+                  setCeremonyNotes={setWeddingCeremonyNotes}
+                  onSave={saveWeddingDetails}
+                  saving={weddingSaving}
+                  message={weddingMessage}
+                />
+              </div>
+            ) : null}
 
-          {isWedding && !editingIntake ? (
-            <DetailSectionCard>
-              <WeddingDetailsSection
-                partnerOneName={weddingPartnerOne}
-                setPartnerOneName={setWeddingPartnerOne}
-                partnerTwoName={weddingPartnerTwo}
-                setPartnerTwoName={setWeddingPartnerTwo}
-                proposedWeddingDate={weddingProposedDate}
-                setProposedWeddingDate={setWeddingProposedDate}
-                ceremonyNotes={weddingCeremonyNotes}
-                setCeremonyNotes={setWeddingCeremonyNotes}
-                onSave={saveWeddingDetails}
-                saving={weddingSaving}
-                message={weddingMessage}
-              />
-            </DetailSectionCard>
-          ) : null}
+            {isOcia && !editingIntake ? (
+              <div className="mt-6 border-t border-gray-100 pt-5">
+                <OciaDetailsSection detail={ociaDetail} />
+              </div>
+            ) : null}
 
-          {isOcia && !editingIntake ? (
-            <DetailSectionCard>
-              <OciaDetailsSection detail={ociaDetail} />
-            </DetailSectionCard>
-          ) : null}
+            {isJoinParish && !editingIntake ? (
+              <div className="mt-6 border-t border-gray-100 pt-5">
+                <JoinParishDetailsSection detail={joinParishDetail} />
+              </div>
+            ) : null}
 
-          {isJoinParish && !editingIntake ? (
-            <DetailSectionCard>
-              <JoinParishDetailsSection detail={joinParishDetail} />
-            </DetailSectionCard>
-          ) : null}
+            <div className="mt-6 border-t border-gray-100 pt-5">
+              <RequestStatusSection request={request} onUpdateStatus={updateRequestStatus} />
+            </div>
+          </AccordionCard>
+        </DetailSectionCard>
 
-          <div className="mt-8 mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Communication Workflow
-          </div>
-          <DetailSectionCard id={quickSectionIds.communication}>
+        <DetailSectionCard id="assignment">
+          <AccordionCard
+            title="Assignment"
+            helperText="Assign staff, priest, or deacon."
+            open={openAccordionId === 'assignment'}
+            onToggle={() => toggleAccordion('assignment')}
+            statusSummary={assignmentSummary}
+            isComplete={hasAnyAssignment}
+          >
+            <AssignmentSection
+              requestId={routeId}
+              assignedStaffName={request?.assigned_staff_name}
+              assignedPriestName={request?.assigned_priest_name}
+              assignedDeaconName={request?.assigned_deacon_name}
+              onSaved={loadRequest}
+            />
+          </AccordionCard>
+        </DetailSectionCard>
+
+        <DetailSectionCard id="communication">
+          <AccordionCard
+            title="Communication"
+            helperText="Log conversations and track last contact."
+            open={openAccordionId === 'communication'}
+            onToggle={() => toggleAccordion('communication')}
+            statusSummary={communicationSummary}
+            isComplete={hasCommunication}
+          >
             <CommunicationSection
               lastContactedAtIso={request?.last_contacted_at}
               lastContactMethod={request?.last_contact_method}
@@ -1510,69 +1767,37 @@ async function deleteGoogleCalendarEvent() {
               message={commMessage}
               history={communications}
             />
-          </DetailSectionCard>
+          </AccordionCard>
+        </DetailSectionCard>
 
-          <DetailSectionCard>
-            <AiToolsSection
-              aiLoading={aiLoading}
-              aiSummary={aiSummary}
-              replyDraft={replyDraft}
-              copyMessage={copyMessage}
-              onGenerateSummary={generateSummary}
-              onGenerateReplyDraft={generateReplyDraft}
-              onCopyReplyDraft={copyReplyDraft}
-            />
-          </DetailSectionCard>
-
-          <DetailSectionCard id={quickSectionIds.sendEmail} tightTop>
-            <SendEmailSection
-              toEmail={String(parishioner?.email || '')}
-              subject={emailSubject}
-              setSubject={setEmailSubject}
-              body={replyDraft}
-              onSend={sendEmail}
-              sending={emailSending}
-              message={emailMessage}
-            />
-          </DetailSectionCard>
-        </div>
-
-        <div className="flex flex-col lg:col-span-5">
-          <DetailSectionCard isFirst>
-            <RequestStatusSection request={request} onUpdateStatus={updateRequestStatus} />
-          </DetailSectionCard>
-
-          <DetailSectionCard>
-            <ChecklistSection
-              checklistItems={checklistItems}
-              onToggleChecklistItem={toggleChecklistItem}
-            />
-          </DetailSectionCard>
-
-          <DetailSectionCard id={quickSectionIds.assignment}>
-            <AssignmentSection
-              requestId={routeId}
-              assignedStaffName={request?.assigned_staff_name}
-              assignedPriestName={request?.assigned_priest_name}
-              assignedDeaconName={request?.assigned_deacon_name}
-              onSaved={loadRequest}
-            />
-          </DetailSectionCard>
-
-          <DetailSectionCard id={quickSectionIds.nextFollowUp}>
+        <DetailSectionCard id="next-follow-up">
+          <AccordionCard
+            title="Follow-Up"
+            helperText="Set a date to keep this request moving."
+            open={openAccordionId === 'next-follow-up'}
+            onToggle={() => toggleAccordion('next-follow-up')}
+            statusSummary={followUpSummary}
+            isComplete={hasFollowUp}
+          >
             <NextFollowUpSection
               requestId={routeId}
               nextFollowUpDate={request?.next_follow_up_date}
               onSaved={loadRequest}
             />
-          </DetailSectionCard>
+          </AccordionCard>
+        </DetailSectionCard>
 
-          <div className="mt-8 mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Scheduling & Records
-          </div>
-          {isBaptism ? (
-            <>
-              <DetailSectionCard>
+        <DetailSectionCard id="confirmed-time">
+          <AccordionCard
+            title="Scheduling"
+            helperText="Confirm the final date/time (and optional suggested dates)."
+            open={openAccordionId === 'confirmed-time'}
+            onToggle={() => toggleAccordion('confirmed-time')}
+            statusSummary={schedulingSummary}
+            isComplete={hasConfirmedSchedule}
+          >
+            {isBaptism ? (
+              <div className="mb-6">
                 <SuggestedDatesSection
                   suggested1={suggested1}
                   suggested2={suggested2}
@@ -1584,105 +1809,289 @@ async function deleteGoogleCalendarEvent() {
                   saving={suggestedSaving}
                   message={suggestedMessage}
                 />
-              </DetailSectionCard>
-              <DetailSectionCard id="confirmed-time">
-                <ConfirmedBaptismDateSection
-                  confirmedValue={confirmedBaptismDate}
-                  setConfirmedValue={setConfirmedBaptismDate}
-                  confirmedIso={request?.confirmed_baptism_date}
-                  suggested1={suggested1}
-                  suggested2={suggested2}
-                  suggested3={suggested3}
-                  onSave={saveConfirmedBaptismDate}
-                  onClear={clearConfirmedBaptismDate}
-                  saving={confirmedSaving}
-                  message={confirmedMessage}
-                />
-              </DetailSectionCard>
-            </>
-          ) : null}
+                <div className="mt-6 border-t border-gray-100 pt-5" />
+              </div>
+            ) : null}
 
-          {isFuneral ? (
-            <DetailSectionCard id="confirmed-time">
-              <ConfirmedFuneralServiceSection
-                confirmedValue={confirmedFuneralService}
-                setConfirmedValue={setConfirmedFuneralService}
-                confirmedIso={funeralDetail?.confirmed_service_at}
-                onSave={saveConfirmedFuneralService}
-                onClear={clearConfirmedFuneralService}
-                saving={funeralConfirmedSaving}
-                message={funeralConfirmedMessage}
-              />
-            </DetailSectionCard>
-          ) : null}
+            {(isBaptism || isFuneral || isWedding || isOcia) ? (
+              <div>
+                {isBaptism ? (
+                  <ConfirmedBaptismDateSection
+                    confirmedValue={confirmedBaptismDate}
+                    setConfirmedValue={setConfirmedBaptismDate}
+                    confirmedIso={request?.confirmed_baptism_date}
+                    suggested1={suggested1}
+                    suggested2={suggested2}
+                    suggested3={suggested3}
+                    onSave={saveConfirmedBaptismDate}
+                    onClear={clearConfirmedBaptismDate}
+                    saving={confirmedSaving}
+                    message={confirmedMessage}
+                  />
+                ) : isFuneral ? (
+                  <ConfirmedFuneralServiceSection
+                    confirmedValue={confirmedFuneralService}
+                    setConfirmedValue={setConfirmedFuneralService}
+                    confirmedIso={funeralDetail?.confirmed_service_at}
+                    onSave={saveConfirmedFuneralService}
+                    onClear={clearConfirmedFuneralService}
+                    saving={funeralConfirmedSaving}
+                    message={funeralConfirmedMessage}
+                  />
+                ) : isWedding ? (
+                  <ConfirmedWeddingCeremonySection
+                    confirmedValue={confirmedWeddingCeremony}
+                    setConfirmedValue={setConfirmedWeddingCeremony}
+                    confirmedIso={weddingDetail?.confirmed_ceremony_at}
+                    onSave={saveConfirmedWeddingCeremony}
+                    onClear={clearConfirmedWeddingCeremony}
+                    saving={weddingConfirmedSaving}
+                    message={weddingConfirmedMessage}
+                  />
+                ) : (
+                  <ConfirmedOciaSessionSection
+                    confirmedValue={confirmedOciaSession}
+                    setConfirmedValue={setConfirmedOciaSession}
+                    confirmedIso={ociaDetail?.confirmed_session_at}
+                    onSave={saveConfirmedOciaSession}
+                    onClear={clearConfirmedOciaSession}
+                    saving={ociaSessionSaving}
+                    message={ociaSessionMessage}
+                  />
+                )}
 
-          {isWedding ? (
-            <DetailSectionCard id="confirmed-time">
-              <ConfirmedWeddingCeremonySection
-                confirmedValue={confirmedWeddingCeremony}
-                setConfirmedValue={setConfirmedWeddingCeremony}
-                confirmedIso={weddingDetail?.confirmed_ceremony_at}
-                onSave={saveConfirmedWeddingCeremony}
-                onClear={clearConfirmedWeddingCeremony}
-                saving={weddingConfirmedSaving}
-                message={weddingConfirmedMessage}
-              />
-            </DetailSectionCard>
-          ) : null}
+                <div className="mt-6 border-t border-gray-100 pt-5">
+                  <GoogleCalendarSection
+                    confirmedIso={confirmedIso}
+                    unconfirmedHint={
+                      isFuneral
+                        ? 'Set a confirmed funeral service time first to create or update a calendar event.'
+                        : isWedding
+                          ? 'Set a confirmed wedding ceremony time first to create or update a calendar event.'
+                          : isOcia
+                            ? 'Set a confirmed OCIA meeting time first to create or update a calendar event.'
+                            : undefined
+                    }
+                    eventId={request?.google_calendar_event_id}
+                    eventLink={request?.google_calendar_event_html_link}
+                    onCreate={createGoogleCalendarEvent}
+                    onForceCreate={forceCreateGoogleCalendarEvent}
+                    onUpdate={updateGoogleCalendarEvent}
+                    onDelete={deleteGoogleCalendarEvent}
+                    creating={gcalCreating}
+                    updating={gcalUpdating}
+                    deleting={gcalDeleting}
+                    message={gcalMessage}
+                    conflicts={gcalConflicts}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </AccordionCard>
+        </DetailSectionCard>
 
-          {isOcia ? (
-            <DetailSectionCard id="confirmed-time">
-              <ConfirmedOciaSessionSection
-                confirmedValue={confirmedOciaSession}
-                setConfirmedValue={setConfirmedOciaSession}
-                confirmedIso={ociaDetail?.confirmed_session_at}
-                onSave={saveConfirmedOciaSession}
-                onClear={clearConfirmedOciaSession}
-                saving={ociaSessionSaving}
-                message={ociaSessionMessage}
-              />
-            </DetailSectionCard>
-          ) : null}
-
-          <DetailSectionCard>
-            <GoogleCalendarSection
-              confirmedIso={
-                isFuneral
-                  ? funeralDetail?.confirmed_service_at
-                  : isWedding
-                    ? weddingDetail?.confirmed_ceremony_at
-                    : isOcia
-                      ? ociaDetail?.confirmed_session_at
-                      : request?.confirmed_baptism_date
-              }
-              unconfirmedHint={
-                isFuneral
-                  ? 'Set a confirmed funeral service time first to create or update a calendar event.'
-                  : isWedding
-                    ? 'Set a confirmed wedding ceremony time first to create or update a calendar event.'
-                    : isOcia
-                      ? 'Set a confirmed OCIA meeting time first to create or update a calendar event.'
-                      : undefined
-              }
-              eventId={request?.google_calendar_event_id}
-              eventLink={request?.google_calendar_event_html_link}
-              onCreate={createGoogleCalendarEvent}
-              onForceCreate={forceCreateGoogleCalendarEvent}
-              onUpdate={updateGoogleCalendarEvent}
-              onDelete={deleteGoogleCalendarEvent}
-              creating={gcalCreating}
-              updating={gcalUpdating}
-              deleting={gcalDeleting}
-              message={gcalMessage}
-              conflicts={gcalConflicts}
+        <DetailSectionCard id="checklist">
+          <AccordionCard
+            title="Checklist"
+            helperText="Mark items complete as you go."
+            open={openAccordionId === 'checklist'}
+            onToggle={() => toggleAccordion('checklist')}
+            statusSummary={checklistSummary}
+            isComplete={remainingChecklistCount === 0}
+          >
+            <ChecklistSection
+              checklistItems={checklistItems}
+              onToggleChecklistItem={toggleChecklistItem}
             />
-          </DetailSectionCard>
+          </AccordionCard>
+        </DetailSectionCard>
 
-          <DetailSectionCard>
+        <DetailSectionCard id="ai-tools">
+          <AccordionCard
+            title="Reply Assistance"
+            helperText="Generate a summary or draft reply to save time."
+            open={openAccordionId === 'ai-tools'}
+            onToggle={() => toggleAccordion('ai-tools')}
+            statusSummary={hasEmailDraft ? 'Draft available' : 'Optional'}
+            isComplete={hasEmailDraft}
+          >
+            <AiToolsSection
+              aiLoading={aiLoading}
+              aiSummary={aiSummary}
+              replyDraft={replyDraft}
+              copyMessage={copyMessage}
+              onGenerateSummary={generateSummary}
+              onGenerateReplyDraft={generateReplyDraft}
+              onCopyReplyDraft={copyReplyDraft}
+            />
+          </AccordionCard>
+        </DetailSectionCard>
+
+        <DetailSectionCard id="send-email">
+          <AccordionCard
+            title="Send Email"
+            helperText="Send a message using the saved draft."
+            open={openAccordionId === 'send-email'}
+            onToggle={() => toggleAccordion('send-email')}
+            statusSummary={sendEmailSummary}
+          >
+            <SendEmailSection
+              toEmail={String(parishioner?.email || '')}
+              subject={emailSubject}
+              setSubject={setEmailSubject}
+              body={replyDraft}
+              onSend={sendEmail}
+              sending={emailSending}
+              message={emailMessage}
+            />
+          </AccordionCard>
+        </DetailSectionCard>
+
+        <DetailSectionCard id="internal-notes">
+          <AccordionCard
+            title="Internal Notes"
+            helperText="Private notes for staff only."
+            open={openAccordionId === 'internal-notes'}
+            onToggle={() => toggleAccordion('internal-notes')}
+            statusSummary={notesSummary}
+            isComplete={!isBlank(requestNotes)}
+          >
             <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
-          </DetailSectionCard>
-        </div>
+          </AccordionCard>
+        </DetailSectionCard>
+
+        <DetailSectionCard id="completion">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-gray-900">Completion</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Review the key steps below, then intentionally close out the request.
+              </p>
+            </div>
+            <div className="w-full sm:w-auto" title={!canMarkComplete ? markCompleteDisabledReason : undefined}>
+              <button
+                type="button"
+                disabled={!canMarkComplete}
+                onClick={() => {
+                  if (!canMarkComplete) return
+                  setConfirmMarkCompleteOpen(true)
+                }}
+                className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
+              >
+                Mark Complete
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <ul className="space-y-3">
+              {completionRequirements.map((req) => (
+                <li key={req.key} className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{req.label}</p>
+                    {!req.ok ? (
+                      <p className="mt-0.5 text-xs text-gray-500">{req.missingText}</p>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        req.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {req.ok ? 'Done' : 'Needs attention'}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {missingCompletionItems.length > 0 ? (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <p className="text-xs font-medium text-gray-700">Still needed</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {missingCompletionItems.map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50"
+                      onClick={() => {
+                        const id = m.jumpTo
+                        setOpenAccordionId(id)
+                        requestAnimationFrame(() => {
+                          const el = document.getElementById(id)
+                          if (!el) return
+                          const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                          el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
+                          highlightSectionById(id)
+                          window.location.hash = `#${id}`
+                        })
+                      }}
+                    >
+                      {m.jumpTo === 'confirmed-time'
+                        ? 'Scheduling'
+                        : m.jumpTo === 'next-follow-up'
+                          ? 'Follow-Up'
+                          : m.jumpTo === 'communication'
+                            ? 'Communication'
+                            : m.jumpTo === 'assignment'
+                              ? 'Assignment'
+                              : 'Checklist'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-gray-500">
+                Everything looks ready. You’ll be asked to confirm before marking complete.
+              </p>
+            )}
+          </div>
+        </DetailSectionCard>
       </div>
+
+      {confirmMarkCompleteOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm mark complete"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/30"
+            aria-label="Close modal"
+            onClick={() => setConfirmMarkCompleteOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-lg">
+            <h2 className="text-base font-semibold text-gray-900">
+              Are you sure you want to mark this request complete?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              You can still reopen it later by changing the status.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
+                onClick={() => setConfirmMarkCompleteOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
+                onClick={() => {
+                  setConfirmMarkCompleteOpen(false)
+                  updateRequestStatus('complete')
+                }}
+              >
+                Mark complete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }

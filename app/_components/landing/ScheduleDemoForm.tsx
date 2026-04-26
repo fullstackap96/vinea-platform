@@ -3,9 +3,9 @@
 import { useState } from 'react'
 
 export function ScheduleDemoForm({
-  secondaryButtonClassName,
+  submitButtonClassName,
 }: {
-  secondaryButtonClassName: string
+  submitButtonClassName: string
 }) {
   const [name, setName] = useState('')
   const [parishName, setParishName] = useState('')
@@ -66,8 +66,8 @@ export function ScheduleDemoForm({
   }
 
   return (
-    <form className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={onSubmit}>
-      <div className="sm:col-span-1">
+    <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+      <div>
         <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="demo-name">
           Name
         </label>
@@ -81,7 +81,7 @@ export function ScheduleDemoForm({
         />
       </div>
 
-      <div className="sm:col-span-1">
+      <div>
         <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="demo-parish">
           Parish name
         </label>
@@ -95,7 +95,7 @@ export function ScheduleDemoForm({
         />
       </div>
 
-      <div className="sm:col-span-1">
+      <div>
         <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="demo-email">
           Email
         </label>
@@ -110,7 +110,7 @@ export function ScheduleDemoForm({
         />
       </div>
 
-      <div className="sm:col-span-1">
+      <div>
         <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="demo-role">
           Role / title
         </label>
@@ -124,7 +124,7 @@ export function ScheduleDemoForm({
         />
       </div>
 
-      <div className="sm:col-span-2">
+      <div>
         <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="demo-message">
           Message
         </label>
@@ -138,21 +138,21 @@ export function ScheduleDemoForm({
         />
       </div>
 
-      <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-gray-500">
-          We&apos;ll reply by email within 1 business day.
-        </p>
+      <div className="flex flex-col gap-2 pt-1">
         <button
           type="submit"
           disabled={loading}
-          className={secondaryButtonClassName}
+          className={`${submitButtonClassName} w-full justify-center`}
         >
           {loading ? 'Requesting…' : 'Request demo'}
         </button>
+        <p className="text-xs text-gray-500">
+          No commitment — just a quick conversation.
+        </p>
       </div>
 
       {statusMessage ? (
-        <p className="sm:col-span-2 text-sm text-gray-600" role="status" aria-live="polite">
+        <p className="text-sm text-gray-600" role="status" aria-live="polite">
           {statusMessage}
         </p>
       ) : null}
