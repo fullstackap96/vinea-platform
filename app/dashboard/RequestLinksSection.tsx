@@ -12,6 +12,7 @@ const ROWS = [
   { key: 'funeral', label: 'Funeral', path: '/funeral-request' },
   { key: 'wedding', label: 'Wedding', path: '/wedding-request' },
   { key: 'ocia', label: 'OCIA', path: '/ocia-request' },
+  { key: 'join_parish', label: 'Join Parish Request', path: '/join-parish-request' },
 ] as const
 
 const COPIED_MS = 2000

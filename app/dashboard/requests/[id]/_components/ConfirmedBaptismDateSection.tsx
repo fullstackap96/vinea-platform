@@ -4,6 +4,8 @@ import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
+import { InlineAmberNote } from '@/lib/InlineAmberNote'
+import { isPastConfirmedIso, minNowDatetimeLocal } from '@/lib/scheduleValidation'
 
 function formatConfirmedLabel(confirmedIso: string | null | undefined) {
   if (!confirmedIso) return 'Not set'
@@ -36,21 +38,26 @@ export function ConfirmedBaptismDateSection({
   message: string
 }) {
   const canClear = Boolean(confirmedValue || confirmedIso)
+  const showPastNote = isPastConfirmedIso(confirmedIso)
+  const min = minNowDatetimeLocal()
 
   return (
     <div>
       <h2 className={sectionHeadingClassName}>Confirmed Baptism Date</h2>
+      <p className="mt-1 text-xs text-gray-500">Choose a future date and time.</p>
       <LabelValueGrid className="mb-3">
         <LabelValueRow
           label="Confirmed"
           value={maybeMissingValue(formatConfirmedLabel(confirmedIso))}
         />
       </LabelValueGrid>
+      {showPastNote ? <InlineAmberNote message="This date has already passed." /> : null}
 
       <div className="space-y-3">
         <input
           className="w-full border p-3 rounded"
           type="datetime-local"
+          min={min}
           value={confirmedValue}
           onChange={(e) => setConfirmedValue(e.target.value)}
         />

@@ -5,7 +5,7 @@ import {
   PARISH_OPERATIONS_DESCRIPTOR,
   PRODUCT_NAME,
 } from '@/lib/productBranding'
-import { primaryButtonLanding, secondaryButtonLanding } from '@/lib/buttonStyles'
+import { landingButtonPrimary, landingButtonSecondary } from '@/lib/buttonStyles'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 export default function Home() {
@@ -51,7 +51,7 @@ export default function Home() {
                 alt={PRODUCT_NAME}
                 width={900}
                 height={360}
-                className="h-44 w-auto mx-auto mb-6 object-contain sm:h-52 lg:h-56"
+                className="h-48 w-auto mx-auto mb-6 object-contain sm:h-56 lg:h-60"
                 priority
                 unoptimized
               />
@@ -59,10 +59,13 @@ export default function Home() {
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight leading-tight">
               Baptism, funeral, wedding, and OCIA requests—organized for your parish team.
             </h1>
-            <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-700 tracking-tight leading-snug">
-              Parish Operations Simplified
+            <p className="mt-2 text-sm sm:text-base font-semibold tracking-wide text-brand-foreground">
+              The Operating System for Parish Ministry
             </p>
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed max-w-2xl">
+            <p className="text-lg sm:text-xl text-gray-600 mt-3 mb-3">
+              No more missed follow-ups, scattered emails, or manual tracking.
+            </p>
+            <p className="text-sm text-gray-600 leading-relaxed max-w-2xl">
               <span className="font-semibold text-gray-900">{PRODUCT_NAME}</span>
               {' is the parish staff hub for '}
               <span className="font-medium text-gray-800">
@@ -76,22 +79,88 @@ export default function Home() {
               pastoral thread.
             </p>
             <div className="mt-7 flex flex-col sm:flex-row gap-3 sm:flex-wrap">
-              <Link href="/login" className={primaryButtonLanding}>
-                Staff Sign In
-              </Link>
-              <Link href="#intake" className={secondaryButtonLanding}>
-                View Request Forms
+              <div className="flex flex-col items-center sm:items-start">
+                <Link href="/login" className={landingButtonPrimary}>
+                  Staff Sign In
+                </Link>
+                <p className="text-xs text-gray-500 mt-2">For parish staff members</p>
+              </div>
+              <Link href="#intake-forms" className={landingButtonSecondary}>
+                See Parish Intake Forms
               </Link>
             </div>
+            <p className="text-sm text-gray-500 mt-3">
+              Built for real parish workflows — not generic software.
+            </p>
             <p className="mt-3 text-sm text-gray-600 leading-relaxed max-w-2xl">
               Securely manage parish requests. Submissions are reviewed by parish staff.
             </p>
           </div>
         </section>
 
+        {/* What Vinea helps you do */}
+        <section className="border-t bg-white py-12 sm:py-14">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+            <h2 className={sectionHeadingClassName}>What Vinea Helps You Do</h2>
+            <ul className="mt-4 grid gap-3 sm:grid-cols-2 text-sm text-gray-700">
+              <li className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                Track incoming requests (baptisms, funerals, weddings, OCIA)
+              </li>
+              <li className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                Assign and manage follow-ups so nothing gets missed
+              </li>
+              <li className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                Coordinate parish schedules and availability
+              </li>
+              <li className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                Keep clear visibility on what needs attention
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section className="border-t bg-gray-50 py-12 sm:py-14">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+            <h2 className={sectionHeadingClassName}>How It Works</h2>
+            <ol className="mt-4 grid gap-3 sm:grid-cols-2 text-sm text-gray-700">
+              <li className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+                <span className="font-semibold text-gray-900">1.</span> Parishioner submits a
+                request
+              </li>
+              <li className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+                <span className="font-semibold text-gray-900">2.</span> Staff reviews and assigns
+                follow-ups
+              </li>
+              <li className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+                <span className="font-semibold text-gray-900">3.</span> Track progress and
+                coordinate scheduling
+              </li>
+              <li className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+                <span className="font-semibold text-gray-900">4.</span> Mark complete and retain
+                records
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        {/* Why Vinea */}
+        <section className="border-t bg-white py-12 sm:py-14">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+            <h2 className={sectionHeadingClassName}>Why Vinea</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-gray-700">
+              Vinea is built to support real parish ministry: fewer dropped handoffs, clearer
+              pastoral follow-through, and a calm, consistent process your team can rely on.
+            </p>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
+              It keeps the work human—while the system keeps the details organized.
+            </p>
+          </div>
+        </section>
+
         {/* Workflow cards */}
         <section
-          id="intake"
+          id="intake-forms"
           className="border-t bg-white py-16 sm:py-20 scroll-mt-20"
         >
           <div className="max-w-5xl mx-auto px-4 sm:px-6">
@@ -102,18 +171,18 @@ export default function Home() {
             </p>
             <div className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
               <WorkflowCard
+                title="Join the parish"
+                description="New households share address, sacramental status, and how we can welcome them."
+                href="/join-parish-request"
+                cta="Open form →"
+                accent="border-amber-300 bg-amber-50/70"
+              />
+              <WorkflowCard
                 title="Baptism requests"
                 description="Parents share child details, preferred timing, and notes for preparation."
                 href="/baptism-request"
                 cta="Open form →"
                 accent="border-blue-200 bg-blue-50/50"
-              />
-              <WorkflowCard
-                title="Funeral planning"
-                description="Families reach out for liturgy planning with clear, compassionate intake fields."
-                href="/funeral-request"
-                cta="Open form →"
-                accent="border-slate-200 bg-slate-50/80"
               />
               <WorkflowCard
                 title="Wedding preparation"
@@ -129,12 +198,21 @@ export default function Home() {
                 cta="Open form →"
                 accent="border-emerald-200 bg-emerald-50/50"
               />
+              <div className="sm:col-span-2 xl:col-span-4">
+                <WorkflowCard
+                  title="Funeral planning"
+                  description="Families reach out for liturgy planning with clear, compassionate intake fields."
+                  href="/funeral-request"
+                  cta="Open form →"
+                  accent="border-slate-200 bg-slate-50/80"
+                />
+              </div>
             </div>
           </div>
         </section>
 
         {/* Features */}
-        <section className="border-t bg-gray-50 py-16 sm:py-20">
+        <section className="border-t bg-gray-50 py-14 sm:py-16">
           <div className="max-w-5xl mx-auto px-4 sm:px-6">
             <h2 className={sectionHeadingClassName}>Built for parish staff</h2>
             <p className="text-gray-600 max-w-2xl">
@@ -170,21 +248,9 @@ export default function Home() {
               Sign in with your parish staff account to review requests, run follow-ups,
               and keep sacramental care coordinated.
             </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap justify-center sm:justify-start">
-              <Link href="/login" className={primaryButtonLanding}>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap justify-center sm:justify-start">
+              <Link href="/login" className={landingButtonPrimary}>
                 Staff Sign In
-              </Link>
-              <Link href="/baptism-request" className={secondaryButtonLanding}>
-                Baptism Request
-              </Link>
-              <Link href="/funeral-request" className={secondaryButtonLanding}>
-                Funeral Request
-              </Link>
-              <Link href="/wedding-request" className={secondaryButtonLanding}>
-                Wedding Request
-              </Link>
-              <Link href="/ocia-request" className={secondaryButtonLanding}>
-                OCIA Request
               </Link>
             </div>
           </div>

@@ -33,6 +33,10 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 /* Request detail: hash targets — fade background/shadow when highlight class is removed */
 section#assignment,
 section#next-follow-up,

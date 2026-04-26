@@ -2,6 +2,8 @@ import React from 'react'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
+import { chipBase } from '@/lib/chipStyles'
+import { isPastSuggestedDate, minTodayDatetimeLocal } from '@/lib/scheduleValidation'
 
 export function SuggestedDatesSection({
   suggested1,
@@ -24,34 +26,55 @@ export function SuggestedDatesSection({
   saving: boolean
   message: string
 }) {
+  const pastBadgeClass = `${chipBase} border border-amber-200 bg-amber-50 text-amber-950`
+  const min = minTodayDatetimeLocal()
   return (
     <div>
       <h2 className={sectionHeadingClassName}>Suggested Dates</h2>
+      <p className="mt-1 text-xs text-gray-500">Choose today or a future date.</p>
 
       <div className="space-y-3">
-        <input
-          className="w-full border p-3 rounded"
-          type="datetime-local"
-          placeholder="Suggested date/time 1"
-          value={suggested1}
-          onChange={(e) => setSuggested1(e.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            className="w-full border p-3 rounded"
+            type="datetime-local"
+            min={min}
+            placeholder="Suggested date/time 1"
+            value={suggested1}
+            onChange={(e) => setSuggested1(e.target.value)}
+          />
+          {isPastSuggestedDate(suggested1) ? (
+            <span className={pastBadgeClass}>Past date</span>
+          ) : null}
+        </div>
 
-        <input
-          className="w-full border p-3 rounded"
-          type="datetime-local"
-          placeholder="Suggested date/time 2"
-          value={suggested2}
-          onChange={(e) => setSuggested2(e.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            className="w-full border p-3 rounded"
+            type="datetime-local"
+            min={min}
+            placeholder="Suggested date/time 2"
+            value={suggested2}
+            onChange={(e) => setSuggested2(e.target.value)}
+          />
+          {isPastSuggestedDate(suggested2) ? (
+            <span className={pastBadgeClass}>Past date</span>
+          ) : null}
+        </div>
 
-        <input
-          className="w-full border p-3 rounded"
-          type="datetime-local"
-          placeholder="Suggested date/time 3"
-          value={suggested3}
-          onChange={(e) => setSuggested3(e.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            className="w-full border p-3 rounded"
+            type="datetime-local"
+            min={min}
+            placeholder="Suggested date/time 3"
+            value={suggested3}
+            onChange={(e) => setSuggested3(e.target.value)}
+          />
+          {isPastSuggestedDate(suggested3) ? (
+            <span className={pastBadgeClass}>Past date</span>
+          ) : null}
+        </div>
       </div>
 
       <button

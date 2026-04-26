@@ -29,6 +29,7 @@ import { ConfirmedFuneralServiceSection } from './_components/ConfirmedFuneralSe
 import { WeddingDetailsSection } from './_components/WeddingDetailsSection'
 import { ConfirmedWeddingCeremonySection } from './_components/ConfirmedWeddingCeremonySection'
 import { OciaDetailsSection } from './_components/OciaDetailsSection'
+import { JoinParishDetailsSection } from './_components/JoinParishDetailsSection'
 import { AssignmentSection } from './_components/AssignmentSection'
 import { NextFollowUpSection } from './_components/NextFollowUpSection'
 import { InternalNotesSection } from './_components/InternalNotesSection'
@@ -36,6 +37,10 @@ import { parseAiEmailDraft } from '@/lib/parseAiEmailDraft'
 import { EditRequestDetailsSection } from './_components/EditRequestDetailsSection'
 import { ensureOciaRequestDetailsIfMissing } from '@/lib/ensureOciaRequestDetails'
 import { secondaryButtonMd } from '@/lib/buttonStyles'
+import {
+  validateConfirmedDateTimeNotPast,
+  validateSuggestedDateNotPast,
+} from '@/lib/scheduleValidation'
 import {
   isGoogleOAuthReconnectError,
   userFacingGoogleCalendarErrorMessage,
@@ -154,6 +159,8 @@ const [staffNotes, setStaffNotes] = useState('')
   const [confirmedOciaSession, setConfirmedOciaSession] = useState('')
   const [ociaSessionSaving, setOciaSessionSaving] = useState(false)
   const [ociaSessionMessage, setOciaSessionMessage] = useState('')
+
+  const [joinParishDetail, setJoinParishDetail] = useState<any | null>(null)
 
   const [editingIntake, setEditingIntake] = useState(false)
 
@@ -326,6 +333,33 @@ setStaffNotes(requestData.staff_notes || '')
       setWeddingProposedDate('')
       setWeddingCeremonyNotes('')
       setConfirmedWeddingCeremony('')
+
+      setJoinParishDetail(null)
+    } else if (requestData.request_type === 'join_parish') {
+      const { data: jpDetail } = await supabase
+        .from('join_parish_request_details')
+        .select('*')
+        .eq('request_id', requestData.id)
+        .maybeSingle()
+
+      setJoinParishDetail(jpDetail ?? null)
+
+      setFuneralDetail(null)
+      setFuneralDeceasedName('')
+      setFuneralDateOfDeath('')
+      setFuneralHome('')
+      setFuneralPreferredNotes('')
+      setConfirmedFuneralService('')
+
+      setWeddingDetail(null)
+      setWeddingPartnerOne('')
+      setWeddingPartnerTwo('')
+      setWeddingProposedDate('')
+      setWeddingCeremonyNotes('')
+      setConfirmedWeddingCeremony('')
+
+      setOciaDetail(null)
+      setConfirmedOciaSession('')
     } else {
       setFuneralDetail(null)
       setFuneralDeceasedName('')
@@ -343,6 +377,8 @@ setStaffNotes(requestData.staff_notes || '')
 
       setOciaDetail(null)
       setConfirmedOciaSession('')
+
+      setJoinParishDetail(null)
     }
 
     setLoading(false)
@@ -568,6 +604,19 @@ async function saveStaffNotes() {
 }
 
  async function saveSuggestedDates() {
+  setSuggestedSaving(true)
+  setSuggestedMessage('')
+
+  const err1 = validateSuggestedDateNotPast(suggested1)
+  const err2 = validateSuggestedDateNotPast(suggested2)
+  const err3 = validateSuggestedDateNotPast(suggested3)
+  const firstError = err1 || err2 || err3
+  if (firstError) {
+    setSuggestedMessage(firstError)
+    setSuggestedSaving(false)
+    return
+  }
+
   const { error } = await supabase
     .from('requests')
     .update({
@@ -592,6 +641,13 @@ async function saveStaffNotes() {
 async function saveConfirmedBaptismDate() {
   setConfirmedSaving(true)
   setConfirmedMessage('')
+
+  const validationError = validateConfirmedDateTimeNotPast(confirmedBaptismDate)
+  if (validationError) {
+    setConfirmedMessage(validationError)
+    setConfirmedSaving(false)
+    return
+  }
 
   const { error } = await supabase
     .from('requests')
@@ -674,6 +730,13 @@ async function saveConfirmedFuneralService() {
   setFuneralConfirmedSaving(true)
   setFuneralConfirmedMessage('')
 
+  const validationError = validateConfirmedDateTimeNotPast(confirmedFuneralService)
+  if (validationError) {
+    setFuneralConfirmedMessage(validationError)
+    setFuneralConfirmedSaving(false)
+    return
+  }
+
   const { error } = await supabase
     .from('funeral_request_details')
     .update({
@@ -755,6 +818,13 @@ async function saveConfirmedWeddingCeremony() {
   setWeddingConfirmedSaving(true)
   setWeddingConfirmedMessage('')
 
+  const validationError = validateConfirmedDateTimeNotPast(confirmedWeddingCeremony)
+  if (validationError) {
+    setWeddingConfirmedMessage(validationError)
+    setWeddingConfirmedSaving(false)
+    return
+  }
+
   const { error } = await supabase
     .from('wedding_request_details')
     .update({
@@ -801,6 +871,13 @@ async function saveConfirmedOciaSession() {
 
   setOciaSessionSaving(true)
   setOciaSessionMessage('')
+
+  const validationError = validateConfirmedDateTimeNotPast(confirmedOciaSession)
+  if (validationError) {
+    setOciaSessionMessage(validationError)
+    setOciaSessionSaving(false)
+    return
+  }
 
   if (!ociaDetail) {
     const ensured = await ensureOciaRequestDetailsIfMissing(supabase, routeId)
@@ -1262,6 +1339,7 @@ async function deleteGoogleCalendarEvent() {
   const isFuneral = requestType === 'funeral'
   const isWedding = requestType === 'wedding'
   const isOcia = requestType === 'ocia'
+  const isJoinParish = requestType === 'join_parish'
 
   const quickSectionIds = REQUEST_QUICK_ACTION_SECTION_IDS
 
@@ -1404,6 +1482,12 @@ async function deleteGoogleCalendarEvent() {
           {isOcia && !editingIntake ? (
             <DetailSectionCard>
               <OciaDetailsSection detail={ociaDetail} />
+            </DetailSectionCard>
+          ) : null}
+
+          {isJoinParish && !editingIntake ? (
+            <DetailSectionCard>
+              <JoinParishDetailsSection detail={joinParishDetail} />
             </DetailSectionCard>
           ) : null}
 

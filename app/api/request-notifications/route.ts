@@ -6,7 +6,13 @@ import {
   type RequestNotificationPayload,
 } from '@/lib/email/requestNotificationEmail'
 
-const ALLOWED_REQUEST_TYPES = new Set(['baptism', 'funeral', 'wedding', 'ocia'])
+const ALLOWED_REQUEST_TYPES = new Set([
+  'baptism',
+  'funeral',
+  'wedding',
+  'ocia',
+  'join_parish',
+])
 
 function isValidEmail(value: string): boolean {
   const s = String(value || '').trim()

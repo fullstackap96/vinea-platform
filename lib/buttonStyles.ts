@@ -36,3 +36,14 @@ export const primaryButtonLanding = `${primaryBase} px-6 py-3 text-base w-full s
 
 /** Hero / landing: secondary with stronger border for contrast on light sections. */
 export const secondaryButtonLanding = `${secondaryLandingBase} px-6 py-3 text-base w-full sm:w-auto`
+
+/**
+ * Landing buttons: shared size/shape base + explicit variants.
+ * Use these when two landing buttons must be perfectly matched in sizing.
+ */
+export const landingButtonBase =
+  'inline-flex items-center justify-center rounded-lg font-medium shadow-sm px-6 py-3 text-base w-full sm:w-auto border transition-all duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
+
+export const landingButtonPrimary = `${landingButtonBase} border-transparent bg-brand text-white hover:bg-brand-hover active:bg-brand-active focus-visible:ring-brand-ring`
+
+export const landingButtonSecondary = `${landingButtonBase} border-gray-800 bg-white text-gray-900 hover:border-gray-900 hover:bg-gray-50 active:bg-gray-100 focus-visible:ring-brand-ring/35`

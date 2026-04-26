@@ -1,4 +1,4 @@
-type RequestType = 'baptism' | 'funeral' | 'wedding' | 'ocia'
+type RequestType = 'baptism' | 'funeral' | 'wedding' | 'ocia' | 'join_parish'
 
 export type RequestNotificationPayload = {
   requestId: string
@@ -9,15 +9,25 @@ export type RequestNotificationPayload = {
   childName?: string
   notes?: string
   requestSpecificSummary?: string
+  joinParish?: {
+    address?: string
+    baptized?: string
+    confirmed?: string
+    firstCommunion?: string
+    interestedInOcia?: string
+    reason?: string
+  }
 }
 
 function requestTypeDisplayLabel(requestType: RequestType): string {
   if (requestType === 'ocia') return 'OCIA Inquiry'
+  if (requestType === 'join_parish') return 'Parish Registration Inquiry'
   return requestType.slice(0, 1).toUpperCase() + requestType.slice(1)
 }
 
 function subjectRequestTypeLabel(requestType: RequestType): string {
   if (requestType === 'ocia') return 'OCIA Inquiry'
+  if (requestType === 'join_parish') return 'Parish Registration Inquiry'
   return `${requestTypeDisplayLabel(requestType)} Request`
 }
 
@@ -62,8 +72,10 @@ export function buildRequestNotificationEmail(input: {
   const { payload, appBaseUrl } = input
 
   const safeName = safeSingleLine(payload.contactName, 'Unknown contact')
-  const subjectType = subjectRequestTypeLabel(payload.requestType)
-  const subject = `New ${subjectType} from ${safeName}`
+  const subject =
+    payload.requestType === 'join_parish'
+      ? `New Parish Registration Inquiry from ${safeName}`
+      : `New ${subjectRequestTypeLabel(payload.requestType)} from ${safeName}`
 
   const dashboardPath = `/dashboard/requests/${payload.requestId}`
   const base = normalizeBaseUrl(appBaseUrl)
@@ -76,6 +88,7 @@ export function buildRequestNotificationEmail(input: {
   const childName = safeSingleLine(payload.childName)
   const notes = safeMultiline(payload.notes)
   const requestSpecificSummary = safeMultiline(payload.requestSpecificSummary)
+  const joinParish = payload.joinParish ?? null
 
   const lines: string[] = []
 
@@ -90,6 +103,27 @@ export function buildRequestNotificationEmail(input: {
   const detailLines: string[] = []
   if (payload.requestType === 'baptism' && childName) {
     detailLines.push(`Child name: ${childName}`)
+  }
+  if (payload.requestType === 'join_parish' && joinParish) {
+    const address = safeSingleLine(joinParish.address)
+    const baptized = safeSingleLine(joinParish.baptized)
+    const confirmed = safeSingleLine(joinParish.confirmed)
+    const firstCommunion = safeSingleLine(joinParish.firstCommunion)
+    const interestedInOcia = safeSingleLine(joinParish.interestedInOcia)
+    const reason = safeSingleLine(joinParish.reason)
+
+    if (address) detailLines.push(`Address: ${address}`)
+    const sacParts = [
+      baptized ? `Baptized: ${baptized}` : null,
+      confirmed ? `Confirmed: ${confirmed}` : null,
+      firstCommunion ? `First Communion: ${firstCommunion}` : null,
+    ].filter(Boolean)
+    if (sacParts.length) {
+      detailLines.push('Sacramental status:')
+      detailLines.push(`- ${sacParts.join('\n- ')}`)
+    }
+    if (interestedInOcia) detailLines.push(`Interested in OCIA: ${interestedInOcia}`)
+    if (reason) detailLines.push(`Reason: ${reason}`)
   }
   if (requestSpecificSummary) {
     detailLines.push(requestSpecificSummary)
@@ -139,13 +173,50 @@ export function buildRequestNotificationEmail(input: {
     return s
   }
 
-  const title = payload.requestType === 'ocia' ? 'New OCIA Inquiry' : `New ${requestTypeLabel} Request`
+  const title =
+    payload.requestType === 'ocia'
+      ? 'New OCIA Inquiry'
+      : payload.requestType === 'join_parish'
+        ? 'New Parish Registration Inquiry'
+        : `New ${requestTypeLabel} Request`
   const ctaHref = dashboardUrl ?? dashboardPath
   const logoUrl = normalizeLogoUrl(input.logoUrl)
 
   const htmlDetails: Array<{ label: string; valueHtml: string }> = []
   if (payload.requestType === 'baptism' && childName) {
     htmlDetails.push({ label: 'Child name', valueHtml: escapeHtml(childName) })
+  }
+  if (payload.requestType === 'join_parish' && joinParish) {
+    const address = safeSingleLine(joinParish.address)
+    const baptized = safeSingleLine(joinParish.baptized)
+    const confirmed = safeSingleLine(joinParish.confirmed)
+    const firstCommunion = safeSingleLine(joinParish.firstCommunion)
+    const interestedInOcia = safeSingleLine(joinParish.interestedInOcia)
+    const reason = safeSingleLine(joinParish.reason)
+
+    if (address) htmlDetails.push({ label: 'Address', valueHtml: escapeHtml(address) })
+    const sac = [baptized, confirmed, firstCommunion].filter(Boolean).join(' · ')
+    if (sac) {
+      htmlDetails.push({
+        label: 'Sacramental status',
+        valueHtml: escapeHtml(
+          [
+            baptized ? `Baptized: ${baptized}` : null,
+            confirmed ? `Confirmed: ${confirmed}` : null,
+            firstCommunion ? `First Communion: ${firstCommunion}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        ),
+      })
+    }
+    if (interestedInOcia) {
+      htmlDetails.push({
+        label: 'Interested in OCIA',
+        valueHtml: escapeHtml(interestedInOcia),
+      })
+    }
+    if (reason) htmlDetails.push({ label: 'Reason', valueHtml: escapeHtml(reason) })
   }
   if (requestSpecificSummary) {
     htmlDetails.push({ label: 'Summary', valueHtml: htmlPreWrap(requestSpecificSummary) })
