@@ -11,7 +11,7 @@ import {
   LabelValueGrid,
   LabelValueRow,
 } from './requests/[id]/_components/LabelValueGrid'
-import { RequestTypeBadge } from './requests/[id]/_components/RequestTypeBadge'
+import { RequestTypeBadge } from '@/app/_components/RequestTypeBadge'
 import {
   isMissingConfirmedSchedule,
   missingConfirmedScheduleCopy,

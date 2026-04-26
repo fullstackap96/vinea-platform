@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { CheckCircle, Mail, Pencil } from 'lucide-react'
-import { RequestTypeBadge } from './RequestTypeBadge'
+import { RequestTypeBadge } from '@/app/_components/RequestTypeBadge'
 import { RequestStatusBadgeWithTooltip } from '@/lib/RequestStatusBadgeWithTooltip'
 import { primaryButtonSm, secondaryButtonSm } from '@/lib/buttonStyles'
 import { REQUEST_QUICK_ACTION_SECTION_IDS } from './RequestQuickActionsCard'

@@ -3,7 +3,7 @@ import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { FormattedDateTimeOrMissing, maybeMissingValue } from '@/lib/missingValue'
 import { sectionSubheadingClassName } from '@/lib/sectionHeader'
 import { FieldLabel, LabelValueGrid, LabelValueRow } from './LabelValueGrid'
-import { RequestTypeBadge } from './RequestTypeBadge'
+import { RequestTypeBadge } from '@/app/_components/RequestTypeBadge'
 import { REQUEST_STATUS_SEGMENTS } from '@/lib/requestStatus'
 import { RequestStatusBadgeWithTooltip } from '@/lib/RequestStatusBadgeWithTooltip'
 import {
