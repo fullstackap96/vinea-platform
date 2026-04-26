@@ -8,12 +8,14 @@ import {
 } from '@/lib/productBranding'
 import { primaryButtonLanding } from '@/lib/buttonStyles'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
+import { ScheduleDemoForm } from '@/app/_components/landing/ScheduleDemoForm'
 
 export default function Home() {
   const baseButton =
     'inline-flex items-center justify-center rounded-lg px-6 py-3 text-base font-medium w-full sm:w-auto transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
   const primaryButton = `${baseButton} bg-brand text-white hover:bg-brand-hover active:bg-brand-active focus-visible:ring-brand-ring`
   const secondaryButton = `${baseButton} border border-gray-800 text-gray-900 bg-white hover:border-gray-900 hover:bg-gray-50 active:bg-gray-100 focus-visible:ring-brand-ring/35`
+  const accentButton = `${baseButton} border border-brand/25 bg-brand-muted/40 text-brand-foreground hover:bg-brand-muted/60 active:bg-brand-muted/75 focus-visible:ring-brand-ring/35`
 
   return (
     <div className="min-h-full flex flex-col bg-gray-50 text-gray-900 font-sans">
@@ -103,6 +105,9 @@ export default function Home() {
               </div>
               <Link href="#intake-forms" className={secondaryButton}>
                 See Parish Intake Forms
+              </Link>
+              <Link href="#schedule-demo" className={accentButton}>
+                Schedule a Demo
               </Link>
             </div>
             <p className="text-sm text-gray-500 mt-3">
@@ -264,6 +269,23 @@ export default function Home() {
                 body="Create and update calendar events from confirmed baptism, funeral, or wedding times."
               />
             </ul>
+          </div>
+        </section>
+
+        {/* Schedule a demo */}
+        <section
+          id="schedule-demo"
+          className="border-t border-gray-100 bg-white py-16 sm:py-20 scroll-mt-20"
+        >
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+            <div className="rounded-2xl border border-gray-200/70 bg-gradient-to-b from-white to-gray-50 px-6 py-8 shadow-sm sm:px-8 sm:py-10">
+              <h2 className={sectionHeadingClassName}>Schedule a Demo</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">
+                Tell us a little about your parish, and we’ll reach out personally to set up a
+                short walkthrough.
+              </p>
+              <ScheduleDemoForm secondaryButtonClassName={secondaryButton} />
+            </div>
           </div>
         </section>
 

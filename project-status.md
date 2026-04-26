@@ -87,6 +87,7 @@ On **`/dashboard/requests/[id]`** staff can (by request type):
 
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL`
+- `DEMO_REQUEST_TO_EMAIL`
 
 **Google Calendar (optional)**
 
