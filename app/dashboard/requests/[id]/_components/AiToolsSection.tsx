@@ -2,7 +2,6 @@ import React from 'react'
 import { primaryButtonMd, secondaryButtonMd, secondaryButtonSm } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import {
-  sectionHeadingClassName,
   sectionHeadingRowClassName,
   sectionHeadingTitleClassName,
   sectionSubheadingClassName,
@@ -27,8 +26,6 @@ export function AiToolsSection({
 }) {
   return (
     <div>
-      <h2 className={sectionHeadingClassName}>Reply Assistance</h2>
-
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
           type="button"

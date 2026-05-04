@@ -3,7 +3,7 @@ import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { maybeMissingValue, MissingValue } from '@/lib/missingValue'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
-import { sectionHeadingClassName, sectionSubheadingClassName } from '@/lib/sectionHeader'
+import { sectionSubheadingClassName } from '@/lib/sectionHeader'
 
 export type CommunicationMethod =
   | 'email'
@@ -57,8 +57,6 @@ export function CommunicationSection({
 }) {
   return (
     <div>
-      <h2 className={sectionHeadingClassName}>Communication</h2>
-
       <div className="space-y-4">
         <LabelValueGrid>
           <LabelValueRow
@@ -124,7 +122,7 @@ export function CommunicationSection({
       </div>
 
       <div className="mt-6 border-t border-gray-100 pt-4">
-        <h3 className={sectionSubheadingClassName}>Communication History</h3>
+        <h3 className={sectionSubheadingClassName}>Logged touchpoints</h3>
         {history.length === 0 ? (
           <p className="text-sm text-gray-800">No communication logged yet.</p>
         ) : (

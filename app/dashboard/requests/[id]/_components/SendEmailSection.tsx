@@ -1,7 +1,6 @@
 import React, { useId, useState } from 'react'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
-import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import type { VineaEmailTemplateId } from '@/lib/vineaEmailTemplates'
@@ -46,8 +45,6 @@ export function SendEmailSection({
 
   return (
     <div>
-      <h2 className={sectionHeadingClassName}>Send Email</h2>
-
       <div className="space-y-4">
         <LabelValueGrid>
           <LabelValueRow

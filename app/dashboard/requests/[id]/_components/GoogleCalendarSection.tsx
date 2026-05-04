@@ -3,7 +3,7 @@ import { Calendar } from 'lucide-react'
 import { dangerButtonMd, primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { MissingValue } from '@/lib/missingValue'
-import { sectionHeadingClassName } from '@/lib/sectionHeader'
+import { sectionSubheadingClassName } from '@/lib/sectionHeader'
 
 type CalendarConflict = {
   summary: string | null
@@ -83,10 +83,10 @@ export function GoogleCalendarSection({
 
   return (
     <div>
-      <h2 className={`${sectionHeadingClassName} flex items-center gap-2`}>
+      <h3 className={`${sectionSubheadingClassName} flex items-center gap-2`}>
         <Calendar className="h-4 w-4 shrink-0 text-brand" aria-hidden />
         Google Calendar
-      </h2>
+      </h3>
 
       <div className="space-y-4">
         <p className="text-sm font-medium text-gray-900">

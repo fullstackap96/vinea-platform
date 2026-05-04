@@ -15,7 +15,7 @@ export function StaffNotesSection({
         value={staffNotes}
         onChange={(e) => setStaffNotes(e.target.value)}
         className="w-full border rounded p-3 min-h-[150px]"
-        placeholder="Add internal notes for parish staff here..."
+        placeholder="Shared staff notes for this request (saved on the request record)…"
       />
 
       <button

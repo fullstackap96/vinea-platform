@@ -1359,6 +1359,10 @@ async function deleteGoogleCalendarEvent() {
   }, [routeId])
 
   useEffect(() => {
+    setStaffNotesMessage('')
+  }, [routeId])
+
+  useEffect(() => {
     setEditingIntake(false)
   }, [routeId])
 
@@ -1371,6 +1375,7 @@ async function deleteGoogleCalendarEvent() {
         'request-details',
         'contact-information',
         'assignment',
+        'scheduling-records',
         'next-follow-up',
         'next-step',
         'confirmed-time',

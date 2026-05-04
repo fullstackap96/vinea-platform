@@ -8,6 +8,7 @@ const HASH_SECTION_IDS = new Set([
   'request-details',
   'contact-information',
   'assignment',
+  'scheduling-records',
   'next-follow-up',
   'next-step',
   'confirmed-time',

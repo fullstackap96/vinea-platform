@@ -1,7 +1,6 @@
 import React from 'react'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { MissingValue } from '@/lib/missingValue'
-import { sectionHeadingClassName } from '@/lib/sectionHeader'
 
 export function ChecklistSection({
   checklistItems,
@@ -12,8 +11,6 @@ export function ChecklistSection({
 }) {
   return (
     <div>
-      <h2 className={sectionHeadingClassName}>Checklist</h2>
-
       <div className="divide-y divide-gray-100">
         {checklistItems.map((item) => (
           <div

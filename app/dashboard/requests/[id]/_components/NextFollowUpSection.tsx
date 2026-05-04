@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Calendar } from 'lucide-react'
 import { updateRequestNextFollowUpDate } from '../../actions'
 import {
   formatNextFollowUpDateDisplay,
@@ -10,10 +9,6 @@ import {
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { MissingValue } from '@/lib/missingValue'
-import {
-  sectionHeadingRowClassName,
-  sectionHeadingTitleClassName,
-} from '@/lib/sectionHeader'
 
 export function NextFollowUpSection({
   requestId,
@@ -81,23 +76,17 @@ export function NextFollowUpSection({
 
   return (
     <div>
-      <div className={sectionHeadingRowClassName}>
-        <h2
-          className={`${sectionHeadingTitleClassName} inline-flex items-center gap-2`}
-        >
-          <Calendar className="h-4 w-4 shrink-0 text-brand" aria-hidden />
-          Next Follow-Up
-        </h2>
-        {!editing && (
+      {!editing ? (
+        <div className="mb-4 flex justify-end">
           <button
             type="button"
             onClick={beginEdit}
             className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
           >
-            Edit
+            Edit follow-up date
           </button>
-        )}
-      </div>
+        </div>
+      ) : null}
 
       {editing ? (
         <div className="space-y-3">

@@ -7,10 +7,6 @@ import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
-import {
-  sectionHeadingRowClassName,
-  sectionHeadingTitleClassName,
-} from '@/lib/sectionHeader'
 
 export function AssignmentSection({
   requestId,
@@ -79,9 +75,8 @@ export function AssignmentSection({
 
   return (
     <div>
-      <div className={sectionHeadingRowClassName}>
-        <h2 className={sectionHeadingTitleClassName}>Assignment</h2>
-        {!editing && (
+      {!editing ? (
+        <div className="mb-4 flex justify-end">
           <button
             type="button"
             onClick={beginEdit}
@@ -89,8 +84,8 @@ export function AssignmentSection({
           >
             Edit assignment
           </button>
-        )}
-      </div>
+        </div>
+      ) : null}
 
       {editing ? (
         <div className="space-y-3">

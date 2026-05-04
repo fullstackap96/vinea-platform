@@ -22,9 +22,10 @@ import {
 type ParishPayload = {
   id: string
   name: string
-  default_notification_email: string
-  staff_names: string[]
-  priest_names: string[]
+  /** Absent or null when unset in DB; API normalizes to string but we tolerate null. */
+  default_notification_email?: string | null
+  staff_names?: string[]
+  priest_names?: string[]
 }
 
 export function ParishSettingsPage() {
@@ -53,10 +54,14 @@ export function ParishSettingsPage() {
         return
       }
       const p = data.parish as ParishPayload
+      if (!p || typeof p.name !== 'string') {
+        setLoadError('Invalid parish data from server.')
+        return
+      }
       setParishName(p.name)
-      setNotificationEmail(p.default_notification_email || '')
-      setStaffText(directoryToMultilineText(p.staff_names || []))
-      setPriestText(directoryToMultilineText(p.priest_names || []))
+      setNotificationEmail(String(p.default_notification_email ?? '').trim() || '')
+      setStaffText(directoryToMultilineText(Array.isArray(p.staff_names) ? p.staff_names : []))
+      setPriestText(directoryToMultilineText(Array.isArray(p.priest_names) ? p.priest_names : []))
       setGoogleCalendar((data.googleCalendar as ParishGoogleIntegrationSnapshot | null) ?? null)
     } catch (e: any) {
       setLoadError(e?.message || 'Could not load settings.')
