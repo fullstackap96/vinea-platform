@@ -1,16 +1,20 @@
-import React from 'react'
-import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Activity, Calendar, Clock, Mail, Phone, User } from 'lucide-react'
 import { FormattedDateTimeOrMissing, maybeMissingValue } from '@/lib/missingValue'
 import { sectionSubheadingClassName } from '@/lib/sectionHeader'
 import { FieldLabel, LabelValueGrid, LabelValueRow } from './LabelValueGrid'
 import { RequestTypeBadge } from '@/app/_components/RequestTypeBadge'
 import { REQUEST_STATUS_SEGMENTS } from '@/lib/requestStatus'
-import { RequestStatusBadgeWithTooltip } from '@/lib/RequestStatusBadgeWithTooltip'
+import { ParishRequestStatusBadgeWithTooltip } from '@/lib/ParishRequestStatusBadge'
+import type { RequestScheduleRow } from '@/lib/requestConfirmedSchedule'
 import {
   labelContactMethod,
   labelSacramentalBackground,
   labelSeeking,
 } from '@/lib/ociaIntakeOptions'
+import { REQUEST_WAITING_ON_OPTIONS } from '@/lib/requestWaitingOn'
+import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
+import { InlineFormMessage } from '@/lib/inlineFormMessage'
 
 type IntakeProps = {
   parishioner: any
@@ -20,6 +24,8 @@ type IntakeProps = {
   ociaDetail?: any | null
   /** When true, hide contact + intake + notes (used while staff edit intake in a separate form). */
   intakeDetailsHidden?: boolean
+  /** Hide name / email / phone (shown separately in Contact Information card). */
+  omitContactFields?: boolean
 }
 
 /** Contact + type-specific intake + family notes (left column). */
@@ -30,6 +36,7 @@ export function RequestContactIntakeSection({
   weddingDetail,
   ociaDetail,
   intakeDetailsHidden,
+  omitContactFields,
 }: IntakeProps) {
   const requestType = String(request?.request_type || 'baptism')
   const isFuneral = requestType === 'funeral'
@@ -44,18 +51,22 @@ export function RequestContactIntakeSection({
 
       {!intakeDetailsHidden ? (
         <LabelValueGrid>
-          <LabelValueRow
-            label={<FieldLabel icon={User}>Contact</FieldLabel>}
-            value={maybeMissingValue(String(parishioner?.full_name ?? '').trim() || '—')}
-          />
-          <LabelValueRow
-            label={<FieldLabel icon={Mail}>Email</FieldLabel>}
-            value={maybeMissingValue(String(parishioner?.email ?? '').trim() || '—')}
-          />
-          <LabelValueRow
-            label={<FieldLabel icon={Phone}>Phone</FieldLabel>}
-            value={maybeMissingValue(String(parishioner?.phone ?? '').trim() || '—')}
-          />
+          {!omitContactFields ? (
+            <>
+              <LabelValueRow
+                label={<FieldLabel icon={User}>Contact</FieldLabel>}
+                value={maybeMissingValue(String(parishioner?.full_name ?? '').trim() || '—')}
+              />
+              <LabelValueRow
+                label={<FieldLabel icon={Mail}>Email</FieldLabel>}
+                value={maybeMissingValue(String(parishioner?.email ?? '').trim() || '—')}
+              />
+              <LabelValueRow
+                label={<FieldLabel icon={Phone}>Phone</FieldLabel>}
+                value={maybeMissingValue(String(parishioner?.phone ?? '').trim() || '—')}
+              />
+            </>
+          ) : null}
 
           {isFuneral ? (
             <>
@@ -192,9 +203,11 @@ export function RequestContactIntakeSection({
 /** Status chip + update controls (right column). */
 export function RequestStatusSection({
   request,
+  scheduleRow,
   onUpdateStatus,
 }: {
   request: any
+  scheduleRow: RequestScheduleRow
   onUpdateStatus: (newStatus: string) => void
 }) {
   const currentStatus = String(request?.status || '')
@@ -206,7 +219,18 @@ export function RequestStatusSection({
           label={<FieldLabel icon={Activity}>Status</FieldLabel>}
           value={
             <span className="inline-flex flex-wrap items-center gap-2">
-              <RequestStatusBadgeWithTooltip status={request?.status} />
+              <ParishRequestStatusBadgeWithTooltip
+                request={{
+                  status: request?.status,
+                  next_follow_up_date: request?.next_follow_up_date,
+                  assigned_staff_name: request?.assigned_staff_name,
+                  assigned_priest_name: request?.assigned_priest_name,
+                  assigned_deacon_name: request?.assigned_deacon_name,
+                  request_type: request?.request_type,
+                  waiting_on: request?.waiting_on,
+                  scheduleRow,
+                }}
+              />
             </span>
           }
         />
@@ -236,6 +260,104 @@ export function RequestStatusSection({
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** What this request is waiting on (orthogonal to workflow status). */
+export function RequestWaitingOnSection({
+  request,
+  disabled,
+  onSave,
+}: {
+  request: any
+  disabled?: boolean
+  onSave: (value: string | null) => Promise<void> | void
+}) {
+  const stored = String(request?.waiting_on ?? '').trim()
+  const [value, setValue] = useState(stored)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    setValue(String(request?.waiting_on ?? '').trim())
+  }, [request?.waiting_on])
+
+  const isComplete = String(request?.status ?? '').trim() === 'complete'
+
+  async function handleSave() {
+    const next = value.trim() === '' ? null : value.trim()
+    setSaving(true)
+    setMessage('')
+    try {
+      await onSave(next)
+      setMessage('Saved.')
+    } catch (e: any) {
+      setMessage(e?.message ? String(e.message) : 'Save failed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-6 space-y-4 border-t border-gray-100 pt-5 text-sm sm:text-base text-gray-800">
+      <LabelValueGrid>
+        <LabelValueRow
+          label={<FieldLabel icon={Clock}>Waiting on</FieldLabel>}
+          value={
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <select
+                className="w-full min-w-0 max-w-md rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-60"
+                value={value}
+                disabled={disabled || isComplete}
+                onChange={(e) => setValue(e.target.value)}
+                aria-label="What this request is waiting on"
+              >
+                <option value="">Not set</option>
+                {REQUEST_WAITING_ON_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={disabled || isComplete || saving}
+                className={`${primaryButtonMd} w-full shrink-0 justify-center sm:w-auto`}
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          }
+        />
+      </LabelValueGrid>
+      <p className="text-xs leading-relaxed text-gray-600">
+        Use this to record what is blocking progress (family reply, documents, priest calendar,
+        etc.). It appears on the dashboard and shapes the Next Step card when other checklist
+        items are complete.
+      </p>
+      <button
+        type="button"
+        disabled={disabled || isComplete || saving || !value}
+        onClick={async () => {
+          setSaving(true)
+          setMessage('')
+          try {
+            setValue('')
+            await onSave(null)
+            setMessage('Cleared.')
+          } catch (e: any) {
+            setMessage(e?.message ? String(e.message) : 'Clear failed.')
+          } finally {
+            setSaving(false)
+          }
+        }}
+        className={`${secondaryButtonMd} justify-center text-sm`}
+      >
+        Clear waiting on
+      </button>
+      <InlineFormMessage message={message} className="!mt-0" />
     </div>
   )
 }

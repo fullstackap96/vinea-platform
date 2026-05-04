@@ -1,7 +1,5 @@
 import React from 'react'
 import { primaryButtonMd } from '@/lib/buttonStyles'
-import { sectionHeadingClassName } from '@/lib/sectionHeader'
-
 export function StaffNotesSection({
   staffNotes,
   setStaffNotes,
@@ -13,8 +11,6 @@ export function StaffNotesSection({
 }) {
   return (
     <div>
-      <h2 className={sectionHeadingClassName}>Internal Staff Notes</h2>
-
       <textarea
         value={staffNotes}
         onChange={(e) => setStaffNotes(e.target.value)}

@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { Mail, Phone, User } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import {
   RequestContactIntakeSection,
   RequestStatusSection,
+  RequestWaitingOnSection,
 } from './_components/RequestHeader'
+import { FieldLabel, LabelValueGrid, LabelValueRow } from './_components/LabelValueGrid'
 import { ChecklistSection } from './_components/ChecklistSection'
 import { AiToolsSection } from './_components/AiToolsSection'
 import { SuggestedDatesSection } from './_components/SuggestedDatesSection'
@@ -17,7 +20,9 @@ import { SendEmailSection } from './_components/SendEmailSection'
 import { GoogleCalendarSection } from './_components/GoogleCalendarSection'
 import { RequestNextStepCard, resolveRequestNextStep } from './_components/RequestNextStepCard'
 import { RequestProgressCard } from './_components/RequestProgressCard'
-import { RequestDetailControlBar } from './_components/RequestDetailControlBar'
+import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmartQuickActions'
+import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
+import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
 import { RequestSectionHashNavigator } from './_components/RequestSectionHashNavigator'
 import { ConfirmedOciaSessionSection } from './_components/ConfirmedOciaSessionSection'
 import { FuneralDetailsSection } from './_components/FuneralDetailsSection'
@@ -29,8 +34,14 @@ import { JoinParishDetailsSection } from './_components/JoinParishDetailsSection
 import { AssignmentSection } from './_components/AssignmentSection'
 import { NextFollowUpSection } from './_components/NextFollowUpSection'
 import { InternalNotesSection } from './_components/InternalNotesSection'
-import { AccordionCard } from './_components/AccordionCard'
+import { StaffNotesSection } from './_components/StaffNotesSection'
 import { parseAiEmailDraft } from '@/lib/parseAiEmailDraft'
+import {
+  buildVineaEmailTemplateContext,
+  listVineaEmailTemplateOptions,
+  renderVineaEmailTemplate,
+  type VineaEmailTemplateId,
+} from '@/lib/vineaEmailTemplates'
 import { EditRequestDetailsSection } from './_components/EditRequestDetailsSection'
 import { ensureOciaRequestDetailsIfMissing } from '@/lib/ensureOciaRequestDetails'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
@@ -38,35 +49,12 @@ import {
   validateConfirmedDateTimeNotPast,
   validateSuggestedDateNotPast,
 } from '@/lib/scheduleValidation'
+import { formatNextFollowUpDateCompact, parseFollowUpCalendarDate } from '@/lib/nextFollowUpDate'
 import {
   isGoogleOAuthReconnectError,
   userFacingGoogleCalendarErrorMessage,
 } from '@/lib/googleCalendarUserErrors'
-
-function DetailSectionCard({
-  isFirst,
-  id,
-  tightTop,
-  children,
-}: {
-  isFirst?: boolean
-  id?: string
-  /** When set on a non-first card, use a smaller top margin (e.g. pair Reply Assistance + Send Email). */
-  tightTop?: boolean
-  children: ReactNode
-}) {
-  const scrollTarget = id ? ' scroll-mt-6 sm:scroll-mt-8' : ''
-  const stacked = isFirst
-    ? 'rounded-xl bg-white p-5 shadow-sm sm:p-6'
-    : tightTop
-      ? 'rounded-xl bg-white p-5 shadow-sm sm:p-6 mt-4 border-t border-gray-100 pt-4'
-      : 'rounded-xl bg-white p-5 shadow-sm sm:p-6 mt-8 border-t border-gray-100 pt-4'
-  return (
-    <section id={id} className={stacked + scrollTarget}>
-      {children}
-    </section>
-  )
-}
+import { InlineFormMessage } from '@/lib/inlineFormMessage'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -98,6 +86,7 @@ const [replyDraft, setReplyDraft] = useState('')
 const [aiLoading, setAiLoading] = useState(false)
 const [copyMessage, setCopyMessage] = useState('')
 const [staffNotes, setStaffNotes] = useState('')
+  const [staffNotesMessage, setStaffNotesMessage] = useState('')
   const [requestNotes, setRequestNotes] = useState<
     Array<{ id: string; body: string; created_at: string }>
   >([])
@@ -160,9 +149,7 @@ const [staffNotes, setStaffNotes] = useState('')
   const [joinParishDetail, setJoinParishDetail] = useState<any | null>(null)
 
   const [editingIntake, setEditingIntake] = useState(false)
-  const [openAccordionId, setOpenAccordionId] = useState<string | null>(null)
   const [confirmMarkCompleteOpen, setConfirmMarkCompleteOpen] = useState(false)
-  const lastManualAccordionToggleAtRef = useRef<number>(0)
   const lastAutoNextStepKeyRef = useRef<string | null>(null)
 
   function nowDatetimeLocal() {
@@ -406,6 +393,18 @@ async function updateRequestStatus(newStatus: string) {
   }
 }
 
+async function updateWaitingOn(next: string | null) {
+  const { error } = await supabase
+    .from('requests')
+    .update({ waiting_on: next })
+    .eq('id', routeId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+  loadRequest()
+}
+
 function isBlank(value: unknown) {
   return String(value ?? '').trim().length === 0
 }
@@ -440,10 +439,6 @@ function highlightSectionById(id: string) {
   }, timeout)
 }
 
-function toggleAccordion(id: string) {
-  lastManualAccordionToggleAtRef.current = Date.now()
-  setOpenAccordionId((prev) => (prev === id ? null : id))
-}
 async function generateSummary() {
   if (!request || !parishioner) return
 
@@ -627,20 +622,62 @@ async function copyReplyDraft() {
     await navigator.clipboard.writeText(replyDraft)
     setCopyMessage('Copied!')
     setTimeout(() => setCopyMessage(''), 2000)
-  } catch (error) {
+  } catch {
     setCopyMessage('Copy failed.')
     setTimeout(() => setCopyMessage(''), 2000)
   }
 }
+
+async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
+  const hasExisting =
+    String(emailSubject || '').trim() || String(replyDraft || '').trim()
+  if (hasExisting) {
+    const ok = window.confirm(
+      'Replace the current subject and body with this template? You can still edit after applying.'
+    )
+    if (!ok) return
+  }
+
+  const ctx = buildVineaEmailTemplateContext({
+    parishioner,
+    request,
+    funeralDetail,
+    weddingDetail,
+    funeralDeceasedName,
+    weddingPartnerOne,
+    weddingPartnerTwo,
+  })
+  const { subject, body } = renderVineaEmailTemplate(templateId, ctx)
+  setEmailSubject(subject)
+  setReplyDraft(body)
+  setEmailMessage('')
+
+  const { error } = await supabase
+    .from('requests')
+    .update({ reply_draft: body })
+    .eq('id', routeId)
+
+  if (error) {
+    console.error('reply_draft save:', error)
+    setEmailMessage(
+      `Template applied, but saving the draft failed: ${error.message}`
+    )
+  }
+}
+
 async function saveStaffNotes() {
+  setStaffNotesMessage('')
   const { error } = await supabase
     .from('requests')
     .update({ staff_notes: staffNotes })
     .eq('id', routeId)
 
-  if (!error) {
-    loadRequest()
+  if (error) {
+    setStaffNotesMessage(`Save failed: ${error.message}`)
+    return
   }
+  setStaffNotesMessage('Staff notes saved.')
+  loadRequest()
 }
 
  async function saveSuggestedDates() {
@@ -1050,7 +1087,7 @@ async function sendEmail() {
     return
   }
   if (!text) {
-    setEmailMessage('Generate a reply draft first.')
+    setEmailMessage('Please enter an email body (template or AI draft).')
     return
   }
 
@@ -1326,31 +1363,45 @@ async function deleteGoogleCalendarEvent() {
   }, [routeId])
 
   useEffect(() => {
-    function syncHashToAccordion() {
+    function syncHashToSection() {
       const raw = typeof window !== 'undefined' ? window.location.hash : ''
       const id = raw ? raw.replace(/^#/, '') : ''
       if (!id) return
       const allowed = new Set([
         'request-details',
-        'checklist',
+        'contact-information',
         'assignment',
         'next-follow-up',
+        'next-step',
         'confirmed-time',
-        'communication',
+        'checklist',
+        'email-communication',
         'send-email',
         'ai-tools',
+        'communication',
+        'staff-notes',
         'internal-notes',
+        'completion',
       ])
-      if (allowed.has(id)) setOpenAccordionId(id)
+      if (!allowed.has(id)) return
+      highlightSectionById(id)
+      requestAnimationFrame(() => {
+        const el = document.getElementById(id)
+        if (!el) return
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
+      })
     }
 
-    syncHashToAccordion()
-    window.addEventListener('hashchange', syncHashToAccordion)
-    return () => window.removeEventListener('hashchange', syncHashToAccordion)
+    syncHashToSection()
+    window.addEventListener('hashchange', syncHashToSection)
+    return () => window.removeEventListener('hashchange', syncHashToSection)
   }, [])
 
+  // Intentionally only re-fetch when the route id changes (loadRequest closes over fresh state).
   useEffect(() => {
     loadRequest()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRequest is not stable; routeId is the trigger.
   }, [routeId])
 
   // Derived workflow state (safe even while loading).
@@ -1374,14 +1425,8 @@ async function deleteGoogleCalendarEvent() {
   })
 
   useEffect(() => {
-    // Auto-advance accordion to match Next Step.
-    // - Never override explicit hash navigation.
-    // - Don’t fight manual accordion toggles.
-    // - Scroll only when it won’t interrupt typing.
+    // When the workflow next step changes, highlight + scroll (unless the URL hash overrides).
     if (hasHashOverride()) return
-
-    const now = Date.now()
-    if (now - lastManualAccordionToggleAtRef.current < 2500) return
 
     const key = nextStep.priorityKey
     const prevKey = lastAutoNextStepKeyRef.current
@@ -1390,10 +1435,7 @@ async function deleteGoogleCalendarEvent() {
     const targetId = nextStep.targetSectionId
     const stepChanged = prevKey == null || prevKey !== key
 
-    if (openAccordionId !== targetId) {
-      setOpenAccordionId(targetId)
-      highlightSectionById(targetId)
-    } else if (stepChanged) {
+    if (stepChanged) {
       highlightSectionById(targetId)
     }
 
@@ -1407,21 +1449,18 @@ async function deleteGoogleCalendarEvent() {
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
     })
-  }, [request, nextStep.priorityKey, nextStep.targetSectionId, openAccordionId])
+  }, [request, nextStep.priorityKey, nextStep.targetSectionId])
 
   if (loading) {
     return (
       <div
-        className="flex min-h-[45vh] flex-col items-center justify-center gap-4 px-4 sm:px-6 py-16"
+        className="flex min-h-[45vh] flex-col items-center justify-center gap-4 px-4 py-16 sm:px-6"
         aria-busy="true"
         aria-live="polite"
         aria-label="Loading request"
       >
-        <span
-          className="h-9 w-9 shrink-0 rounded-full border-2 border-gray-200 border-t-gray-900 animate-spin"
-          aria-hidden
-        />
-        <p className="text-sm font-medium text-gray-900">Loading request…</p>
+        <span className="h-9 w-9 shrink-0 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" aria-hidden />
+        <p className="text-base font-medium text-gray-800">Loading request…</p>
       </div>
     )
   }
@@ -1469,21 +1508,9 @@ async function deleteGoogleCalendarEvent() {
     !isBlank(request?.assigned_staff_name) ||
     !isBlank(request?.assigned_priest_name) ||
     !isBlank(request?.assigned_deacon_name)
-  const assignmentSummary = hasAnyAssignment
-    ? [
-        String(request?.assigned_staff_name || '').trim(),
-        String(request?.assigned_priest_name || '').trim(),
-        String(request?.assigned_deacon_name || '').trim(),
-      ]
-        .filter(Boolean)
-        .join(' • ')
-    : 'Unassigned'
-
   const hasCommunication = !isBlank(request?.last_contacted_at)
-  const communicationSummary = hasCommunication ? 'Contact logged' : 'No contact logged'
 
   const hasFollowUp = !isBlank(request?.next_follow_up_date)
-  const followUpSummary = hasFollowUp ? 'Set' : 'Not set'
 
   const requiresConfirmedSchedule = isBaptism || isFuneral || isWedding || isOcia
   const confirmedIso = isFuneral
@@ -1494,21 +1521,8 @@ async function deleteGoogleCalendarEvent() {
         ? ociaDetail?.confirmed_session_at
         : request?.confirmed_baptism_date
   const hasConfirmedSchedule = requiresConfirmedSchedule ? Boolean(confirmedIso) : true
-  const schedulingSummary = requiresConfirmedSchedule
-    ? hasConfirmedSchedule
-      ? 'Confirmed'
-      : 'No confirmed date'
-    : 'Not applicable'
 
   const remainingChecklistCount = checklistItems.filter((i: any) => i?.is_complete === false).length
-  const checklistSummary =
-    remainingChecklistCount === 0
-      ? 'All complete'
-      : `${remainingChecklistCount} item${remainingChecklistCount === 1 ? '' : 's'} remaining`
-
-  const hasEmailDraft = !isBlank(replyDraft)
-  const sendEmailSummary = hasEmailDraft ? 'Draft ready' : 'No draft yet'
-  const notesSummary = !isBlank(requestNotes) ? 'Has notes' : 'None'
 
   const followUpNotNeeded = String(request?.status || '') === 'complete'
   const followUpReady = hasFollowUp || followUpNotNeeded
@@ -1577,6 +1591,9 @@ async function deleteGoogleCalendarEvent() {
     })
   }
 
+  const followUpSummaryDisplay = parseFollowUpCalendarDate(request?.next_follow_up_date)
+    ? formatNextFollowUpDateCompact(request.next_follow_up_date)
+    : 'Not set'
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-6 pt-4 text-gray-900 sm:px-6 sm:pb-8 sm:pt-5">
@@ -1590,23 +1607,31 @@ async function deleteGoogleCalendarEvent() {
         </Link>
       </p>
 
-      <RequestDetailControlBar
-        requestType={requestType}
+      <RequestDetailSummaryHeader
         primaryHeading={requestIdentityName}
         subtitle={requestIdentitySubtitle}
+        requestType={requestType}
+        parishStatus={{
+          status: request?.status,
+          next_follow_up_date: request?.next_follow_up_date,
+          assigned_staff_name: request?.assigned_staff_name,
+          assigned_priest_name: request?.assigned_priest_name,
+          assigned_deacon_name: request?.assigned_deacon_name,
+          request_type: request?.request_type,
+          waiting_on: request?.waiting_on,
+          scheduleRow: scheduleRowForProgress,
+        }}
+        assignedStaffName={request?.assigned_staff_name}
+        assignedPriestName={request?.assigned_priest_name}
+        assignedDeaconName={request?.assigned_deacon_name}
+        nextStepTitle={nextStep.title}
+        nextStepInstruction={nextStep.instruction}
+        followUpDisplay={followUpSummaryDisplay}
         status={request?.status}
         canEditIntake={Boolean(parishioner?.id)}
         editingIntake={editingIntake}
         onEditIntake={() => setEditingIntake(true)}
-        onMarkComplete={() => {
-          jumpToCompletion()
-        }}
-      />
-
-      <RequestNextStepCard
-        request={request}
-        scheduleRow={scheduleRowForProgress}
-        checklistIncomplete={checklistIncomplete}
+        onMarkComplete={jumpToCompletion}
       />
 
       <RequestProgressCard
@@ -1616,16 +1641,55 @@ async function deleteGoogleCalendarEvent() {
         scheduleRow={scheduleRowForProgress}
       />
 
-      <div className="mt-8 space-y-6">
-        <DetailSectionCard isFirst id="request-details">
-          <AccordionCard
-            title="Request Details"
-            helperText="Review the intake information and edit if needed."
-            open={openAccordionId === 'request-details'}
-            onToggle={() => toggleAccordion('request-details')}
-            statusSummary={editingIntake ? 'Editing' : 'View'}
-            isComplete
-          >
+      <div className="mt-4 sm:mt-5">
+        <RequestDetailSmartQuickActions
+          workflowInput={{
+            request,
+            scheduleRow: scheduleRowForProgress,
+            checklistIncomplete,
+          }}
+          canMarkComplete={canMarkComplete}
+          hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
+        />
+      </div>
+
+      <div className="mt-6 space-y-6 sm:mt-7">
+        <WorkflowSectionCard id="next-step" variant="plain" className="p-1 sm:p-1">
+          <div className="p-2 sm:p-3">
+            <RequestNextStepCard
+              request={request}
+              scheduleRow={scheduleRowForProgress}
+              checklistIncomplete={checklistIncomplete}
+            />
+          </div>
+        </WorkflowSectionCard>
+
+        <WorkflowSectionCard
+          id="contact-information"
+          title="Contact Information"
+          description="Primary contact details for this family."
+        >
+          <LabelValueGrid>
+            <LabelValueRow
+              label={<FieldLabel icon={User}>Contact</FieldLabel>}
+              value={String(parishioner?.full_name ?? '').trim() || '—'}
+            />
+            <LabelValueRow
+              label={<FieldLabel icon={Mail}>Email</FieldLabel>}
+              value={String(parishioner?.email ?? '').trim() || '—'}
+            />
+            <LabelValueRow
+              label={<FieldLabel icon={Phone}>Phone</FieldLabel>}
+              value={String(parishioner?.phone ?? '').trim() || '—'}
+            />
+          </LabelValueGrid>
+        </WorkflowSectionCard>
+
+        <WorkflowSectionCard
+          id="request-details"
+          title="Request Details"
+          description="Intake information, sacrament-specific fields, and workflow status."
+        >
             <RequestContactIntakeSection
               parishioner={parishioner}
               request={request}
@@ -1633,6 +1697,7 @@ async function deleteGoogleCalendarEvent() {
               weddingDetail={weddingDetail}
               ociaDetail={ociaDetail}
               intakeDetailsHidden={false}
+              omitContactFields
             />
 
             {!isJoinParish && parishioner?.id ? (
@@ -1719,20 +1784,20 @@ async function deleteGoogleCalendarEvent() {
             ) : null}
 
             <div className="mt-6 border-t border-gray-100 pt-5">
-              <RequestStatusSection request={request} onUpdateStatus={updateRequestStatus} />
+              <RequestStatusSection
+                request={request}
+                scheduleRow={scheduleRowForProgress}
+                onUpdateStatus={updateRequestStatus}
+              />
+              <RequestWaitingOnSection request={request} onSave={updateWaitingOn} />
             </div>
-          </AccordionCard>
-        </DetailSectionCard>
+        </WorkflowSectionCard>
 
-        <DetailSectionCard id="assignment">
-          <AccordionCard
-            title="Assignment"
-            helperText="Assign staff, priest, or deacon."
-            open={openAccordionId === 'assignment'}
-            onToggle={() => toggleAccordion('assignment')}
-            statusSummary={assignmentSummary}
-            isComplete={hasAnyAssignment}
-          >
+        <WorkflowSectionCard
+          id="assignment"
+          title="Assignment"
+          description="Assign staff, priest, or deacon."
+        >
             <AssignmentSection
               requestId={routeId}
               assignedStaffName={request?.assigned_staff_name}
@@ -1740,62 +1805,33 @@ async function deleteGoogleCalendarEvent() {
               assignedDeaconName={request?.assigned_deacon_name}
               onSaved={loadRequest}
             />
-          </AccordionCard>
-        </DetailSectionCard>
+        </WorkflowSectionCard>
 
-        <DetailSectionCard id="communication">
-          <AccordionCard
-            title="Communication"
-            helperText="Log conversations and track last contact."
-            open={openAccordionId === 'communication'}
-            onToggle={() => toggleAccordion('communication')}
-            statusSummary={communicationSummary}
-            isComplete={hasCommunication}
-          >
-            <CommunicationSection
-              lastContactedAtIso={request?.last_contacted_at}
-              lastContactMethod={request?.last_contact_method}
-              communicationNotes={request?.communication_notes}
-              method={commMethod}
-              setMethod={setCommMethod}
-              contactedAtValue={commContactedAt}
-              setContactedAtValue={setCommContactedAt}
-              notes={commNotes}
-              setNotes={setCommNotes}
-              onLog={logCommunication}
-              saving={commSaving}
-              message={commMessage}
-              history={communications}
-            />
-          </AccordionCard>
-        </DetailSectionCard>
+        <WorkflowSectionCard
+          id="scheduling-records"
+          title="Scheduling & Records"
+          description="Follow-up date, confirmed times, Google Calendar, and parish checklist."
+        >
+          <div id="next-follow-up" className="scroll-mt-6 sm:scroll-mt-8">
+            <h3 className="text-sm font-semibold text-gray-900">Follow-up</h3>
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
+              Set a date so this request stays on the parish radar.
+            </p>
+            <div className="mt-4">
+              <NextFollowUpSection
+                requestId={routeId}
+                nextFollowUpDate={request?.next_follow_up_date}
+                onSaved={loadRequest}
+              />
+            </div>
+          </div>
 
-        <DetailSectionCard id="next-follow-up">
-          <AccordionCard
-            title="Follow-Up"
-            helperText="Set a date to keep this request moving."
-            open={openAccordionId === 'next-follow-up'}
-            onToggle={() => toggleAccordion('next-follow-up')}
-            statusSummary={followUpSummary}
-            isComplete={hasFollowUp}
-          >
-            <NextFollowUpSection
-              requestId={routeId}
-              nextFollowUpDate={request?.next_follow_up_date}
-              onSaved={loadRequest}
-            />
-          </AccordionCard>
-        </DetailSectionCard>
-
-        <DetailSectionCard id="confirmed-time">
-          <AccordionCard
-            title="Scheduling"
-            helperText="Confirm the final date/time (and optional suggested dates)."
-            open={openAccordionId === 'confirmed-time'}
-            onToggle={() => toggleAccordion('confirmed-time')}
-            statusSummary={schedulingSummary}
-            isComplete={hasConfirmedSchedule}
-          >
+          <div id="confirmed-time" className="scroll-mt-6 sm:scroll-mt-8 mt-8 border-t border-gray-200 pt-6">
+            <h3 className="text-sm font-semibold text-gray-900">Dates & calendar</h3>
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
+              Suggested dates, confirmation, and calendar sync when Google is connected.
+            </p>
+            <div className="mt-4 space-y-6">
             {isBaptism ? (
               <div className="mb-6">
                 <SuggestedDatesSection
@@ -1887,85 +1923,124 @@ async function deleteGoogleCalendarEvent() {
                 </div>
               </div>
             ) : null}
-          </AccordionCard>
-        </DetailSectionCard>
+            </div>
+          </div>
 
-        <DetailSectionCard id="checklist">
-          <AccordionCard
-            title="Checklist"
-            helperText="Mark items complete as you go."
-            open={openAccordionId === 'checklist'}
-            onToggle={() => toggleAccordion('checklist')}
-            statusSummary={checklistSummary}
-            isComplete={remainingChecklistCount === 0}
-          >
-            <ChecklistSection
-              checklistItems={checklistItems}
-              onToggleChecklistItem={toggleChecklistItem}
-            />
-          </AccordionCard>
-        </DetailSectionCard>
+          <div id="checklist" className="scroll-mt-6 sm:scroll-mt-8 mt-8 border-t border-gray-200 pt-6">
+            <h3 className="text-sm font-semibold text-gray-900">Parish checklist</h3>
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
+              Mark items as you complete parish process steps.
+            </p>
+            <div className="mt-4">
+              <ChecklistSection
+                checklistItems={checklistItems}
+                onToggleChecklistItem={toggleChecklistItem}
+              />
+            </div>
+          </div>
+        </WorkflowSectionCard>
 
-        <DetailSectionCard id="ai-tools">
-          <AccordionCard
-            title="Reply Assistance"
-            helperText="Generate a summary or draft reply to save time."
-            open={openAccordionId === 'ai-tools'}
-            onToggle={() => toggleAccordion('ai-tools')}
-            statusSummary={hasEmailDraft ? 'Draft available' : 'Optional'}
-            isComplete={hasEmailDraft}
-          >
-            <AiToolsSection
-              aiLoading={aiLoading}
-              aiSummary={aiSummary}
-              replyDraft={replyDraft}
-              copyMessage={copyMessage}
-              onGenerateSummary={generateSummary}
-              onGenerateReplyDraft={generateReplyDraft}
-              onCopyReplyDraft={copyReplyDraft}
-            />
-          </AccordionCard>
-        </DetailSectionCard>
+        <WorkflowSectionCard
+          id="email-communication"
+          title="Email Communication"
+          description="Vinea email templates, AI-assisted drafts, and sending mail to the family."
+        >
+          <div id="ai-tools" className="scroll-mt-6 sm:scroll-mt-8">
+            <h3 className="text-sm font-semibold text-gray-900">Reply assistance</h3>
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
+              Generate a summary or reply draft, then copy when ready.
+            </p>
+            <div className="mt-4">
+              <AiToolsSection
+                aiLoading={aiLoading}
+                aiSummary={aiSummary}
+                replyDraft={replyDraft}
+                copyMessage={copyMessage}
+                onGenerateSummary={generateSummary}
+                onGenerateReplyDraft={generateReplyDraft}
+                onCopyReplyDraft={copyReplyDraft}
+              />
+            </div>
+          </div>
+          <div id="send-email" className="scroll-mt-6 sm:scroll-mt-8 mt-8 border-t border-gray-200 pt-6">
+            <h3 className="text-sm font-semibold text-gray-900">Send email</h3>
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
+              Prefill from a template or AI draft, edit as needed, then send.
+            </p>
+            <div className="mt-4">
+              <SendEmailSection
+                toEmail={String(parishioner?.email || '')}
+                subject={emailSubject}
+                setSubject={setEmailSubject}
+                body={replyDraft}
+                setBody={setReplyDraft}
+                templateOptions={listVineaEmailTemplateOptions(
+                  String(request?.request_type || 'baptism')
+                )}
+                onApplyTemplate={applyVineaEmailTemplate}
+                onSend={sendEmail}
+                sending={emailSending}
+                message={emailMessage}
+              />
+            </div>
+          </div>
+        </WorkflowSectionCard>
 
-        <DetailSectionCard id="send-email">
-          <AccordionCard
-            title="Send Email"
-            helperText="Send a message using the saved draft."
-            open={openAccordionId === 'send-email'}
-            onToggle={() => toggleAccordion('send-email')}
-            statusSummary={sendEmailSummary}
-          >
-            <SendEmailSection
-              toEmail={String(parishioner?.email || '')}
-              subject={emailSubject}
-              setSubject={setEmailSubject}
-              body={replyDraft}
-              onSend={sendEmail}
-              sending={emailSending}
-              message={emailMessage}
-            />
-          </AccordionCard>
-        </DetailSectionCard>
+        <WorkflowSectionCard
+          id="staff-notes"
+          title="Staff notes on file"
+          description="One shared text field on the request. Included when you create Google Calendar events from Vinea."
+        >
+          <StaffNotesSection
+            staffNotes={staffNotes}
+            setStaffNotes={setStaffNotes}
+            onSaveStaffNotes={() => void saveStaffNotes()}
+          />
+          {staffNotesMessage ? (
+            <InlineFormMessage message={staffNotesMessage} className="!mt-3" />
+          ) : null}
+        </WorkflowSectionCard>
 
-        <DetailSectionCard id="internal-notes">
-          <AccordionCard
-            title="Internal Notes"
-            helperText="Private notes for staff only."
-            open={openAccordionId === 'internal-notes'}
-            onToggle={() => toggleAccordion('internal-notes')}
-            statusSummary={notesSummary}
-            isComplete={!isBlank(requestNotes)}
-          >
+        <WorkflowSectionCard
+          id="internal-notes"
+          title="Internal note log"
+          description="Timestamped entries for staff only."
+        >
             <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
-          </AccordionCard>
-        </DetailSectionCard>
+        </WorkflowSectionCard>
 
-        <DetailSectionCard id="completion">
+        <WorkflowSectionCard
+          id="communication"
+          title="Communication History"
+          description="Log touchpoints and review the full activity log for this request."
+        >
+            <CommunicationSection
+              lastContactedAtIso={request?.last_contacted_at}
+              lastContactMethod={request?.last_contact_method}
+              communicationNotes={request?.communication_notes}
+              method={commMethod}
+              setMethod={setCommMethod}
+              contactedAtValue={commContactedAt}
+              setContactedAtValue={setCommContactedAt}
+              notes={commNotes}
+              setNotes={setCommNotes}
+              onLog={logCommunication}
+              saving={commSaving}
+              message={commMessage}
+              history={communications}
+            />
+        </WorkflowSectionCard>
+
+        <WorkflowSectionCard
+          id="completion"
+          title="Complete request"
+          description="Review readiness, then close this intake when everything is done."
+        >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-gray-900">Completion</h2>
-              <p className="mt-1 text-xs text-gray-500">
-                Review the key steps below, then intentionally close out the request.
+              <p className="text-sm leading-relaxed text-gray-600">
+                Confirm each item below, then use Mark complete when the parish is ready to close this
+                intake.
               </p>
             </div>
             <div className="w-full sm:w-auto" title={!canMarkComplete ? markCompleteDisabledReason : undefined}>
@@ -2017,7 +2092,6 @@ async function deleteGoogleCalendarEvent() {
                       className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50"
                       onClick={() => {
                         const id = m.jumpTo
-                        setOpenAccordionId(id)
                         requestAnimationFrame(() => {
                           const el = document.getElementById(id)
                           if (!el) return
@@ -2029,11 +2103,11 @@ async function deleteGoogleCalendarEvent() {
                       }}
                     >
                       {m.jumpTo === 'confirmed-time'
-                        ? 'Scheduling'
+                        ? 'Dates & calendar'
                         : m.jumpTo === 'next-follow-up'
                           ? 'Follow-Up'
                           : m.jumpTo === 'communication'
-                            ? 'Communication'
+                            ? 'Communication history'
                             : m.jumpTo === 'assignment'
                               ? 'Assignment'
                               : 'Checklist'}
@@ -2047,7 +2121,7 @@ async function deleteGoogleCalendarEvent() {
               </p>
             )}
           </div>
-        </DetailSectionCard>
+        </WorkflowSectionCard>
       </div>
 
       {confirmMarkCompleteOpen ? (

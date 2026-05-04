@@ -14,7 +14,11 @@ type RequestTypeKey = 'baptism' | 'funeral' | 'wedding' | 'ocia' | 'join_parish'
 type BadgeSpec = {
   label: string
   className: string
-  Icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
+  Icon: React.ComponentType<{
+    className?: string
+    strokeWidth?: number
+    'aria-hidden'?: boolean
+  }>
 }
 
 function requestTypeKey(raw: unknown): RequestTypeKey | null {
@@ -76,7 +80,7 @@ function getBadgeSpec(requestType: unknown): BadgeSpec {
 }
 
 const baseClassName =
-  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-tight'
+  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold leading-tight tracking-tight'
 
 export function RequestTypeBadge({ requestType }: { requestType?: unknown }) {
   const spec = getBadgeSpec(requestType)
@@ -84,7 +88,7 @@ export function RequestTypeBadge({ requestType }: { requestType?: unknown }) {
 
   return (
     <span className={`${baseClassName} ${spec.className}`} title={`Request type: ${spec.label}`}>
-      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <Icon className="h-4 w-4 shrink-0 opacity-95" strokeWidth={2} aria-hidden />
       <span>{spec.label}</span>
     </span>
   )

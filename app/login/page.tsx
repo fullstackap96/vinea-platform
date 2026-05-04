@@ -10,12 +10,18 @@ import {
   PARISH_OPERATIONS_DESCRIPTOR,
   PRODUCT_NAME,
 } from '@/lib/productBranding'
+import {
+  vineaAppCanvasClass,
+  vineaInputFieldClassName,
+  vineaSectionShellClassName,
+  vineaSpinnerClassName,
+} from '@/lib/vineaUi'
 
 function LoginShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-full bg-gray-50 flex flex-col">
+    <div className={`flex min-h-full flex-col ${vineaAppCanvasClass}`}>
       <header className="border-b border-gray-200 bg-white shrink-0">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
           <Link
             href="/"
             className="text-sm font-semibold text-gray-900 tracking-tight hover:text-gray-700 min-w-0"
@@ -40,9 +46,10 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <LoginShell>
-          <main className="flex-1 flex flex-col justify-center px-4 sm:px-6 py-8 sm:py-12">
-            <div className="w-full max-w-md mx-auto text-center text-sm text-gray-500">
-              Loading…
+          <main className="flex flex-1 flex-col justify-center px-4 py-8 sm:px-6 sm:py-12">
+            <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 text-center">
+              <span className={vineaSpinnerClassName} aria-hidden />
+              <p className="text-base font-medium text-gray-700">Loading…</p>
             </div>
           </main>
         </LoginShell>
@@ -110,9 +117,9 @@ function LoginForm() {
 
   return (
     <LoginShell>
-      <main className="flex-1 flex flex-col justify-center px-4 sm:px-6 py-8 sm:py-12">
-        <div className="w-full max-w-md mx-auto">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 sm:p-8">
+      <main className="flex flex-1 flex-col justify-center px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto w-full max-w-md">
+          <div className={vineaSectionShellClassName}>
             <Link
               href="/"
               className="mb-5 inline-flex max-w-full rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
@@ -126,13 +133,13 @@ function LoginForm() {
                 priority
               />
             </Link>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+            <h1 className="mb-1 text-2xl font-bold text-gray-900 sm:text-3xl">
               Staff login
             </h1>
-            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+            <p className="mb-6 text-base leading-relaxed text-gray-600">
               Sign in to <span className="font-medium text-gray-900">{PRODUCT_NAME}</span>
               .
-              <span className="block mt-2 text-xs text-gray-500">
+              <span className="mt-2 block text-sm text-gray-500">
                 {PARISH_OPERATIONS_DESCRIPTOR}: baptism, funeral & wedding tools for parish
                 staff.
               </span>
@@ -140,7 +147,7 @@ function LoginForm() {
 
             <form onSubmit={onSubmit} className="space-y-4">
               <input
-                className="w-full border border-gray-300 rounded-md bg-white p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                className={vineaInputFieldClassName}
                 placeholder="Email"
                 type="email"
                 value={email}
@@ -150,7 +157,7 @@ function LoginForm() {
               />
 
               <input
-                className="w-full border border-gray-300 rounded-md bg-white p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                className={vineaInputFieldClassName}
                 placeholder="Password"
                 type="password"
                 value={password}

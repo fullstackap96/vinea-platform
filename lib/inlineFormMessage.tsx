@@ -26,7 +26,7 @@ function getInlineFeedbackStyle(message: string): {
   if (looksError) {
     return {
       className:
-        'mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-950',
+        'mt-3 rounded-xl border border-red-200/90 bg-red-50/90 px-4 py-3 text-sm leading-relaxed text-red-950',
       role: 'alert',
     }
   }
@@ -40,14 +40,14 @@ function getInlineFeedbackStyle(message: string): {
   if (looksNeutral) {
     return {
       className:
-        'mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950',
+        'mt-3 rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm leading-relaxed text-amber-950',
       role: 'status',
     }
   }
 
   return {
     className:
-      'mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-950',
+      'mt-3 rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-4 py-3 text-sm leading-relaxed text-emerald-950',
     role: 'status',
   }
 }

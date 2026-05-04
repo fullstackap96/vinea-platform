@@ -5,6 +5,7 @@ import {
   buildRequestNotificationEmail,
   type RequestNotificationPayload,
 } from '@/lib/email/requestNotificationEmail'
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/serviceRoleClient'
 
 const ALLOWED_REQUEST_TYPES = new Set([
   'baptism',
@@ -51,10 +52,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Missing contactPhone' }, { status: 400 })
     }
 
-    const to = String(process.env.REQUEST_NOTIFICATION_TO_EMAIL ?? '').trim()
+    let to = String(process.env.REQUEST_NOTIFICATION_TO_EMAIL ?? '').trim()
+    if (!to) {
+      try {
+        const admin = createSupabaseServiceRoleClient()
+        const { data: parish } = await admin
+          .from('parishes')
+          .select('default_notification_email')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        const fromDb = String(parish?.default_notification_email ?? '').trim()
+        if (fromDb && isValidEmail(fromDb)) {
+          to = fromDb
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     if (!to) {
       console.warn(
-        '[request-notifications] REQUEST_NOTIFICATION_TO_EMAIL is not set; skipping notification.'
+        '[request-notifications] No notification inbox: set REQUEST_NOTIFICATION_TO_EMAIL or Parish settings → Default notification email.'
       )
       return NextResponse.json({ ok: true, skipped: true })
     }

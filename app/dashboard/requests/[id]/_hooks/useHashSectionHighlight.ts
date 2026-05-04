@@ -5,11 +5,20 @@ import { usePathname } from 'next/navigation'
 
 /** Section ids used for in-page navigation on the request detail view. */
 const HASH_SECTION_IDS = new Set([
+  'request-details',
+  'contact-information',
   'assignment',
   'next-follow-up',
-  'send-email',
-  'communication',
+  'next-step',
   'confirmed-time',
+  'checklist',
+  'email-communication',
+  'send-email',
+  'ai-tools',
+  'communication',
+  'staff-notes',
+  'internal-notes',
+  'completion',
 ])
 
 const HIGHLIGHT_CLASS = 'request-detail-hash-highlight'

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import Metrics from './Metrics'
+import { DashboardCommandSummary } from './DashboardCommandSummary'
+import { DashboardRequestFilters } from './DashboardRequestFilters'
 import { RequestLinksSection } from './RequestLinksSection'
 import {
   FieldLabel,
@@ -22,12 +23,14 @@ import { FormattedDateTimeOrMissing, maybeMissingValue } from '@/lib/missingValu
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { chipBase } from '@/lib/chipStyles'
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
+import { getStatusLabel, requestStatusRankForSort } from '@/lib/requestStatus'
+import { requestWaitingOnLabel } from '@/lib/requestWaitingOn'
 import {
-  getStatusLabel,
-  requestStatusRankForSort,
-  REQUEST_STATUS_VALUES,
-} from '@/lib/requestStatus'
-import { RequestStatusBadgeWithTooltip } from '@/lib/RequestStatusBadgeWithTooltip'
+  defaultDashboardRowFilters,
+  requestMatchesDashboardRowFilters,
+  type DashboardRowFilters,
+} from '@/lib/dashboardRequestFilter'
+import { ParishRequestStatusBadgeWithTooltip } from '@/lib/ParishRequestStatusBadge'
 import {
   followUpSortPriority,
   formatNextFollowUpDateCompact,
@@ -35,7 +38,11 @@ import {
   isNextFollowUpOverdue,
   parseFollowUpCalendarDate,
 } from '@/lib/nextFollowUpDate'
-import { needsAttentionEligible, sortNeedsAttentionRequests } from '@/lib/needsAttention'
+import {
+  needsAttentionEligible,
+  needsAttentionPriorityRank,
+  sortNeedsAttentionRequests,
+} from '@/lib/needsAttention'
 import { dashboardOverdueFollowUpCardClasses } from '@/lib/dashboardOverdueCardStyle'
 import {
   dashboardCardHoverPolish,
@@ -46,6 +53,18 @@ import {
   labelSacramentalBackground,
   labelSeeking,
 } from '@/lib/ociaIntakeOptions'
+import {
+  dashboardRequestScheduleRow,
+  requestWorkflowDetailHref,
+  resolveRequestWorkflowV2,
+  workflowUrgencyChipClassName,
+  workflowUrgencyLabel,
+} from '@/lib/requestWorkflowV2'
+import {
+  vineaEmptyStateClassName,
+  vineaSectionShellClassName,
+  vineaSpinnerClassName,
+} from '@/lib/vineaUi'
 
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -74,11 +93,18 @@ function followUpEmailSubject(request: any) {
 export default function DashboardPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [rowFilters, setRowFilters] = useState<DashboardRowFilters>(() =>
+    defaultDashboardRowFilters()
+  )
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<
-    'created_desc' | 'created_asc' | 'confirmed_baptism_date' | 'last_contacted' | 'status'
-  >('created_desc')
+    | 'urgency'
+    | 'created_desc'
+    | 'created_asc'
+    | 'confirmed_baptism_date'
+    | 'last_contacted'
+    | 'status'
+  >('urgency')
 
   const [followUpDraftingId, setFollowUpDraftingId] = useState<string | null>(null)
   const [followUpMarkingId, setFollowUpMarkingId] = useState<string | null>(null)
@@ -110,6 +136,31 @@ export default function DashboardPage() {
   function sortWithNullsLast(list: any[]) {
     const copy = [...list]
     copy.sort((a, b) => {
+      if (sortBy === 'urgency') {
+        const aComplete = String(a.status ?? '').trim() === 'complete'
+        const bComplete = String(b.status ?? '').trim() === 'complete'
+        if (aComplete && bComplete) {
+          const at = toTime(a.created_at) ?? 0
+          const bt = toTime(b.created_at) ?? 0
+          return bt - at
+        }
+        if (aComplete !== bComplete) {
+          return aComplete ? 1 : -1
+        }
+        const ra = needsAttentionPriorityRank(a)
+        const rb = needsAttentionPriorityRank(b)
+        if (ra !== rb) return ra - rb
+        const qa = inFollowUpQueue(a) ? 0 : 1
+        const qb = inFollowUpQueue(b) ? 0 : 1
+        if (qa !== qb) return qa - qb
+        const fa = followUpSortPriority(a.next_follow_up_date, a.status)
+        const fb = followUpSortPriority(b.next_follow_up_date, b.status)
+        if (fa !== fb) return fa - fb
+        const at = toTime(a.created_at) ?? 0
+        const bt = toTime(b.created_at) ?? 0
+        return bt - at
+      }
+
       if (sortBy === 'created_desc' || sortBy === 'created_asc') {
         const fp =
           followUpSortPriority(a.next_follow_up_date, a.status) -
@@ -285,9 +336,24 @@ export default function DashboardPage() {
           label={<FieldLabel icon={Activity}>Status</FieldLabel>}
           value={
             <span className="inline-flex flex-wrap items-center gap-2">
-              <RequestStatusBadgeWithTooltip status={request.status} />
+              <ParishRequestStatusBadgeWithTooltip
+                request={{
+                  status: request.status,
+                  next_follow_up_date: request.next_follow_up_date,
+                  assigned_staff_name: request.assigned_staff_name,
+                  assigned_priest_name: request.assigned_priest_name,
+                  assigned_deacon_name: request.assigned_deacon_name,
+                  request_type: request.request_type,
+                  waiting_on: request.waiting_on,
+                  scheduleRow: dashboardRequestScheduleRow(request),
+                }}
+              />
             </span>
           }
+        />
+        <LabelValueRow
+          label="Waiting on"
+          value={maybeMissingValue(requestWaitingOnLabel(request.waiting_on) || '—')}
         />
         {parseFollowUpCalendarDate(request.next_follow_up_date) ? (
           <LabelValueRow
@@ -375,6 +441,14 @@ export default function DashboardPage() {
         className: 'bg-amber-50 text-amber-900 border border-amber-200',
       })
     }
+    const waitingLabel = requestWaitingOnLabel(request.waiting_on)
+    if (waitingLabel) {
+      badges.push({
+        key: 'waiting_on',
+        label: `Waiting: ${waitingLabel}`,
+        className: 'bg-indigo-50 text-indigo-950 border border-indigo-200',
+      })
+    }
 
     return (
       <>
@@ -425,11 +499,20 @@ export default function DashboardPage() {
     ) {
       lines.push('Follow-up due today')
     }
+    const wl = requestWaitingOnLabel(request.waiting_on)
+    if (wl) {
+      lines.push(`Waiting on: ${wl}`)
+    }
     return lines
   }
 
   function renderNeedsAttentionCard(request: any) {
     const id = String(request.id)
+    const workflow = resolveRequestWorkflowV2({
+      request,
+      scheduleRow: dashboardRequestScheduleRow(request),
+      checklistIncomplete: Boolean(request.checklist_incomplete),
+    })
     const name = String(request.parishioner?.full_name ?? '').trim() || '—'
     const priestLabel = assignmentDisplayLabel(request.assigned_priest_name)
     const deaconLabel = assignmentDisplayLabel(request.assigned_deacon_name)
@@ -443,7 +526,7 @@ export default function DashboardPage() {
     return (
       <Link
         key={id}
-        href={`/dashboard/requests/${id}`}
+        href={requestWorkflowDetailHref(id, workflow.sectionAnchor)}
         className={`${dashboardRequestLinkCardP5} ${
           overdue ? dashboardOverdueFollowUpCardClasses : ''
         }`.trim()}
@@ -458,8 +541,27 @@ export default function DashboardPage() {
             </p>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-sm text-gray-500">Status</span>
-              <RequestStatusBadgeWithTooltip status={request.status} />
+              <ParishRequestStatusBadgeWithTooltip
+                request={{
+                  status: request.status,
+                  next_follow_up_date: request.next_follow_up_date,
+                  assigned_staff_name: request.assigned_staff_name,
+                  assigned_priest_name: request.assigned_priest_name,
+                  assigned_deacon_name: request.assigned_deacon_name,
+                  request_type: request.request_type,
+                  waiting_on: request.waiting_on,
+                  scheduleRow: dashboardRequestScheduleRow(request),
+                }}
+              />
             </p>
+            {requestWaitingOnLabel(request.waiting_on) ? (
+              <p className="text-sm text-gray-700">
+                <span className="text-gray-500">Waiting on</span>{' '}
+                <span className="font-semibold text-indigo-950">
+                  {requestWaitingOnLabel(request.waiting_on)}
+                </span>
+              </p>
+            ) : null}
             <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
               <span className="text-gray-500">Staff</span>
               <span className="font-medium text-gray-800">
@@ -494,9 +596,25 @@ export default function DashboardPage() {
                 <span className="font-medium text-gray-800">{maybeMissingValue(dateLabel)}</span>
               </span>
             </p>
+            <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Suggested next step
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span
+                  className={`${chipBase} text-[10px] font-semibold uppercase tracking-wide ${workflowUrgencyChipClassName(workflow.urgency)}`}
+                >
+                  {workflowUrgencyLabel[workflow.urgency]}
+                </span>
+                <span className="text-sm font-semibold text-gray-900">{workflow.nextStepTitle}</span>
+              </div>
+              <p className="mt-1 text-xs leading-snug text-gray-600">{workflow.reason}</p>
+            </div>
           </div>
           <div className="shrink-0 w-full sm:w-auto sm:pt-0.5">
-            <span className={`${secondaryButtonMd} w-full sm:w-auto`}>Open Request</span>
+            <span className={`${secondaryButtonMd} w-full sm:w-auto`}>
+              {workflow.recommendedActionLabel}
+            </span>
           </div>
         </div>
       </Link>
@@ -508,15 +626,38 @@ export default function DashboardPage() {
       request.next_follow_up_date,
       request.status
     )
+    const workflow = resolveRequestWorkflowV2({
+      request,
+      scheduleRow: dashboardRequestScheduleRow(request),
+      checklistIncomplete: Boolean(request.checklist_incomplete),
+    })
     return (
       <Link
         key={request.id}
-        href={`/dashboard/requests/${request.id}`}
+        href={requestWorkflowDetailHref(String(request.id), workflow.sectionAnchor)}
         className={`${dashboardRequestLinkCardP4} ${
           followUpOverdue ? dashboardOverdueFollowUpCardClasses : ''
         }`.trim()}
       >
         {renderRequestSummary(request)}
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <div className="flex flex-wrap items-start gap-2">
+            <span
+              className={`${chipBase} text-[10px] font-semibold uppercase tracking-wide ${workflowUrgencyChipClassName(workflow.urgency)}`}
+            >
+              {workflowUrgencyLabel[workflow.urgency]}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Next step
+              </p>
+              <p className="text-sm font-semibold text-gray-900">{workflow.nextStepTitle}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-gray-600">
+                {workflow.reason}
+              </p>
+            </div>
+          </div>
+        </div>
       </Link>
     )
   }
@@ -822,6 +963,11 @@ export default function DashboardPage() {
     const deacon = assignmentDisplayLabel(request.assigned_deacon_name)
     const highlightLines = followUpQueueHighlightLines(request)
     const emailSubject = followUpEmailSubject(request)
+    const workflow = resolveRequestWorkflowV2({
+      request,
+      scheduleRow: dashboardRequestScheduleRow(request),
+      checklistIncomplete: Boolean(request.checklist_incomplete),
+    })
 
     return (
       <div
@@ -850,9 +996,28 @@ export default function DashboardPage() {
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <RequestTypeBadge requestType={request.request_type} />
-                    <RequestStatusBadgeWithTooltip status={request.status} />
+                    <ParishRequestStatusBadgeWithTooltip
+                request={{
+                  status: request.status,
+                  next_follow_up_date: request.next_follow_up_date,
+                  assigned_staff_name: request.assigned_staff_name,
+                  assigned_priest_name: request.assigned_priest_name,
+                  assigned_deacon_name: request.assigned_deacon_name,
+                  request_type: request.request_type,
+                  waiting_on: request.waiting_on,
+                  scheduleRow: dashboardRequestScheduleRow(request),
+                }}
+              />
                   </div>
                 </div>
+                {requestWaitingOnLabel(request.waiting_on) ? (
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium text-gray-500">Waiting on </span>
+                    <span className="font-semibold text-indigo-950">
+                      {requestWaitingOnLabel(request.waiting_on)}
+                    </span>
+                  </p>
+                ) : null}
 
                 {highlightLines.length > 0 ? (
                   <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
@@ -965,10 +1130,15 @@ export default function DashboardPage() {
                     {hasDraft ? 'Draft ready to send' : maybeMissingValue('No draft saved yet')}
                   </p>
                   <Link
-                    href={`/dashboard/requests/${id}`}
-                    className="inline-block text-xs font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
+                    href={requestWorkflowDetailHref(id, workflow.sectionAnchor)}
+                    className="group inline-block text-xs font-medium text-blue-800 hover:text-blue-950"
                   >
-                    Open full request
+                    <span className="underline decoration-blue-800/80 underline-offset-2 group-hover:decoration-blue-950">
+                      {workflow.recommendedActionLabel}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] font-normal leading-snug text-gray-600">
+                      {workflow.nextStepTitle} · {workflowUrgencyLabel[workflow.urgency]}
+                    </span>
                   </Link>
                 </div>
               </div>
@@ -999,7 +1169,8 @@ export default function DashboardPage() {
         assigned_staff_name,
         assigned_priest_name,
         assigned_deacon_name,
-        next_follow_up_date
+        next_follow_up_date,
+        waiting_on
       `)
       .order('created_at', { ascending: false })
 
@@ -1070,7 +1241,7 @@ export default function DashboardPage() {
       .filter((r) => r.request_type === 'funeral')
       .map((r) => String(r.id))
 
-    let funeralById = new Map<string, Record<string, unknown>>()
+    const funeralById = new Map<string, Record<string, unknown>>()
     if (funeralIds.length > 0) {
       const { data: funeralRows } = await supabase
         .from('funeral_request_details')
@@ -1094,7 +1265,7 @@ export default function DashboardPage() {
       .filter((r) => r.request_type === 'wedding')
       .map((r) => String(r.id))
 
-    let weddingById = new Map<string, Record<string, unknown>>()
+    const weddingById = new Map<string, Record<string, unknown>>()
     if (weddingIds.length > 0) {
       const { data: weddingRows } = await supabase
         .from('wedding_request_details')
@@ -1118,7 +1289,7 @@ export default function DashboardPage() {
       .filter((r) => r.request_type === 'ocia')
       .map((r) => String(r.id))
 
-    let ociaById = new Map<string, Record<string, unknown>>()
+    const ociaById = new Map<string, Record<string, unknown>>()
     if (ociaIds.length > 0) {
       const { data: ociaRows } = await supabase
         .from('ocia_request_details')
@@ -1144,21 +1315,41 @@ export default function DashboardPage() {
     loadRequests(false)
   }, [])
 
+  const rowFiltersKey = JSON.stringify(rowFilters)
+
   useEffect(() => {
     setSelectedFollowUpIds(new Set())
     setFollowUpBatchMessage('')
-  }, [statusFilter, searchQuery])
+  }, [rowFiltersKey, searchQuery])
 
-  const filteredRequests =
-    statusFilter === 'all'
-      ? requests
-      : requests.filter((request) => request.status === statusFilter)
+  const { staffAssigneeOptions, priestAssigneeOptions } = useMemo(() => {
+    const staff = new Set<string>()
+    const priest = new Set<string>()
+    for (const r of requests) {
+      const s = String(r.assigned_staff_name ?? '').trim()
+      const p = String(r.assigned_priest_name ?? '').trim()
+      if (s) staff.add(s)
+      if (p) priest.add(p)
+    }
+    return {
+      staffAssigneeOptions: [...staff].sort((a, b) => a.localeCompare(b)),
+      priestAssigneeOptions: [...priest].sort((a, b) => a.localeCompare(b)),
+    }
+  }, [requests])
 
-  const searchedRequests = (() => {
+  const rowFiltered = useMemo(
+    () =>
+      requests.filter((request) =>
+        requestMatchesDashboardRowFilters(request as Record<string, unknown>, rowFilters)
+      ),
+    [requests, rowFilters]
+  )
+
+  const searchedRequests = useMemo(() => {
     const q = normalize(searchQuery)
-    if (!q) return filteredRequests
+    if (!q) return rowFiltered
 
-    return filteredRequests.filter((request) => {
+    return rowFiltered.filter((request) => {
       const parentName = normalize(request.parishioner?.full_name)
       const email = normalize(request.parishioner?.email)
       const childName = normalize(request.child_name)
@@ -1177,6 +1368,7 @@ export default function DashboardPage() {
       const followUpCompact = normalize(
         formatNextFollowUpDateCompact(request.next_follow_up_date)
       )
+      const waitingOnQ = normalize(requestWaitingOnLabel(request.waiting_on) || '')
       return (
         parentName.includes(q) ||
         email.includes(q) ||
@@ -1191,17 +1383,18 @@ export default function DashboardPage() {
         priestAssignee.includes(q) ||
         deaconAssignee.includes(q) ||
         followUpYmd.includes(q) ||
-        followUpCompact.includes(q)
+        followUpCompact.includes(q) ||
+        waitingOnQ.includes(q)
       )
     })
-  })()
+  }, [rowFiltered, searchQuery])
 
   const visibleRequests = sortWithNullsLast(searchedRequests)
   const followUpVisible = sortWithNullsLast(searchedRequests.filter(inFollowUpQueue))
 
   const needsAttentionSorted = useMemo(
-    () => sortNeedsAttentionRequests(requests.filter(needsAttentionEligible)),
-    [requests]
+    () => sortNeedsAttentionRequests(searchedRequests.filter(needsAttentionEligible)),
+    [searchedRequests]
   )
 
   const followUpToolbarLocked =
@@ -1290,26 +1483,33 @@ export default function DashboardPage() {
     setSelectedFollowUpIds(new Set())
   }
 
-  const statusFilterOptions = [
-    { value: 'all' as const, label: 'All' },
-    ...REQUEST_STATUS_VALUES.map((value) => ({
-      value,
-      label: getStatusLabel(value),
-    })),
-  ]
-
   return (
-    <main className="mx-auto min-h-full w-full max-w-5xl bg-gray-50 px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
+    <main className="mx-auto min-h-full w-full max-w-6xl px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
       <header className="mb-4 sm:mb-5">
-        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Overview of parish requests and activity
+        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+          Command center
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
+          Urgent work first: review the summary, clear Action Required, then work the follow-up
+          queue and full request list.
         </p>
       </header>
 
       <div className="space-y-4 sm:space-y-5">
+      <DashboardCommandSummary requests={requests} loading={loading} />
+
+      <DashboardRequestFilters
+        filters={rowFilters}
+        onChange={setRowFilters}
+        staffOptions={staffAssigneeOptions}
+        priestOptions={priestAssigneeOptions}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        disabled={loading}
+      />
+
       <section
-        className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm ring-1 ring-brand/10 sm:p-6"
+        className={vineaSectionShellClassName}
         aria-labelledby="action-required-heading"
         aria-busy={loading}
       >
@@ -1317,7 +1517,7 @@ export default function DashboardPage() {
           Action Required
         </h2>
         <p className="text-sm text-gray-600 max-w-2xl leading-relaxed">
-          These requests need your attention today.
+          Start here: overdue or due follow-ups, or requests with no staff assignee yet.
         </p>
         <div className="mt-3 space-y-3">
           {loading ? (
@@ -1330,7 +1530,7 @@ export default function DashboardPage() {
               {[0, 1].map((i) => (
                 <div
                   key={i}
-                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm animate-pulse"
+                  className="animate-pulse rounded-2xl border border-gray-200/90 bg-white p-5 shadow-sm ring-1 ring-gray-900/[0.03]"
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
                     <div className="min-w-0 flex-1 space-y-2">
@@ -1346,17 +1546,14 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : needsAttentionSorted.length === 0 ? (
-            <div
-              className="mx-auto max-w-2xl rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
-              role="status"
-            >
-              <p className="text-sm font-medium text-gray-900">
+            <div className={vineaEmptyStateClassName} role="status">
+              <p className="text-base font-semibold text-gray-900">
                 No requests need attention
               </p>
-              <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
+              <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
                 Open requests appear here when a follow-up is overdue or due today, or when
-                no staff member is assigned. If those are up to date, an empty list means you
-                are in good shape.
+                no staff member is assigned—and they must also match your filters above. If
+                those are up to date, an empty list means you are in good shape.
               </p>
             </div>
           ) : (
@@ -1365,66 +1562,38 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Metrics summary (global counts from the full loaded requests array) */}
-      <Metrics requests={requests} loading={loading} />
-
-      <div className="rounded-xl bg-white p-4 shadow-sm">
-        <div
-          className="inline-flex w-full flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1 sm:flex-nowrap"
-          role="group"
-          aria-label="Filter by status"
-        >
-          {statusFilterOptions.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setStatusFilter(value)}
-              className={
-                statusFilter === value
-                  ? 'rounded-lg bg-brand-muted px-3.5 py-1.5 text-xs font-semibold text-brand-foreground shadow-sm ring-1 ring-brand/25 transition-all duration-150 active:scale-[0.98] sm:px-4 sm:py-2 sm:text-sm'
-                  : 'rounded-lg px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all duration-150 hover:bg-brand-muted/40 hover:text-gray-900 active:scale-[0.98] sm:px-4 sm:py-2 sm:text-sm'
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {loading ? (
         <div
-          className="space-y-5 rounded-xl bg-white p-5 shadow-sm"
+          className={`space-y-5 ${vineaSectionShellClassName}`}
           aria-busy="true"
           aria-live="polite"
           aria-label="Loading dashboard"
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            {Array.from({ length: 7 }).map((_, i) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="h-[5.25rem] rounded-lg border border-gray-200 bg-gray-50 animate-pulse"
+                className="h-[7.5rem] animate-pulse rounded-2xl border border-gray-200/90 bg-slate-50/80 ring-1 ring-gray-900/[0.03]"
               />
             ))}
           </div>
-          <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-4 shadow-sm">
-            <span
-              className="h-5 w-5 shrink-0 rounded-full border-2 border-gray-200 border-t-gray-800 animate-spin"
-              aria-hidden="true"
-            />
-            <p className="text-sm font-medium text-gray-900">Loading requests…</p>
+          <div className="flex items-center gap-3 rounded-xl border border-gray-200/90 bg-slate-50/60 px-4 py-4">
+            <span className={vineaSpinnerClassName} aria-hidden="true" />
+            <p className="text-base font-medium text-gray-900">Loading requests…</p>
           </div>
         </div>
       ) : (
         <>
           <section
-            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+            className={vineaSectionShellClassName}
             aria-labelledby="follow-up-queue-heading"
           >
             <h2 id="follow-up-queue-heading" className={sectionHeadingClassName}>
               Follow-Up Queue ({followUpVisible.length})
             </h2>
             <p className="mb-3 max-w-2xl text-sm leading-relaxed text-gray-600">
-              Open requests that need contact, scheduling, or checklist work.
+              Next: families who need a touchpoint, a confirmed date on the calendar, or
+              checklist items finished.
             </p>
             {followUpVisible.length > 0 && (
               <>
@@ -1488,17 +1657,14 @@ export default function DashboardPage() {
               </>
             )}
             {followUpVisible.length === 0 ? (
-              <div
-                className="mx-auto max-w-2xl rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
-                role="status"
-              >
-                <p className="text-sm font-medium text-gray-900">
+              <div className={vineaEmptyStateClassName} role="status">
+                <p className="text-base font-semibold text-gray-900">
                   No requests in the Follow-Up Queue
                 </p>
-                <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
-                  This queue lists open requests that still need contact, a confirmed schedule, or
-                  checklist work, using the same search and status filter as your main list below.
-                  Clear the search field or switch status if you expected someone here.
+                <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
+                  This queue uses the same filters and search as your main list. Try clearing a
+                  filter, widening the submitted date range, or turning off the overdue-only
+                  checkbox if you expected someone here.
                 </p>
               </div>
             ) : (
@@ -1509,47 +1675,43 @@ export default function DashboardPage() {
           </section>
 
           <section
-            className="rounded-xl bg-white p-5 shadow-sm"
+            className={vineaSectionShellClassName}
             aria-labelledby="dashboard-requests-heading"
           >
             <h2 id="dashboard-requests-heading" className={sectionHeadingClassName}>
-              Requests ({visibleRequests.length})
+              All requests ({visibleRequests.length})
             </h2>
             <p className="mb-3 max-w-2xl text-sm leading-relaxed text-gray-600">
-              Search and review all submitted requests.
+              Browse everything that matches the filters above. Default sort puts the most urgent
+              rows at the top.
             </p>
             {visibleRequests.length === 0 ? (
-              <div
-                className="mx-auto max-w-2xl rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center shadow-sm"
-                role="status"
-              >
-                <p className="text-sm font-medium text-gray-900">
+              <div className={vineaEmptyStateClassName} role="status">
+                <p className="text-base font-semibold text-gray-900">
                   {requests.length === 0
                     ? 'No requests yet'
                     : 'No requests match your filters'}
                 </p>
-                <p className="mt-2 max-w-md mx-auto text-sm text-gray-600 leading-relaxed">
+                <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
                   {requests.length === 0
                     ? 'When a family submits an intake form, the request will show up here so your team can review it and take the next step.'
-                    : 'Try another status tab, clear the search field, or change the sort option to see more requests.'}
+                    : 'Try clearing filters with the button above, adjusting type or dates, or change the sort option to see more requests.'}
                 </p>
               </div>
             ) : (
               <>
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch mb-4">
-                  <input
-                    className="w-full min-w-0 flex-1 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
-                    placeholder="Search parent, child, or email..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                  <label htmlFor="dash-sort" className="sr-only">
+                    Sort requests
+                  </label>
                   <select
-                    className="w-full shrink-0 rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm sm:w-auto sm:min-w-[11rem] focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                    id="dash-sort"
+                    className="w-full shrink-0 rounded-xl border border-gray-200 bg-white p-3.5 text-base text-gray-900 shadow-sm transition-colors focus:border-brand/35 focus:outline-none focus:ring-2 focus:ring-brand/20 sm:w-auto sm:min-w-[14rem]"
                     value={sortBy}
                     onChange={(e) =>
                       setSortBy(
                         e.target.value as
+                          | 'urgency'
                           | 'created_desc'
                           | 'created_asc'
                           | 'confirmed_baptism_date'
@@ -1558,6 +1720,7 @@ export default function DashboardPage() {
                       )
                     }
                   >
+                    <option value="urgency">Most urgent first</option>
                     <option value="created_desc">Newest created</option>
                     <option value="created_asc">Oldest created</option>
                     <option value="confirmed_baptism_date">Confirmed baptism date</option>

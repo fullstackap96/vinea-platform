@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { PRODUCT_NAME } from '@/lib/productBranding'
+import { vineaAppCanvasClass } from '@/lib/vineaUi'
 
 const showDemoBanner = process.env.NEXT_PUBLIC_DEMO_SITE === '1'
 
@@ -57,7 +58,7 @@ export default function DashboardLayout({
         </div>
       )}
       <header className="border-b border-gray-200 bg-white shrink-0">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
           <div className="flex flex-col gap-2 min-w-0 sm:flex-row sm:items-center sm:gap-3 md:gap-4 sm:flex-1">
             <Link
               href="/"
@@ -79,6 +80,27 @@ export default function DashboardLayout({
               className="hidden sm:block h-4 w-px bg-gray-200 shrink-0"
               aria-hidden
             />
+            <nav
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-gray-700"
+              aria-label="Dashboard sections"
+            >
+              <Link href="/dashboard" className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline">
+                Dashboard
+              </Link>
+              <span className="text-gray-300" aria-hidden>
+                |
+              </span>
+              <Link
+                href="/dashboard/settings"
+                className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
+              >
+                Parish settings
+              </Link>
+            </nav>
+            <span
+              className="hidden md:block h-4 w-px bg-gray-200 shrink-0"
+              aria-hidden
+            />
             <div className="text-sm text-gray-600 break-words sm:truncate min-w-0">
               {email ? `Signed in as ${email}` : 'Signed in'}
             </div>
@@ -94,7 +116,7 @@ export default function DashboardLayout({
         </div>
       </header>
 
-      <div className="flex-1 bg-gray-50 min-h-0">{children}</div>
+      <div className={`min-h-0 flex-1 ${vineaAppCanvasClass}`}>{children}</div>
     </div>
   )
 }

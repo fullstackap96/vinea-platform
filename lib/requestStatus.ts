@@ -52,22 +52,22 @@ export function formatRequestStatus(status: unknown): string {
  * Distinct from `chipBase` used for type chips and queue tags.
  */
 export const REQUEST_STATUS_BADGE_BASE =
-  'inline-flex max-w-full items-center whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold leading-tight tracking-tight'
+  'inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold leading-tight tracking-tight'
 
 /** Softer fills + strong text for contrast; border tint stays low-chroma. */
 export function getRequestStatusClasses(status: unknown): string {
   const s = String(status ?? '').trim()
   switch (s) {
     case 'new':
-      return 'border-sky-200/70 bg-sky-100/70 text-sky-950'
+      return 'border-sky-200/80 bg-sky-50 text-sky-950'
     case 'in_progress':
-      return 'border-amber-200/70 bg-amber-100/65 text-amber-950'
+      return 'border-amber-200/80 bg-amber-50 text-amber-950'
     case 'waiting_on_family':
-      return 'border-violet-200/65 bg-violet-100/60 text-violet-950'
+      return 'border-violet-200/80 bg-violet-50 text-violet-950'
     case 'complete':
-      return 'border-emerald-200/70 bg-emerald-100/65 text-emerald-950'
+      return 'border-emerald-200/80 bg-emerald-50 text-emerald-950'
     default:
-      return 'border-gray-200/90 bg-gray-100 text-gray-900'
+      return 'border-gray-200/80 bg-slate-100 text-gray-900'
   }
 }
 

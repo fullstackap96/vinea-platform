@@ -5,7 +5,7 @@ import { addRequestNote } from '../../actions'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { maybeMissingValue } from '@/lib/missingValue'
-import { sectionHeadingClassName, sectionSubheadingClassName } from '@/lib/sectionHeader'
+import { sectionSubheadingClassName } from '@/lib/sectionHeader'
 
 function formatNoteTimestamp(iso: string | null | undefined) {
   if (!iso) return '—'
@@ -50,8 +50,6 @@ export function InternalNotesSection({
 
   return (
     <div>
-      <h2 className={sectionHeadingClassName}>Internal Notes</h2>
-
       <div className="space-y-3">
         <textarea
           className="w-full min-h-[120px] rounded border p-3"

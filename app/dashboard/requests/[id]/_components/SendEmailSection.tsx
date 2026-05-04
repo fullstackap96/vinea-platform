@@ -1,15 +1,19 @@
-import React from 'react'
+import React, { useId, useState } from 'react'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
-import { primaryButtonMd } from '@/lib/buttonStyles'
+import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import type { VineaEmailTemplateId } from '@/lib/vineaEmailTemplates'
 
 export function SendEmailSection({
   toEmail,
   subject,
   setSubject,
   body,
+  setBody,
+  templateOptions,
+  onApplyTemplate,
   onSend,
   sending,
   message,
@@ -18,11 +22,27 @@ export function SendEmailSection({
   subject: string
   setSubject: (value: string) => void
   body: string
+  setBody: (value: string) => void
+  templateOptions: Array<{ id: VineaEmailTemplateId; label: string }>
+  onApplyTemplate: (id: VineaEmailTemplateId) => void | Promise<void>
   onSend: () => void
   sending: boolean
   message: string
 }) {
   const canSend = Boolean(toEmail && subject && body) && !sending
+  const selectId = useId()
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+  const [applying, setApplying] = useState(false)
+
+  async function handleApplyTemplate() {
+    if (!selectedTemplateId) return
+    setApplying(true)
+    try {
+      await onApplyTemplate(selectedTemplateId as VineaEmailTemplateId)
+    } finally {
+      setApplying(false)
+    }
+  }
 
   return (
     <div>
@@ -35,6 +55,41 @@ export function SendEmailSection({
             value={maybeMissingValue(String(toEmail ?? '').trim() ? String(toEmail) : '—')}
           />
         </LabelValueGrid>
+
+        {templateOptions.length > 0 ? (
+          <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-3 sm:p-4">
+            <label htmlFor={selectId} className="mb-1 block text-sm font-medium text-gray-900">
+              Email template (Vinea)
+            </label>
+            <p className="mb-2 text-xs leading-relaxed text-gray-600">
+              Choose a template to prefill the subject and body. You can edit everything before
+              sending. AI reply drafts below are unchanged.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+              <select
+                id={selectId}
+                className="w-full min-w-0 flex-1 border border-gray-300 bg-white p-2.5 text-sm text-gray-900 rounded-md sm:max-w-md"
+                value={selectedTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+              >
+                <option value="">Select a template…</option>
+                {templateOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!selectedTemplateId || applying}
+                onClick={handleApplyTemplate}
+                className={`${secondaryButtonMd} w-full shrink-0 justify-center sm:w-auto`}
+              >
+                {applying ? 'Applying…' : 'Apply template'}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div>
           <label htmlFor="send-email-subject" className="mb-1 block text-sm text-gray-500">
@@ -49,19 +104,20 @@ export function SendEmailSection({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-900">Email body</label>
+          <label htmlFor="send-email-body" className="mb-1 block text-sm font-medium text-gray-900">
+            Email body
+          </label>
           <p className="mb-2 text-xs text-gray-600 leading-relaxed">
-            Drafted by AI. Review before sending.
+            Use a Vinea template or generate an AI reply draft above, then edit here before sending.
           </p>
-          <div className="rounded-lg border border-gray-200 p-3 text-gray-800">
-            {body ? (
-              <p className="whitespace-pre-wrap">{body}</p>
-            ) : (
-              <p className="text-sm text-gray-800">
-                Generate a reply draft first, then send it.
-              </p>
-            )}
-          </div>
+          <textarea
+            id="send-email-body"
+            className="min-h-[200px] w-full border border-gray-300 p-3 text-sm text-gray-900 rounded-md font-sans leading-relaxed"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Compose your message, or apply a template / AI draft first."
+            spellCheck
+          />
         </div>
 
         <button
@@ -78,4 +134,3 @@ export function SendEmailSection({
     </div>
   )
 }
-
