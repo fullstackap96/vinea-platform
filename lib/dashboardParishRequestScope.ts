@@ -1,12 +1,14 @@
+import type { PostgrestError } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Primary parish id (same ordering as `/api/parish/settings`: oldest `parishes` row).
- * Returns null if unavailable (e.g. RLS), so callers can fall back to unscoped reads.
+ * `parishId` is null when no row, RLS blocks read, or `error` is set.
  */
-export async function fetchPrimaryParishId(
-  supabase: SupabaseClient
-): Promise<string | null> {
+export async function fetchPrimaryParishId(supabase: SupabaseClient): Promise<{
+  parishId: string | null
+  error: PostgrestError | null
+}> {
   const { data, error } = await supabase
     .from('parishes')
     .select('id')
@@ -14,24 +16,33 @@ export async function fetchPrimaryParishId(
     .limit(1)
     .maybeSingle()
 
-  if (error || !data?.id) return null
-  return String(data.id)
+  if (error) {
+    return { parishId: null, error }
+  }
+  if (!data?.id) {
+    return { parishId: null, error: null }
+  }
+  return { parishId: String(data.id), error: null }
 }
 
 /** `parishioners.id` values for rows belonging to this parish (`parishioners.parish_id`). */
 export async function fetchParishionerIdsForParish(
   supabase: SupabaseClient,
   parishId: string
-): Promise<string[]> {
+): Promise<{ ids: string[]; error: PostgrestError | null }> {
   const { data, error } = await supabase
     .from('parishioners')
     .select('id')
     .eq('parish_id', parishId)
 
   if (error) {
-    console.error('[dashboardParishRequestScope] parishioners by parish_id:', error.message)
-    return []
+    return { ids: [], error }
   }
-  if (!data?.length) return []
-  return data.map((r) => String((r as { id: unknown }).id)).filter(Boolean)
+  if (!data?.length) {
+    return { ids: [], error: null }
+  }
+  return {
+    ids: data.map((r) => String((r as { id: unknown }).id)).filter(Boolean),
+    error: null,
+  }
 }

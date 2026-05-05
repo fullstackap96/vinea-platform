@@ -35,6 +35,10 @@ import {
   fetchParishionerIdsForParish,
   fetchPrimaryParishId,
 } from '@/lib/dashboardParishRequestScope'
+import {
+  logDashboardQueryError,
+  userMessageForDashboardQueryError,
+} from '@/lib/dashboardSupabaseError'
 import { ParishRequestStatusBadgeWithTooltip } from '@/lib/ParishRequestStatusBadge'
 import {
   followUpSortPriority,
@@ -122,6 +126,7 @@ export default function DashboardPage() {
     null
   )
   const [followUpBatchMessage, setFollowUpBatchMessage] = useState('')
+  const [requestsLoadError, setRequestsLoadError] = useState<string | null>(null)
 
   function toTime(value: any) {
     if (!value) return null
@@ -1156,28 +1161,37 @@ export default function DashboardPage() {
 
   async function loadRequests(silent = false) {
     if (!silent) setLoading(true)
+    setRequestsLoadError(null)
+    const softWarnings: string[] = []
 
-    const primaryParishId = await fetchPrimaryParishId(supabase)
+    const { parishId: primaryParishId, error: parishLookupError } =
+      await fetchPrimaryParishId(supabase)
+    if (parishLookupError) {
+      logDashboardQueryError('parishes (primary parish id)', parishLookupError)
+      softWarnings.push(
+        userMessageForDashboardQueryError('parish directory', parishLookupError)
+      )
+    }
+
     let parishionerIdsForParish: string[] | null = null
     if (primaryParishId) {
-      parishionerIdsForParish = await fetchParishionerIdsForParish(
+      const { ids, error: parishScopeError } = await fetchParishionerIdsForParish(
         supabase,
         primaryParishId
       )
-      if (parishionerIdsForParish.length === 0) {
-        console.log('primaryParishId', primaryParishId)
-        console.log('parishionerIdsForParish length', parishionerIdsForParish.length)
-        console.log('first parishioner ids', parishionerIdsForParish.slice(0, 5))
-        console.log('requests query error', undefined)
-        console.log('requests returned count', undefined)
-        console.log('requests returned sample', undefined)
-        console.log('parishioners query error', undefined)
-        console.log('parishioners returned count', undefined)
-        console.log('merged dashboard requests count', 0)
-        console.log('filtered requests count', 0)
+      if (parishScopeError) {
+        logDashboardQueryError('parishioners (ids for parish scope)', parishScopeError)
+        softWarnings.push(
+          userMessageForDashboardQueryError('parish member list', parishScopeError)
+        )
+        parishionerIdsForParish = null
+      } else if (ids.length === 0) {
         setRequests([])
+        setRequestsLoadError(null)
         if (!silent) setLoading(false)
         return
+      } else {
+        parishionerIdsForParish = ids
       }
     }
 
@@ -1210,45 +1224,23 @@ export default function DashboardPage() {
     const { data: requestsData, error: requestsError } = await requestsQuery
 
     if (requestsError) {
-      const requestsPayload = requestsData as unknown[] | null | undefined
-      console.error('Error loading requests:', requestsError)
-      console.log('primaryParishId', primaryParishId)
-      console.log(
-        'parishionerIdsForParish length',
-        parishionerIdsForParish?.length ?? 0
+      logDashboardQueryError('requests (dashboard list)', requestsError)
+      setRequestsLoadError(
+        userMessageForDashboardQueryError('requests', requestsError)
       )
-      console.log('first parishioner ids', parishionerIdsForParish?.slice(0, 5) ?? [])
-      console.log('requests query error', requestsError)
-      console.log(
-        'requests returned count',
-        Array.isArray(requestsPayload) ? requestsPayload.length : undefined
-      )
-      console.log(
-        'requests returned sample',
-        Array.isArray(requestsPayload) ? requestsPayload.slice(0, 3) : undefined
-      )
-      console.log('parishioners query error', undefined)
-      console.log('parishioners returned count', undefined)
-      console.log('merged dashboard requests count', 0)
-      console.log('filtered requests count', 0)
+      setRequests([])
       if (!silent) setLoading(false)
       return
     }
 
     if (!requestsData) {
-      console.log('primaryParishId', primaryParishId)
-      console.log(
-        'parishionerIdsForParish length',
-        parishionerIdsForParish?.length ?? 0
+      logDashboardQueryError(
+        'requests (dashboard list)',
+        new Error('Supabase returned no data and no error')
       )
-      console.log('first parishioner ids', parishionerIdsForParish?.slice(0, 5) ?? [])
-      console.log('requests query error', requestsError)
-      console.log('requests returned count', undefined)
-      console.log('requests returned sample', undefined)
-      console.log('parishioners query error', undefined)
-      console.log('parishioners returned count', undefined)
-      console.log('merged dashboard requests count', 0)
-      console.log('filtered requests count', 0)
+      setRequestsLoadError(
+        'Could not load requests: no data was returned. Please try again or contact support.'
+      )
       setRequests([])
       if (!silent) setLoading(false)
       return
@@ -1263,11 +1255,32 @@ export default function DashboardPage() {
       .map((request) => request.parishioner_id)
       .filter(Boolean)
 
-    // parishioners: full_name (not first_name/last_name); parish_id used for parish scope above
-    const { data: parishionersData, error: parishionersError } = await supabase
-      .from('parishioners')
-      .select('id, full_name, email, phone, parish_id')
-      .in('id', parishionerIds)
+    let parishionersData:
+      | { id: string; full_name: string | null; email: string | null; phone: string | null; parish_id: string | null }[]
+      | null
+    let parishionersError: { message: string } | null
+
+    if (parishionerIds.length > 0) {
+      const pRes = await supabase
+        .from('parishioners')
+        .select('id, full_name, email, phone, parish_id')
+        .in('id', parishionerIds)
+      parishionersData = pRes.data as typeof parishionersData
+      parishionersError = pRes.error
+    } else {
+      parishionersData = []
+      parishionersError = null
+    }
+
+    if (parishionersError) {
+      logDashboardQueryError('parishioners (for dashboard merge)', parishionersError)
+      setRequestsLoadError(
+        userMessageForDashboardQueryError('contact records', parishionersError)
+      )
+      setRequests([])
+      if (!silent) setLoading(false)
+      return
+    }
 
     const requestIds = requestRows.map((r) => r.id).filter(Boolean)
     let checklistIncompleteCountByRequestId = new Map<string, number>()
@@ -1278,7 +1291,10 @@ export default function DashboardPage() {
         .in('request_id', requestIds)
 
       if (checklistError) {
-        console.error('Error loading checklist items:', checklistError)
+        logDashboardQueryError('checklist_items (for dashboard)', checklistError)
+        softWarnings.push(
+          userMessageForDashboardQueryError('checklist summary', checklistError)
+        )
       } else {
         checklistIncompleteCountByRequestId = new Map<string, number>()
         for (const item of checklistData || []) {
@@ -1315,11 +1331,17 @@ export default function DashboardPage() {
 
     const funeralById = new Map<string, Record<string, unknown>>()
     if (funeralIds.length > 0) {
-      const { data: funeralRows } = await supabase
+      const { data: funeralRows, error: funeralErr } = await supabase
         .from('funeral_request_details')
         .select('*')
         .in('request_id', funeralIds)
 
+      if (funeralErr) {
+        logDashboardQueryError('funeral_request_details (for dashboard)', funeralErr)
+        softWarnings.push(
+          userMessageForDashboardQueryError('funeral request details', funeralErr)
+        )
+      }
       for (const row of funeralRows || []) {
         funeralById.set(String(row.request_id), row as Record<string, unknown>)
       }
@@ -1339,11 +1361,17 @@ export default function DashboardPage() {
 
     const weddingById = new Map<string, Record<string, unknown>>()
     if (weddingIds.length > 0) {
-      const { data: weddingRows } = await supabase
+      const { data: weddingRows, error: weddingErr } = await supabase
         .from('wedding_request_details')
         .select('*')
         .in('request_id', weddingIds)
 
+      if (weddingErr) {
+        logDashboardQueryError('wedding_request_details (for dashboard)', weddingErr)
+        softWarnings.push(
+          userMessageForDashboardQueryError('wedding request details', weddingErr)
+        )
+      }
       for (const row of weddingRows || []) {
         weddingById.set(String(row.request_id), row as Record<string, unknown>)
       }
@@ -1363,11 +1391,17 @@ export default function DashboardPage() {
 
     const ociaById = new Map<string, Record<string, unknown>>()
     if (ociaIds.length > 0) {
-      const { data: ociaRows } = await supabase
+      const { data: ociaRows, error: ociaErr } = await supabase
         .from('ocia_request_details')
         .select('*')
         .in('request_id', ociaIds)
 
+      if (ociaErr) {
+        logDashboardQueryError('ocia_request_details (for dashboard)', ociaErr)
+        softWarnings.push(
+          userMessageForDashboardQueryError('OCIA request details', ociaErr)
+        )
+      }
       for (const row of ociaRows || []) {
         ociaById.set(String(row.request_id), row as Record<string, unknown>)
       }
@@ -1379,25 +1413,8 @@ export default function DashboardPage() {
         r.request_type === 'ocia' ? ociaById.get(String(r.id)) ?? null : null,
     }))
 
-    const filteredRequests = withDetails.filter((request) =>
-      requestMatchesDashboardRowFilters(request as Record<string, unknown>, rowFilters)
-    )
-
-    console.log('primaryParishId', primaryParishId)
-    console.log(
-      'parishionerIdsForParish length',
-      parishionerIdsForParish?.length ?? 0
-    )
-    console.log('first parishioner ids', parishionerIdsForParish?.slice(0, 5) ?? [])
-    console.log('requests query error', requestsError)
-    console.log('requests returned count', requestsData?.length)
-    console.log('requests returned sample', requestsData?.slice(0, 3))
-    console.log('parishioners query error', parishionersError)
-    console.log('parishioners returned count', parishionersData?.length)
-    console.log('merged dashboard requests count', mergedRequests.length)
-    console.log('filtered requests count', filteredRequests.length)
-
     setRequests(withDetails)
+    setRequestsLoadError(softWarnings.length > 0 ? softWarnings.join(' • ') : null)
     if (!silent) setLoading(false)
   }
 
@@ -1584,6 +1601,15 @@ export default function DashboardPage() {
           queue and full request list.
         </p>
       </header>
+
+      {requestsLoadError ? (
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:mb-5"
+        >
+          {requestsLoadError}
+        </div>
+      ) : null}
 
       <div className="space-y-4 sm:space-y-5">
       <DashboardCommandSummary requests={requests} loading={loading} />

@@ -4,6 +4,8 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/serviceRoleClien
 import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
 import { directoryFromJsonColumn } from '@/lib/parishDirectory'
 
+/** Env used by this route: session via `createSupabaseRouteHandlerReadOnlyClient` → `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`; parish rows via `createSupabaseServiceRoleClient` → URL as in `lib/supabase/serviceRoleClient.ts`, `SUPABASE_SERVICE_ROLE_KEY`. */
+
 function isValidEmail(value: string): boolean {
   const s = String(value || '').trim()
   if (!s) return false

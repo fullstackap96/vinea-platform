@@ -38,6 +38,7 @@ import { StaffNotesSection } from './_components/StaffNotesSection'
 import { parseAiEmailDraft } from '@/lib/parseAiEmailDraft'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
+import { logDashboardQueryError } from '@/lib/dashboardSupabaseError'
 import {
   buildVineaEmailTemplateContext,
   listVineaEmailTemplateOptions,
@@ -193,7 +194,14 @@ const [staffNotes, setStaffNotes] = useState('')
       console.error('Error loading parishioner:', parishionerError)
     }
     if (parishionerData) {
-      const parishId = await fetchPrimaryParishId(supabase)
+      const { parishId, error: parishScopeLookupError } =
+        await fetchPrimaryParishId(supabase)
+      if (parishScopeLookupError) {
+        logDashboardQueryError(
+          'parishes (primary parish id, request detail)',
+          parishScopeLookupError
+        )
+      }
       const rowParishId = parishionerData.parish_id as string | null | undefined
       if (
         parishId &&
