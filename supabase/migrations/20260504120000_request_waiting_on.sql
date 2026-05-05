@@ -1,3 +1,5 @@
+-- public.requests.waiting_on (text). Idempotent ADD COLUMN matches:
+--   ALTER TABLE public.requests ADD COLUMN IF NOT EXISTS waiting_on text;
 -- Operational "waiting on" tag for parish staff (orthogonal to requests.status).
 ALTER TABLE public.requests
   ADD COLUMN IF NOT EXISTS waiting_on text;

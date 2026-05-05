@@ -16,6 +16,7 @@ import {
   SEEKING_LABEL,
   SEEKING_VALUES,
 } from '@/lib/ociaIntakeOptions'
+import type { ParishionerContactFields } from '@/lib/types/requests'
 
 const inputClass = 'w-full border border-gray-300 p-3 rounded text-sm text-gray-900 shadow-sm'
 const labelClass = 'block text-sm font-medium text-gray-900 mb-1'
@@ -25,7 +26,7 @@ type Props = {
   requestId: string
   requestType: 'baptism' | 'funeral' | 'wedding' | 'ocia'
   parishionerId: string
-  parishioner: { full_name?: string | null; email?: string | null; phone?: string | null }
+  parishioner: ParishionerContactFields
   request: { child_name?: string | null; preferred_dates?: string | null; notes?: string | null }
   funeralDetail: Record<string, unknown> | null
   weddingDetail: Record<string, unknown> | null

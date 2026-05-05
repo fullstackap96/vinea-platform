@@ -1,5 +1,19 @@
 export type { RequestStatus } from '../requestStatus'
 
+/**
+ * Live `public.parishioners` columns used by staff UI (single `full_name`; no `first_name` / `last_name`).
+ */
+export type ParishionerRow = {
+  id: string
+  full_name: string | null
+  email: string | null
+  phone: string | null
+  created_at?: string
+  parish_id?: string | null
+}
+
+export type ParishionerContactFields = Pick<ParishionerRow, 'full_name' | 'email' | 'phone'>
+
 /** Stored in `public.requests.request_type` (Postgres column name; not `type`). */
 export type RequestDiscriminator =
   | 'baptism'
