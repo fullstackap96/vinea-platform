@@ -108,7 +108,10 @@ export function userMessageForDashboardQueryError(
     return `Could not load ${context}. Please try again or contact support if this continues.`
   }
   if (isLikelyMissingColumnError(error)) {
-    return `Could not load ${context}: the database may be missing a column the app expects. Ask an administrator to run pending Supabase migrations (or align the live schema with the app). Technical detail: ${msg}`
+    const base = `Could not load ${context}: the database may be missing a column the app expects. Ask an administrator to run pending Supabase migrations (or align the live schema with the app).`
+    return isDev ? `${base} Technical detail: ${msg}` : base
   }
-  return `Could not load ${context}: ${msg}`
+  return isDev
+    ? `Could not load ${context}: ${msg}`
+    : `Could not load ${context}. Please try again or contact support if this continues.`
 }

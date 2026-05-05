@@ -130,7 +130,7 @@ export function evaluateSmartFollowUp(
   if (status === 'complete') {
     return {
       followUpStatus: 'ready_to_complete',
-      label: 'Complete',
+      label: 'Completed',
       description: 'This request is marked complete; no follow-up work remains.',
       urgency: 'low',
       recommendedAction: 'Archive or review for reporting only.',

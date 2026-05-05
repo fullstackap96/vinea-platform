@@ -18,6 +18,7 @@ describe('evaluateSmartFollowUp', () => {
       { now: frozenNow }
     )
     expect(r.followUpStatus).toBe('ready_to_complete')
+    expect(r.label).toBe('Completed')
     expect(r.urgency).toBe('low')
     expect(r.sortPriority).toBeGreaterThan(100)
   })
