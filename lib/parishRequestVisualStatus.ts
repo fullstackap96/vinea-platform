@@ -9,6 +9,7 @@ import {
   normalizeRequestWaitingOn,
   REQUEST_WAITING_ON_LABELS,
 } from '@/lib/requestWaitingOn'
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 
 /** Staff-facing status (derived from DB status + workflow signals). */
 export type ParishVisualStatusKey =
@@ -139,7 +140,9 @@ export function resolveParishRequestVisualStatus(
     return pick('new_request')
   }
 
-  const rt = input.request_type ?? scheduleRow.request_type
+  const rt = requestTypeFromRow({
+    request_type: input.request_type ?? scheduleRow.request_type,
+  })
   if (requestTypeNeedsConfirmedSchedule(rt) && hasConfirmedSchedule(scheduleRow)) {
     return pick('scheduled')
   }

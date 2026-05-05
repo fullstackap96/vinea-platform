@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 
 function toIso(value: unknown) {
   if (!value) return null
@@ -25,7 +26,7 @@ export async function buildCalendarEventFromRequest(
   reqRow: Record<string, unknown>,
   parishionerRow: Record<string, unknown> | null
 ): Promise<CalendarEventBuildResult> {
-  const requestType = String(reqRow.request_type || 'baptism')
+  const requestType = requestTypeFromRow(reqRow)
   const parishionerName = String(parishionerRow?.full_name || 'Unknown')
   const parishionerEmail = String(parishionerRow?.email || 'Unknown')
   const parishionerPhone = String(parishionerRow?.phone || '')

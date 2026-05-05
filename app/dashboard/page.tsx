@@ -30,6 +30,11 @@ import {
   requestMatchesDashboardRowFilters,
   type DashboardRowFilters,
 } from '@/lib/dashboardRequestFilter'
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
+import {
+  fetchParishionerIdsForParish,
+  fetchPrimaryParishId,
+} from '@/lib/dashboardParishRequestScope'
 import { ParishRequestStatusBadgeWithTooltip } from '@/lib/ParishRequestStatusBadge'
 import {
   followUpSortPriority,
@@ -1152,7 +1157,18 @@ export default function DashboardPage() {
   async function loadRequests(silent = false) {
     if (!silent) setLoading(true)
 
-    const { data, error } = await supabase
+    const parishId = await fetchPrimaryParishId(supabase)
+    let scopedParishionerIds: string[] | null = null
+    if (parishId) {
+      scopedParishionerIds = await fetchParishionerIdsForParish(supabase, parishId)
+      if (scopedParishionerIds.length === 0) {
+        setRequests([])
+        if (!silent) setLoading(false)
+        return
+      }
+    }
+
+    let requestsQuery = supabase
       .from('requests')
       .select(`
         id,
@@ -1174,6 +1190,12 @@ export default function DashboardPage() {
       `)
       .order('created_at', { ascending: false })
 
+    if (scopedParishionerIds && scopedParishionerIds.length > 0) {
+      requestsQuery = requestsQuery.in('parishioner_id', scopedParishionerIds)
+    }
+
+    const { data, error } = await requestsQuery
+
     if (error) {
       console.error('Error loading requests:', error)
       if (!silent) setLoading(false)
@@ -1186,7 +1208,10 @@ export default function DashboardPage() {
       return
     }
 
-    const requestRows = data || []
+    const requestRows = (data || []).map((r) => ({
+      ...r,
+      request_type: requestTypeFromRow(r as { request_type?: unknown }),
+    }))
 
     const parishionerIds = requestRows
       .map((request) => request.parishioner_id)
@@ -1194,7 +1219,7 @@ export default function DashboardPage() {
 
     const { data: parishionersData } = await supabase
       .from('parishioners')
-      .select('id, full_name, email, phone')
+      .select('id, full_name, email, phone, parish_id')
       .in('id', parishionerIds)
 
     const requestIds = requestRows.map((r) => r.id).filter(Boolean)
@@ -1695,7 +1720,7 @@ export default function DashboardPage() {
                 <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
                   {requests.length === 0
                     ? 'When a family submits an intake form, the request will show up here so your team can review it and take the next step.'
-                    : 'Try clearing filters with the button above, adjusting type or dates, or change the sort option to see more requests.'}
+                    : 'Try clearing filters with the button above, adjusting request type or dates, or change the sort option to see more requests.'}
                 </p>
               </div>
             ) : (

@@ -10,6 +10,7 @@ import {
   WORKFLOW_STALE_CONTACT_MS,
   type RequestWorkflowV2Input,
 } from '@/lib/requestWorkflowV2'
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 
 export type RequestDetailQuickAction = {
   key: string
@@ -75,7 +76,9 @@ export function getRequestDetailSmartQuickActions(input: {
   }
 
   const scheduleRow = input.workflowInput.scheduleRow
-  const requestType = r.request_type ?? scheduleRow.request_type
+  const requestType = requestTypeFromRow({
+    request_type: r.request_type ?? scheduleRow.request_type,
+  })
   const assigned = hasAssignment(r as NonNullable<RequestWorkflowV2Input['request']>)
   const scheduleMissing =
     requestTypeNeedsConfirmedSchedule(requestType) && !hasConfirmedSchedule(scheduleRow)

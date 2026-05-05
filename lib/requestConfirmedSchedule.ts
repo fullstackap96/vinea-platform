@@ -1,3 +1,5 @@
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
+
 /**
  * Per-type "confirmed schedule" for dashboard attention, metrics, and follow-up queue.
  * Baptism: requests.confirmed_baptism_date
@@ -15,7 +17,7 @@ export type RequestScheduleRow = {
 }
 
 export function hasConfirmedSchedule(request: RequestScheduleRow): boolean {
-  const t = String(request.request_type || 'baptism').toLowerCase()
+  const t = requestTypeFromRow(request)
   if (t === 'ocia') {
     return Boolean(request.ocia_detail?.confirmed_session_at)
   }

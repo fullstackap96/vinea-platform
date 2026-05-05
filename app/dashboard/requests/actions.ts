@@ -6,6 +6,7 @@ import type {
   RequestNextFollowUpUpdate,
 } from '@/lib/types/requests'
 import { parseFollowUpCalendarDate } from '@/lib/nextFollowUpDate'
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 
 export type UpdateRequestAssignmentResult =
   | { ok: true }
@@ -224,7 +225,7 @@ export async function saveRequestIntakeDetails(
     }
   }
 
-  const effectiveRequestType = String(reqRow.request_type ?? 'baptism').toLowerCase()
+  const effectiveRequestType = requestTypeFromRow(reqRow as { request_type?: unknown })
 
   const phoneTrim = String(input.contactPhone ?? '').trim()
   const phone = phoneTrim.length > 0 ? phoneTrim : null

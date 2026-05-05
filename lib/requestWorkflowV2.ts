@@ -9,6 +9,7 @@ import {
   REQUEST_WAITING_ON_LABELS,
   type RequestWaitingOnValue,
 } from '@/lib/requestWaitingOn'
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 
 /** Stale contact window aligned with dashboard follow-up queue (`FOLLOWUP_STALE_MS`). */
 export const WORKFLOW_STALE_CONTACT_MS = 7 * 24 * 60 * 60 * 1000
@@ -127,7 +128,7 @@ export function dashboardRequestScheduleRow(request: {
   ocia_detail?: { confirmed_session_at?: unknown } | null
 }): RequestScheduleRow {
   return {
-    request_type: request.request_type as string | null | undefined,
+    request_type: requestTypeFromRow(request),
     confirmed_baptism_date: request.confirmed_baptism_date as string | null | undefined,
     funeral_detail: request.funeral_detail
       ? {
@@ -340,7 +341,9 @@ export function resolveRequestWorkflowV2(input: RequestWorkflowV2Input): Request
   const status = String(r.status ?? '').trim()
   const checklistIncomplete =
     input.pretendChecklistComplete === true ? false : input.checklistIncomplete
-  const requestType = r.request_type ?? input.scheduleRow.request_type
+  const requestType = requestTypeFromRow({
+    request_type: r.request_type ?? input.scheduleRow.request_type,
+  })
 
   if (status === 'complete') {
     return {

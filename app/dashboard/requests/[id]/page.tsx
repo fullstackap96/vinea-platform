@@ -36,6 +36,8 @@ import { NextFollowUpSection } from './_components/NextFollowUpSection'
 import { InternalNotesSection } from './_components/InternalNotesSection'
 import { StaffNotesSection } from './_components/StaffNotesSection'
 import { parseAiEmailDraft } from '@/lib/parseAiEmailDraft'
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
+import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
 import {
   buildVineaEmailTemplateContext,
   listVineaEmailTemplateOptions,
@@ -181,21 +183,6 @@ const [staffNotes, setStaffNotes] = useState('')
       return
     }
 
-    setRequest(requestData)
-setAiSummary(requestData.ai_summary || '')
-    {
-      const draftRaw = requestData.reply_draft || ''
-      const parsed = parseAiEmailDraft(draftRaw)
-      setReplyDraft(parsed.hadSubjectLine ? parsed.body : draftRaw)
-      if (parsed.hadSubjectLine) {
-        setEmailSubject(parsed.subject)
-      }
-    }
-setStaffNotes(requestData.staff_notes || '')
-    setSuggested1(isoToDatetimeLocal(requestData.suggested_date_1))
-    setSuggested2(isoToDatetimeLocal(requestData.suggested_date_2))
-    setSuggested3(isoToDatetimeLocal(requestData.suggested_date_3))
-    setConfirmedBaptismDate(isoToDatetimeLocal(requestData.confirmed_baptism_date))
     const { data: parishionerData, error: parishionerError } = await supabase
       .from('parishioners')
       .select('*')
@@ -205,6 +192,39 @@ setStaffNotes(requestData.staff_notes || '')
     if (parishionerError) {
       console.error('Error loading parishioner:', parishionerError)
     }
+    if (parishionerData) {
+      const parishId = await fetchPrimaryParishId(supabase)
+      const rowParishId = parishionerData.parish_id as string | null | undefined
+      if (
+        parishId &&
+        rowParishId != null &&
+        String(rowParishId).trim() !== '' &&
+        String(rowParishId) !== parishId
+      ) {
+        setErrorMessage('Request not found.')
+        setLoading(false)
+        return
+      }
+    }
+
+    setRequest({
+      ...requestData,
+      request_type: requestTypeFromRow(requestData as { request_type?: unknown }),
+    })
+    setAiSummary(requestData.ai_summary || '')
+    {
+      const draftRaw = requestData.reply_draft || ''
+      const parsed = parseAiEmailDraft(draftRaw)
+      setReplyDraft(parsed.hadSubjectLine ? parsed.body : draftRaw)
+      if (parsed.hadSubjectLine) {
+        setEmailSubject(parsed.subject)
+      }
+    }
+    setStaffNotes(requestData.staff_notes || '')
+    setSuggested1(isoToDatetimeLocal(requestData.suggested_date_1))
+    setSuggested2(isoToDatetimeLocal(requestData.suggested_date_2))
+    setSuggested3(isoToDatetimeLocal(requestData.suggested_date_3))
+    setConfirmedBaptismDate(isoToDatetimeLocal(requestData.confirmed_baptism_date))
     if (parishionerData) {
       setParishioner(parishionerData)
     }

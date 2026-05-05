@@ -1,4 +1,5 @@
 import { needsAttentionEligible } from '@/lib/needsAttention'
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import { isNextFollowUpOverdue } from '@/lib/nextFollowUpDate'
 import { hasConfirmedSchedule } from '@/lib/requestConfirmedSchedule'
 
@@ -9,7 +10,7 @@ function scheduleTimeMs(request: {
   wedding_detail?: { confirmed_ceremony_at?: unknown } | null
   ocia_detail?: { confirmed_session_at?: unknown } | null
 }): number | null {
-  const t = String(request.request_type || 'baptism').toLowerCase()
+  const t = requestTypeFromRow(request)
   let raw: unknown
   if (t === 'funeral') raw = request.funeral_detail?.confirmed_service_at
   else if (t === 'wedding') raw = request.wedding_detail?.confirmed_ceremony_at

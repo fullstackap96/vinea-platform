@@ -1,4 +1,5 @@
 import { isNextFollowUpOverdue } from '@/lib/nextFollowUpDate'
+import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import type { RequestWaitingOnValue } from '@/lib/requestWaitingOn'
 import { REQUEST_WAITING_ON_VALUES } from '@/lib/requestWaitingOn'
 
@@ -70,9 +71,7 @@ export function requestMatchesDashboardRowFilters(
   const st = String(request.status ?? '').trim()
   if (filters.status !== 'all' && st !== filters.status) return false
 
-  const rt = String(request.request_type ?? '')
-    .trim()
-    .toLowerCase()
+  const rt = requestTypeFromRow(request as { request_type?: unknown }, '')
   if (filters.requestType !== 'all' && rt !== filters.requestType.toLowerCase()) return false
 
   if (

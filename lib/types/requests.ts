@@ -1,5 +1,13 @@
 export type { RequestStatus } from '../requestStatus'
 
+/** Stored in `public.requests.request_type` (Postgres column name; not `type`). */
+export type RequestDiscriminator =
+  | 'baptism'
+  | 'funeral'
+  | 'wedding'
+  | 'ocia'
+  | 'join_parish'
+
 /** Nullable columns on `public.requests` for V1 assignment (free-text names). */
 export type RequestAssignmentColumns = {
   assigned_staff_name: string | null
