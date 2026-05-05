@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
+import { DashboardParishInsights } from './DashboardParishInsights'
+import { DashboardRequestRowBadges } from './DashboardRequestRowBadges'
+import { DashboardStaffWorkload } from './DashboardStaffWorkload'
 import { DashboardRequestFilters } from './DashboardRequestFilters'
 import { RequestLinksSection } from './RequestLinksSection'
 import {
@@ -25,6 +28,8 @@ import { chipBase } from '@/lib/chipStyles'
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import { getStatusLabel, requestStatusRankForSort } from '@/lib/requestStatus'
 import { requestWaitingOnLabel } from '@/lib/requestWaitingOn'
+import { buildParishInsights } from '@/lib/dashboardParishInsights'
+import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
 import {
   defaultDashboardRowFilters,
   requestMatchesDashboardRowFilters,
@@ -36,9 +41,12 @@ import {
   fetchPrimaryParishId,
 } from '@/lib/dashboardParishRequestScope'
 import {
+  formatDashboardTechnicalError,
   logDashboardQueryError,
   userMessageForDashboardQueryError,
 } from '@/lib/dashboardSupabaseError'
+import { evaluateAtRiskRequest } from '@/lib/atRiskRequest'
+import { evaluateSmartFollowUp } from '@/lib/smartFollowUpEngine'
 import { ParishRequestStatusBadgeWithTooltip } from '@/lib/ParishRequestStatusBadge'
 import {
   followUpSortPriority,
@@ -127,6 +135,10 @@ export default function DashboardPage() {
   )
   const [followUpBatchMessage, setFollowUpBatchMessage] = useState('')
   const [requestsLoadError, setRequestsLoadError] = useState<string | null>(null)
+  const [requestsFetchFailed, setRequestsFetchFailed] = useState(false)
+  const [requestsLoadTechnicalDetail, setRequestsLoadTechnicalDetail] = useState<
+    string | null
+  >(null)
 
   function toTime(value: any) {
     if (!value) return null
@@ -244,7 +256,11 @@ export default function DashboardPage() {
     return lines.join('\n')
   }
 
-  function renderRequestDetailLines(request: any) {
+  function renderRequestDetailLines(
+    request: any,
+    opts?: { streamlinedTiles?: boolean }
+  ) {
+    const streamlined = opts?.streamlinedTiles ?? false
     const rt = String(request.request_type || 'baptism')
     const isFuneral = rt === 'funeral'
     const isWedding = rt === 'wedding'
@@ -259,14 +275,18 @@ export default function DashboardPage() {
           label={<FieldLabel icon={Mail}>Email</FieldLabel>}
           value={maybeMissingValue(String(request.parishioner?.email ?? '').trim() || '—')}
         />
-        <LabelValueRow
-          label="Staff"
-          value={maybeMissingValue(assignmentDisplayLabel(request.assigned_staff_name))}
-        />
-        <LabelValueRow
-          label="Priest"
-          value={maybeMissingValue(assignmentDisplayLabel(request.assigned_priest_name))}
-        />
+        {!streamlined ? (
+          <>
+            <LabelValueRow
+              label="Staff"
+              value={maybeMissingValue(assignmentDisplayLabel(request.assigned_staff_name))}
+            />
+            <LabelValueRow
+              label="Priest"
+              value={maybeMissingValue(assignmentDisplayLabel(request.assigned_priest_name))}
+            />
+          </>
+        ) : null}
         <LabelValueRow
           label="Deacon"
           value={maybeMissingValue(assignmentDisplayLabel(request.assigned_deacon_name))}
@@ -361,10 +381,12 @@ export default function DashboardPage() {
             </span>
           }
         />
-        <LabelValueRow
-          label="Waiting on"
-          value={maybeMissingValue(requestWaitingOnLabel(request.waiting_on) || '—')}
-        />
+        {!streamlined ? (
+          <LabelValueRow
+            label="Waiting on"
+            value={maybeMissingValue(requestWaitingOnLabel(request.waiting_on) || '—')}
+          />
+        ) : null}
         {parseFollowUpCalendarDate(request.next_follow_up_date) ? (
           <LabelValueRow
             label={<FieldLabel icon={Calendar}>Follow-up</FieldLabel>}
@@ -407,7 +429,11 @@ export default function DashboardPage() {
     )
   }
 
-  function renderRequestSummary(request: any) {
+  function renderRequestSummary(
+    request: any,
+    opts?: { showAttentionChips?: boolean }
+  ) {
+    const showAttentionChips = opts?.showAttentionChips ?? true
     const { needsConfirmed, needsContact, checklistIncomplete } = getAttentionState(request)
     const isNew = request.status === 'new'
 
@@ -465,7 +491,7 @@ export default function DashboardPage() {
         <div className="mb-2">
           <RequestTypeBadge requestType={request.request_type} />
         </div>
-        {badges.length > 0 && (
+        {showAttentionChips && badges.length > 0 && (
           <div className="flex gap-2 flex-wrap mb-2">
             {badges.map((b) => (
               <span
@@ -477,7 +503,9 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
-        {renderRequestDetailLines(request)}
+        {renderRequestDetailLines(request, {
+          streamlinedTiles: !showAttentionChips,
+        })}
       </>
     )
   }
@@ -641,6 +669,11 @@ export default function DashboardPage() {
       scheduleRow: dashboardRequestScheduleRow(request),
       checklistIncomplete: Boolean(request.checklist_incomplete),
     })
+    const smartFollowUp = evaluateSmartFollowUp(request)
+    const atRisk = evaluateAtRiskRequest(request)
+    const waitingOnDisplay =
+      requestWaitingOnLabel(request.waiting_on)?.trim() || 'Nothing recorded'
+
     return (
       <Link
         key={request.id}
@@ -649,25 +682,15 @@ export default function DashboardPage() {
           followUpOverdue ? dashboardOverdueFollowUpCardClasses : ''
         }`.trim()}
       >
-        {renderRequestSummary(request)}
-        <div className="mt-3 border-t border-gray-100 pt-3">
-          <div className="flex flex-wrap items-start gap-2">
-            <span
-              className={`${chipBase} text-[10px] font-semibold uppercase tracking-wide ${workflowUrgencyChipClassName(workflow.urgency)}`}
-            >
-              {workflowUrgencyLabel[workflow.urgency]}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                Next step
-              </p>
-              <p className="text-sm font-semibold text-gray-900">{workflow.nextStepTitle}</p>
-              <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-gray-600">
-                {workflow.reason}
-              </p>
-            </div>
-          </div>
-        </div>
+        {renderRequestSummary(request, { showAttentionChips: false })}
+        <DashboardRequestRowBadges
+          workflow={workflow}
+          smartFollowUp={smartFollowUp}
+          atRisk={atRisk}
+          waitingOnDisplay={waitingOnDisplay}
+          staffDisplay={assignmentDisplayLabel(request.assigned_staff_name)}
+          priestDisplay={assignmentDisplayLabel(request.assigned_priest_name)}
+        />
       </Link>
     )
   }
@@ -1162,8 +1185,11 @@ export default function DashboardPage() {
   async function loadRequests(silent = false) {
     if (!silent) setLoading(true)
     setRequestsLoadError(null)
+    setRequestsFetchFailed(false)
+    setRequestsLoadTechnicalDetail(null)
     const softWarnings: string[] = []
 
+    try {
     const { parishId: primaryParishId, error: parishLookupError } =
       await fetchPrimaryParishId(supabase)
     if (parishLookupError) {
@@ -1187,8 +1213,9 @@ export default function DashboardPage() {
         parishionerIdsForParish = null
       } else if (ids.length === 0) {
         setRequests([])
-        setRequestsLoadError(null)
-        if (!silent) setLoading(false)
+        setRequestsLoadError(
+          'No parish members are linked to your parish yet, so no requests appear here. Link parishioners to your parish (parish_id) to see their requests.'
+        )
         return
       } else {
         parishionerIdsForParish = ids
@@ -1225,24 +1252,18 @@ export default function DashboardPage() {
 
     if (requestsError) {
       logDashboardQueryError('requests (dashboard list)', requestsError)
-      setRequestsLoadError(
-        userMessageForDashboardQueryError('requests', requestsError)
-      )
+      setRequestsFetchFailed(true)
+      setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(requestsError))
       setRequests([])
-      if (!silent) setLoading(false)
       return
     }
 
     if (!requestsData) {
-      logDashboardQueryError(
-        'requests (dashboard list)',
-        new Error('Supabase returned no data and no error')
-      )
-      setRequestsLoadError(
-        'Could not load requests: no data was returned. Please try again or contact support.'
-      )
+      const synthetic = new Error('Supabase returned no data and no error')
+      logDashboardQueryError('requests (dashboard list)', synthetic)
+      setRequestsFetchFailed(true)
+      setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(synthetic))
       setRequests([])
-      if (!silent) setLoading(false)
       return
     }
 
@@ -1274,11 +1295,9 @@ export default function DashboardPage() {
 
     if (parishionersError) {
       logDashboardQueryError('parishioners (for dashboard merge)', parishionersError)
-      setRequestsLoadError(
-        userMessageForDashboardQueryError('contact records', parishionersError)
-      )
+      setRequestsFetchFailed(true)
+      setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(parishionersError))
       setRequests([])
-      if (!silent) setLoading(false)
       return
     }
 
@@ -1414,8 +1433,17 @@ export default function DashboardPage() {
     }))
 
     setRequests(withDetails)
+    setRequestsFetchFailed(false)
+    setRequestsLoadTechnicalDetail(null)
     setRequestsLoadError(softWarnings.length > 0 ? softWarnings.join(' • ') : null)
-    if (!silent) setLoading(false)
+    } catch (unexpected) {
+      logDashboardQueryError('dashboard load (unexpected)', unexpected)
+      setRequestsFetchFailed(true)
+      setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(unexpected))
+      setRequests([])
+    } finally {
+      if (!silent) setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -1500,9 +1528,16 @@ export default function DashboardPage() {
   const followUpVisible = sortWithNullsLast(searchedRequests.filter(inFollowUpQueue))
 
   const needsAttentionSorted = useMemo(
-    () => sortNeedsAttentionRequests(searchedRequests.filter(needsAttentionEligible)),
+    () =>
+      sortNeedsAttentionRequests(
+        searchedRequests.filter((r) => needsAttentionEligible(r))
+      ),
     [searchedRequests]
   )
+
+  const staffWorkloadRows = useMemo(() => buildStaffWorkloadRows(requests), [requests])
+
+  const parishInsights = useMemo(() => buildParishInsights(requests), [requests])
 
   const followUpToolbarLocked =
     loading ||
@@ -1590,6 +1625,12 @@ export default function DashboardPage() {
     setSelectedFollowUpIds(new Set())
   }
 
+  const listLoadFailed =
+    requestsFetchFailed ||
+    (Boolean(requestsLoadError) && requests.length === 0 && !loading)
+
+  const isDevRuntime = process.env.NODE_ENV === 'development'
+
   return (
     <main className="mx-auto min-h-full w-full max-w-6xl px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
       <header className="mb-4 sm:mb-5">
@@ -1602,7 +1643,22 @@ export default function DashboardPage() {
         </p>
       </header>
 
-      {requestsLoadError ? (
+      {requestsFetchFailed ? (
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-950 sm:mb-5"
+        >
+          <p className="text-base font-semibold">Requests could not be loaded.</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-rose-900/95">
+            Check your connection or try again. If this keeps happening, contact support.
+          </p>
+          {isDevRuntime && requestsLoadTechnicalDetail ? (
+            <pre className="mt-3 max-h-52 overflow-auto rounded-md border border-rose-200/80 bg-white/90 p-3 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap text-gray-900">
+              {requestsLoadTechnicalDetail}
+            </pre>
+          ) : null}
+        </div>
+      ) : requestsLoadError ? (
         <div
           role="alert"
           className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:mb-5"
@@ -1612,7 +1668,17 @@ export default function DashboardPage() {
       ) : null}
 
       <div className="space-y-4 sm:space-y-5">
-      <DashboardCommandSummary requests={requests} loading={loading} />
+      <DashboardCommandSummary
+        requests={requests}
+        loading={loading}
+        dataUnavailable={requestsFetchFailed}
+      />
+
+      <DashboardParishInsights
+        insights={parishInsights}
+        loading={loading}
+        dataUnavailable={requestsFetchFailed}
+      />
 
       <DashboardRequestFilters
         filters={rowFilters}
@@ -1621,7 +1687,13 @@ export default function DashboardPage() {
         priestOptions={priestAssigneeOptions}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        disabled={loading}
+        disabled={loading || requestsFetchFailed}
+      />
+
+      <DashboardStaffWorkload
+        rows={staffWorkloadRows}
+        loading={loading}
+        dataUnavailable={requestsFetchFailed}
       />
 
       <section
@@ -1660,6 +1732,15 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : listLoadFailed ? (
+            <div className={vineaEmptyStateClassName} role="alert">
+              <p className="text-base font-semibold text-gray-900">
+                Requests could not be loaded.
+              </p>
+              <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
+                See the message at the top of the page, then refresh after the issue is fixed.
+              </p>
             </div>
           ) : needsAttentionSorted.length === 0 ? (
             <div className={vineaEmptyStateClassName} role="status">
@@ -1772,7 +1853,16 @@ export default function DashboardPage() {
                 )}
               </>
             )}
-            {followUpVisible.length === 0 ? (
+            {listLoadFailed ? (
+              <div className={vineaEmptyStateClassName} role="alert">
+                <p className="text-base font-semibold text-gray-900">
+                  Requests could not be loaded.
+                </p>
+                <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
+                  See the message at the top of the page, then refresh after the issue is fixed.
+                </p>
+              </div>
+            ) : followUpVisible.length === 0 ? (
               <div className={vineaEmptyStateClassName} role="status">
                 <p className="text-base font-semibold text-gray-900">
                   No requests in the Follow-Up Queue
@@ -1802,18 +1892,34 @@ export default function DashboardPage() {
               rows at the top.
             </p>
             {visibleRequests.length === 0 ? (
-              <div className={vineaEmptyStateClassName} role="status">
-                <p className="text-base font-semibold text-gray-900">
-                  {requests.length === 0
-                    ? 'No requests yet'
-                    : 'No requests match your filters'}
-                </p>
-                <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
-                  {requests.length === 0
-                    ? 'When a family submits an intake form, the request will show up here so your team can review it and take the next step.'
-                    : 'Try clearing filters with the button above, adjusting request type or dates, or change the sort option to see more requests.'}
-                </p>
-              </div>
+              listLoadFailed ? (
+                <div className={vineaEmptyStateClassName} role="alert">
+                  <p className="text-base font-semibold text-gray-900">
+                    Requests could not be loaded.
+                  </p>
+                  <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
+                    See the message at the top of the page, then refresh after the issue is fixed.
+                  </p>
+                </div>
+              ) : (
+                <div className={vineaEmptyStateClassName} role="status">
+                  {requests.length === 0 ? (
+                    <p className="mx-auto max-w-md text-base font-semibold leading-relaxed text-gray-900">
+                      No requests yet. Once someone submits a parish form, it will appear here.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-base font-semibold text-gray-900">
+                        No requests match your filters
+                      </p>
+                      <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
+                        Try clearing filters with the button above, adjusting request type or
+                        dates, or change the sort option to see more requests.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )
             ) : (
               <>
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">

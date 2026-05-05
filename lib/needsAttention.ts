@@ -22,10 +22,13 @@ export function isStaffUnassignedForAttention(assignedStaffName: unknown): boole
 /**
  * Inclusion: not complete, and (follow-up overdue OR due today OR staff unassigned).
  */
-export function needsAttentionEligible(request: NeedsAttentionRequestLike): boolean {
+export function needsAttentionEligible(
+  request: NeedsAttentionRequestLike,
+  now: Date = new Date()
+): boolean {
   if (String(request.status ?? '').trim() === 'complete') return false
-  const overdue = isNextFollowUpOverdue(request.next_follow_up_date, request.status)
-  const dueToday = isNextFollowUpDueToday(request.next_follow_up_date, request.status)
+  const overdue = isNextFollowUpOverdue(request.next_follow_up_date, request.status, now)
+  const dueToday = isNextFollowUpDueToday(request.next_follow_up_date, request.status, now)
   const unassigned = isStaffUnassignedForAttention(request.assigned_staff_name)
   return overdue || dueToday || unassigned
 }

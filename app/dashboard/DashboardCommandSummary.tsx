@@ -10,6 +10,8 @@ import { vineaSectionShellClassName } from '@/lib/vineaUi'
 type Props = {
   requests: unknown[]
   loading?: boolean
+  /** When true (and not loading), do not show numeric counts — request data did not load. */
+  dataUnavailable?: boolean
 }
 
 type SummaryCard = {
@@ -61,11 +63,17 @@ const CARDS: SummaryCard[] = [
   },
 ]
 
-export function DashboardCommandSummary({ requests = [], loading = false }: Props) {
+export function DashboardCommandSummary({
+  requests = [],
+  loading = false,
+  dataUnavailable = false,
+}: Props) {
   const counts = useMemo(
     () => getDashboardCommandSummaryCounts(requests),
     [requests]
   )
+
+  const hideCounts = Boolean(dataUnavailable && !loading)
 
   return (
     <section
@@ -79,38 +87,51 @@ export function DashboardCommandSummary({ requests = [], loading = false }: Prop
         Key numbers from your current request list. Scroll down for Action Required, the
         follow-up queue, and the full table.
       </p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-        {CARDS.map((c) => {
-          const Icon = c.icon
-          const value = loading ? null : counts[c.key]
-          return (
-            <div
-              key={c.key}
-              className={`flex min-h-0 min-w-0 flex-col gap-3 rounded-2xl border p-4 shadow-sm ring-1 ring-gray-900/[0.03] ${dashboardCardHoverPolish} ${c.tint}`}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${c.iconWrap}`}
-                  aria-hidden
-                >
-                  <Icon className="h-5 w-5" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-                    {c.label}
-                  </div>
+      {hideCounts ? (
+        <div
+          role="alert"
+          className="rounded-2xl border border-rose-200/90 bg-rose-50/80 px-4 py-5 text-center text-sm text-rose-950 sm:px-6"
+        >
+          <p className="text-base font-semibold">Summary unavailable</p>
+          <p className="mt-2 max-w-xl mx-auto leading-relaxed text-rose-900/95">
+            Requests could not be loaded, so these counts are not shown. Fix the issue
+            above, then refresh the page.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+          {CARDS.map((c) => {
+            const Icon = c.icon
+            const value = loading ? null : counts[c.key]
+            return (
+              <div
+                key={c.key}
+                className={`flex min-h-0 min-w-0 flex-col gap-3 rounded-2xl border p-4 shadow-sm ring-1 ring-gray-900/[0.03] ${dashboardCardHoverPolish} ${c.tint}`}
+              >
+                <div className="flex items-start gap-3">
                   <div
-                    className={`mt-1 text-3xl font-bold tabular-nums leading-none ${c.num}`}
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${c.iconWrap}`}
+                    aria-hidden
                   >
-                    {loading ? '—' : value}
+                    <Icon className="h-5 w-5" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      {c.label}
+                    </div>
+                    <div
+                      className={`mt-1 text-3xl font-bold tabular-nums leading-none ${c.num}`}
+                    >
+                      {loading ? '—' : value}
+                    </div>
                   </div>
                 </div>
+                <p className="text-xs leading-snug text-gray-600">{c.hint}</p>
               </div>
-              <p className="text-xs leading-snug text-gray-600">{c.hint}</p>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }

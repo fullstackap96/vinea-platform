@@ -38,7 +38,10 @@ import { StaffNotesSection } from './_components/StaffNotesSection'
 import { parseAiEmailDraft } from '@/lib/parseAiEmailDraft'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
-import { logDashboardQueryError } from '@/lib/dashboardSupabaseError'
+import {
+  devDashboardConsoleError,
+  logDashboardQueryError,
+} from '@/lib/dashboardSupabaseError'
 import {
   buildVineaEmailTemplateContext,
   listVineaEmailTemplateOptions,
@@ -191,7 +194,7 @@ const [staffNotes, setStaffNotes] = useState('')
       .single()
 
     if (parishionerError) {
-      console.error('Error loading parishioner:', parishionerError)
+      devDashboardConsoleError('Error loading parishioner', parishionerError)
     }
     if (parishionerData) {
       const { parishId, error: parishScopeLookupError } =
@@ -260,7 +263,7 @@ const [staffNotes, setStaffNotes] = useState('')
       .order('created_at', { ascending: false })
 
     if (notesError) {
-      console.error('Error loading request notes:', notesError)
+      devDashboardConsoleError('Error loading request notes', notesError)
       setRequestNotes([])
     } else {
       setRequestNotes(notesData || [])
@@ -328,7 +331,7 @@ const [staffNotes, setStaffNotes] = useState('')
       if (!oDetail) {
         const ensured = await ensureOciaRequestDetailsIfMissing(supabase, String(requestData.id))
         if (ensured.error) {
-          console.error('ensureOciaRequestDetailsIfMissing:', ensured.error)
+          devDashboardConsoleError('ensureOciaRequestDetailsIfMissing', ensured.error)
         }
         oDetail = ensured.data as typeof oDetail
       }
@@ -686,7 +689,7 @@ async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
     .eq('id', routeId)
 
   if (error) {
-    console.error('reply_draft save:', error)
+    devDashboardConsoleError('reply_draft save', error)
     setEmailMessage(
       `Template applied, but saving the draft failed: ${error.message}`
     )
@@ -732,7 +735,7 @@ async function saveStaffNotes() {
     .eq('id', routeId)
 
   if (error) {
-    console.error('SAVE SUGGESTED DATES ERROR:', error)
+    devDashboardConsoleError('SAVE SUGGESTED DATES ERROR', error)
     setSuggestedMessage(`Error saving suggested dates: ${error.message}`)
     setSuggestedSaving(false)
     return
@@ -762,7 +765,7 @@ async function saveConfirmedBaptismDate() {
     .eq('id', routeId)
 
   if (error) {
-    console.error('SAVE CONFIRMED BAPTISM DATE ERROR:', error)
+    devDashboardConsoleError('SAVE CONFIRMED BAPTISM DATE ERROR', error)
     setConfirmedMessage(`Error saving confirmed date: ${error.message}`)
     setConfirmedSaving(false)
     return
@@ -784,7 +787,7 @@ async function clearConfirmedBaptismDate() {
     .eq('id', routeId)
 
   if (error) {
-    console.error('CLEAR CONFIRMED BAPTISM DATE ERROR:', error)
+    devDashboardConsoleError('CLEAR CONFIRMED BAPTISM DATE ERROR', error)
     setConfirmedMessage(`Error clearing confirmed date: ${error.message}`)
     setConfirmedSaving(false)
     return
@@ -1070,7 +1073,7 @@ async function logCommunication() {
     })
 
   if (insertRes.error) {
-    console.error('LOG COMMUNICATION INSERT ERROR:', insertRes.error)
+    devDashboardConsoleError('LOG COMMUNICATION INSERT ERROR', insertRes.error)
     setCommMessage(`Error logging communication: ${insertRes.error.message}`)
     setCommSaving(false)
     return
@@ -1086,7 +1089,7 @@ async function logCommunication() {
     .eq('id', routeId)
 
   if (updateRes.error) {
-    console.error('LOG COMMUNICATION SUMMARY UPDATE ERROR:', updateRes.error)
+    devDashboardConsoleError('LOG COMMUNICATION SUMMARY UPDATE ERROR', updateRes.error)
     setCommMessage(
       `Logged history, but failed updating summary fields: ${updateRes.error.message}`
     )
@@ -1147,7 +1150,7 @@ async function sendEmail() {
     })
 
     if (insertRes.error) {
-      console.error('EMAIL COMMUNICATION LOG INSERT ERROR:', insertRes.error)
+      devDashboardConsoleError('EMAIL COMMUNICATION LOG INSERT ERROR', insertRes.error)
       setEmailMessage(
         `Email sent, but failed logging communication: ${insertRes.error.message}`
       )
@@ -1165,7 +1168,7 @@ async function sendEmail() {
       .eq('id', routeId)
 
     if (updateRes.error) {
-      console.error('EMAIL SUMMARY UPDATE ERROR:', updateRes.error)
+      devDashboardConsoleError('EMAIL SUMMARY UPDATE ERROR', updateRes.error)
       setEmailMessage(
         `Email sent and logged, but failed updating summary fields: ${updateRes.error.message}`
       )
