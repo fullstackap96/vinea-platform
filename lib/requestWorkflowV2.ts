@@ -208,22 +208,22 @@ function workflowResultForWaitingOn(value: RequestWaitingOnValue): RequestWorkfl
     case 'family_response':
       return {
         priorityKey: 'waiting_on_family_response',
-        nextStepTitle: 'Waiting on the family',
+        nextStepTitle: 'Waiting for the family',
         nextStepDescription:
           'Follow up by email or phone when appropriate, or update this tag when the family responds.',
-        reason: 'Staff tagged this request as waiting on a response or information from the family.',
+        reason: 'Staff tagged this request as waiting for a response or information from the family.',
         urgency: 'medium',
         recommendedActionLabel: 'Send follow-up',
         sectionAnchor: 'send-email',
-        helperText: 'Clear or change “Waiting on” when you are no longer blocked on the family.',
+        helperText: 'Clear or change the wait tag when you are no longer blocked on the family.',
       }
     case 'priest_availability':
       return {
         priorityKey: 'waiting_on_priest_availability',
-        nextStepTitle: 'Waiting on priest availability',
+        nextStepTitle: 'Waiting for priest availability',
         nextStepDescription:
           'Coordinate internally so a priest can be assigned or confirmed for the next step.',
-        reason: 'Staff tagged this request as waiting on priest availability.',
+        reason: 'Staff tagged this request as waiting for priest availability.',
         urgency: 'high',
         recommendedActionLabel: 'Review assignment',
         sectionAnchor: 'assignment',
@@ -232,10 +232,10 @@ function workflowResultForWaitingOn(value: RequestWaitingOnValue): RequestWorkfl
     case 'documents':
       return {
         priorityKey: 'waiting_on_documents',
-        nextStepTitle: 'Waiting on documents',
+        nextStepTitle: 'Waiting for documents',
         nextStepDescription:
           'Track required documents; log contact when you request or receive them.',
-        reason: 'Staff tagged this request as waiting on documents from the family or third parties.',
+        reason: 'Staff tagged this request as waiting for documents from the family or third parties.',
         urgency: 'medium',
         recommendedActionLabel: 'Log contact',
         sectionAnchor: 'communication',
@@ -244,10 +244,10 @@ function workflowResultForWaitingOn(value: RequestWaitingOnValue): RequestWorkfl
     case 'date_confirmation':
       return {
         priorityKey: 'waiting_on_date_confirmation',
-        nextStepTitle: 'Waiting on date confirmation',
+        nextStepTitle: 'Waiting for date confirmation',
         nextStepDescription:
           'Finalize the confirmed date and time with the family, then record it on this request.',
-        reason: 'Staff tagged this request as waiting on confirmation of a date or time.',
+        reason: 'Staff tagged this request as waiting for confirmation of a date or time.',
         urgency: 'medium',
         recommendedActionLabel: 'Confirm schedule',
         sectionAnchor: 'confirmed-time',
@@ -257,10 +257,10 @@ function workflowResultForWaitingOn(value: RequestWaitingOnValue): RequestWorkfl
     case 'parish_staff_action':
       return {
         priorityKey: 'waiting_on_parish_staff_action',
-        nextStepTitle: 'Waiting on parish staff',
+        nextStepTitle: 'Waiting for parish staff',
         nextStepDescription:
           'An internal parish action is needed before the family workflow can move forward.',
-        reason: 'Staff tagged this request as waiting on action from the parish team.',
+        reason: 'Staff tagged this request as waiting for action from the parish team.',
         urgency: 'high',
         recommendedActionLabel: 'Add internal note',
         sectionAnchor: 'internal-notes',
@@ -269,10 +269,10 @@ function workflowResultForWaitingOn(value: RequestWaitingOnValue): RequestWorkfl
     case 'payment_or_stipend':
       return {
         priorityKey: 'waiting_on_payment_or_stipend',
-        nextStepTitle: 'Waiting on payment or stipend',
+        nextStepTitle: 'Waiting for payment or stipend',
         nextStepDescription:
           'Follow parish policy for stipends or fees; log contact when payment is arranged or received.',
-        reason: 'Staff tagged this request as waiting on payment or a stipend.',
+        reason: 'Staff tagged this request as waiting for payment or a stipend.',
         urgency: 'medium',
         recommendedActionLabel: 'Log contact',
         sectionAnchor: 'communication',
@@ -282,10 +282,10 @@ function workflowResultForWaitingOn(value: RequestWaitingOnValue): RequestWorkfl
     case 'godparent_paperwork':
       return {
         priorityKey: 'waiting_on_godparent_paperwork',
-        nextStepTitle: 'Waiting on godparent paperwork',
+        nextStepTitle: 'Waiting for godparent paperwork',
         nextStepDescription:
           'Ensure sponsor forms and godparent requirements are collected and filed.',
-        reason: 'Staff tagged this request as waiting on godparent or sponsor paperwork.',
+        reason: 'Staff tagged this request as waiting for godparent or sponsor paperwork.',
         urgency: 'medium',
         recommendedActionLabel: 'Review checklist',
         sectionAnchor: 'checklist',
@@ -294,10 +294,10 @@ function workflowResultForWaitingOn(value: RequestWaitingOnValue): RequestWorkfl
     case 'marriage_prep_documents':
       return {
         priorityKey: 'waiting_on_marriage_prep_documents',
-        nextStepTitle: 'Waiting on marriage prep documents',
+        nextStepTitle: 'Waiting for marriage prep documents',
         nextStepDescription:
           'Track marriage preparation forms and certificates required before the wedding.',
-        reason: 'Staff tagged this request as waiting on marriage preparation documents.',
+        reason: 'Staff tagged this request as waiting for marriage preparation documents.',
         urgency: 'medium',
         recommendedActionLabel: 'Review checklist',
         sectionAnchor: 'checklist',
@@ -306,10 +306,10 @@ function workflowResultForWaitingOn(value: RequestWaitingOnValue): RequestWorkfl
     case 'other':
       return {
         priorityKey: 'waiting_on_other',
-        nextStepTitle: 'Waiting on external or other item',
+        nextStepTitle: 'Waiting for something else',
         nextStepDescription:
           'Review internal notes and follow up when the blocking item clears.',
-        reason: 'Staff tagged this request as waiting on something outside the standard list.',
+        reason: 'Staff tagged this request as waiting for something outside the standard list.',
         urgency: 'medium',
         recommendedActionLabel: 'Set follow-up',
         sectionAnchor: 'next-follow-up',
@@ -327,8 +327,8 @@ function withWaitingOnHelperText(
   if (String(result.priorityKey).startsWith('waiting_on_')) return result
   if (result.priorityKey === 'completed') return result
   const label = REQUEST_WAITING_ON_LABELS[w]
-  const tag = ` Tagged as waiting on: ${label}.`
-  if (result.helperText.includes('Tagged as waiting on:')) return result
+  const tag = ` Tagged as waiting for: ${label}.`
+  if (result.helperText.includes('Tagged as waiting for:')) return result
   return { ...result, helperText: `${result.helperText}${tag}` }
 }
 
@@ -419,7 +419,7 @@ export function resolveRequestWorkflowV2(input: RequestWorkflowV2Input): Request
         urgency: 'overdue',
         recommendedActionLabel: 'Update follow-up',
         sectionAnchor: 'next-follow-up',
-        helperText: 'Clearing overdue follow-ups keeps families from feeling forgotten.',
+        helperText: 'Clearing past-due follow-ups keeps families from feeling forgotten.',
       },
       r.waiting_on
     )

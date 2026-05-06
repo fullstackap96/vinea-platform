@@ -30,6 +30,7 @@ import { getStatusLabel, requestStatusRankForSort } from '@/lib/requestStatus'
 import { requestWaitingOnLabel } from '@/lib/requestWaitingOn'
 import { buildParishInsights } from '@/lib/dashboardParishInsights'
 import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
+import { getDashboardCommandSummaryCounts } from '@/lib/dashboardSummaryCounts'
 import {
   defaultDashboardRowFilters,
   requestMatchesDashboardRowFilters,
@@ -383,7 +384,7 @@ export default function DashboardPage() {
         />
         {!streamlined ? (
           <LabelValueRow
-            label="Waiting on"
+            label="Waiting for"
             value={maybeMissingValue(requestWaitingOnLabel(request.waiting_on) || '—')}
           />
         ) : null}
@@ -396,7 +397,7 @@ export default function DashboardPage() {
                   <span
                     className={`${chipBase} bg-red-50 text-red-900 border border-red-200`}
                   >
-                    Overdue
+                    Past due
                   </span>
                 )}
                 {isNextFollowUpDueToday(request.next_follow_up_date, request.status) &&
@@ -465,7 +466,7 @@ export default function DashboardPage() {
     if (isNextFollowUpOverdue(request.next_follow_up_date, request.status)) {
       badges.push({
         key: 'follow_up_overdue',
-        label: 'Follow-up overdue',
+        label: 'Past due',
         className: 'bg-red-50 text-red-900 border border-red-200',
       })
     } else if (
@@ -531,7 +532,7 @@ export default function DashboardPage() {
       lines.push(n === 1 ? '1 checklist item open' : `${n} checklist items open`)
     }
     if (isNextFollowUpOverdue(request.next_follow_up_date, request.status)) {
-      lines.push('Follow-up overdue')
+      lines.push('Past due')
     } else if (
       isNextFollowUpDueToday(request.next_follow_up_date, request.status)
     ) {
@@ -539,7 +540,7 @@ export default function DashboardPage() {
     }
     const wl = requestWaitingOnLabel(request.waiting_on)
     if (wl) {
-      lines.push(`Waiting on: ${wl}`)
+      lines.push(`Waiting for: ${wl}`)
     }
     return lines
   }
@@ -569,90 +570,107 @@ export default function DashboardPage() {
           overdue ? dashboardOverdueFollowUpCardClasses : ''
         }`.trim()}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
-          <div className="min-w-0 flex-1 space-y-2">
-            <div>
-              <RequestTypeBadge requestType={request.request_type} />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                Next step
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${workflowUrgencyChipClassName(workflow.urgency)}`}
+                >
+                  {workflowUrgencyLabel[workflow.urgency]}
+                </span>
+              </div>
+              <p className="mt-2 text-xl font-bold leading-snug text-gray-900 sm:text-2xl text-balance">
+                {workflow.nextStepTitle}
+              </p>
+              <p className="mt-2 text-base font-semibold leading-snug text-gray-800 sm:text-lg text-pretty">
+                {workflow.nextStepDescription}
+              </p>
+              <p className="mt-1.5 text-xs leading-snug text-gray-500 text-pretty">
+                {workflow.reason}
+              </p>
             </div>
-            <p className="text-lg font-semibold text-gray-900 break-words">
-              {maybeMissingValue(name)}
-            </p>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-sm text-gray-500">Status</span>
-              <ParishRequestStatusBadgeWithTooltip
-                request={{
-                  status: request.status,
-                  next_follow_up_date: request.next_follow_up_date,
-                  assigned_staff_name: request.assigned_staff_name,
-                  assigned_priest_name: request.assigned_priest_name,
-                  assigned_deacon_name: request.assigned_deacon_name,
-                  request_type: request.request_type,
-                  waiting_on: request.waiting_on,
-                  scheduleRow: dashboardRequestScheduleRow(request),
-                }}
-              />
+            <span
+              className={`${primaryButtonMd} w-full shrink-0 justify-center self-stretch shadow-sm sm:w-auto sm:self-start sm:min-w-[11.5rem]`}
+            >
+              {workflow.recommendedActionLabel}
+            </span>
+          </div>
+
+          <div className="border-t border-gray-100 pt-3">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <RequestTypeBadge requestType={request.request_type} />
+              <span className="text-sm font-medium text-gray-400" aria-hidden>
+                ·
+              </span>
+              <p className="min-w-0 text-base font-semibold text-gray-800 break-words">
+                {maybeMissingValue(name)}
+              </p>
+            </div>
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-xs font-medium text-gray-500">Status</span>
+              <span className="inline-flex scale-[0.97] origin-left">
+                <ParishRequestStatusBadgeWithTooltip
+                  request={{
+                    status: request.status,
+                    next_follow_up_date: request.next_follow_up_date,
+                    assigned_staff_name: request.assigned_staff_name,
+                    assigned_priest_name: request.assigned_priest_name,
+                    assigned_deacon_name: request.assigned_deacon_name,
+                    request_type: request.request_type,
+                    waiting_on: request.waiting_on,
+                    scheduleRow: dashboardRequestScheduleRow(request),
+                  }}
+                />
+              </span>
             </p>
             {requestWaitingOnLabel(request.waiting_on) ? (
-              <p className="text-sm text-gray-700">
-                <span className="text-gray-500">Waiting on</span>{' '}
-                <span className="font-semibold text-indigo-950">
+              <p className="mt-1.5 text-xs text-gray-600">
+                <span className="text-gray-500">Waiting for</span>{' '}
+                <span className="font-medium text-indigo-900/90">
                   {requestWaitingOnLabel(request.waiting_on)}
                 </span>
               </p>
             ) : null}
-            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
-              <span className="text-gray-500">Staff</span>
-              <span className="font-medium text-gray-800">
-                {maybeMissingValue(assignmentDisplayLabel(request.assigned_staff_name))}
+            <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs leading-relaxed text-gray-600">
+              <span>
+                <span className="text-gray-500">Staff</span>{' '}
+                <span className="text-gray-700">
+                  {maybeMissingValue(assignmentDisplayLabel(request.assigned_staff_name))}
+                </span>
+              </span>
+              <span>
+                <span className="text-gray-500">Priest</span>{' '}
+                <span className="text-gray-700">{maybeMissingValue(priestLabel)}</span>
+              </span>
+              <span>
+                <span className="text-gray-500">Deacon</span>{' '}
+                <span className="text-gray-700">{maybeMissingValue(deaconLabel)}</span>
               </span>
             </p>
-            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
-              <span className="text-gray-500">Priest</span>
-              <span className="font-medium text-gray-800">{maybeMissingValue(priestLabel)}</span>
-            </p>
-            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
-              <span className="text-gray-500">Deacon</span>
-              <span className="font-medium text-gray-800">{maybeMissingValue(deaconLabel)}</span>
-            </p>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-600">
               <span className="shrink-0 text-gray-500">Follow-up</span>
-              <span className="inline-flex flex-wrap items-center gap-2">
+              <span className="inline-flex flex-wrap items-center gap-1.5">
                 {overdue ? (
                   <span
-                    className={`${chipBase} bg-red-50 text-red-900 border border-red-200`}
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none bg-red-50 text-red-900 border-red-200`}
                   >
-                    Overdue
+                    Past due
                   </span>
                 ) : null}
                 {dueToday && !overdue ? (
                   <span
-                    className={`${chipBase} bg-amber-50 text-amber-900 border border-amber-200`}
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none bg-amber-50 text-amber-900 border-amber-200`}
                   >
                     Due today
                   </span>
                 ) : null}
-                <span className="font-medium text-gray-800">{maybeMissingValue(dateLabel)}</span>
+                <span className="font-medium text-gray-700">{maybeMissingValue(dateLabel)}</span>
               </span>
             </p>
-            <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2.5">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                Suggested next step
-              </p>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span
-                  className={`${chipBase} text-[10px] font-semibold uppercase tracking-wide ${workflowUrgencyChipClassName(workflow.urgency)}`}
-                >
-                  {workflowUrgencyLabel[workflow.urgency]}
-                </span>
-                <span className="text-sm font-semibold text-gray-900">{workflow.nextStepTitle}</span>
-              </div>
-              <p className="mt-1 text-xs leading-snug text-gray-600">{workflow.reason}</p>
-            </div>
-          </div>
-          <div className="shrink-0 w-full sm:w-auto sm:pt-0.5">
-            <span className={`${secondaryButtonMd} w-full sm:w-auto`}>
-              {workflow.recommendedActionLabel}
-            </span>
           </div>
         </div>
       </Link>
@@ -1045,7 +1063,7 @@ export default function DashboardPage() {
                 </div>
                 {requestWaitingOnLabel(request.waiting_on) ? (
                   <p className="text-sm text-gray-700">
-                    <span className="font-medium text-gray-500">Waiting on </span>
+                    <span className="font-medium text-gray-500">Waiting for </span>
                     <span className="font-semibold text-indigo-950">
                       {requestWaitingOnLabel(request.waiting_on)}
                     </span>
@@ -1535,7 +1553,18 @@ export default function DashboardPage() {
     [searchedRequests]
   )
 
-  const staffWorkloadRows = useMemo(() => buildStaffWorkloadRows(requests), [requests])
+  /** One timestamp per loaded request list so summary cards and staff workload use the same rules. */
+  const dashboardMetricsAt = useMemo(() => new Date(), [requests])
+
+  const actionRequiredCount = useMemo(
+    () => getDashboardCommandSummaryCounts(requests, dashboardMetricsAt).actionRequired,
+    [requests, dashboardMetricsAt]
+  )
+
+  const staffWorkloadRows = useMemo(
+    () => buildStaffWorkloadRows(requests, dashboardMetricsAt),
+    [requests, dashboardMetricsAt]
+  )
 
   const parishInsights = useMemo(() => buildParishInsights(requests), [requests])
 
@@ -1629,6 +1658,9 @@ export default function DashboardPage() {
     requestsFetchFailed ||
     (Boolean(requestsLoadError) && requests.length === 0 && !loading)
 
+  const showQuickWinBanner =
+    !requestsFetchFailed && (!loading || requests.length > 0)
+
   const isDevRuntime = process.env.NODE_ENV === 'development'
 
   return (
@@ -1638,10 +1670,43 @@ export default function DashboardPage() {
           Command center
         </h1>
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
-          Urgent work first: review the summary, clear Action Required, then work the follow-up
+          Urgent work first: review the summary, clear Needs attention, then work the follow-up
           queue and full request list.
         </p>
       </header>
+
+      {showQuickWinBanner ? (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-3 sm:mb-5 ${
+            actionRequiredCount > 0
+              ? 'border-amber-200 bg-amber-50 text-amber-950'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-950'
+          }`}
+          role="status"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium leading-relaxed">
+              {actionRequiredCount > 0 ? (
+                <>
+                  You have {actionRequiredCount}{' '}
+                  {actionRequiredCount === 1 ? 'task' : 'tasks'} that{' '}
+                  {actionRequiredCount === 1 ? 'needs' : 'need'} attention today.
+                </>
+              ) : (
+                <>You’re all caught up. Great work.</>
+              )}
+            </p>
+            {actionRequiredCount > 0 ? (
+              <a
+                href="#action-required-heading"
+                className={`${primaryButtonMd} w-full shrink-0 justify-center sm:w-auto`}
+              >
+                Review needs attention
+              </a>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {requestsFetchFailed ? (
         <div
@@ -1672,6 +1737,7 @@ export default function DashboardPage() {
         requests={requests}
         loading={loading}
         dataUnavailable={requestsFetchFailed}
+        metricsAt={dashboardMetricsAt}
       />
 
       <DashboardParishInsights
@@ -1702,17 +1768,17 @@ export default function DashboardPage() {
         aria-busy={loading}
       >
         <h2 id="action-required-heading" className={sectionHeadingClassName}>
-          Action Required
+          Needs attention
         </h2>
         <p className="text-sm text-gray-600 max-w-2xl leading-relaxed">
-          Start here: overdue or due follow-ups, or requests with no staff assignee yet.
+          Start here: past-due or due-today follow-ups, or requests with no staff assignee yet.
         </p>
         <div className="mt-3 space-y-3">
           {loading ? (
             <div
               role="status"
               aria-live="polite"
-              aria-label="Loading action required requests"
+              aria-label="Loading needs-attention requests"
               className="space-y-4"
             >
               {[0, 1].map((i) => (

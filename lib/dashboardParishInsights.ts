@@ -1,4 +1,5 @@
 import { formatRequestType } from '@/lib/formatRequestType'
+import { isStaffUnassignedForAttention } from '@/lib/needsAttention'
 import { isNextFollowUpOverdue } from '@/lib/nextFollowUpDate'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 
@@ -11,6 +12,8 @@ export type ParishInsights = {
   /** Display label for the most frequent `request_type` among open requests; null if none. */
   mostCommonRequestTypeLabel: string | null
   overdueFollowUps: number
+  /** Open requests with no staff assignee (empty or “unassigned”), same rule as needs-attention. */
+  unassignedOpenRequests: number
 }
 
 /** Start of the calendar week containing `now`, Monday 00:00:00 local. */
@@ -46,6 +49,7 @@ export function buildParishInsights(
   let totalOpenRequests = 0
   let submittedThisWeek = 0
   let overdueFollowUps = 0
+  let unassignedOpenRequests = 0
   let ageSumDays = 0
   let ageCount = 0
   const typeCounts = new Map<string, number>()
@@ -56,6 +60,7 @@ export function buildParishInsights(
       created_at?: unknown
       request_type?: unknown
       next_follow_up_date?: unknown
+      assigned_staff_name?: unknown
     }
 
     const createdMs = createdAtMs(r.created_at)
@@ -69,6 +74,10 @@ export function buildParishInsights(
 
     if (isNextFollowUpOverdue(r.next_follow_up_date, r.status, now)) {
       overdueFollowUps += 1
+    }
+
+    if (isStaffUnassignedForAttention(r.assigned_staff_name)) {
+      unassignedOpenRequests += 1
     }
 
     if (createdMs !== null) {
@@ -109,5 +118,6 @@ export function buildParishInsights(
     averageOpenAgeDays,
     mostCommonRequestTypeLabel,
     overdueFollowUps,
+    unassignedOpenRequests,
   }
 }

@@ -119,7 +119,7 @@ export function DashboardRequestRowBadges(props: DashboardRequestRowBadgesProps)
             title={smartFollowUp.description}
           />
           <LabeledTile
-            label="Waiting on"
+            label="Waiting for"
             value={waitingOnDisplay}
             toneClass="border-violet-200/90 bg-violet-50 text-violet-950"
           />

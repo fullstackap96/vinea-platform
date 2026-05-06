@@ -45,9 +45,13 @@ export function DashboardStaffWorkload({
       <h2 id="staff-workload-heading" className={sectionHeadingClassName}>
         Staff workload
       </h2>
-      <p className="mb-4 max-w-2xl text-sm leading-relaxed text-gray-600">
-        Open requests grouped by staff assignee. Counts match the summary cards: action
-        required means overdue or due-today follow-up, or no assignee yet.
+      <p className="mb-2 max-w-2xl text-sm leading-relaxed text-gray-600">
+        Open requests grouped by staff assignee. Open, past due, needs attention, and
+        upcoming scheduled each add up to the same totals as the “At a glance” cards
+        above (needs attention = past due or due-today follow-up, or no staff assignee yet).
+      </p>
+      <p className="mb-4 max-w-2xl text-sm font-medium leading-relaxed text-amber-950/90">
+        Unassigned requests are the fastest way to reduce bottlenecks.
       </p>
 
       {loading ? (
@@ -81,20 +85,28 @@ export function DashboardStaffWorkload({
                 key={row.staffDisplay}
                 className={`rounded-xl border border-gray-200/90 bg-white p-4 shadow-sm ring-1 ring-gray-900/[0.03] ${
                   row.staffDisplay === STAFF_WORKLOAD_UNASSIGNED_LABEL
-                    ? 'border-amber-200/90 bg-amber-50/30'
+                    ? 'border-amber-300/90 bg-amber-50/70 ring-amber-900/10'
                     : ''
                 }`}
               >
-                <h3 className="text-base font-semibold text-gray-900">{row.staffDisplay}</h3>
+                <h3
+                  className={
+                    row.staffDisplay === STAFF_WORKLOAD_UNASSIGNED_LABEL
+                      ? 'text-base font-bold text-amber-950'
+                      : 'text-base font-semibold text-gray-900'
+                  }
+                >
+                  {row.staffDisplay}
+                </h3>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <MetricBlock label="Open requests" value={row.openRequests} />
                   <MetricBlock
-                    label="Overdue follow-ups"
+                    label="Past due"
                     value={row.overdueFollowUps}
                     valueClass={row.overdueFollowUps > 0 ? 'text-rose-800' : undefined}
                   />
                   <MetricBlock
-                    label="Action required"
+                    label="Needs attention"
                     value={row.actionRequired}
                     valueClass={row.actionRequired > 0 ? 'text-amber-900' : undefined}
                   />
@@ -119,10 +131,10 @@ export function DashboardStaffWorkload({
                     Open
                   </th>
                   <th scope="col" className={headNumClass}>
-                    Overdue follow-ups
+                    Past due
                   </th>
                   <th scope="col" className={headNumClass}>
-                    Action required
+                    Needs attention
                   </th>
                   <th scope="col" className={`${headNumClass} pr-4`}>
                     Upcoming scheduled
@@ -135,13 +147,17 @@ export function DashboardStaffWorkload({
                     key={row.staffDisplay}
                     className={`border-b border-gray-100 last:border-0 ${
                       row.staffDisplay === STAFF_WORKLOAD_UNASSIGNED_LABEL
-                        ? 'bg-amber-50/40'
+                        ? 'bg-amber-50/75 ring-1 ring-inset ring-amber-200/60'
                         : 'bg-white'
                     }`}
                   >
                     <th
                       scope="row"
-                      className="whitespace-nowrap px-4 py-3 text-left text-sm font-semibold text-gray-900"
+                      className={
+                        row.staffDisplay === STAFF_WORKLOAD_UNASSIGNED_LABEL
+                          ? 'whitespace-nowrap px-4 py-3 text-left text-sm font-bold text-amber-950'
+                          : 'whitespace-nowrap px-4 py-3 text-left text-sm font-semibold text-gray-900'
+                      }
                     >
                       {row.staffDisplay}
                     </th>

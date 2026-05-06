@@ -118,7 +118,7 @@ export function RequestDetailSummaryHeader({
 
         <dl className="mt-6 grid grid-cols-1 gap-3 border-t border-gray-100 pt-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
           <div className="min-w-0 rounded-lg bg-gray-50/90 px-3 py-2.5 ring-1 ring-gray-200/60">
-            <dt className={summaryLabel}>Assigned staff</dt>
+            <dt className={summaryLabel}>Assigned to</dt>
             <dd className={summaryValue}>{staff || '—'}</dd>
           </div>
           <div className="min-w-0 rounded-lg bg-gray-50/90 px-3 py-2.5 ring-1 ring-gray-200/60">

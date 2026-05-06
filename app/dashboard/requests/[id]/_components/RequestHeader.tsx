@@ -264,7 +264,7 @@ export function RequestStatusSection({
   )
 }
 
-/** What this request is waiting on (orthogonal to workflow status). */
+/** What this request is waiting for (orthogonal to workflow status). */
 export function RequestWaitingOnSection({
   request,
   disabled,
@@ -303,7 +303,7 @@ export function RequestWaitingOnSection({
     <div className="mt-6 space-y-4 border-t border-gray-100 pt-5 text-sm sm:text-base text-gray-800">
       <LabelValueGrid>
         <LabelValueRow
-          label={<FieldLabel icon={Clock}>Waiting on</FieldLabel>}
+          label={<FieldLabel icon={Clock}>Waiting for</FieldLabel>}
           value={
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <select
@@ -311,7 +311,7 @@ export function RequestWaitingOnSection({
                 value={value}
                 disabled={disabled || isComplete}
                 onChange={(e) => setValue(e.target.value)}
-                aria-label="What this request is waiting on"
+                aria-label="What this request is waiting for"
               >
                 <option value="">Not set</option>
                 {REQUEST_WAITING_ON_OPTIONS.map((opt) => (
@@ -355,7 +355,7 @@ export function RequestWaitingOnSection({
         }}
         className={`${secondaryButtonMd} justify-center text-sm`}
       >
-        Clear waiting on
+        Clear waiting for
       </button>
       <InlineFormMessage message={message} className="!mt-0" />
     </div>

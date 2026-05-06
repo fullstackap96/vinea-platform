@@ -10,6 +10,30 @@ type Props = {
   dataUnavailable?: boolean
 }
 
+/** One short nudge: overdue follow-ups first, else several unassigned open requests. */
+function parishInsightsActionCallout(
+  insights: ParishInsights
+): { tone: 'rose' | 'amber'; text: string } | null {
+  const overdue = insights.overdueFollowUps
+  if (overdue > 0) {
+    const noun = overdue === 1 ? 'request' : 'requests'
+    const pronoun = overdue === 1 ? 'it' : 'them'
+    const verb = overdue === 1 ? 'is' : 'are'
+    return {
+      tone: 'rose',
+      text: `You have ${overdue} ${noun} that ${verb} past due. Review ${pronoun} below.`,
+    }
+  }
+  const unassigned = insights.unassignedOpenRequests
+  if (unassigned >= 2) {
+    return {
+      tone: 'amber',
+      text: `${unassigned} requests are unassigned. Assign staff to keep things moving.`,
+    }
+  }
+  return null
+}
+
 function InsightTile(props: {
   title: string
   value: string
@@ -42,6 +66,8 @@ export function DashboardParishInsights({
   dataUnavailable = false,
 }: Props) {
   const hideInsights = Boolean(dataUnavailable && !loading)
+  const actionCallout =
+    !loading && !hideInsights ? parishInsightsActionCallout(insights) : null
 
   return (
     <section
@@ -81,38 +107,52 @@ export function DashboardParishInsights({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <InsightTile
-            title="Total open requests"
-            value={String(insights.totalOpenRequests)}
-            hint="Everything not marked complete."
-          />
-          <InsightTile
-            title="Submitted this week"
-            value={String(insights.submittedThisWeek)}
-            hint="New intakes since Monday, any status."
-          />
-          <InsightTile
-            title="Average age of open requests"
-            value={
-              insights.averageOpenAgeDays === null
-                ? '—'
-                : `${insights.averageOpenAgeDays} days`
-            }
-            hint="From intake date to today, for open requests only."
-          />
-          <InsightTile
-            title="Most common request type"
-            value={insights.mostCommonRequestTypeLabel ?? '—'}
-            hint="Among open requests only."
-          />
-          <InsightTile
-            title="Overdue follow-ups"
-            value={String(insights.overdueFollowUps)}
-            hint="Open requests whose follow-up date has passed."
-            emphasize={insights.overdueFollowUps > 0 ? 'rose' : 'neutral'}
-          />
-        </div>
+        <>
+          {actionCallout ? (
+            <p
+              className={
+                actionCallout.tone === 'rose'
+                  ? 'mb-4 rounded-xl border border-rose-200/90 bg-rose-50/85 px-4 py-3 text-sm font-semibold leading-snug text-rose-950'
+                  : 'mb-4 rounded-xl border border-amber-200/90 bg-amber-50/85 px-4 py-3 text-sm font-semibold leading-snug text-amber-950'
+              }
+              role={actionCallout.tone === 'rose' ? 'alert' : 'status'}
+            >
+              {actionCallout.text}
+            </p>
+          ) : null}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <InsightTile
+              title="Total open requests"
+              value={String(insights.totalOpenRequests)}
+              hint="Everything not marked complete."
+            />
+            <InsightTile
+              title="Submitted this week"
+              value={String(insights.submittedThisWeek)}
+              hint="New intakes since Monday, any status."
+            />
+            <InsightTile
+              title="Average age of open requests"
+              value={
+                insights.averageOpenAgeDays === null
+                  ? '—'
+                  : `${insights.averageOpenAgeDays} days`
+              }
+              hint="From intake date to today, for open requests only."
+            />
+            <InsightTile
+              title="Most common request type"
+              value={insights.mostCommonRequestTypeLabel ?? '—'}
+              hint="Among open requests only."
+            />
+            <InsightTile
+              title="Past due"
+              value={String(insights.overdueFollowUps)}
+              hint="Open requests whose follow-up date has already passed."
+              emphasize={insights.overdueFollowUps > 0 ? 'rose' : 'neutral'}
+            />
+          </div>
+        </>
       )}
     </section>
   )

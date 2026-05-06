@@ -11,7 +11,7 @@ export type RequestStatus = (typeof REQUEST_STATUS_VALUES)[number]
 export const REQUEST_STATUS_LABELS: Readonly<Record<RequestStatus, string>> = {
   new: 'New Request',
   in_progress: 'In Progress',
-  waiting_on_family: 'Waiting on Family',
+  waiting_on_family: 'Waiting for family',
   complete: 'Completed',
 } as const
 

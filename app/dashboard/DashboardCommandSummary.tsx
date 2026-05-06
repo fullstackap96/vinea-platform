@@ -12,6 +12,11 @@ type Props = {
   loading?: boolean
   /** When true (and not loading), do not show numeric counts — request data did not load. */
   dataUnavailable?: boolean
+  /**
+   * Shared “as of” time for overdue / due-today / schedule boundaries.
+   * Pass from the dashboard page so totals match staff workload row sums.
+   */
+  metricsAt?: Date
 }
 
 type SummaryCard = {
@@ -22,6 +27,12 @@ type SummaryCard = {
   tint: string
   num: string
   iconWrap: string
+  /** Stronger card for the primary “start here” metric. */
+  emphasis?: boolean
+  /** Softer card for supporting context. */
+  muted?: boolean
+  /** Short line under the count (emphasis cards only). */
+  callout?: string
 }
 
 const CARDS: SummaryCard[] = [
@@ -36,17 +47,19 @@ const CARDS: SummaryCard[] = [
   },
   {
     key: 'actionRequired',
-    label: 'Action Required',
-    hint: 'Follow-up overdue, due today, or unassigned',
+    label: 'Needs attention',
+    hint: 'Follow-up is past due or due today, or nobody is assigned yet',
     icon: Bell,
-    tint: 'border-amber-200/80 bg-amber-50/65',
+    tint: 'border-2 border-amber-400/80 bg-amber-100/85 shadow-md',
     num: 'text-amber-950',
-    iconWrap: 'bg-amber-100/90 text-amber-950',
+    iconWrap: 'bg-amber-200/95 text-amber-950',
+    emphasis: true,
+    callout: 'Start here — these need attention now',
   },
   {
     key: 'overdueFollowUps',
-    label: 'Overdue Follow-Ups',
-    hint: 'Past-due follow-up dates on open requests',
+    label: 'Past due',
+    hint: 'Open requests whose follow-up date has already passed',
     icon: AlertTriangle,
     tint: 'border-rose-200/75 bg-rose-50/60',
     num: 'text-rose-950',
@@ -57,9 +70,10 @@ const CARDS: SummaryCard[] = [
     label: 'Upcoming Scheduled Events',
     hint: 'Confirmed dates from today onward',
     icon: CalendarDays,
-    tint: 'border-emerald-200/75 bg-emerald-50/60',
-    num: 'text-emerald-950',
-    iconWrap: 'bg-emerald-100/90 text-emerald-950',
+    tint: 'border-gray-200/80 bg-slate-50/95',
+    num: 'text-slate-600',
+    iconWrap: 'bg-slate-200/80 text-slate-600',
+    muted: true,
   },
 ]
 
@@ -67,11 +81,12 @@ export function DashboardCommandSummary({
   requests = [],
   loading = false,
   dataUnavailable = false,
+  metricsAt,
 }: Props) {
-  const counts = useMemo(
-    () => getDashboardCommandSummaryCounts(requests),
-    [requests]
-  )
+  const counts = useMemo(() => {
+    const at = metricsAt ?? new Date()
+    return getDashboardCommandSummaryCounts(requests, at)
+  }, [requests, metricsAt])
 
   const hideCounts = Boolean(dataUnavailable && !loading)
 
@@ -84,7 +99,7 @@ export function DashboardCommandSummary({
         At a glance
       </h2>
       <p className="mb-5 max-w-2xl text-base leading-relaxed text-gray-600">
-        Key numbers from your current request list. Scroll down for Action Required, the
+        Key numbers from your current request list. Scroll down for Needs attention, the
         follow-up queue, and the full table.
       </p>
       {hideCounts ? (
@@ -103,30 +118,55 @@ export function DashboardCommandSummary({
           {CARDS.map((c) => {
             const Icon = c.icon
             const value = loading ? null : counts[c.key]
+            const emphasis = Boolean(c.emphasis)
+            const muted = Boolean(c.muted)
+            const pad = emphasis ? 'p-5 sm:p-6' : 'p-4'
+            const iconWrapSize = emphasis
+              ? 'h-12 w-12 sm:h-[3.25rem] sm:w-[3.25rem]'
+              : 'h-11 w-11'
+            const iconSvg = emphasis ? 'h-6 w-6' : 'h-5 w-5'
+            const numSize = emphasis
+              ? 'text-4xl font-bold tabular-nums leading-none sm:text-[2.5rem]'
+              : 'text-3xl font-bold tabular-nums leading-none'
+            const labelClass = emphasis
+              ? 'text-sm font-bold text-amber-950 tracking-tight'
+              : muted
+                ? 'text-xs font-semibold uppercase tracking-wide text-slate-500'
+                : 'text-xs font-semibold uppercase tracking-wide text-gray-600'
+            const hintClass = muted
+              ? 'text-xs leading-snug text-slate-500'
+              : 'text-xs leading-snug text-gray-600'
+            const ringClass = emphasis
+              ? 'ring-amber-900/10'
+              : muted
+                ? 'ring-slate-900/[0.04]'
+                : 'ring-gray-900/[0.03]'
+
             return (
               <div
                 key={c.key}
-                className={`flex min-h-0 min-w-0 flex-col gap-3 rounded-2xl border p-4 shadow-sm ring-1 ring-gray-900/[0.03] ${dashboardCardHoverPolish} ${c.tint}`}
+                className={`flex min-h-0 min-w-0 flex-col gap-3 rounded-2xl border shadow-sm ring-1 ${ringClass} ${dashboardCardHoverPolish} ${pad} ${c.tint}`}
               >
                 <div className="flex items-start gap-3">
                   <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${c.iconWrap}`}
+                    className={`flex shrink-0 items-center justify-center rounded-xl ${iconWrapSize} ${c.iconWrap}`}
                     aria-hidden
                   >
-                    <Icon className="h-5 w-5" strokeWidth={2} />
+                    <Icon className={iconSvg} strokeWidth={2} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-                      {c.label}
-                    </div>
-                    <div
-                      className={`mt-1 text-3xl font-bold tabular-nums leading-none ${c.num}`}
-                    >
+                    <div className={labelClass}>{c.label}</div>
+                    <div className={`mt-1 ${numSize} ${c.num}`}>
                       {loading ? '—' : value}
                     </div>
                   </div>
                 </div>
-                <p className="text-xs leading-snug text-gray-600">{c.hint}</p>
+                {c.callout ? (
+                  <p className="text-sm font-semibold leading-snug text-amber-950">
+                    {c.callout}
+                  </p>
+                ) : null}
+                <p className={hintClass}>{c.hint}</p>
               </div>
             )
           })}

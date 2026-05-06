@@ -55,6 +55,7 @@ describe('buildParishInsights', () => {
     expect(insights.submittedThisWeek).toBe(3)
     expect(insights.mostCommonRequestTypeLabel).toBe('Baptism')
     expect(insights.overdueFollowUps).toBe(1)
+    expect(insights.unassignedOpenRequests).toBe(3)
     expect(insights.averageOpenAgeDays).not.toBeNull()
     expect(insights.averageOpenAgeDays!).toBeGreaterThan(10)
   })
@@ -68,5 +69,33 @@ describe('buildParishInsights', () => {
     expect(insights.averageOpenAgeDays).toBeNull()
     expect(insights.mostCommonRequestTypeLabel).toBeNull()
     expect(insights.overdueFollowUps).toBe(0)
+    expect(insights.unassignedOpenRequests).toBe(0)
+  })
+
+  it('counts unassigned open requests using the same staff rule as needs-attention', () => {
+    const insights = buildParishInsights(
+      [
+        {
+          status: 'new',
+          request_type: 'baptism',
+          created_at: '2026-06-01T12:00:00.000Z',
+          assigned_staff_name: 'Jane',
+        },
+        {
+          status: 'new',
+          request_type: 'wedding',
+          created_at: '2026-06-02T12:00:00.000Z',
+          assigned_staff_name: '',
+        },
+        {
+          status: 'new',
+          request_type: 'funeral',
+          created_at: '2026-06-03T12:00:00.000Z',
+          assigned_staff_name: 'Unassigned',
+        },
+      ],
+      now
+    )
+    expect(insights.unassignedOpenRequests).toBe(2)
   })
 })

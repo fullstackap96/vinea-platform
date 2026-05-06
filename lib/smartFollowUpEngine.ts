@@ -140,7 +140,7 @@ export function evaluateSmartFollowUp(
 
   if (overdue) {
     const bits: string[] = [`Next follow-up was scheduled for ${nextYmd} and is now overdue.`]
-    if (waitingLabel) bits.push(`Waiting on: ${waitingLabel}.`)
+    if (waitingLabel) bits.push(`Waiting for: ${waitingLabel}.`)
     if (staffUnassigned) bits.push('No staff assignee is set.')
     if (missingConfirmed) bits.push(scheduleCopy.followUpContextLine.replace(/^-+\s*/, ''))
     if (checklistIncomplete) bits.push('Parish checklist items are still open.')
@@ -163,7 +163,7 @@ export function evaluateSmartFollowUp(
 
   if (dueToday) {
     const bits: string[] = ['Next follow-up date is today.']
-    if (waitingLabel) bits.push(`Waiting on: ${waitingLabel}.`)
+    if (waitingLabel) bits.push(`Waiting for: ${waitingLabel}.`)
     if (staffUnassigned) bits.push('Staff assignee is still empty.')
     return {
       followUpStatus: 'due_today',
@@ -178,7 +178,7 @@ export function evaluateSmartFollowUp(
   if (waitingKey && waitingLabel) {
     return {
       followUpStatus: 'waiting',
-      label: 'Waiting on external party',
+      label: 'Waiting for someone outside the parish',
       description: `Progress depends on: ${waitingLabel}.${nextYmd ? ` Next staff follow-up: ${nextYmd}.` : ''}`,
       urgency: dueSoon || staleContact ? 'high' : 'medium',
       recommendedAction:

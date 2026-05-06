@@ -45,10 +45,10 @@ export type ParishRequestVisualStatus = {
 
 const LABELS: Record<ParishVisualStatusKey, string> = {
   completed: 'Completed',
-  follow_up_overdue: 'Follow-Up Overdue',
-  action_required: 'Action Required',
-  waiting_on_hold: 'Waiting On',
-  waiting_on_family: 'Waiting on Family',
+  follow_up_overdue: 'Past due',
+  action_required: 'Needs attention',
+  waiting_on_hold: 'Waiting for',
+  waiting_on_family: 'Waiting for family',
   scheduled: 'Scheduled',
   new_request: 'New Request',
   in_progress: 'In Progress',
@@ -61,8 +61,8 @@ const DESCRIPTIONS: Record<ParishVisualStatusKey, string> = {
   action_required:
     'Something needs attention soon: follow-up is due today, or no staff member is assigned yet.',
   waiting_on_hold:
-    'Staff tagged what this request is waiting on (family, documents, priest availability, etc.).',
-  waiting_on_family: 'You are waiting on information or a response from the family.',
+    'Staff tagged what this request is waiting for (family, documents, priest availability, etc.).',
+  waiting_on_family: 'You are waiting for information or a response from the family.',
   scheduled: 'A confirmed date or time is on file for this sacrament or meeting.',
   new_request: 'This intake was just submitted and still needs a first review.',
   in_progress: 'Staff are actively working this request.',
@@ -126,8 +126,8 @@ export function resolveParishRequestVisualStatus(
     const label = REQUEST_WAITING_ON_LABELS[waitingCol]
     return {
       key: 'waiting_on_hold',
-      label: `Waiting on: ${label}`,
-      description: `Staff tagged this request as waiting on ${label.toLowerCase()}.`,
+      label: `Waiting for: ${label}`,
+      description: `Staff tagged this request as waiting for ${label.toLowerCase()}.`,
       badgeSurfaceClassName: SURFACE.waiting_on_hold,
     }
   }

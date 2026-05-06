@@ -91,7 +91,7 @@ export function AssignmentSection({
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-sm text-gray-500" htmlFor="assign-staff">
-              Assigned staff
+              Assigned to
             </label>
             <input
               id="assign-staff"
@@ -154,7 +154,7 @@ export function AssignmentSection({
       ) : (
         <LabelValueGrid>
           <LabelValueRow
-            label="Assigned staff"
+            label="Assigned to"
             value={renderAssigneeDotLabel(assignedStaffName)}
           />
           <LabelValueRow

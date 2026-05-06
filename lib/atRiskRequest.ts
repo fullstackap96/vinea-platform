@@ -123,7 +123,7 @@ export function evaluateAtRiskRequest(
     if (heldMs >= WAITING_ON_STALE_MS) {
       const label = requestWaitingOnLabel(waitingKey) ?? waitingKey
       reasons.push(
-        `Waiting on "${label}" for more than seven days (since ${new Date(waitingStart).toISOString().slice(0, 10)}).`
+        `Waiting for "${label}" for more than seven days (since ${new Date(waitingStart).toISOString().slice(0, 10)}).`
       )
       const longWaitingLevel: AtRiskLevel =
         overdueFollowUp || staffUnassigned ? 'high' : 'medium'
@@ -147,7 +147,7 @@ export function evaluateAtRiskRequest(
     recommendedAction = 'No at-risk signals detected with current data.'
   } else if (level === 'critical') {
     recommendedAction =
-      'Treat as urgent: address overdue follow-up and establish contact, or document why the case is intentionally paused.'
+      'Treat as urgent: address past-due follow-up and establish contact, or document why the case is intentionally paused.'
   } else if (overdueFollowUp) {
     recommendedAction =
       'Contact the family or internal owner, then set a realistic next follow-up date.'
@@ -156,9 +156,9 @@ export function evaluateAtRiskRequest(
       'Log an initial outreach (call, email, or visit) and record it as contacted.'
   } else if (staffUnassigned) {
     recommendedAction = 'Assign a staff owner so follow-up responsibility is clear.'
-  } else if (waitingKey && reasons.some((r) => r.startsWith('Waiting on'))) {
+  } else if (waitingKey && reasons.some((r) => r.startsWith('Waiting for'))) {
     recommendedAction =
-      'Check in on the blocker you are waiting on; nudge the party or update the wait reason if it has changed.'
+      'Check in on what you are waiting for; nudge the party or update the wait reason if it has changed.'
   }
 
   return {
