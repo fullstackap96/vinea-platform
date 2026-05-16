@@ -8,7 +8,7 @@ import {
   verifySignedOAuthStateCookie,
 } from '@/lib/googleOAuthStateCookie'
 import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/serviceRoleClient'
+import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 function settingsRedirect(request: NextRequest, gcal: 'connected' | 'error') {
   const dest = new URL('/dashboard/settings', resolveAppOrigin(request))

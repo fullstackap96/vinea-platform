@@ -68,7 +68,7 @@ export function assertParishSettingsEnv(): void {
   assertRequiredEnv(PARISH_SETTINGS_REQUIRED_ENV)
 }
 
-/** Env required by `createSupabaseServiceRoleClient`. */
+/** Env required by `lib/supabaseServiceServer` (`createSupabaseServiceRoleClient`). */
 export const SUPABASE_SERVICE_ROLE_REQUIRED_ENV: readonly EnvRequirement[] = [
   { oneOf: ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'] },
   'SUPABASE_SERVICE_ROLE_KEY',

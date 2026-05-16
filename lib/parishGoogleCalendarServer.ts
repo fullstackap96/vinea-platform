@@ -1,9 +1,11 @@
+import 'server-only'
+
 import { google } from 'googleapis'
 import {
   isGoogleOAuthReconnectError,
   serializeGoogleCalendarErrorForLogs,
 } from '@/lib/googleCalendarUserErrors'
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/serviceRoleClient'
+import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 export type GoogleCalendarConflict = {
   summary: string | null

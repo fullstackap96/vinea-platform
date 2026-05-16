@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { assertParishSettingsEnv } from '@/lib/server/requiredEnv'
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/serviceRoleClient'
+import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
 import { directoryFromJsonColumn } from '@/lib/parishDirectory'
 

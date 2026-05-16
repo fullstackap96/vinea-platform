@@ -5,7 +5,7 @@ import {
   buildRequestNotificationEmail,
   type RequestNotificationPayload,
 } from '@/lib/email/requestNotificationEmail'
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/serviceRoleClient'
+import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 const ALLOWED_REQUEST_TYPES = new Set([
   'baptism',
