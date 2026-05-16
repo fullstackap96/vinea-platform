@@ -104,7 +104,7 @@ On **`/dashboard/requests/[id]`** staff can (by request type):
 
 - **No role model yet (“staff” = any authenticated user)**: no allowlist/roles/permissions beyond “logged in”.
 - **AI and some API routes are not session-protected in the same way as dashboard pages**: treat keys and network exposure accordingly (see code under `app/api/`).
-- **Client-side Supabase reads/writes**: dashboard and intake use the browser client directly. RLS/policy changes can break pages unexpectedly.
+- **Client-side Supabase reads/writes**: dashboard and intake use the browser client directly. RLS/policy changes can break pages unexpectedly. **RLS policy plan (not applied):** [docs/RLS_POLICY_PLAN.md](docs/RLS_POLICY_PLAN.md).
 - **Type safety is minimal**: several components use `any` for Supabase payloads and errors.
 - **Duplicate UI block**: request detail may still contain duplicated “Internal Staff Notes” presentation (cleanup deferred).
 - **Next.js**: middleware convention may change in future Next releases; upgrade risk.

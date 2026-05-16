@@ -28,6 +28,10 @@ type ParishPayload = {
   priest_names?: string[]
 }
 
+/** Shown when PATCH /api/parish/settings returns 403; must match the API error text. */
+const PARISH_SETTINGS_ADMIN_ONLY_MESSAGE =
+  'Only parish admins can update parish settings.'
+
 export function ParishSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -94,6 +98,10 @@ export function ParishSettingsPage() {
         }),
       })
       const data = await res.json().catch(() => ({}))
+      if (res.status === 403) {
+        setSaveError(PARISH_SETTINGS_ADMIN_ONLY_MESSAGE)
+        return
+      }
       if (!res.ok || !data?.ok) {
         setSaveError(String(data?.error || 'Save failed'))
         return
@@ -233,7 +241,15 @@ export function ParishSettingsPage() {
             </div>
 
             <InlineFormMessage message={saveMessage} className="!mt-4" />
-            {saveError ? (
+            {saveError === PARISH_SETTINGS_ADMIN_ONLY_MESSAGE ? (
+              <p
+                className="mt-4 rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm leading-relaxed text-amber-950"
+                role="alert"
+              >
+                <span className="block font-medium text-amber-950">Changes not saved</span>
+                <span className="mt-1.5 block">{PARISH_SETTINGS_ADMIN_ONLY_MESSAGE}</span>
+              </p>
+            ) : saveError ? (
               <p
                 className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900"
                 role="alert"

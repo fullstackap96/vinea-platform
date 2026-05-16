@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { isParishSettingsAdminEmail } from '@/lib/server/parishSettingsAdmin'
 import { assertParishSettingsEnv } from '@/lib/server/requiredEnv'
+import { writeAuditLog } from '@/lib/server/writeAuditLog'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
 import { directoryFromJsonColumn } from '@/lib/parishDirectory'
@@ -9,6 +11,53 @@ function isValidEmail(value: string): boolean {
   const s = String(value || '').trim()
   if (!s) return false
   return s.includes('@') && !/\s/.test(s)
+}
+
+type ParishSettingsComparable = {
+  name: string
+  default_notification_email: string | null
+  staff_directory: string[]
+  priest_directory: string[]
+}
+
+function parishSettingsComparable(row: {
+  name?: unknown
+  default_notification_email?: unknown
+  staff_directory?: unknown
+  priest_directory?: unknown
+}): ParishSettingsComparable {
+  const email = String(row.default_notification_email ?? '').trim()
+  return {
+    name: String(row.name ?? '').trim(),
+    default_notification_email: email.length > 0 ? email : null,
+    staff_directory: directoryFromJsonColumn(row.staff_directory),
+    priest_directory: directoryFromJsonColumn(row.priest_directory),
+  }
+}
+
+function directoryListsEqual(a: string[], b: string[]): boolean {
+  const norm = (list: string[]) =>
+    [...list].map((s) => s.toLowerCase()).sort().join('\u0001')
+  return norm(a) === norm(b)
+}
+
+/** Field names only — no directory contents or notification email values. */
+function changedParishSettingsFieldNames(
+  before: ParishSettingsComparable,
+  after: ParishSettingsComparable
+): string[] {
+  const fields: string[] = []
+  if (before.name !== after.name) fields.push('name')
+  if (before.default_notification_email !== after.default_notification_email) {
+    fields.push('default_notification_email')
+  }
+  if (!directoryListsEqual(before.staff_directory, after.staff_directory)) {
+    fields.push('staff_directory')
+  }
+  if (!directoryListsEqual(before.priest_directory, after.priest_directory)) {
+    fields.push('priest_directory')
+  }
+  return fields
 }
 
 async function loadPrimaryParishWithGoogle(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
@@ -111,6 +160,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!isParishSettingsAdminEmail(user.email)) {
+      return NextResponse.json(
+        { ok: false, error: 'Only parish admins can update parish settings.' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json().catch(() => null as Record<string, unknown> | null)
     if (!body || typeof body !== 'object') {
       return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
@@ -139,7 +195,7 @@ export async function PATCH(request: NextRequest) {
     const admin = createSupabaseServiceRoleClient()
     const { data: parish, error: parishErr } = await admin
       .from('parishes')
-      .select('id')
+      .select('id, name, default_notification_email, staff_directory, priest_directory')
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle()
@@ -147,6 +203,14 @@ export async function PATCH(request: NextRequest) {
     if (parishErr || !parish?.id) {
       return NextResponse.json({ ok: false, error: 'Parish not found' }, { status: 404 })
     }
+
+    const beforeSettings = parishSettingsComparable(parish)
+    const afterSettings = parishSettingsComparable({
+      name,
+      default_notification_email: emailRaw || null,
+      staff_directory: staff,
+      priest_directory: priests,
+    })
 
     const { error: updateErr } = await admin
       .from('parishes')
@@ -161,6 +225,18 @@ export async function PATCH(request: NextRequest) {
 
     if (updateErr) {
       return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 })
+    }
+
+    const fields_changed = changedParishSettingsFieldNames(beforeSettings, afterSettings)
+    if (fields_changed.length > 0) {
+      void writeAuditLog({
+        parish_id: parish.id,
+        actor_email: user.email,
+        action: 'parish_settings.updated',
+        entity_type: 'parish',
+        entity_id: parish.id,
+        metadata: { fields_changed },
+      })
     }
 
     return NextResponse.json({ ok: true }, { status: 200 })
