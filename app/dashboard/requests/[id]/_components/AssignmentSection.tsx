@@ -8,17 +8,23 @@ import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
 
+const assignSelectClassName = 'w-full rounded border border-gray-300 bg-white p-3 text-gray-900'
+
 export function AssignmentSection({
   requestId,
   assignedStaffName,
   assignedPriestName,
   assignedDeaconName,
+  staffOptions,
+  priestOptions,
   onSaved,
 }: {
   requestId: string
   assignedStaffName: string | null | undefined
   assignedPriestName: string | null | undefined
   assignedDeaconName: string | null | undefined
+  staffOptions: string[]
+  priestOptions: string[]
   onSaved: () => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -93,29 +99,37 @@ export function AssignmentSection({
             <label className="mb-1 block text-sm text-gray-500" htmlFor="assign-staff">
               Assigned to
             </label>
-            <input
+            <select
               id="assign-staff"
-              className="w-full rounded border p-3"
-              type="text"
-              autoComplete="name"
+              className={assignSelectClassName}
               value={draftStaff}
               onChange={(e) => setDraftStaff(e.target.value)}
-              placeholder="Enter name or leave blank"
-            />
+            >
+              <option value="">Unassigned</option>
+              {staffOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-sm text-gray-500" htmlFor="assign-priest">
               Assigned priest
             </label>
-            <input
+            <select
               id="assign-priest"
-              className="w-full rounded border p-3"
-              type="text"
-              autoComplete="name"
+              className={assignSelectClassName}
               value={draftPriest}
               onChange={(e) => setDraftPriest(e.target.value)}
-              placeholder="Enter name or leave blank"
-            />
+            >
+              <option value="">Unassigned</option>
+              {priestOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-sm text-gray-500" htmlFor="assign-deacon">

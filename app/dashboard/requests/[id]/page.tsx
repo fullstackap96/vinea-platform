@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Mail, Phone, User } from 'lucide-react'
 import { useParams } from 'next/navigation'
@@ -72,6 +72,7 @@ import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { getRequestDetailSmartQuickActions } from '@/lib/requestDetailQuickActions'
 import { buildReadyToCompleteItems } from '@/lib/requestReadyToComplete'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
+import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -164,6 +165,9 @@ const [staffNotes, setStaffNotes] = useState('')
   const [ociaSessionMessage, setOciaSessionMessage] = useState('')
 
   const [joinParishDetail, setJoinParishDetail] = useState<any | null>(null)
+
+  const [parishStaffNames, setParishStaffNames] = useState<string[]>([])
+  const [parishPriestNames, setParishPriestNames] = useState<string[]>([])
 
   const [editingIntake, setEditingIntake] = useState(false)
   const [confirmMarkCompleteOpen, setConfirmMarkCompleteOpen] = useState(false)
@@ -1457,6 +1461,35 @@ async function deleteGoogleCalendarEvent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRequest is not stable; routeId is the trigger.
   }, [routeId])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadParishDirectories() {
+      try {
+        const res = await fetch('/api/parish/settings', { credentials: 'include' })
+        if (!res.ok) return
+        const data = (await res.json()) as {
+          ok?: boolean
+          parish?: { staff_names?: unknown; priest_names?: unknown }
+        }
+        if (cancelled || !data?.ok || !data.parish) return
+        setParishStaffNames(
+          Array.isArray(data.parish.staff_names) ? data.parish.staff_names : []
+        )
+        setParishPriestNames(
+          Array.isArray(data.parish.priest_names) ? data.parish.priest_names : []
+        )
+      } catch {
+        // Directories are optional; assignment still works with preserved assignees.
+      }
+    }
+
+    void loadParishDirectories()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // Derived workflow state (safe even while loading).
   const scheduleRowForProgress = {
     request_type: request?.request_type,
@@ -1476,6 +1509,17 @@ async function deleteGoogleCalendarEvent() {
     scheduleRow: scheduleRowForProgress,
     checklistIncomplete,
   })
+
+  const staffAssigneeOptions = useMemo(
+    () =>
+      mergeAssigneeDirectoryOptions(parishStaffNames, request?.assigned_staff_name),
+    [parishStaffNames, request?.assigned_staff_name]
+  )
+  const priestAssigneeOptions = useMemo(
+    () =>
+      mergeAssigneeDirectoryOptions(parishPriestNames, request?.assigned_priest_name),
+    [parishPriestNames, request?.assigned_priest_name]
+  )
 
   useEffect(() => {
     // When the workflow next step changes, highlight + scroll (unless the URL hash overrides).
@@ -1902,6 +1946,8 @@ async function deleteGoogleCalendarEvent() {
               assignedStaffName={request?.assigned_staff_name}
               assignedPriestName={request?.assigned_priest_name}
               assignedDeaconName={request?.assigned_deacon_name}
+              staffOptions={staffAssigneeOptions}
+              priestOptions={priestAssigneeOptions}
               onSaved={loadRequest}
             />
         </WorkflowSectionCard>
