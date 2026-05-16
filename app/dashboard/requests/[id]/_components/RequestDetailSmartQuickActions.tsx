@@ -1,38 +1,20 @@
 'use client'
 
 import { Sparkles } from 'lucide-react'
-import { primaryButtonMd, secondaryButtonSm } from '@/lib/buttonStyles'
+import { secondaryButtonSm } from '@/lib/buttonStyles'
 import type { RequestWorkflowV2Input } from '@/lib/requestWorkflowV2'
 import {
   getRequestDetailSmartQuickActions,
   type RequestDetailQuickAction,
 } from '@/lib/requestDetailQuickActions'
+import { scrollAndHighlightRequestSection } from './requestDetailSectionNav'
 
 export type RequestDetailSmartQuickActionsProps = {
   workflowInput: RequestWorkflowV2Input
   canMarkComplete: boolean
   hasRecipientEmail: boolean
-}
-
-function scrollAndHighlightSection(id: string) {
-  if (typeof window === 'undefined') return
-  const el = document.getElementById(id) as HTMLElement | null
-  if (!el) return
-
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
-
-  const cls = 'request-detail-hash-highlight'
-  el.classList.remove(cls)
-  el.style.animationDuration = ''
-  void el.offsetWidth
-  el.classList.add(cls)
-  el.style.animationDuration = reduced ? '2200ms' : '3500ms'
-  const timeout = reduced ? 2600 : 3900
-  window.setTimeout(() => {
-    el.classList.remove(cls)
-    el.style.animationDuration = ''
-  }, timeout)
+  /** When true, primary CTA is shown in the page header instead. */
+  hidePrimary?: boolean
 }
 
 function ActionLink({
@@ -50,7 +32,7 @@ function ActionLink({
         if (typeof window === 'undefined') return
         if (window.location.hash === action.href) {
           e.preventDefault()
-          scrollAndHighlightSection(action.href.slice(1))
+          scrollAndHighlightRequestSection(action.href)
         }
       }}
     >
@@ -63,6 +45,7 @@ export function RequestDetailSmartQuickActions({
   workflowInput,
   canMarkComplete,
   hasRecipientEmail,
+  hidePrimary = false,
 }: RequestDetailSmartQuickActionsProps) {
   const { primary, secondary } = getRequestDetailSmartQuickActions({
     workflowInput,
@@ -91,7 +74,12 @@ export function RequestDetailSmartQuickActions({
       </div>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch">
-        <ActionLink action={primary} className={`${primaryButtonMd} w-full shrink-0 justify-center sm:w-auto`} />
+        {!hidePrimary ? (
+          <ActionLink
+            action={primary}
+            className={`${secondaryButtonSm} w-full shrink-0 justify-center border-brand/30 bg-brand/5 font-semibold text-brand sm:w-auto`}
+          />
+        ) : null}
         {secondary.length > 0 ? (
           <div
             className="flex flex-1 flex-wrap gap-2 sm:min-w-0 sm:justify-end"

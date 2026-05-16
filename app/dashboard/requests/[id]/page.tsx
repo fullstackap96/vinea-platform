@@ -15,11 +15,19 @@ import { ChecklistSection } from './_components/ChecklistSection'
 import { AiToolsSection } from './_components/AiToolsSection'
 import { SuggestedDatesSection } from './_components/SuggestedDatesSection'
 import { ConfirmedBaptismDateSection } from './_components/ConfirmedBaptismDateSection'
-import { CommunicationSection, type CommunicationMethod } from './_components/CommunicationSection'
+import {
+  CommunicationContactSummary,
+  CommunicationHistoryList,
+  CommunicationLogForm,
+  type CommunicationMethod,
+} from './_components/CommunicationSection'
+import { CommunicationHubSubsection } from './_components/CommunicationHubSubsection'
 import { SendEmailSection } from './_components/SendEmailSection'
 import { GoogleCalendarSection } from './_components/GoogleCalendarSection'
 import { RequestNextStepCard, resolveRequestNextStep } from './_components/RequestNextStepCard'
 import { RequestProgressCard } from './_components/RequestProgressCard'
+import { RequestWorkflowChecklist } from './_components/RequestWorkflowChecklist'
+import { ReadyToCompleteCard } from './_components/ReadyToCompleteCard'
 import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmartQuickActions'
 import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
@@ -61,6 +69,9 @@ import {
   userFacingGoogleCalendarErrorMessage,
 } from '@/lib/googleCalendarUserErrors'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { getRequestDetailSmartQuickActions } from '@/lib/requestDetailQuickActions'
+import { buildReadyToCompleteItems } from '@/lib/requestReadyToComplete'
+import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -1409,20 +1420,26 @@ async function deleteGoogleCalendarEvent() {
         'scheduling-records',
         'next-follow-up',
         'next-step',
+        'next-step-reference',
         'confirmed-time',
         'checklist',
+        'communication-hub',
         'email-communication',
         'send-email',
         'ai-tools',
         'communication',
+        'communication-history',
         'staff-notes',
         'internal-notes',
+        'ready-to-complete',
         'completion',
       ])
       if (!allowed.has(id)) return
-      highlightSectionById(id)
+      const targetId =
+        id === 'email-communication' ? 'communication-hub' : id
+      highlightSectionById(targetId)
       requestAnimationFrame(() => {
-        const el = document.getElementById(id)
+        const el = document.getElementById(targetId)
         if (!el) return
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
         el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
@@ -1536,8 +1553,13 @@ async function deleteGoogleCalendarEvent() {
   const isOcia = requestType === 'ocia'
   const isJoinParish = requestType === 'join_parish'
 
-  const requestIdentityName =
-    String(parishioner?.full_name ?? '').trim() || 'Unnamed contact'
+  const requestIdentityName = getRequestDetailPrimaryHeading({
+    request_type: request?.request_type,
+    child_name: request?.child_name,
+    parishioner,
+    funeralDetail,
+    weddingDetail,
+  })
   const requestIdentitySubtitle = String(parishioner?.email ?? '').trim() || null
 
   const hasAnyAssignment =
@@ -1631,6 +1653,26 @@ async function deleteGoogleCalendarEvent() {
     ? formatNextFollowUpDateCompact(request.next_follow_up_date)
     : 'Not set'
 
+  const workflowInputForActions = {
+    request,
+    scheduleRow: scheduleRowForProgress,
+    checklistIncomplete,
+  }
+  const headerPrimaryAction = getRequestDetailSmartQuickActions({
+    workflowInput: workflowInputForActions,
+    canMarkComplete,
+    hasRecipientEmail: Boolean(String(parishioner?.email ?? '').trim()),
+  }).primary
+
+  const isRequestComplete = String(request?.status ?? '').trim() === 'complete'
+  const readyToCompleteItems = buildReadyToCompleteItems({
+    hasCommunication,
+    followUpReady,
+    requiresConfirmedSchedule,
+    confirmedScheduleReady,
+    checklistReady,
+  })
+
   return (
     <main className="mx-auto max-w-6xl px-4 pb-6 pt-4 text-gray-900 sm:px-6 sm:pb-8 sm:pt-5">
       <RequestSectionHashNavigator />
@@ -1664,11 +1706,24 @@ async function deleteGoogleCalendarEvent() {
         nextStepInstruction={nextStep.instruction}
         followUpDisplay={followUpSummaryDisplay}
         status={request?.status}
+        primaryAction={headerPrimaryAction}
         canEditIntake={Boolean(parishioner?.id)}
         editingIntake={editingIntake}
         onEditIntake={() => setEditingIntake(true)}
         onMarkComplete={jumpToCompletion}
       />
+
+      <div className="mt-5 sm:mt-6">
+        <RequestNextStepCard
+          variant="dominant"
+          request={request}
+          scheduleRow={scheduleRowForProgress}
+          checklistIncomplete={checklistIncomplete}
+          canMarkComplete={canMarkComplete}
+          hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
+          onMarkComplete={jumpToCompletion}
+        />
+      </div>
 
       <RequestProgressCard
         assignedStaffName={request?.assigned_staff_name}
@@ -1678,26 +1733,34 @@ async function deleteGoogleCalendarEvent() {
       />
 
       <div className="mt-4 sm:mt-5">
-        <RequestDetailSmartQuickActions
-          workflowInput={{
-            request,
-            scheduleRow: scheduleRowForProgress,
-            checklistIncomplete,
-          }}
-          canMarkComplete={canMarkComplete}
+        <RequestWorkflowChecklist
+          request={request}
+          scheduleRow={scheduleRowForProgress}
           hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
         />
       </div>
 
+      <div className="mt-4 sm:mt-5">
+        <RequestDetailSmartQuickActions
+          workflowInput={workflowInputForActions}
+          canMarkComplete={canMarkComplete}
+          hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
+          hidePrimary
+        />
+      </div>
+
       <div className="mt-6 space-y-6 sm:mt-7">
-        <WorkflowSectionCard id="next-step" variant="plain" className="p-1 sm:p-1">
-          <div className="p-2 sm:p-3">
-            <RequestNextStepCard
-              request={request}
-              scheduleRow={scheduleRowForProgress}
-              checklistIncomplete={checklistIncomplete}
-            />
-          </div>
+        <WorkflowSectionCard
+          id="next-step-reference"
+          title="Next step"
+          description="Your recommended action is shown in the card at the top of this page."
+          variant="plain"
+        >
+          <p className="text-sm leading-relaxed text-gray-600">
+            Use the highlighted <strong className="font-medium text-gray-800">What to do now</strong>{' '}
+            card above for the current priority, urgency, and buttons. The sections below walk through
+            each part of this request.
+          </p>
         </WorkflowSectionCard>
 
         <WorkflowSectionCard
@@ -1977,16 +2040,29 @@ async function deleteGoogleCalendarEvent() {
         </WorkflowSectionCard>
 
         <WorkflowSectionCard
-          id="email-communication"
-          title="Email Communication"
-          description="Vinea email templates, AI-assisted drafts, and sending mail to the family."
+          id="communication-hub"
+          title="Communication Hub"
+          description="Email the family, log touchpoints, keep internal notes, and review history — all in one place."
         >
-          <div id="ai-tools" className="scroll-mt-6 sm:scroll-mt-8">
-            <h3 className="text-sm font-semibold text-gray-900">Reply assistance</h3>
-            <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
-              Generate a summary or reply draft, then copy when ready.
+          <div className="mb-6 rounded-xl border border-sky-100 bg-sky-50/40 px-4 py-3 sm:px-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-sky-900/80">
+              Contact snapshot
             </p>
-            <div className="mt-4">
+            <div className="mt-2">
+              <CommunicationContactSummary
+                lastContactedAtIso={request?.last_contacted_at}
+                lastContactMethod={request?.last_contact_method}
+                communicationNotes={request?.communication_notes}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <CommunicationHubSubsection
+              id="ai-tools"
+              title="Reply assistance"
+              description="Generate a short summary or a draft reply, then use it in Send email below."
+            >
               <AiToolsSection
                 aiLoading={aiLoading}
                 aiSummary={aiSummary}
@@ -1996,14 +2072,13 @@ async function deleteGoogleCalendarEvent() {
                 onGenerateReplyDraft={generateReplyDraft}
                 onCopyReplyDraft={copyReplyDraft}
               />
-            </div>
-          </div>
-          <div id="send-email" className="scroll-mt-6 sm:scroll-mt-8 mt-8 border-t border-gray-200 pt-6">
-            <h3 className="text-sm font-semibold text-gray-900">Send email</h3>
-            <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
-              Prefill from a template or AI draft, edit as needed, then send.
-            </p>
-            <div className="mt-4">
+            </CommunicationHubSubsection>
+
+            <CommunicationHubSubsection
+              id="send-email"
+              title="Send email"
+              description="Use a parish template or your draft, edit the message, and send to the family."
+            >
               <SendEmailSection
                 toEmail={String(parishioner?.email || '')}
                 subject={emailSubject}
@@ -2018,54 +2093,68 @@ async function deleteGoogleCalendarEvent() {
                 sending={emailSending}
                 message={emailMessage}
               />
-            </div>
+            </CommunicationHubSubsection>
+
+            <CommunicationHubSubsection
+              id="communication"
+              title="Log communication"
+              description="Record a call, visit, email, or other touchpoint with the family."
+            >
+              <CommunicationLogForm
+                method={commMethod}
+                setMethod={setCommMethod}
+                contactedAtValue={commContactedAt}
+                setContactedAtValue={setCommContactedAt}
+                notes={commNotes}
+                setNotes={setCommNotes}
+                onLog={logCommunication}
+                saving={commSaving}
+                message={commMessage}
+              />
+            </CommunicationHubSubsection>
+
+            <CommunicationHubSubsection
+              id="communication-history"
+              title="Communication history"
+              description="Chronological log of every touchpoint saved for this request."
+            >
+              <CommunicationHistoryList history={communications} />
+            </CommunicationHubSubsection>
+
+            <CommunicationHubSubsection
+              id="internal-notes"
+              title="Internal note log"
+              description="Timestamped staff-only notes — not visible to families."
+            >
+              <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
+            </CommunicationHubSubsection>
+
+            <CommunicationHubSubsection
+              id="staff-notes"
+              title="Staff notes on file"
+              description="Shared notes on this request; included when you create Google Calendar events from Vinea."
+            >
+              <StaffNotesSection
+                staffNotes={staffNotes}
+                setStaffNotes={setStaffNotes}
+                onSaveStaffNotes={() => void saveStaffNotes()}
+              />
+              {staffNotesMessage ? (
+                <InlineFormMessage message={staffNotesMessage} className="!mt-3" />
+              ) : null}
+            </CommunicationHubSubsection>
           </div>
         </WorkflowSectionCard>
 
-        <WorkflowSectionCard
-          id="staff-notes"
-          title="Staff notes on file"
-          description="One shared text field on the request. Included when you create Google Calendar events from Vinea."
-        >
-          <StaffNotesSection
-            staffNotes={staffNotes}
-            setStaffNotes={setStaffNotes}
-            onSaveStaffNotes={() => void saveStaffNotes()}
+        <div className="mt-6 sm:mt-8">
+          <ReadyToCompleteCard
+            items={readyToCompleteItems}
+            isAlreadyComplete={isRequestComplete}
+            canMarkComplete={canMarkComplete}
+            markCompleteDisabledReason={markCompleteDisabledReason}
+            onRequestMarkComplete={() => setConfirmMarkCompleteOpen(true)}
           />
-          {staffNotesMessage ? (
-            <InlineFormMessage message={staffNotesMessage} className="!mt-3" />
-          ) : null}
-        </WorkflowSectionCard>
-
-        <WorkflowSectionCard
-          id="internal-notes"
-          title="Internal note log"
-          description="Timestamped entries for staff only."
-        >
-            <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
-        </WorkflowSectionCard>
-
-        <WorkflowSectionCard
-          id="communication"
-          title="Communication History"
-          description="Log touchpoints and review the full activity log for this request."
-        >
-            <CommunicationSection
-              lastContactedAtIso={request?.last_contacted_at}
-              lastContactMethod={request?.last_contact_method}
-              communicationNotes={request?.communication_notes}
-              method={commMethod}
-              setMethod={setCommMethod}
-              contactedAtValue={commContactedAt}
-              setContactedAtValue={setCommContactedAt}
-              notes={commNotes}
-              setNotes={setCommNotes}
-              onLog={logCommunication}
-              saving={commSaving}
-              message={commMessage}
-              history={communications}
-            />
-        </WorkflowSectionCard>
+        </div>
 
         <WorkflowSectionCard
           id="completion"
