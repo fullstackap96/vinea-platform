@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { assertParishSettingsEnv } from '@/lib/server/requiredEnv'
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/serviceRoleClient'
 import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
 import { directoryFromJsonColumn } from '@/lib/parishDirectory'
-
-/** Env used by this route: session via `createSupabaseRouteHandlerReadOnlyClient` → `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`; parish rows via `createSupabaseServiceRoleClient` → URL as in `lib/supabase/serviceRoleClient.ts`, `SUPABASE_SERVICE_ROLE_KEY`. */
 
 function isValidEmail(value: string): boolean {
   const s = String(value || '').trim()
@@ -57,6 +56,8 @@ async function loadPrimaryParishWithGoogle(admin: ReturnType<typeof createSupaba
 
 export async function GET(request: NextRequest) {
   try {
+    assertParishSettingsEnv()
+
     const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
     const {
       data: { user },
@@ -98,6 +99,8 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    assertParishSettingsEnv()
+
     const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
     const {
       data: { user },
