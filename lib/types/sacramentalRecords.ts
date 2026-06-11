@@ -49,4 +49,7 @@ export type SacramentalRecordWriteInput = {
   page: unknown
   line: unknown
   notes: unknown
+  /** Optional link when staff saves a prefilled record from a request. */
+  requestId?: unknown
+  personId?: unknown
 }

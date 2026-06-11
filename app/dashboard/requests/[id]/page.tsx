@@ -32,6 +32,8 @@ import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmart
 import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
 import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection'
+import { RequestRelationshipSuggestions } from './_components/RequestRelationshipSuggestions'
+import { RequestRecordSuggestion } from './_components/RequestRecordSuggestion'
 import { RequestSectionHashNavigator } from './_components/RequestSectionHashNavigator'
 import { ConfirmedOciaSessionSection } from './_components/ConfirmedOciaSessionSection'
 import { FuneralDetailsSection } from './_components/FuneralDetailsSection'
@@ -96,6 +98,7 @@ export default function RequestDetailPage() {
 
   const [request, setRequest] = useState<any>(null)
   const [parishioner, setParishioner] = useState<any>(null)
+  const [hasSacramentalRecord, setHasSacramentalRecord] = useState(false)
   const [checklistItems, setChecklistItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -415,6 +418,13 @@ const [staffNotes, setStaffNotes] = useState('')
 
       setJoinParishDetail(null)
     }
+
+    const { data: existingSacramentalRecord } = await supabase
+      .from('sacramental_records')
+      .select('id')
+      .eq('request_id', requestData.id)
+      .maybeSingle()
+    setHasSacramentalRecord(Boolean(existingSacramentalRecord?.id))
 
     setLoading(false)
   }
@@ -1838,6 +1848,21 @@ async function deleteGoogleCalendarEvent() {
             request?.parishioner_id != null ? String(request.parishioner_id) : null
           }
           onLinked={loadRequest}
+        />
+
+        <RequestRelationshipSuggestions
+          requestId={routeId}
+          personId={
+            request?.person_id != null ? String(request.person_id) : null
+          }
+          parishioner={parishioner}
+        />
+
+        <RequestRecordSuggestion
+          requestId={routeId}
+          status={request?.status}
+          request_type={request?.request_type}
+          hasSacramentalRecord={hasSacramentalRecord}
         />
 
         <WorkflowSectionCard

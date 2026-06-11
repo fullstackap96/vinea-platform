@@ -40,12 +40,23 @@ export async function createSacramentalRecord(
     return { ok: false, error: parishErr?.message ?? 'Parish not found.' }
   }
 
+  const requestIdRaw = input.requestId != null ? String(input.requestId).trim() : ''
+  const personIdRaw = input.personId != null ? String(input.personId).trim() : ''
+
+  const insertPayload: Record<string, unknown> = {
+    parish_id: parishId,
+    ...normalized.payload,
+  }
+  if (requestIdRaw) {
+    insertPayload.request_id = requestIdRaw
+  }
+  if (personIdRaw) {
+    insertPayload.person_id = personIdRaw
+  }
+
   const { data, error } = await supabase
     .from('sacramental_records')
-    .insert({
-      parish_id: parishId,
-      ...normalized.payload,
-    })
+    .insert(insertPayload)
     .select('id')
     .single()
 

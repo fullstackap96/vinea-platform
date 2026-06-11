@@ -25,6 +25,7 @@ import type {
 } from '@/lib/types/sacramentalRecords'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 import { SacramentalRecordTypeBadge } from '../_components/SacramentalRecordTypeBadge'
+import { RecordCertificateSuggestion } from './_components/RecordCertificateSuggestion'
 
 function displayValue(value: string | null | undefined) {
   const s = String(value ?? '').trim()
@@ -40,6 +41,7 @@ export function RecordDetailPage() {
     null
   )
   const [events, setEvents] = useState<SacramentalRecordEventRow[]>([])
+  const [hasCertificateEvent, setHasCertificateEvent] = useState(false)
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -98,8 +100,14 @@ export function RecordDetailPage() {
         .order('created_at', { ascending: false })
         .limit(20)
 
-      setEvents(
-        (eventRows ?? []).map((e) => parseSacramentalRecordEventRow(e as Record<string, unknown>))
+      const parsedEvents = (eventRows ?? []).map((e) =>
+        parseSacramentalRecordEventRow(e as Record<string, unknown>)
+      )
+      setEvents(parsedEvents)
+      setHasCertificateEvent(
+        parsedEvents.some(
+          (e) => String(e.action ?? '').trim().toLowerCase() === 'certificate_generated'
+        )
       )
       setLoading(false)
     }
@@ -176,6 +184,13 @@ export function RecordDetailPage() {
           </div>
         </div>
       </header>
+
+      <RecordCertificateSuggestion
+        recordId={record.id}
+        record_type={record.record_type}
+        person_name={record.person_name}
+        hasCertificateEvent={hasCertificateEvent}
+      />
 
       <div className={`mb-6 ${vineaSectionShellClassName}`}>
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
+import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardParishInsights } from './DashboardParishInsights'
 import { DashboardRequestRowBadges } from './DashboardRequestRowBadges'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
@@ -29,6 +30,8 @@ import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import { getStatusLabel, requestStatusRankForSort } from '@/lib/requestStatus'
 import { requestWaitingOnLabel } from '@/lib/requestWaitingOn'
 import { buildParishInsights } from '@/lib/dashboardParishInsights'
+import { loadDashboardSuggestedActions } from '@/lib/relationshipIntelligence/loadDashboardIntelligence'
+import type { DashboardSuggestedAction } from '@/lib/relationshipIntelligence/types'
 import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
 import { getDashboardCommandSummaryCounts } from '@/lib/dashboardSummaryCounts'
 import {
@@ -137,6 +140,10 @@ export default function DashboardPage() {
   const [requestsLoadTechnicalDetail, setRequestsLoadTechnicalDetail] = useState<
     string | null
   >(null)
+  const [suggestedActions, setSuggestedActions] = useState<DashboardSuggestedAction[]>(
+    []
+  )
+  const [suggestedActionsLoading, setSuggestedActionsLoading] = useState(true)
 
   function toTime(value: any) {
     if (!value) return null
@@ -1215,6 +1222,7 @@ export default function DashboardPage() {
         setRequestsLoadTechnicalDetail(parishScope.technicalDetail)
       }
       setRequests([])
+      setSuggestedActions([])
       setRequestsLoadError(parishScope.userMessage)
       return
     }
@@ -1233,6 +1241,7 @@ export default function DashboardPage() {
         reply_draft,
         created_at,
         parishioner_id,
+        person_id,
         confirmed_baptism_date,
         last_contacted_at,
         assigned_staff_name,
@@ -1252,6 +1261,7 @@ export default function DashboardPage() {
       setRequestsFetchFailed(true)
       setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(requestsError))
       setRequests([])
+      setSuggestedActions([])
       return
     }
 
@@ -1261,6 +1271,7 @@ export default function DashboardPage() {
       setRequestsFetchFailed(true)
       setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(synthetic))
       setRequests([])
+      setSuggestedActions([])
       return
     }
 
@@ -1295,6 +1306,7 @@ export default function DashboardPage() {
       setRequestsFetchFailed(true)
       setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(parishionersError))
       setRequests([])
+      setSuggestedActions([])
       return
     }
 
@@ -1433,11 +1445,23 @@ export default function DashboardPage() {
     setRequestsFetchFailed(false)
     setRequestsLoadTechnicalDetail(null)
     setRequestsLoadError(softWarnings.length > 0 ? softWarnings.join(' • ') : null)
+
+    setSuggestedActionsLoading(true)
+    try {
+      const actions = await loadDashboardSuggestedActions(supabase, withDetails)
+      setSuggestedActions(actions)
+    } catch (suggestionsErr) {
+      logDashboardQueryError('dashboard suggested actions', suggestionsErr)
+      setSuggestedActions([])
+    } finally {
+      setSuggestedActionsLoading(false)
+    }
     } catch (unexpected) {
       logDashboardQueryError('dashboard load (unexpected)', unexpected)
       setRequestsFetchFailed(true)
       setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(unexpected))
       setRequests([])
+      setSuggestedActions([])
     } finally {
       if (!silent) setLoading(false)
     }
@@ -1717,6 +1741,12 @@ export default function DashboardPage() {
         loading={loading}
         dataUnavailable={requestsFetchFailed}
         metricsAt={dashboardMetricsAt}
+      />
+
+      <DashboardSuggestedActions
+        actions={suggestedActions}
+        loading={loading || suggestedActionsLoading}
+        dataUnavailable={requestsFetchFailed}
       />
 
       <DashboardParishInsights
