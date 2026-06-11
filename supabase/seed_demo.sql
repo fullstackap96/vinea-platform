@@ -38,6 +38,13 @@ DELETE FROM public.requests
     '20202020-2020-4020-8020-202020202003'::uuid
   );
 
+DELETE FROM public.mass_intentions
+  WHERE id IN (
+    '70707070-7070-4070-8070-707070707001'::uuid,
+    '70707070-7070-4070-8070-707070707002'::uuid,
+    '70707070-7070-4070-8070-707070707003'::uuid
+  );
+
 DELETE FROM public.household_members
   WHERE id IN (
     '60606060-6060-4060-8060-606060606001'::uuid,
@@ -443,6 +450,82 @@ VALUES
     'phone',
     'Pastoral associate: 20-minute intake call; outlined FOCCUS / preparation expectations.'
   );
+
+-- -----------------------------------------------------------------------------
+-- Mass intentions (demo: 2 unfulfilled, 1 fulfilled)
+-- -----------------------------------------------------------------------------
+INSERT INTO public.mass_intentions (
+  id,
+  parish_id,
+  requester_name,
+  intention_text,
+  requested_date,
+  assigned_mass_date,
+  assigned_priest_name,
+  stipend_received,
+  is_fulfilled,
+  notes
+)
+SELECT
+  v.id,
+  p.id,
+  v.requester_name,
+  v.intention_text,
+  v.requested_date,
+  v.assigned_mass_date,
+  v.assigned_priest_name,
+  v.stipend_received,
+  v.is_fulfilled,
+  v.notes
+FROM (
+  VALUES
+    (
+      '70707070-7070-4070-8070-707070707001'::uuid,
+      'Margaret O''Brien',
+      'Repose of the soul of Thomas O''Brien',
+      (CURRENT_DATE + 7),
+      (CURRENT_DATE + 14),
+      'Fr. Michael Nguyen',
+      true,
+      false,
+      'Envelope left at rectory; stipend received in person.'
+    ),
+    (
+      '70707070-7070-4070-8070-707070707002'::uuid,
+      'James Martinez',
+      'Thanksgiving for recovery of Helen Martinez',
+      (CURRENT_DATE + 3),
+      (CURRENT_DATE + 10),
+      NULL,
+      false,
+      false,
+      'Called office; awaiting stipend and priest assignment.'
+    ),
+    (
+      '70707070-7070-4070-8070-707070707003'::uuid,
+      'Elena Kowalski',
+      'Special intention for Thomas Brennan',
+      (CURRENT_DATE - 21),
+      (CURRENT_DATE - 14),
+      'Fr. Michael Nguyen',
+      true,
+      true,
+      'Offered at Sunday 11:00 Mass.'
+    )
+) AS v(
+  id,
+  requester_name,
+  intention_text,
+  requested_date,
+  assigned_mass_date,
+  assigned_priest_name,
+  stipend_received,
+  is_fulfilled,
+  notes
+)
+CROSS JOIN LATERAL (
+  SELECT id FROM public.parishes ORDER BY created_at ASC LIMIT 1
+) AS p;
 
 COMMIT;
 

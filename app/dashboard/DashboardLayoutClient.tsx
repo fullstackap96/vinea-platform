@@ -109,6 +109,15 @@ export function DashboardLayoutClient({
                 |
               </span>
               <Link
+                href="/dashboard/intentions"
+                className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
+              >
+                Mass Intentions
+              </Link>
+              <span className="text-gray-300" aria-hidden>
+                |
+              </span>
+              <Link
                 href="/dashboard/settings"
                 className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
               >
