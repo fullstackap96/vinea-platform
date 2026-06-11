@@ -15,6 +15,7 @@ import {
   parseSacramentalRecordEventRow,
   parseSacramentalRecordRow,
 } from '@/lib/sacramentalRecords'
+import { formatPersonDisplayName, parsePersonRow } from '@/lib/people'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { secondaryButtonMd } from '@/lib/buttonStyles'
 import { supabase } from '@/lib/supabase'
@@ -35,6 +36,9 @@ export function RecordDetailPage() {
   const recordId = String(params?.id ?? '')
 
   const [record, setRecord] = useState<SacramentalRecordRow | null>(null)
+  const [linkedPerson, setLinkedPerson] = useState<{ id: string; displayName: string } | null>(
+    null
+  )
   const [events, setEvents] = useState<SacramentalRecordEventRow[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -64,7 +68,28 @@ export function RecordDetailPage() {
         return
       }
 
-      setRecord(parseSacramentalRecordRow(row as Record<string, unknown>))
+      const parsed = parseSacramentalRecordRow(row as Record<string, unknown>)
+      setRecord(parsed)
+
+      if (parsed.person_id) {
+        const { data: personRow } = await supabase
+          .from('people')
+          .select('id, first_name, middle_name, last_name')
+          .eq('id', parsed.person_id)
+          .maybeSingle()
+
+        if (personRow) {
+          const person = parsePersonRow(personRow as Record<string, unknown>)
+          setLinkedPerson({
+            id: person.id,
+            displayName: formatPersonDisplayName(person),
+          })
+        } else {
+          setLinkedPerson(null)
+        }
+      } else {
+        setLinkedPerson(null)
+      }
 
       const { data: eventRows } = await supabase
         .from('sacramental_record_events')
@@ -163,6 +188,22 @@ export function RecordDetailPage() {
           <LabelValueRow label="Register ref." value={displayValue(registerRef || null)} />
           <LabelValueRow label="Notes" value={displayValue(record.notes)} />
         </LabelValueGrid>
+      </div>
+
+      <div className={`mb-6 ${vineaSectionShellClassName}`}>
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Linked person
+        </h2>
+        {linkedPerson ? (
+          <Link
+            href={`/dashboard/people/${linkedPerson.id}`}
+            className="text-sm font-medium text-blue-800 underline underline-offset-2"
+          >
+            {linkedPerson.displayName} — View profile →
+          </Link>
+        ) : (
+          <p className="text-sm text-gray-700">Not linked to a person profile.</p>
+        )}
       </div>
 
       {record.request_id ? (

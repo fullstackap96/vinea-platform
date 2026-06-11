@@ -12,6 +12,8 @@ export type SacramentalRecordMutationResult =
 
 export type SacramentalRecordUpdateResult = { ok: true } | { ok: false; error: string }
 
+export type SacramentalRecordPersonLinkResult = { ok: true } | { ok: false; error: string }
+
 export async function createSacramentalRecord(
   input: SacramentalRecordWriteInput
 ): Promise<SacramentalRecordMutationResult> {
@@ -82,6 +84,60 @@ export async function updateSacramentalRecord(
 
   if (error) {
     return { ok: false, error: error.message }
+  }
+
+  return { ok: true }
+}
+
+/** Set or clear `sacramental_records.person_id` without changing register `person_name`. */
+export async function updateSacramentalRecordPersonLink(
+  recordId: string,
+  personId: unknown
+): Promise<SacramentalRecordPersonLinkResult> {
+  const id = String(recordId ?? '').trim()
+  if (!id) {
+    return { ok: false, error: 'Missing record id.' }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { ok: false, error: 'Unauthorized' }
+  }
+
+  const rawPersonId = personId == null ? '' : String(personId).trim()
+  const nextPersonId = rawPersonId.length > 0 ? rawPersonId : null
+
+  if (nextPersonId) {
+    const { data: personRow, error: personErr } = await supabase
+      .from('people')
+      .select('id')
+      .eq('id', nextPersonId)
+      .maybeSingle()
+
+    if (personErr) {
+      return { ok: false, error: personErr.message }
+    }
+    if (!personRow?.id) {
+      return { ok: false, error: 'Person not found in your parish.' }
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('sacramental_records')
+    .update({ person_id: nextPersonId })
+    .eq('id', id)
+    .select('id')
+
+  if (error) {
+    return { ok: false, error: error.message }
+  }
+  if (!data?.length) {
+    return { ok: false, error: 'Could not update person link. Refresh and try again.' }
   }
 
   return { ok: true }

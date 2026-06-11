@@ -37,10 +37,7 @@ import {
   type DashboardRowFilters,
 } from '@/lib/dashboardRequestFilter'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
-import {
-  fetchParishionerIdsForParish,
-  fetchPrimaryParishId,
-} from '@/lib/dashboardParishRequestScope'
+import { fetchDashboardRequestParishionerScope } from '@/lib/dashboardParishRequestScope'
 import {
   formatDashboardTechnicalError,
   logDashboardQueryError,
@@ -1208,37 +1205,21 @@ export default function DashboardPage() {
     const softWarnings: string[] = []
 
     try {
-    const { parishId: primaryParishId, error: parishLookupError } =
-      await fetchPrimaryParishId(supabase)
-    if (parishLookupError) {
-      logDashboardQueryError('parishes (primary parish id)', parishLookupError)
-      softWarnings.push(
-        userMessageForDashboardQueryError('parish directory', parishLookupError)
-      )
+    const parishScope = await fetchDashboardRequestParishionerScope(supabase)
+    if (!parishScope.ok) {
+      if (parishScope.technicalDetail) {
+        logDashboardQueryError(
+          'dashboard request parish scope',
+          new Error(parishScope.technicalDetail)
+        )
+        setRequestsLoadTechnicalDetail(parishScope.technicalDetail)
+      }
+      setRequests([])
+      setRequestsLoadError(parishScope.userMessage)
+      return
     }
 
-    let parishionerIdsForParish: string[] | null = null
-    if (primaryParishId) {
-      const { ids, error: parishScopeError } = await fetchParishionerIdsForParish(
-        supabase,
-        primaryParishId
-      )
-      if (parishScopeError) {
-        logDashboardQueryError('parishioners (ids for parish scope)', parishScopeError)
-        softWarnings.push(
-          userMessageForDashboardQueryError('parish member list', parishScopeError)
-        )
-        parishionerIdsForParish = null
-      } else if (ids.length === 0) {
-        setRequests([])
-        setRequestsLoadError(
-          'No parish members are linked to your parish yet, so no requests appear here. Link parishioners to your parish (parish_id) to see their requests.'
-        )
-        return
-      } else {
-        parishionerIdsForParish = ids
-      }
-    }
+    const parishionerIdsForParish = parishScope.parishionerIds
 
     let requestsQuery = supabase
       .from('requests')
@@ -1262,9 +1243,7 @@ export default function DashboardPage() {
       `)
       .order('created_at', { ascending: false })
 
-    if (parishionerIdsForParish && parishionerIdsForParish.length > 0) {
-      requestsQuery = requestsQuery.in('parishioner_id', parishionerIdsForParish)
-    }
+    requestsQuery = requestsQuery.in('parishioner_id', parishionerIdsForParish)
 
     const { data: requestsData, error: requestsError } = await requestsQuery
 

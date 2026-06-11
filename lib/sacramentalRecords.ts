@@ -25,6 +25,7 @@ export function parseSacramentalRecordRow(raw: Record<string, unknown>): Sacrame
     id: String(raw.id),
     parish_id: String(raw.parish_id),
     request_id: raw.request_id != null ? String(raw.request_id) : null,
+    person_id: raw.person_id != null ? String(raw.person_id) : null,
     record_type: normalizeSacramentalRecordType(raw.record_type) as SacramentalRecordType,
     person_name: String(raw.person_name ?? '').trim(),
     sacrament_date:

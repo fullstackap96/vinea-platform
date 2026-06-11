@@ -31,6 +31,7 @@ import { ReadyToCompleteCard } from './_components/ReadyToCompleteCard'
 import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmartQuickActions'
 import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
+import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection'
 import { RequestSectionHashNavigator } from './_components/RequestSectionHashNavigator'
 import { ConfirmedOciaSessionSection } from './_components/ConfirmedOciaSessionSection'
 import { FuneralDetailsSection } from './_components/FuneralDetailsSection'
@@ -1827,6 +1828,17 @@ async function deleteGoogleCalendarEvent() {
             />
           </LabelValueGrid>
         </WorkflowSectionCard>
+
+        <RequestPersonLinkSection
+          requestId={routeId}
+          personId={
+            request?.person_id != null ? String(request.person_id) : null
+          }
+          parishionerId={
+            request?.parishioner_id != null ? String(request.parishioner_id) : null
+          }
+          onLinked={loadRequest}
+        />
 
         <WorkflowSectionCard
           id="request-details"

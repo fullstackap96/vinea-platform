@@ -75,26 +75,37 @@ DELETE FROM public.parishioners
 -- -----------------------------------------------------------------------------
 -- Parishioners (fixed UUIDs)
 -- -----------------------------------------------------------------------------
-INSERT INTO public.parishioners (id, full_name, email, phone)
-VALUES
-  (
-    '10101010-1010-4010-8010-101010101001'::uuid,
-    'Margaret O''Brien',
-    'margaret.obrien@example.com',
-    '555-010-2001'
-  ),
-  (
-    '10101010-1010-4010-8010-101010101002'::uuid,
-    'James Martinez',
-    'james.martinez@example.com',
-    '555-010-2002'
-  ),
-  (
-    '10101010-1010-4010-8010-101010101003'::uuid,
-    'Elena Kowalski',
-    'elena.kowalski@example.com',
-    '555-010-2003'
-  );
+INSERT INTO public.parishioners (id, parish_id, full_name, email, phone)
+SELECT
+  v.id,
+  p.id,
+  v.full_name,
+  v.email,
+  v.phone
+FROM (
+  VALUES
+    (
+      '10101010-1010-4010-8010-101010101001'::uuid,
+      'Margaret O''Brien',
+      'margaret.obrien@example.com',
+      '555-010-2001'
+    ),
+    (
+      '10101010-1010-4010-8010-101010101002'::uuid,
+      'James Martinez',
+      'james.martinez@example.com',
+      '555-010-2002'
+    ),
+    (
+      '10101010-1010-4010-8010-101010101003'::uuid,
+      'Elena Kowalski',
+      'elena.kowalski@example.com',
+      '555-010-2003'
+    )
+) AS v(id, full_name, email, phone)
+CROSS JOIN LATERAL (
+  SELECT id FROM public.parishes ORDER BY created_at ASC LIMIT 1
+) AS p;
 
 -- -----------------------------------------------------------------------------
 -- People profiles (linked to demo parishioners + primary parish)

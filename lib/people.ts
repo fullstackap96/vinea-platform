@@ -25,6 +25,33 @@ export function formatPersonDisplayName(input: {
     .join(' ')
 }
 
+/** Split intake `parishioners.full_name` into people name fields (best-effort; not used for matching). */
+export function parseParishionerFullName(fullName: unknown): {
+  firstName: string
+  middleName: string | null
+  lastName: string
+} {
+  const parts = String(fullName ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return { firstName: 'Unknown', middleName: null, lastName: 'Contact' }
+  }
+  if (parts.length === 1) {
+    return { firstName: parts[0], middleName: null, lastName: '—' }
+  }
+  if (parts.length === 2) {
+    return { firstName: parts[0], middleName: null, lastName: parts[1] }
+  }
+  return {
+    firstName: parts[0],
+    middleName: parts.slice(1, -1).join(' '),
+    lastName: parts[parts.length - 1],
+  }
+}
+
 export function parsePersonRow(raw: Record<string, unknown>): PersonRow {
   return {
     id: String(raw.id),

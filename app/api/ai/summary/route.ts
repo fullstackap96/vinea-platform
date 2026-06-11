@@ -1,9 +1,21 @@
 import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { openai } from '@/lib/openai'
+import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
 
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json()
+    const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
     const requestType = String(body?.requestType || 'baptism')
 
     let prompt: string
@@ -117,9 +129,10 @@ Status: ${body.status}
     })
 
     return NextResponse.json({ summary: response.output_text })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('AI SUMMARY ERROR:', error)
-    return new NextResponse(`Summary route error: ${error.message}`, {
+    return new NextResponse(`Summary route error: ${message}`, {
       status: 500,
     })
   }

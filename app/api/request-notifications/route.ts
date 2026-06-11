@@ -5,6 +5,8 @@ import {
   buildRequestNotificationEmail,
   type RequestNotificationPayload,
 } from '@/lib/email/requestNotificationEmail'
+import { checkRateLimit, clientIpFromRequest } from '@/lib/server/simpleRateLimit'
+import { verifyRequestNotificationPayload } from '@/lib/server/verifyRequestNotification'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 const ALLOWED_REQUEST_TYPES = new Set([
@@ -15,10 +17,11 @@ const ALLOWED_REQUEST_TYPES = new Set([
   'join_parish',
 ])
 
+const RATE_LIMIT = { limit: 10, windowMs: 60_000 }
+
 function isValidEmail(value: string): boolean {
   const s = String(value || '').trim()
   if (!s) return false
-  // Basic sanity check (avoid heavy validation).
   return s.includes('@') && !/\s/.test(s)
 }
 
@@ -29,7 +32,21 @@ function normalizeOptionalText(value: unknown): string | undefined {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => null as any)
+    const rateLimit = checkRateLimit(
+      `request-notifications:${clientIpFromRequest(request)}`,
+      RATE_LIMIT
+    )
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'Too many requests. Please try again later.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+        }
+      )
+    }
+
+    const body = await request.json().catch(() => null)
     const requestId = String(body?.requestId ?? '').trim()
     const requestType = String(body?.requestType ?? '').trim().toLowerCase()
     const contactName = String(body?.contactName ?? '').trim()
@@ -50,6 +67,20 @@ export async function POST(request: NextRequest) {
     }
     if (!contactPhone) {
       return NextResponse.json({ ok: false, error: 'Missing contactPhone' }, { status: 400 })
+    }
+
+    const verification = await verifyRequestNotificationPayload({
+      requestId,
+      requestType,
+      contactName,
+      contactEmail,
+      contactPhone,
+    })
+    if (!verification.ok) {
+      return NextResponse.json(
+        { ok: false, error: verification.error },
+        { status: verification.status }
+      )
     }
 
     let to = String(process.env.REQUEST_NOTIFICATION_TO_EMAIL ?? '').trim()
@@ -126,12 +157,9 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, id: data?.id || null })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('[request-notifications] ERROR:', error)
-    return NextResponse.json(
-      { ok: false, error: error?.message || 'Unknown error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }
 }
-

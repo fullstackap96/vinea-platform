@@ -12,6 +12,7 @@ export type SacramentalRecordRow = {
   id: string
   parish_id: string
   request_id: string | null
+  person_id: string | null
   record_type: SacramentalRecordType
   person_name: string
   sacrament_date: string | null

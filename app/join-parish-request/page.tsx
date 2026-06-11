@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { fetchIntakeParishId, parishionerInsertPayload } from '@/lib/intakeParishScope'
 import { supabase } from '@/lib/supabase'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import {
@@ -47,14 +48,16 @@ export default function JoinParishRequestPage() {
     const ln = lastName.trim()
     const fullName = [fn, ln].filter(Boolean).join(' ').trim()
 
+    const parishId = await fetchIntakeParishId(supabase)
     const { data: parishioner, error: parishionerError } = await supabase
       .from('parishioners')
       .insert([
-        {
+        parishionerInsertPayload({
           full_name: fullName,
           email,
           phone,
-        },
+          parishId,
+        }),
       ])
       .select()
       .single()

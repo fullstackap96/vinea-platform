@@ -40,6 +40,7 @@ type LinkedRequest = {
   status: string
   child_name: string | null
   created_at: string
+  linkSource: 'person_id' | 'parishioner_id'
 }
 
 type PersonCommunication = {
@@ -61,6 +62,17 @@ function formatWhenLabel(iso: string | null | undefined) {
   const d = new Date(String(iso))
   if (Number.isNaN(d.getTime())) return 'Not set'
   return d.toLocaleString()
+}
+
+function formatSubmittedDate(iso: string | null | undefined) {
+  if (!iso) return ''
+  const d = new Date(String(iso))
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 export function PersonDetailPage() {
@@ -158,12 +170,16 @@ export function PersonDetailPage() {
       const { data: requestRows } = await requestsQuery
       const linkedRequests: LinkedRequest[] = (requestRows ?? []).map((row) => {
         const r = row as Record<string, unknown>
+        const rowPersonId = r.person_id != null ? String(r.person_id).trim() : ''
+        const linkSource: LinkedRequest['linkSource'] =
+          rowPersonId === personId ? 'person_id' : 'parishioner_id'
         return {
           id: String(r.id),
           request_type: String(r.request_type ?? ''),
           status: String(r.status ?? ''),
           child_name: r.child_name != null ? String(r.child_name) : null,
           created_at: String(r.created_at ?? ''),
+          linkSource,
         }
       })
       setRequests(linkedRequests)
@@ -351,6 +367,7 @@ export function PersonDetailPage() {
                   request.child_name != null && String(request.child_name).trim()
                     ? `Child: ${String(request.child_name).trim()}`
                     : null
+                const submitted = formatSubmittedDate(request.created_at)
                 return (
                   <li key={request.id}>
                     <Link
@@ -362,8 +379,14 @@ export function PersonDetailPage() {
                       </p>
                       <p className="mt-1 text-sm text-gray-600">
                         {formatRequestStatus(request.status)}
+                        {submitted ? ` · Submitted ${submitted}` : ''}
                         {subtitle ? ` · ${subtitle}` : ''}
                       </p>
+                      {request.linkSource === 'parishioner_id' ? (
+                        <p className="mt-1.5 text-xs text-amber-900/90">
+                          Linked via intake contact — open the request to set a direct person link.
+                        </p>
+                      ) : null}
                     </Link>
                   </li>
                 )

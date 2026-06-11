@@ -1,6 +1,9 @@
 'use server'
 
+import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
+import { parseParishionerFullName } from '@/lib/people'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import type {
   RequestAssignmentUpdate,
   RequestNextFollowUpUpdate,
@@ -372,4 +375,212 @@ export async function saveRequestIntakeDetails(
   }
 
   return { ok: false, error: 'Unsupported request type.' }
+}
+
+export type RequestPersonLinkResult =
+  | { ok: true; personId: string }
+  | { ok: false; error: string }
+
+function isUniqueViolation(error: { code?: string } | null | undefined): boolean {
+  return error?.code === '23505'
+}
+
+async function findPersonIdByParishionerId(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  parishionerId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('people')
+    .select('id')
+    .eq('parishioner_id', parishionerId)
+    .maybeSingle()
+
+  return data?.id ? String(data.id) : null
+}
+
+async function linkRequestToPersonId(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  requestId: string,
+  personId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data, error } = await supabase
+    .from('requests')
+    .update({ person_id: personId })
+    .eq('id', requestId)
+    .select('id')
+
+  if (error) {
+    return { ok: false, error: error.message }
+  }
+  if (!data?.length) {
+    return { ok: false, error: 'Could not link request to person. Refresh and try again.' }
+  }
+  return { ok: true }
+}
+
+/** Link request to an existing person with the same `parishioner_id` (no duplicate create). */
+export async function linkRequestToExistingPerson(
+  requestId: string
+): Promise<RequestPersonLinkResult> {
+  const id = String(requestId ?? '').trim()
+  if (!id) {
+    return { ok: false, error: 'Missing request id.' }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { ok: false, error: 'Unauthorized' }
+  }
+
+  const { data: reqRow, error: reqErr } = await supabase
+    .from('requests')
+    .select('person_id, parishioner_id')
+    .eq('id', id)
+    .single()
+
+  if (reqErr || !reqRow) {
+    return { ok: false, error: reqErr?.message ?? 'Request not found.' }
+  }
+
+  const existingPersonId =
+    reqRow.person_id != null ? String(reqRow.person_id).trim() : ''
+  if (existingPersonId) {
+    return { ok: true, personId: existingPersonId }
+  }
+
+  const parishionerId =
+    reqRow.parishioner_id != null ? String(reqRow.parishioner_id).trim() : ''
+  if (!parishionerId) {
+    return { ok: false, error: 'This request has no intake contact to link.' }
+  }
+
+  const personId = await findPersonIdByParishionerId(supabase, parishionerId)
+  if (!personId) {
+    return {
+      ok: false,
+      error: 'No person profile exists for this intake contact yet. Create one first.',
+    }
+  }
+
+  const linked = await linkRequestToPersonId(supabase, id, personId)
+  if (!linked.ok) {
+    return linked
+  }
+
+  return { ok: true, personId }
+}
+
+/** Create a people row from the request parishioner and set `requests.person_id`. */
+export async function createPersonFromRequestParishioner(
+  requestId: string
+): Promise<RequestPersonLinkResult> {
+  const id = String(requestId ?? '').trim()
+  if (!id) {
+    return { ok: false, error: 'Missing request id.' }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { ok: false, error: 'Unauthorized' }
+  }
+
+  const { data: reqRow, error: reqErr } = await supabase
+    .from('requests')
+    .select('person_id, parishioner_id')
+    .eq('id', id)
+    .single()
+
+  if (reqErr || !reqRow) {
+    return { ok: false, error: reqErr?.message ?? 'Request not found.' }
+  }
+
+  const existingPersonId =
+    reqRow.person_id != null ? String(reqRow.person_id).trim() : ''
+  if (existingPersonId) {
+    return { ok: true, personId: existingPersonId }
+  }
+
+  const parishionerId =
+    reqRow.parishioner_id != null ? String(reqRow.parishioner_id).trim() : ''
+  if (!parishionerId) {
+    return { ok: false, error: 'This request has no intake contact to link.' }
+  }
+
+  const existingByParishioner = await findPersonIdByParishionerId(supabase, parishionerId)
+  if (existingByParishioner) {
+    const linked = await linkRequestToPersonId(supabase, id, existingByParishioner)
+    if (!linked.ok) {
+      return linked
+    }
+    return { ok: true, personId: existingByParishioner }
+  }
+
+  const { data: parishioner, error: parishionerErr } = await supabase
+    .from('parishioners')
+    .select('full_name, email, phone')
+    .eq('id', parishionerId)
+    .single()
+
+  if (parishionerErr || !parishioner) {
+    return { ok: false, error: parishionerErr?.message ?? 'Intake contact not found.' }
+  }
+
+  const { parishId, error: parishErr } = await fetchPrimaryParishId(
+    createSupabaseServiceRoleClient()
+  )
+  if (parishErr || !parishId) {
+    return { ok: false, error: parishErr?.message ?? 'Parish not found.' }
+  }
+
+  const { firstName, middleName, lastName } = parseParishionerFullName(parishioner.full_name)
+  const emailRaw = String(parishioner.email ?? '').trim()
+  const phoneRaw = String(parishioner.phone ?? '').trim()
+
+  const { data: created, error: insertErr } = await supabase
+    .from('people')
+    .insert({
+      parish_id: parishId,
+      parishioner_id: parishionerId,
+      first_name: firstName,
+      middle_name: middleName,
+      last_name: lastName,
+      email: emailRaw || null,
+      phone: phoneRaw || null,
+    })
+    .select('id')
+    .single()
+
+  let personId: string | null = created?.id ? String(created.id) : null
+
+  if (insertErr) {
+    if (isUniqueViolation(insertErr)) {
+      personId = await findPersonIdByParishionerId(supabase, parishionerId)
+      if (!personId) {
+        return { ok: false, error: insertErr.message }
+      }
+    } else {
+      return { ok: false, error: insertErr.message }
+    }
+  }
+
+  if (!personId) {
+    return { ok: false, error: 'Could not create person profile.' }
+  }
+
+  const linked = await linkRequestToPersonId(supabase, id, personId)
+  if (!linked.ok) {
+    return linked
+  }
+
+  return { ok: true, personId }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { fetchIntakeParishId, parishionerInsertPayload } from '@/lib/intakeParishScope'
 import { supabase } from '@/lib/supabase'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import {
@@ -52,14 +53,16 @@ export default function OciaRequestPage() {
       return
     }
 
+    const parishId = await fetchIntakeParishId(supabase)
     const { data: parishioner, error: parishionerError } = await supabase
       .from('parishioners')
       .insert([
-        {
+        parishionerInsertPayload({
           full_name: fullName,
           email,
           phone,
-        },
+          parishId,
+        }),
       ])
       .select()
       .single()

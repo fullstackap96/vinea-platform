@@ -3,12 +3,17 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { updateSacramentalRecord } from '../../actions'
+import { updateSacramentalRecord, updateSacramentalRecordPersonLink } from '../../actions'
 import {
   SacramentalRecordForm,
   formValuesToWriteInput,
   sacramentalRecordToFormValues,
 } from '../../_components/SacramentalRecordForm'
+import {
+  PersonPickerField,
+  personRowsToPickerOptions,
+  type PersonPickerOption,
+} from '../../_components/PersonPickerField'
 import { devDashboardConsoleError } from '@/lib/dashboardSupabaseError'
 import { parseSacramentalRecordRow } from '@/lib/sacramentalRecords'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
@@ -24,6 +29,8 @@ export function EditSacramentalRecordPage() {
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [values, setValues] = useState<SacramentalRecordFormValues | null>(null)
+  const [personId, setPersonId] = useState<string | null>(null)
+  const [peopleOptions, setPeopleOptions] = useState<PersonPickerOption[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -34,11 +41,14 @@ export function EditSacramentalRecordPage() {
       setLoading(true)
       setErrorMessage('')
 
-      const { data, error } = await supabase
-        .from('sacramental_records')
-        .select('*')
-        .eq('id', recordId)
-        .maybeSingle()
+      const [{ data, error }, { data: peopleRows, error: peopleError }] = await Promise.all([
+        supabase.from('sacramental_records').select('*').eq('id', recordId).maybeSingle(),
+        supabase
+          .from('people')
+          .select('id, first_name, middle_name, last_name')
+          .order('last_name', { ascending: true })
+          .order('first_name', { ascending: true }),
+      ])
 
       if (error) {
         devDashboardConsoleError('sacramental_records edit load', error)
@@ -52,7 +62,14 @@ export function EditSacramentalRecordPage() {
         return
       }
 
-      setValues(sacramentalRecordToFormValues(parseSacramentalRecordRow(data as Record<string, unknown>)))
+      if (peopleError) {
+        devDashboardConsoleError('people (record edit picker)', peopleError)
+      }
+
+      const parsed = parseSacramentalRecordRow(data as Record<string, unknown>)
+      setValues(sacramentalRecordToFormValues(parsed))
+      setPersonId(parsed.person_id)
+      setPeopleOptions(personRowsToPickerOptions((peopleRows ?? []) as Record<string, unknown>[]))
       setLoading(false)
     }
 
@@ -66,11 +83,18 @@ export function EditSacramentalRecordPage() {
     setSaving(true)
     setMessage('')
 
-    const result = await updateSacramentalRecord(recordId, formValuesToWriteInput(values))
+    const recordResult = await updateSacramentalRecord(recordId, formValuesToWriteInput(values))
+    if (!recordResult.ok) {
+      setSaving(false)
+      setMessage(recordResult.error)
+      return
+    }
+
+    const linkResult = await updateSacramentalRecordPersonLink(recordId, personId)
     setSaving(false)
 
-    if (!result.ok) {
-      setMessage(result.error)
+    if (!linkResult.ok) {
+      setMessage(linkResult.error)
       return
     }
 
@@ -118,6 +142,16 @@ export function EditSacramentalRecordPage() {
       <p className="mb-6 max-w-xl text-sm leading-relaxed text-gray-600">
         Update register information. Changes are saved to your parish records.
       </p>
+
+      <div className={`mb-6 ${vineaSectionShellClassName}`}>
+        <PersonPickerField
+          value={personId}
+          onChange={setPersonId}
+          peopleOptions={peopleOptions}
+          disabled={saving}
+          idPrefix="edit-record-person"
+        />
+      </div>
 
       <div className={vineaSectionShellClassName}>
         <SacramentalRecordForm
