@@ -38,6 +38,26 @@ DELETE FROM public.requests
     '20202020-2020-4020-8020-202020202003'::uuid
   );
 
+DELETE FROM public.household_members
+  WHERE id IN (
+    '60606060-6060-4060-8060-606060606001'::uuid,
+    '60606060-6060-4060-8060-606060606002'::uuid,
+    '60606060-6060-4060-8060-606060606003'::uuid
+  );
+
+DELETE FROM public.households
+  WHERE id IN (
+    '60606060-6060-4060-8060-606060606101'::uuid,
+    '60606060-6060-4060-8060-606060606102'::uuid
+  );
+
+DELETE FROM public.people
+  WHERE id IN (
+    '50505050-5050-4050-8050-505050505001'::uuid,
+    '50505050-5050-4050-8050-505050505002'::uuid,
+    '50505050-5050-4050-8050-505050505003'::uuid
+  );
+
 DELETE FROM public.parishioners
   WHERE id IN (
     '10101010-1010-4010-8010-101010101001'::uuid,
@@ -68,6 +88,144 @@ VALUES
     'elena.kowalski@example.com',
     '555-010-2003'
   );
+
+-- -----------------------------------------------------------------------------
+-- People profiles (linked to demo parishioners + primary parish)
+-- -----------------------------------------------------------------------------
+INSERT INTO public.people (
+  id,
+  parish_id,
+  parishioner_id,
+  first_name,
+  last_name,
+  email,
+  phone
+)
+SELECT
+  v.id,
+  p.id,
+  v.parishioner_id,
+  v.first_name,
+  v.last_name,
+  v.email,
+  v.phone
+FROM (
+  SELECT *
+  FROM (
+    VALUES
+      (
+        '50505050-5050-4050-8050-505050505001'::uuid,
+        '10101010-1010-4010-8010-101010101001'::uuid,
+        'Margaret',
+        'O''Brien',
+        'margaret.obrien@example.com',
+        '555-010-2001'
+      ),
+      (
+        '50505050-5050-4050-8050-505050505002'::uuid,
+        '10101010-1010-4010-8010-101010101002'::uuid,
+        'James',
+        'Martinez',
+        'james.martinez@example.com',
+        '555-010-2002'
+      ),
+      (
+        '50505050-5050-4050-8050-505050505003'::uuid,
+        '10101010-1010-4010-8010-101010101003'::uuid,
+        'Elena',
+        'Kowalski',
+        'elena.kowalski@example.com',
+        '555-010-2003'
+      )
+  ) AS rows(id, parishioner_id, first_name, last_name, email, phone)
+) AS v
+CROSS JOIN LATERAL (
+  SELECT id FROM public.parishes ORDER BY created_at ASC LIMIT 1
+) AS p;
+
+-- -----------------------------------------------------------------------------
+-- Households + members
+-- -----------------------------------------------------------------------------
+INSERT INTO public.households (
+  id,
+  parish_id,
+  name,
+  address,
+  city,
+  state,
+  postal_code
+)
+SELECT
+  v.id,
+  p.id,
+  v.name,
+  v.address,
+  v.city,
+  v.state,
+  v.postal_code
+FROM (
+  VALUES
+    (
+      '60606060-6060-4060-8060-606060606101'::uuid,
+      'O''Brien Family',
+      '412 Maple Street',
+      'Springfield',
+      'IL',
+      '62704'
+    ),
+    (
+      '60606060-6060-4060-8060-606060606102'::uuid,
+      'Martinez Family',
+      '88 River Road',
+      'Springfield',
+      'IL',
+      '62704'
+    )
+) AS v(id, name, address, city, state, postal_code)
+CROSS JOIN LATERAL (
+  SELECT id FROM public.parishes ORDER BY created_at ASC LIMIT 1
+) AS p;
+
+INSERT INTO public.household_members (
+  id,
+  parish_id,
+  household_id,
+  person_id,
+  relationship,
+  is_primary_contact
+)
+SELECT
+  v.id,
+  h.parish_id,
+  v.household_id,
+  v.person_id,
+  v.relationship,
+  v.is_primary_contact
+FROM (
+  VALUES
+    (
+      '60606060-6060-4060-8060-606060606001'::uuid,
+      '60606060-6060-4060-8060-606060606101'::uuid,
+      '50505050-5050-4050-8050-505050505001'::uuid,
+      'head',
+      true
+    ),
+    (
+      '60606060-6060-4060-8060-606060606002'::uuid,
+      '60606060-6060-4060-8060-606060606102'::uuid,
+      '50505050-5050-4050-8050-505050505002'::uuid,
+      'head',
+      true
+    ),
+    (
+      '60606060-6060-4060-8060-606060606003'::uuid,
+      '60606060-6060-4060-8060-606060606102'::uuid,
+      '50505050-5050-4050-8050-505050505003'::uuid,
+      'spouse',
+      false
+    )
+) AS v(id, household_id, person_id, relationship, is_primary_contact)
+JOIN public.households h ON h.id = v.household_id;
 
 -- -----------------------------------------------------------------------------
 -- Requests (fixed UUIDs)

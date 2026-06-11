@@ -91,6 +91,24 @@ export function DashboardLayoutClient({
                 |
               </span>
               <Link
+                href="/dashboard/records"
+                className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
+              >
+                Records
+              </Link>
+              <span className="text-gray-300" aria-hidden>
+                |
+              </span>
+              <Link
+                href="/dashboard/people"
+                className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
+              >
+                People
+              </Link>
+              <span className="text-gray-300" aria-hidden>
+                |
+              </span>
+              <Link
                 href="/dashboard/settings"
                 className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
               >
