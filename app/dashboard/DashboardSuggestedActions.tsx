@@ -2,34 +2,13 @@
 
 import Link from 'next/link'
 import { Lightbulb } from 'lucide-react'
+import {
+  plainSuggestedActionLabel,
+  suggestedActionHref,
+} from '@/lib/relationshipIntelligence/suggestedActionPresentation'
 import type { DashboardSuggestedAction } from '@/lib/relationshipIntelligence/types'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaEmptyStateClassName, vineaSectionShellClassName } from '@/lib/vineaUi'
-
-function actionHref(action: DashboardSuggestedAction): string {
-  if (action.kind === 'record_creation') {
-    return `/dashboard/records/new?requestId=${encodeURIComponent(action.requestId)}`
-  }
-  if (action.kind === 'certificate') {
-    return `/dashboard/records/${action.recordId}`
-  }
-  return `/dashboard/requests/${action.requestId}`
-}
-
-function plainActionLabel(action: DashboardSuggestedAction): string {
-  if (action.kind === 'record_creation') {
-    return action.label.replace(/create register entry/gi, 'Create sacramental record')
-  }
-  if (action.kind === 'certificate') {
-    return action.label
-  }
-  const reason = action.reason
-    .replace(/exact email match/gi, 'same email on file')
-    .replace(/exact phone match/gi, 'same phone on file')
-    .replace(/exact full name match/gi, 'same name on file')
-    .replace(/same intake contact \(parishioner_id\)/gi, 'same intake contact')
-  return `Link ${action.personDisplayName} — ${reason}`
-}
 
 type Props = {
   actions: DashboardSuggestedAction[]
@@ -93,13 +72,13 @@ export function DashboardSuggestedActions({
           {visibleActions.map((action, index) => (
             <li key={`${action.kind}-${index}`}>
               <Link
-                href={actionHref(action)}
+                href={suggestedActionHref(action)}
                 className={`flex flex-col gap-2 rounded-xl border border-gray-200/90 bg-slate-50/70 transition hover:border-gray-300 hover:bg-white sm:flex-row sm:items-center sm:justify-between ${
                   compact ? 'px-3 py-2.5' : 'px-4 py-3'
                 }`}
               >
                 <span className="min-w-0 text-sm font-medium leading-snug text-gray-900">
-                  {plainActionLabel(action)}
+                  {plainSuggestedActionLabel(action)}
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   {action.kind === 'person_match' ? (

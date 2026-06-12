@@ -112,7 +112,7 @@ export function DashboardGlobalSearch() {
   const showDropdown = open && query.trim().length > 0
 
   return (
-    <div ref={rootRef} className="relative w-full lg:max-w-md lg:flex-1">
+    <div ref={rootRef} className="relative w-full">
       <label htmlFor={inputId} className="sr-only">
         Search Vinea
       </label>

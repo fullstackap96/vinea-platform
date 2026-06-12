@@ -9,6 +9,7 @@ import { primaryButtonMd } from '@/lib/buttonStyles'
 import { PRODUCT_NAME } from '@/lib/productBranding'
 import { vineaAppCanvasClass } from '@/lib/vineaUi'
 import { DashboardGlobalSearch } from './_components/DashboardGlobalSearch'
+import { DashboardNotificationsCenter } from './_components/DashboardNotificationsCenter'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', match: 'exact' as const },
@@ -76,68 +77,83 @@ export function DashboardLayoutClient({
       )}
       <header className="border-b border-gray-200 bg-white shrink-0">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(14rem,20rem)_auto] lg:items-center lg:gap-4">
-            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 md:gap-4">
-              <Link
-                href="/"
-                className="flex min-w-0 shrink-0 items-center gap-3 rounded-md hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
-              >
-                <Image
-                  src="/vinea-icon.png"
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="h-8 w-auto shrink-0 object-contain"
-                  priority
-                />
-                <span className="truncate text-sm font-semibold tracking-tight text-gray-900">
-                  {PRODUCT_NAME}
-                </span>
-              </Link>
-              <span className="hidden h-4 w-px shrink-0 bg-gray-200 sm:block" aria-hidden />
+          <div className="flex flex-col gap-3 sm:gap-4">
+            {/* Row 1: brand, navigation, account */}
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
+              <div className="flex items-center justify-between gap-3 lg:shrink-0">
+                <Link
+                  href="/"
+                  className="flex min-w-0 items-center gap-2.5 rounded-md hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 sm:gap-3"
+                >
+                  <Image
+                    src="/vinea-icon.png"
+                    alt=""
+                    width={40}
+                    height={40}
+                    className="h-8 w-8 shrink-0 object-contain sm:h-9 sm:w-9"
+                    priority
+                  />
+                  <span className="truncate text-sm font-semibold tracking-tight text-gray-900 sm:text-base">
+                    {PRODUCT_NAME}
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className={`${primaryButtonMd} shrink-0 justify-center lg:hidden`}
+                >
+                  Logout
+                </button>
+              </div>
+
               <nav
-                className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium"
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium leading-snug lg:min-w-0 lg:flex-1"
                 aria-label="Dashboard sections"
               >
-                {NAV_ITEMS.map((item, index) => {
+                {NAV_ITEMS.map((item) => {
                   const active = isNavActive(pathname, item.href, item.match)
                   return (
-                    <span key={item.href} className="inline-flex items-center gap-2">
-                      {index > 0 ? (
-                        <span className="text-gray-300" aria-hidden>
-                          |
-                        </span>
-                      ) : null}
-                      <Link
-                        href={item.href}
-                        className={
-                          active
-                            ? 'font-semibold text-gray-900 underline-offset-2 hover:underline'
-                            : 'text-brand hover:text-brand-foreground underline-offset-2 hover:underline'
-                        }
-                        aria-current={active ? 'page' : undefined}
-                      >
-                        {item.label}
-                      </Link>
-                    </span>
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`whitespace-nowrap rounded-md px-1 py-1.5 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30 ${
+                        active
+                          ? 'font-semibold text-gray-900'
+                          : 'text-brand hover:text-brand-foreground'
+                      }`}
+                      aria-current={active ? 'page' : undefined}
+                    >
+                      {item.label}
+                    </Link>
                   )
                 })}
               </nav>
+
+              <div className="hidden items-center gap-3 lg:flex lg:shrink-0">
+                <span
+                  className="max-w-[10rem] truncate text-sm text-gray-600 xl:max-w-[14rem]"
+                  title={email || undefined}
+                >
+                  {email ? `Signed in as ${email}` : 'Signed in'}
+                </span>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className={`${primaryButtonMd} shrink-0 justify-center`}
+                >
+                  Logout
+                </button>
+              </div>
             </div>
 
-            <DashboardGlobalSearch />
-
-            <div className="flex items-center justify-between gap-3 sm:justify-end">
-              <div className="hidden min-w-0 truncate text-sm text-gray-600 lg:block">
-                {email ? `Signed in as ${email}` : 'Signed in'}
+            {/* Row 2: search and needs attention */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-3">
+              <div className="min-w-0 w-full flex-1">
+                <DashboardGlobalSearch />
               </div>
-              <button
-                type="button"
-                onClick={logout}
-                className={`${primaryButtonMd} w-full shrink-0 justify-center sm:w-auto`}
-              >
-                Logout
-              </button>
+              <div className="w-full shrink-0 sm:w-auto">
+                <DashboardNotificationsCenter />
+              </div>
             </div>
           </div>
         </div>
