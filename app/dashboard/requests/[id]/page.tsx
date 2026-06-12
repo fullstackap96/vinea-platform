@@ -26,6 +26,7 @@ import { SendEmailSection } from './_components/SendEmailSection'
 import { GoogleCalendarSection } from './_components/GoogleCalendarSection'
 import { RequestNextStepCard, resolveRequestNextStep } from './_components/RequestNextStepCard'
 import { RequestProgressCard } from './_components/RequestProgressCard'
+import { RequestTimelineSection } from './_components/RequestTimelineSection'
 import { RequestWorkflowChecklist } from './_components/RequestWorkflowChecklist'
 import { ReadyToCompleteCard } from './_components/ReadyToCompleteCard'
 import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmartQuickActions'
@@ -109,6 +110,10 @@ export default function RequestDetailPage() {
   const [request, setRequest] = useState<any>(null)
   const [parishioner, setParishioner] = useState<any>(null)
   const [hasSacramentalRecord, setHasSacramentalRecord] = useState(false)
+  const [linkedSacramentalRecord, setLinkedSacramentalRecord] = useState<{
+    person_name: string | null
+    created_at: string
+  } | null>(null)
   const [checklistItems, setChecklistItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -455,10 +460,18 @@ const [staffNotes, setStaffNotes] = useState('')
 
     const { data: existingSacramentalRecord } = await supabase
       .from('sacramental_records')
-      .select('id')
+      .select('id, person_name, created_at')
       .eq('request_id', requestData.id)
       .maybeSingle()
     setHasSacramentalRecord(Boolean(existingSacramentalRecord?.id))
+    setLinkedSacramentalRecord(
+      existingSacramentalRecord?.created_at
+        ? {
+            person_name: existingSacramentalRecord.person_name ?? null,
+            created_at: String(existingSacramentalRecord.created_at),
+          }
+        : null
+    )
 
     setLoading(false)
   }
@@ -1490,17 +1503,42 @@ async function deleteGoogleCalendarEvent() {
   }, [])
 
   // Derived workflow state (safe even while loading).
-  const scheduleRowForProgress = {
-    request_type: request?.request_type,
-    confirmed_baptism_date: request?.confirmed_baptism_date,
-    funeral_detail: funeralDetail
-      ? { confirmed_service_at: funeralDetail.confirmed_service_at }
-      : null,
-    wedding_detail: weddingDetail
-      ? { confirmed_ceremony_at: weddingDetail.confirmed_ceremony_at }
-      : null,
-    ocia_detail: ociaDetail ? { confirmed_session_at: ociaDetail.confirmed_session_at } : null,
-  }
+  const scheduleRowForProgress = useMemo(
+    () => ({
+      request_type: request?.request_type,
+      confirmed_baptism_date: request?.confirmed_baptism_date,
+      funeral_detail: funeralDetail
+        ? { confirmed_service_at: funeralDetail.confirmed_service_at }
+        : null,
+      wedding_detail: weddingDetail
+        ? { confirmed_ceremony_at: weddingDetail.confirmed_ceremony_at }
+        : null,
+      ocia_detail: ociaDetail ? { confirmed_session_at: ociaDetail.confirmed_session_at } : null,
+    }),
+    [
+      request?.request_type,
+      request?.confirmed_baptism_date,
+      funeralDetail,
+      weddingDetail,
+      ociaDetail,
+    ]
+  )
+
+  const timelineInput = useMemo(
+    () => ({
+      request: request
+        ? {
+            created_at: request.created_at,
+            request_type: request.request_type,
+          }
+        : null,
+      scheduleRow: scheduleRowForProgress,
+      communications,
+      requestNotes,
+      sacramentalRecord: linkedSacramentalRecord,
+    }),
+    [request, scheduleRowForProgress, communications, requestNotes, linkedSacramentalRecord]
+  )
 
   const checklistIncomplete = checklistItems.some((i: any) => i?.is_complete === false)
   const nextStep = resolveRequestNextStep({
@@ -1761,6 +1799,8 @@ async function deleteGoogleCalendarEvent() {
             hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
             onMarkComplete={jumpToCompletion}
           />
+
+          <RequestTimelineSection timelineInput={timelineInput} loading={loading} />
 
           <RequestProgressCard
             assignedStaffName={request?.assigned_staff_name}
