@@ -20,4 +20,4 @@ export const SITE_DOCUMENT_DESCRIPTION = 'All your parish operations in one plat
 export const SITE_OG_IMAGE_PATH = '/og-image.png'
 
 export const SITE_OG_IMAGE_ALT =
-  'Vinea Platform — Simplify parish operations. Strengthen every connection.'
+  'Vinea Platform — All your parish operations in one platform.'
