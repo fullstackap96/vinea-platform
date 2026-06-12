@@ -17,6 +17,8 @@ type Props = {
    * Pass from the dashboard page so totals match staff workload row sums.
    */
   metricsAt?: Date
+  /** Tighter layout for the Home page above-the-fold view. */
+  compact?: boolean
 }
 
 type SummaryCard = {
@@ -47,19 +49,19 @@ const CARDS: SummaryCard[] = [
   },
   {
     key: 'actionRequired',
-    label: 'Needs attention',
-    hint: 'Follow-up is past due or due today, or nobody is assigned yet',
+    label: 'Needs Attention',
+    hint: 'Follow-up is past due or due today, or no one is assigned yet',
     icon: Bell,
     tint: 'border-2 border-amber-400/80 bg-amber-100/85 shadow-md',
     num: 'text-amber-950',
     iconWrap: 'bg-amber-200/95 text-amber-950',
     emphasis: true,
-    callout: 'Start here — these need attention now',
+    callout: 'Start here — these need your attention',
   },
   {
     key: 'overdueFollowUps',
-    label: 'Past due',
-    hint: 'Open requests whose follow-up date has already passed',
+    label: 'Past Due',
+    hint: 'Open requests whose follow-up date has passed',
     icon: AlertTriangle,
     tint: 'border-rose-200/75 bg-rose-50/60',
     num: 'text-rose-950',
@@ -67,7 +69,7 @@ const CARDS: SummaryCard[] = [
   },
   {
     key: 'upcomingScheduled',
-    label: 'Upcoming Scheduled Events',
+    label: 'Upcoming Events',
     hint: 'Confirmed dates from today onward',
     icon: CalendarDays,
     tint: 'border-gray-200/80 bg-slate-50/95',
@@ -82,6 +84,7 @@ export function DashboardCommandSummary({
   loading = false,
   dataUnavailable = false,
   metricsAt,
+  compact = false,
 }: Props) {
   const counts = useMemo(() => {
     const at = metricsAt ?? new Date()
@@ -96,12 +99,17 @@ export function DashboardCommandSummary({
       aria-labelledby="command-summary-heading"
     >
       <h2 id="command-summary-heading" className={sectionHeadingClassName}>
-        At a glance
+        Today&apos;s priorities
       </h2>
-      <p className="mb-5 max-w-2xl text-base leading-relaxed text-gray-600">
-        Key numbers from your current request list. Scroll down for Needs attention, the
-        follow-up queue, and the full table.
-      </p>
+      {!compact ? (
+        <p className="mb-5 max-w-2xl text-base leading-relaxed text-gray-600">
+          A quick look at what needs your attention today.
+        </p>
+      ) : (
+        <p className="mb-3 max-w-2xl text-sm leading-relaxed text-gray-600">
+          What needs your attention right now.
+        </p>
+      )}
       {hideCounts ? (
         <div
           role="alert"
@@ -114,20 +122,36 @@ export function DashboardCommandSummary({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+        <div
+          className={
+            compact
+              ? 'grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4'
+              : 'grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4'
+          }
+        >
           {CARDS.map((c) => {
             const Icon = c.icon
             const value = loading ? null : counts[c.key]
             const emphasis = Boolean(c.emphasis)
             const muted = Boolean(c.muted)
-            const pad = emphasis ? 'p-5 sm:p-6' : 'p-4'
-            const iconWrapSize = emphasis
-              ? 'h-12 w-12 sm:h-[3.25rem] sm:w-[3.25rem]'
-              : 'h-11 w-11'
-            const iconSvg = emphasis ? 'h-6 w-6' : 'h-5 w-5'
-            const numSize = emphasis
-              ? 'text-4xl font-bold tabular-nums leading-none sm:text-[2.5rem]'
-              : 'text-3xl font-bold tabular-nums leading-none'
+            const pad = compact
+              ? emphasis
+                ? 'p-3 sm:p-4'
+                : 'p-3'
+              : emphasis
+                ? 'p-5 sm:p-6'
+                : 'p-4'
+            const iconWrapSize = compact
+              ? 'h-9 w-9'
+              : emphasis
+                ? 'h-12 w-12 sm:h-[3.25rem] sm:w-[3.25rem]'
+                : 'h-11 w-11'
+            const iconSvg = compact ? 'h-4 w-4' : emphasis ? 'h-6 w-6' : 'h-5 w-5'
+            const numSize = compact
+              ? 'text-2xl font-bold tabular-nums leading-none sm:text-3xl'
+              : emphasis
+                ? 'text-4xl font-bold tabular-nums leading-none sm:text-[2.5rem]'
+                : 'text-3xl font-bold tabular-nums leading-none'
             const labelClass = emphasis
               ? 'text-sm font-bold text-amber-950 tracking-tight'
               : muted
@@ -161,12 +185,12 @@ export function DashboardCommandSummary({
                     </div>
                   </div>
                 </div>
-                {c.callout ? (
+                {c.callout && !compact ? (
                   <p className="text-sm font-semibold leading-snug text-amber-950">
                     {c.callout}
                   </p>
                 ) : null}
-                <p className={hintClass}>{c.hint}</p>
+                {!compact ? <p className={hintClass}>{c.hint}</p> : null}
               </div>
             )
           })}

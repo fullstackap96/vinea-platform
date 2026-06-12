@@ -27,6 +27,6 @@ export function suggestRecordForRequest(input: {
     requestId,
     requestType,
     recordType,
-    label: `${formatRequestType(requestType)} request — create register entry`,
+    label: `${formatRequestType(requestType)} request — create sacramental record`,
   }
 }

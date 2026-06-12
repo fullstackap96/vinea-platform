@@ -3,11 +3,26 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { PRODUCT_NAME } from '@/lib/productBranding'
 import { vineaAppCanvasClass } from '@/lib/vineaUi'
+
+const NAV_ITEMS = [
+  { href: '/dashboard', label: 'Home', match: 'exact' as const },
+  { href: '/dashboard/requests', label: 'Requests', match: 'prefix' as const },
+  { href: '/dashboard/records', label: 'Records', match: 'prefix' as const },
+  { href: '/dashboard/people', label: 'People', match: 'prefix' as const },
+  { href: '/dashboard/intentions', label: 'Mass Intentions', match: 'prefix' as const },
+  { href: '/dashboard/reports', label: 'Reports', match: 'prefix' as const },
+  { href: '/dashboard/settings', label: 'Parish Settings', match: 'prefix' as const },
+]
+
+function isNavActive(pathname: string, href: string, match: 'exact' | 'prefix') {
+  if (match === 'exact') return pathname === href
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
 
 export function DashboardLayoutClient({
   showDemoBanner,
@@ -17,6 +32,7 @@ export function DashboardLayoutClient({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [email, setEmail] = useState<string>('')
 
   useEffect(() => {
@@ -81,54 +97,38 @@ export function DashboardLayoutClient({
               aria-hidden
             />
             <nav
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-gray-700"
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium"
               aria-label="Dashboard sections"
             >
-              <Link href="/dashboard" className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline">
-                Dashboard
-              </Link>
-              <span className="text-gray-300" aria-hidden>
-                |
-              </span>
-              <Link
-                href="/dashboard/records"
-                className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
-              >
-                Records
-              </Link>
-              <span className="text-gray-300" aria-hidden>
-                |
-              </span>
-              <Link
-                href="/dashboard/people"
-                className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
-              >
-                People
-              </Link>
-              <span className="text-gray-300" aria-hidden>
-                |
-              </span>
-              <Link
-                href="/dashboard/intentions"
-                className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
-              >
-                Mass Intentions
-              </Link>
-              <span className="text-gray-300" aria-hidden>
-                |
-              </span>
-              <Link
-                href="/dashboard/settings"
-                className="text-brand hover:text-brand-foreground underline-offset-2 hover:underline"
-              >
-                Parish settings
-              </Link>
+              {NAV_ITEMS.map((item, index) => {
+                const active = isNavActive(pathname, item.href, item.match)
+                return (
+                  <span key={item.href} className="inline-flex items-center gap-2">
+                    {index > 0 ? (
+                      <span className="text-gray-300" aria-hidden>
+                        |
+                      </span>
+                    ) : null}
+                    <Link
+                      href={item.href}
+                      className={
+                        active
+                          ? 'font-semibold text-gray-900 underline-offset-2 hover:underline'
+                          : 'text-brand hover:text-brand-foreground underline-offset-2 hover:underline'
+                      }
+                      aria-current={active ? 'page' : undefined}
+                    >
+                      {item.label}
+                    </Link>
+                  </span>
+                )
+              })}
             </nav>
             <span
-              className="hidden md:block h-4 w-px bg-gray-200 shrink-0"
+              className="hidden lg:block h-4 w-px bg-gray-200 shrink-0"
               aria-hidden
             />
-            <div className="text-sm text-gray-600 break-words sm:truncate min-w-0">
+            <div className="hidden lg:block text-sm text-gray-600 break-words truncate min-w-0">
               {email ? `Signed in as ${email}` : 'Signed in'}
             </div>
           </div>

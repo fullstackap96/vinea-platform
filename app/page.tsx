@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   Lightbulb,
   Mail,
-  Monitor,
   Sparkles,
   UserCircle,
   Users,
@@ -332,34 +331,41 @@ export default function Home() {
           </div>
         </section>
 
-        {/* See the workflow — screenshot placeholders */}
+        {/* See the workflow */}
         <section id="workflow" className="border-t border-gray-100 bg-gray-50 py-16 sm:py-20 scroll-mt-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <h2 className={sectionHeadingClassName}>See the workflow</h2>
             <p className={sectionIntroClass}>
-              A calm, parish-friendly interface designed for daily staff use. Product screenshots
-              coming soon.
+              A calm, parish-friendly interface designed for daily staff use.
             </p>
             <div className="mt-10 grid gap-6 sm:grid-cols-2">
               <WorkflowScreenshotCard
                 icon={LayoutDashboard}
                 title="Command center dashboard"
                 description="See what needs attention today—follow-ups, assignments, and open requests in one view."
+                src="/screenshots/dashboard-command-center.png"
+                alt="Vinea command center dashboard showing follow-ups, assignments, and open requests"
               />
               <WorkflowScreenshotCard
                 icon={ClipboardList}
                 title="Request detail workflow"
                 description="Checklists, communications, calendar events, and notes on a single request record."
+                src="/screenshots/request-detail.png"
+                alt="Vinea request detail view with checklists, communications, and calendar events"
               />
               <WorkflowScreenshotCard
                 icon={UserCircle}
                 title="People profile"
                 description="Household links, related requests, and sacramental history for each parishioner."
+                src="/screenshots/people-profile.png"
+                alt="Vinea people profile with household links and related requests"
               />
               <WorkflowScreenshotCard
                 icon={BookOpen}
                 title="Sacramental records"
                 description="Register entries, certificate generation, and links to people and requests."
+                src="/screenshots/sacramental-records.png"
+                alt="Vinea sacramental records register with certificate generation"
               />
             </div>
           </div>
@@ -510,25 +516,67 @@ function AudienceCard({
   )
 }
 
+function BrowserWindowFrame({
+  children,
+  title,
+}: {
+  children: React.ReactNode
+  title: string
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-white shadow-sm ring-1 ring-black/[0.04]">
+      <div
+        className="flex items-center gap-3 border-b border-gray-200/80 bg-gray-100/95 px-3 py-2.5 sm:px-3.5 sm:py-3"
+        aria-hidden
+      >
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57] ring-1 ring-black/[0.06]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e] ring-1 ring-black/[0.06]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#28c840] ring-1 ring-black/[0.06]" />
+        </div>
+        <div className="min-w-0 flex-1 rounded-md border border-gray-200/70 bg-white/80 px-3 py-1 text-center text-[10px] font-medium text-gray-400 sm:text-[11px]">
+          {PRODUCT_NAME}
+        </div>
+      </div>
+      <div className="bg-gray-50">{children}</div>
+      <span className="sr-only">{title}</span>
+    </div>
+  )
+}
+
 function WorkflowScreenshotCard({
   icon: Icon,
   title,
   description,
+  src,
+  alt,
 }: {
   icon: LucideIcon
   title: string
   description: string
+  src: string
+  alt: string
 }) {
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm">
-      <div
-        className="flex aspect-[16/10] items-center justify-center border-b border-gray-100 bg-gradient-to-br from-gray-100 via-gray-50 to-brand-muted/30"
-        aria-hidden
-      >
-        <div className="flex flex-col items-center gap-2 text-gray-400">
-          <Monitor className="h-8 w-8" aria-hidden />
-          <span className="text-xs font-medium tracking-wide uppercase">Screenshot placeholder</span>
-        </div>
+      <div className="border-b border-gray-100 p-4 sm:p-5">
+        <BrowserWindowFrame title={title}>
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative block aspect-[16/10] overflow-hidden transition-shadow hover:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-ring"
+            aria-label={`View full-size screenshot: ${title}`}
+          >
+            <Image
+              src={src}
+              alt={alt}
+              fill
+              className="object-cover object-top transition-transform duration-200 group-hover:scale-[1.01]"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            />
+          </a>
+        </BrowserWindowFrame>
       </div>
       <div className="flex flex-1 flex-col p-5">
         <div className="flex items-center gap-2">

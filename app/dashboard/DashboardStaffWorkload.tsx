@@ -46,9 +46,8 @@ export function DashboardStaffWorkload({
         Staff workload
       </h2>
       <p className="mb-2 max-w-2xl text-sm leading-relaxed text-gray-600">
-        Open requests grouped by staff assignee. Open, past due, needs attention, and
-        upcoming scheduled each add up to the same totals as the “At a glance” cards
-        above (needs attention = past due or due-today follow-up, or no staff assignee yet).
+        Open requests grouped by staff assignee. Past due and needs attention use the same
+        rules as Home — follow-up past due or due today, or no staff assignee yet.
       </p>
       <p className="mb-4 max-w-2xl text-sm font-medium leading-relaxed text-amber-950/90">
         Unassigned requests are the fastest way to reduce bottlenecks.
