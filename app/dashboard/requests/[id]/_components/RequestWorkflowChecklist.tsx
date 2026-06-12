@@ -8,7 +8,13 @@ import {
 } from '@/lib/requestWorkflowChecklist'
 import { scrollAndHighlightRequestSection } from './requestDetailSectionNav'
 
-function ChecklistRow({ item }: { item: WorkflowChecklistItem }) {
+function ChecklistRow({
+  item,
+  onNavigateToSection,
+}: {
+  item: WorkflowChecklistItem
+  onNavigateToSection?: (sectionId: string) => void
+}) {
   const isComplete = item.state === 'complete'
   const isNA = item.state === 'not_applicable'
   const canJump = item.state === 'incomplete' && item.sectionId
@@ -47,14 +53,15 @@ function ChecklistRow({ item }: { item: WorkflowChecklistItem }) {
       {icon}
       <div className="min-w-0 flex-1 pt-0.5">
         {canJump ? (
-          <a
-            href={`#${item.sectionId}`}
-            className="group block rounded-md -mx-1 px-1 py-0.5 text-sm leading-snug font-medium text-blue-900 underline decoration-blue-800/50 underline-offset-2 hover:text-blue-950 hover:decoration-blue-950"
-            onClick={(e) => {
-              if (typeof window === 'undefined') return
-              if (window.location.hash === `#${item.sectionId}`) {
-                e.preventDefault()
-                scrollAndHighlightRequestSection(item.sectionId!)
+          <button
+            type="button"
+            className="group block w-full rounded-md -mx-1 px-1 py-0.5 text-left text-sm leading-snug font-medium text-blue-900 underline decoration-blue-800/50 underline-offset-2 hover:text-blue-950 hover:decoration-blue-950"
+            onClick={() => {
+              const sectionId = item.sectionId!
+              if (onNavigateToSection) {
+                onNavigateToSection(sectionId)
+              } else {
+                scrollAndHighlightRequestSection(sectionId)
               }
             }}
           >
@@ -62,7 +69,7 @@ function ChecklistRow({ item }: { item: WorkflowChecklistItem }) {
             <span className="ml-1 text-xs font-normal text-blue-800/80 group-hover:text-blue-900">
               Go to section →
             </span>
-          </a>
+          </button>
         ) : (
           labelContent
         )}
@@ -71,8 +78,13 @@ function ChecklistRow({ item }: { item: WorkflowChecklistItem }) {
   )
 }
 
-export function RequestWorkflowChecklist(props: RequestWorkflowChecklistInput) {
-  const items = buildRequestWorkflowChecklist(props)
+export function RequestWorkflowChecklist(
+  props: RequestWorkflowChecklistInput & {
+    onNavigateToSection?: (sectionId: string) => void
+  }
+) {
+  const { onNavigateToSection, ...checklistInput } = props
+  const items = buildRequestWorkflowChecklist(checklistInput)
   const completeCount = items.filter((i) => i.state === 'complete').length
   const trackableCount = items.filter((i) => i.state !== 'not_applicable').length
 
@@ -92,7 +104,11 @@ export function RequestWorkflowChecklist(props: RequestWorkflowChecklistInput) {
 
       <ul className="mt-3 divide-y divide-gray-100 border-t border-gray-100">
         {items.map((item) => (
-          <ChecklistRow key={item.key} item={item} />
+          <ChecklistRow
+            key={item.key}
+            item={item}
+            onNavigateToSection={onNavigateToSection}
+          />
         ))}
       </ul>
     </section>

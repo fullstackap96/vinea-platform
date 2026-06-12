@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Mail, Phone, User } from 'lucide-react'
 import { useParams } from 'next/navigation'
@@ -35,6 +35,16 @@ import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection
 import { RequestRelationshipSuggestions } from './_components/RequestRelationshipSuggestions'
 import { RequestRecordSuggestion } from './_components/RequestRecordSuggestion'
 import { RequestSectionHashNavigator } from './_components/RequestSectionHashNavigator'
+import { RequestDetailTabNav } from './_components/RequestDetailTabNav'
+import {
+  REQUEST_DETAIL_GO_TO_SECTION_EVENT,
+  tabForRequestDetailSection,
+  type RequestDetailTabId,
+} from './_components/requestDetailTabs'
+import {
+  resolveRequestDetailSectionId,
+  scrollAndHighlightRequestSectionInPlace,
+} from './_components/requestDetailSectionNav'
 import { ConfirmedOciaSessionSection } from './_components/ConfirmedOciaSessionSection'
 import { FuneralDetailsSection } from './_components/FuneralDetailsSection'
 import { ConfirmedFuneralServiceSection } from './_components/ConfirmedFuneralServiceSection'
@@ -176,6 +186,30 @@ const [staffNotes, setStaffNotes] = useState('')
   const [editingIntake, setEditingIntake] = useState(false)
   const [confirmMarkCompleteOpen, setConfirmMarkCompleteOpen] = useState(false)
   const lastAutoNextStepKeyRef = useRef<string | null>(null)
+  const [activeTab, setActiveTab] = useState<RequestDetailTabId>('overview')
+
+  const goToSection = useCallback((sectionIdOrHash: string) => {
+    const id = resolveRequestDetailSectionId(sectionIdOrHash)
+    setActiveTab(tabForRequestDetailSection(id))
+    if (typeof window !== 'undefined') {
+      window.location.hash = `#${id}`
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollAndHighlightRequestSectionInPlace(id)
+      })
+    })
+  }, [])
+
+  useEffect(() => {
+    function onGoToSection(event: Event) {
+      const detail = (event as CustomEvent<{ sectionId: string }>).detail
+      if (detail?.sectionId) goToSection(detail.sectionId)
+    }
+    window.addEventListener(REQUEST_DETAIL_GO_TO_SECTION_EVENT, onGoToSection)
+    return () =>
+      window.removeEventListener(REQUEST_DETAIL_GO_TO_SECTION_EVENT, onGoToSection)
+  }, [goToSection])
 
   function nowDatetimeLocal() {
     const d = new Date()
@@ -478,22 +512,6 @@ function userIsActivelyTyping(): boolean {
 function hasHashOverride(): boolean {
   if (typeof window === 'undefined') return false
   return Boolean(window.location.hash && window.location.hash.trim() !== '')
-}
-
-function highlightSectionById(id: string) {
-  if (typeof window === 'undefined') return
-  const el = document.getElementById(id) as HTMLElement | null
-  if (!el) return
-
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  const cls = 'request-detail-hash-highlight'
-  el.classList.add(cls)
-  el.style.animationDuration = reduced ? '2200ms' : '3500ms'
-  const timeout = reduced ? 2600 : 3900
-  window.setTimeout(() => {
-    el.classList.remove(cls)
-    el.style.animationDuration = ''
-  }, timeout)
 }
 
 async function generateSummary() {
@@ -1428,43 +1446,13 @@ async function deleteGoogleCalendarEvent() {
       const raw = typeof window !== 'undefined' ? window.location.hash : ''
       const id = raw ? raw.replace(/^#/, '') : ''
       if (!id) return
-      const allowed = new Set([
-        'request-details',
-        'contact-information',
-        'assignment',
-        'scheduling-records',
-        'next-follow-up',
-        'next-step',
-        'next-step-reference',
-        'confirmed-time',
-        'checklist',
-        'communication-hub',
-        'email-communication',
-        'send-email',
-        'ai-tools',
-        'communication',
-        'communication-history',
-        'staff-notes',
-        'internal-notes',
-        'ready-to-complete',
-        'completion',
-      ])
-      if (!allowed.has(id)) return
-      const targetId =
-        id === 'email-communication' ? 'communication-hub' : id
-      highlightSectionById(targetId)
-      requestAnimationFrame(() => {
-        const el = document.getElementById(targetId)
-        if (!el) return
-        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
-      })
+      goToSection(id)
     }
 
     syncHashToSection()
     window.addEventListener('hashchange', syncHashToSection)
     return () => window.removeEventListener('hashchange', syncHashToSection)
-  }, [])
+  }, [goToSection])
 
   // Intentionally only re-fetch when the route id changes (loadRequest closes over fresh state).
   useEffect(() => {
@@ -1543,21 +1531,12 @@ async function deleteGoogleCalendarEvent() {
     const targetId = nextStep.targetSectionId
     const stepChanged = prevKey == null || prevKey !== key
 
-    if (stepChanged) {
-      highlightSectionById(targetId)
-    }
-
     if (!stepChanged) return
     if (!request) return
     if (userIsActivelyTyping()) return
 
-    requestAnimationFrame(() => {
-      const el = document.getElementById(targetId)
-      if (!el) return
-      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
-    })
-  }, [request, nextStep.priorityKey, nextStep.targetSectionId])
+    goToSection(targetId)
+  }, [request, nextStep.priorityKey, nextStep.targetSectionId, goToSection])
 
   if (loading) {
     return (
@@ -1578,14 +1557,14 @@ async function deleteGoogleCalendarEvent() {
       <main className="mx-auto max-w-3xl px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
         <p className="mb-3">
           <Link
-            href="/dashboard"
+            href="/dashboard/requests"
             className="text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
           >
-            ← Back to Dashboard
+            ← Back to Requests
           </Link>
         </p>
         <header className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Request details</h1>
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Request</h1>
           <p className="mt-1 text-sm text-gray-500">Manage and track this request</p>
         </header>
         <div
@@ -1693,15 +1672,7 @@ async function deleteGoogleCalendarEvent() {
           .join(', ')}.`
 
   function jumpToCompletion() {
-    if (typeof window === 'undefined') return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    requestAnimationFrame(() => {
-      const el = document.getElementById('completion')
-      if (!el) return
-      el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
-      highlightSectionById('completion')
-      window.location.hash = '#completion'
-    })
+    goToSection('completion')
   }
 
   const followUpSummaryDisplay = parseFollowUpCalendarDate(request?.next_follow_up_date)
@@ -1733,10 +1704,10 @@ async function deleteGoogleCalendarEvent() {
       <RequestSectionHashNavigator />
       <p className="mb-3">
         <Link
-          href="/dashboard"
+          href="/dashboard/requests"
           className="text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
         >
-          ← Back to Dashboard
+          ← Back to Requests
         </Link>
       </p>
 
@@ -1764,63 +1735,57 @@ async function deleteGoogleCalendarEvent() {
         primaryAction={headerPrimaryAction}
         canEditIntake={Boolean(parishioner?.id)}
         editingIntake={editingIntake}
-        onEditIntake={() => setEditingIntake(true)}
+        onEditIntake={() => {
+          setActiveTab('details')
+          setEditingIntake(true)
+        }}
         onMarkComplete={jumpToCompletion}
       />
 
-      <div className="mt-5 sm:mt-6">
-        <RequestNextStepCard
-          variant="dominant"
-          request={request}
-          scheduleRow={scheduleRowForProgress}
-          checklistIncomplete={checklistIncomplete}
-          canMarkComplete={canMarkComplete}
-          hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
-          onMarkComplete={jumpToCompletion}
-        />
-      </div>
+      <RequestDetailTabNav activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <RequestProgressCard
-        assignedStaffName={request?.assigned_staff_name}
-        nextFollowUpDate={request?.next_follow_up_date}
-        lastContactedAt={request?.last_contacted_at}
-        scheduleRow={scheduleRowForProgress}
-      />
-
-      <div className="mt-4 sm:mt-5">
-        <RequestWorkflowChecklist
-          request={request}
-          scheduleRow={scheduleRowForProgress}
-          hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
-        />
-      </div>
-
-      <div className="mt-4 sm:mt-5">
-        <RequestDetailSmartQuickActions
-          workflowInput={workflowInputForActions}
-          canMarkComplete={canMarkComplete}
-          hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
-          hidePrimary
-        />
-      </div>
-
-      <div className="mt-6 space-y-6 sm:mt-7">
-        <WorkflowSectionCard
-          id="next-step-reference"
-          title="Next step"
-          description="Your recommended action is shown in the card at the top of this page."
-          variant="plain"
+      <div className="rounded-b-xl border border-gray-200 bg-white shadow-sm">
+        <div
+          role="tabpanel"
+          id="request-tabpanel-overview"
+          aria-labelledby="request-tab-overview"
+          hidden={activeTab !== 'overview'}
+          className="space-y-5 p-4 sm:space-y-6 sm:p-6"
         >
-          <p className="text-sm leading-relaxed text-gray-600">
-            Use the highlighted <strong className="font-medium text-gray-800">What to do now</strong>{' '}
-            card above for the current priority, urgency, and buttons. The sections below walk through
-            each part of this request.
-          </p>
-        </WorkflowSectionCard>
+          <RequestNextStepCard
+            variant="dominant"
+            request={request}
+            scheduleRow={scheduleRowForProgress}
+            checklistIncomplete={checklistIncomplete}
+            canMarkComplete={canMarkComplete}
+            hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
+            onMarkComplete={jumpToCompletion}
+          />
 
-        <WorkflowSectionCard
+          <RequestProgressCard
+            assignedStaffName={request?.assigned_staff_name}
+            nextFollowUpDate={request?.next_follow_up_date}
+            lastContactedAt={request?.last_contacted_at}
+            scheduleRow={scheduleRowForProgress}
+          />
+
+          <RequestWorkflowChecklist
+            request={request}
+            scheduleRow={scheduleRowForProgress}
+            hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
+            onNavigateToSection={goToSection}
+          />
+
+          <RequestDetailSmartQuickActions
+            workflowInput={workflowInputForActions}
+            canMarkComplete={canMarkComplete}
+            hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
+            hidePrimary
+          />
+
+          <WorkflowSectionCard
           id="contact-information"
-          title="Contact Information"
+          title="Contact information"
           description="Primary contact details for this family."
         >
           <LabelValueGrid>
@@ -1858,17 +1823,25 @@ async function deleteGoogleCalendarEvent() {
           parishioner={parishioner}
         />
 
-        <RequestRecordSuggestion
-          requestId={routeId}
-          status={request?.status}
-          request_type={request?.request_type}
-          hasSacramentalRecord={hasSacramentalRecord}
-        />
+          <RequestRecordSuggestion
+            requestId={routeId}
+            status={request?.status}
+            request_type={request?.request_type}
+            hasSacramentalRecord={hasSacramentalRecord}
+          />
+        </div>
 
+        <div
+          role="tabpanel"
+          id="request-tabpanel-details"
+          aria-labelledby="request-tab-details"
+          hidden={activeTab !== 'details'}
+          className="space-y-5 p-4 sm:space-y-6 sm:p-6"
+        >
         <WorkflowSectionCard
           id="request-details"
-          title="Request Details"
-          description="Intake information, sacrament-specific fields, and workflow status."
+          title="Request details"
+          description="Intake information, sacrament-specific fields, and request status."
         >
             <RequestContactIntakeSection
               parishioner={parishioner}
@@ -1972,11 +1945,19 @@ async function deleteGoogleCalendarEvent() {
               <RequestWaitingOnSection request={request} onSave={updateWaitingOn} />
             </div>
         </WorkflowSectionCard>
+        </div>
 
+        <div
+          role="tabpanel"
+          id="request-tabpanel-scheduling"
+          aria-labelledby="request-tab-scheduling"
+          hidden={activeTab !== 'scheduling'}
+          className="space-y-5 p-4 sm:space-y-6 sm:p-6"
+        >
         <WorkflowSectionCard
           id="assignment"
           title="Assignment"
-          description="Assign staff, priest, or deacon."
+          description="Who on staff is responsible for this request."
         >
             <AssignmentSection
               requestId={routeId}
@@ -1991,8 +1972,8 @@ async function deleteGoogleCalendarEvent() {
 
         <WorkflowSectionCard
           id="scheduling-records"
-          title="Scheduling & Records"
-          description="Follow-up date, confirmed times, Google Calendar, and parish checklist."
+          title="Scheduling"
+          description="Follow-up dates, confirmed times, Google Calendar, and parish checklist."
         >
           <div id="next-follow-up" className="scroll-mt-6 sm:scroll-mt-8">
             <h3 className="text-sm font-semibold text-gray-900">Follow-up</h3>
@@ -2121,11 +2102,19 @@ async function deleteGoogleCalendarEvent() {
             </div>
           </div>
         </WorkflowSectionCard>
+        </div>
 
+        <div
+          role="tabpanel"
+          id="request-tabpanel-communication"
+          aria-labelledby="request-tab-communication"
+          hidden={activeTab !== 'communication'}
+          className="space-y-5 p-4 sm:space-y-6 sm:p-6"
+        >
         <WorkflowSectionCard
           id="communication-hub"
-          title="Communication Hub"
-          description="Email the family, log touchpoints, keep internal notes, and review history — all in one place."
+          title="Communication"
+          description="Email the family, review past messages, and draft replies from one place."
         >
           <div className="mb-6 rounded-xl border border-sky-100 bg-sky-50/40 px-4 py-3 sm:px-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-sky-900/80">
@@ -2203,33 +2192,41 @@ async function deleteGoogleCalendarEvent() {
             >
               <CommunicationHistoryList history={communications} />
             </CommunicationHubSubsection>
-
-            <CommunicationHubSubsection
-              id="internal-notes"
-              title="Internal note log"
-              description="Timestamped staff-only notes — not visible to families."
-            >
-              <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
-            </CommunicationHubSubsection>
-
-            <CommunicationHubSubsection
-              id="staff-notes"
-              title="Staff notes on file"
-              description="Shared notes on this request; included when you create Google Calendar events from Vinea."
-            >
-              <StaffNotesSection
-                staffNotes={staffNotes}
-                setStaffNotes={setStaffNotes}
-                onSaveStaffNotes={() => void saveStaffNotes()}
-              />
-              {staffNotesMessage ? (
-                <InlineFormMessage message={staffNotesMessage} className="!mt-3" />
-              ) : null}
-            </CommunicationHubSubsection>
           </div>
         </WorkflowSectionCard>
+        </div>
 
-        <div className="mt-6 sm:mt-8">
+        <div
+          role="tabpanel"
+          id="request-tabpanel-notes"
+          aria-labelledby="request-tab-notes"
+          hidden={activeTab !== 'notes'}
+          className="space-y-5 p-4 sm:space-y-6 sm:p-6"
+        >
+        <WorkflowSectionCard
+          id="internal-notes"
+          title="Internal note log"
+          description="Timestamped staff-only notes — not visible to families."
+        >
+          <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
+        </WorkflowSectionCard>
+
+        <WorkflowSectionCard
+          id="staff-notes"
+          title="Staff notes on file"
+          description="Shared notes on this request; included when you create Google Calendar events from Vinea."
+        >
+          <StaffNotesSection
+            staffNotes={staffNotes}
+            setStaffNotes={setStaffNotes}
+            onSaveStaffNotes={() => void saveStaffNotes()}
+          />
+          {staffNotesMessage ? (
+            <InlineFormMessage message={staffNotesMessage} className="!mt-3" />
+          ) : null}
+        </WorkflowSectionCard>
+
+        <div id="ready-to-complete">
           <ReadyToCompleteCard
             items={readyToCompleteItems}
             isAlreadyComplete={isRequestComplete}
@@ -2298,17 +2295,7 @@ async function deleteGoogleCalendarEvent() {
                       key={m.key}
                       type="button"
                       className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50"
-                      onClick={() => {
-                        const id = m.jumpTo
-                        requestAnimationFrame(() => {
-                          const el = document.getElementById(id)
-                          if (!el) return
-                          const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-                          el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
-                          highlightSectionById(id)
-                          window.location.hash = `#${id}`
-                        })
-                      }}
+                      onClick={() => goToSection(m.jumpTo)}
                     >
                       {m.jumpTo === 'confirmed-time'
                         ? 'Dates & calendar'
@@ -2330,6 +2317,7 @@ async function deleteGoogleCalendarEvent() {
             )}
           </div>
         </WorkflowSectionCard>
+        </div>
       </div>
 
       {confirmMarkCompleteOpen ? (

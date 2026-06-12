@@ -65,10 +65,10 @@ export function RequestDetailSmartQuickActions({
             className="flex items-center gap-2 text-sm font-semibold text-gray-900"
           >
             <Sparkles className="h-4 w-4 shrink-0 text-brand" aria-hidden />
-            Smart quick actions
+            Quick actions
           </h2>
           <p className="mt-0.5 max-w-xl text-xs leading-relaxed text-gray-600">
-            Suggested from the current next step. Jump to a section and highlight it on the page.
+            Shortcuts based on the current next step.
           </p>
         </div>
       </div>
