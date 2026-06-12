@@ -1,0 +1,3 @@
+export const GLOBAL_SEARCH_MIN_LENGTH = 2
+export const GLOBAL_SEARCH_MAX_PER_CATEGORY = 5
+export const GLOBAL_SEARCH_MAX_TOTAL = 20
