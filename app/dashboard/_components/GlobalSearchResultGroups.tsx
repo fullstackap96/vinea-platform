@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import type { GlobalSearchGroupedResults, GlobalSearchResultItem } from '@/lib/globalSearch/types'
+import { DashboardRequestNameLink } from '@/app/dashboard/_components/DashboardRequestNameLink'
+import { dashboardRequestOpenLabel } from '@/lib/dashboardRequestNavigation'
 
 const GROUP_LABELS: { key: keyof GlobalSearchGroupedResults; label: string }[] = [
   { key: 'requests', label: 'Requests' },
@@ -12,27 +14,40 @@ function SearchResultRow({
   item,
   onNavigate,
   compact,
+  isRequest,
 }: {
   item: GlobalSearchResultItem
   onNavigate?: () => void
   compact?: boolean
+  isRequest?: boolean
 }) {
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
-      className={`block rounded-xl border border-transparent transition hover:border-gray-200 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30 ${
+      aria-label={isRequest ? dashboardRequestOpenLabel(item.title) : undefined}
+      className={`group/card block cursor-pointer rounded-xl border border-transparent transition-[background-color,border-color] hover:border-gray-300/90 hover:bg-slate-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30 ${
         compact ? 'px-3 py-2.5' : 'p-4 sm:p-5'
       }`}
     >
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{item.typeLabel}</p>
-      <p
-        className={`mt-1 font-semibold text-gray-900 break-words ${
-          compact ? 'text-sm' : 'text-lg'
-        }`}
-      >
-        {item.title}
-      </p>
+      {isRequest ? (
+        <div className={`mt-1 ${compact ? '' : ''}`}>
+          <DashboardRequestNameLink
+            name={item.title}
+            embedded
+            size={compact ? 'sm' : 'lg'}
+          />
+        </div>
+      ) : (
+        <p
+          className={`mt-1 font-semibold text-gray-900 break-words ${
+            compact ? 'text-sm' : 'text-lg'
+          }`}
+        >
+          {item.title}
+        </p>
+      )}
       <p className={`mt-1 text-gray-700 break-words ${compact ? 'text-sm' : 'text-sm'}`}>
         {item.context}
       </p>
@@ -88,6 +103,7 @@ export function GlobalSearchResultGroups({
       {GROUP_LABELS.map(({ key, label }) => {
         const items = results[key]
         if (items.length === 0) return null
+        const isRequestGroup = key === 'requests'
 
         if (compact) {
           return (
@@ -98,7 +114,12 @@ export function GlobalSearchResultGroups({
               <ul>
                 {items.map((item) => (
                   <li key={`${key}-${item.href}`}>
-                    <SearchResultRow item={item} onNavigate={onNavigate} compact />
+                    <SearchResultRow
+                      item={item}
+                      onNavigate={onNavigate}
+                      compact
+                      isRequest={isRequestGroup}
+                    />
                   </li>
                 ))}
               </ul>
@@ -114,7 +135,11 @@ export function GlobalSearchResultGroups({
             <ul className="divide-y divide-gray-100">
               {items.map((item) => (
                 <li key={`${key}-${item.href}`}>
-                  <SearchResultRow item={item} onNavigate={onNavigate} />
+                  <SearchResultRow
+                    item={item}
+                    onNavigate={onNavigate}
+                    isRequest={isRequestGroup}
+                  />
                 </li>
               ))}
             </ul>

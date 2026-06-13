@@ -1,5 +1,10 @@
 import Link from 'next/link'
 import type { NotificationCenterItem, NotificationItemGroup } from '@/lib/notificationsCenter/types'
+import { DashboardRequestNameLink } from '@/app/dashboard/_components/DashboardRequestNameLink'
+import {
+  dashboardRequestOpenLabel,
+  isRequestDetailHref,
+} from '@/lib/dashboardRequestNavigation'
 
 const GROUP_LABELS: Record<NotificationItemGroup, string> = {
   overdue: 'Overdue',
@@ -73,18 +78,26 @@ export function NotificationsCenterPanel({
               {GROUP_LABELS[group]}
             </p>
             <ul>
-              {items.map((item) => (
-                <li key={item.key}>
-                  <Link
-                    href={item.href}
-                    onClick={onNavigate}
-                    className="block rounded-xl px-3 py-2.5 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
-                  >
-                    <p className="text-sm font-semibold leading-snug text-gray-900">{item.label}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-gray-600">{item.context}</p>
-                  </Link>
-                </li>
-              ))}
+              {items.map((item) => {
+                const isRequest = isRequestDetailHref(item.href)
+                return (
+                  <li key={item.key}>
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      aria-label={isRequest ? dashboardRequestOpenLabel(item.label) : undefined}
+                      className="group/card block cursor-pointer rounded-xl border border-transparent px-3 py-2.5 transition-[background-color,border-color] hover:border-gray-300/90 hover:bg-slate-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+                    >
+                      {isRequest ? (
+                        <DashboardRequestNameLink name={item.label} embedded size="sm" />
+                      ) : (
+                        <p className="text-sm font-semibold leading-snug text-gray-900">{item.label}</p>
+                      )}
+                      <p className="mt-1 text-sm leading-relaxed text-gray-600">{item.context}</p>
+                    </Link>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         )
@@ -96,7 +109,7 @@ export function NotificationsCenterPanel({
             <Link
               href="/dashboard/requests"
               onClick={onNavigate}
-              className="block rounded-lg px-2 py-2 text-sm font-medium text-[#6B4E9B] hover:bg-slate-50"
+              className="block rounded-lg px-2 py-2 text-sm font-medium text-brand hover:bg-slate-50"
             >
               View requests →
             </Link>
@@ -105,7 +118,7 @@ export function NotificationsCenterPanel({
             <Link
               href="/dashboard#suggested-actions-heading"
               onClick={onNavigate}
-              className="block rounded-lg px-2 py-2 text-sm font-medium text-[#6B4E9B] hover:bg-slate-50"
+              className="block rounded-lg px-2 py-2 text-sm font-medium text-brand hover:bg-slate-50"
             >
               View recommended actions →
             </Link>

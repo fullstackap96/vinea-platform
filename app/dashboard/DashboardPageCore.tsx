@@ -6,6 +6,7 @@ import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
+import { DashboardRequestNameLink } from './_components/DashboardRequestNameLink'
 import { DashboardRequestRowBadges } from './DashboardRequestRowBadges'
 import { DashboardRequestFilters } from './DashboardRequestFilters'
 import { RequestLinksSection } from './RequestLinksSection'
@@ -58,8 +59,9 @@ import {
   sortNeedsAttentionRequests,
 } from '@/lib/needsAttention'
 import { dashboardOverdueFollowUpCardClasses } from '@/lib/dashboardOverdueCardStyle'
+import { dashboardRequestOpenLabel } from '@/lib/dashboardRequestNavigation'
 import {
-  dashboardCardHoverPolish,
+  dashboardRequestContentLink,
   dashboardRequestLinkCardP4,
   dashboardRequestLinkCardP5,
 } from '@/lib/cardStyles'
@@ -74,6 +76,7 @@ import {
   workflowUrgencyChipClassName,
   workflowUrgencyLabel,
 } from '@/lib/requestWorkflowV2'
+import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import {
   vineaEmptyStateClassName,
   vineaSectionShellClassName,
@@ -84,6 +87,22 @@ const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 const FOLLOWUP_QUEUE_CONTACT_NOTES = 'Marked as contacted from Follow-Up Queue'
+
+function requestListDisplayName(request: {
+  request_type?: unknown
+  child_name?: unknown
+  parishioner?: { full_name?: unknown } | null
+  funeral_detail?: { deceased_name?: unknown } | null
+  wedding_detail?: { partner_one_name?: unknown; partner_two_name?: unknown } | null
+}): string {
+  return getRequestDetailPrimaryHeading({
+    request_type: request.request_type,
+    child_name: request.child_name,
+    parishioner: request.parishioner,
+    funeralDetail: request.funeral_detail,
+    weddingDetail: request.wedding_detail,
+  })
+}
 
 function followUpEmailSubject(request: any) {
   if (request.request_type === 'funeral') {
@@ -553,7 +572,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       scheduleRow: dashboardRequestScheduleRow(request),
       checklistIncomplete: Boolean(request.checklist_incomplete),
     })
-    const name = String(request.parishioner?.full_name ?? '').trim() || '—'
+    const name = requestListDisplayName(request)
     const priestLabel = assignmentDisplayLabel(request.assigned_priest_name)
     const deaconLabel = assignmentDisplayLabel(request.assigned_deacon_name)
     const overdue = isNextFollowUpOverdue(request.next_follow_up_date, request.status)
@@ -567,6 +586,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       <Link
         key={id}
         href={requestWorkflowDetailHref(id, workflow.sectionAnchor)}
+        aria-label={dashboardRequestOpenLabel(name)}
         className={`${dashboardRequestLinkCardP5} ${
           overdue ? dashboardOverdueFollowUpCardClasses : ''
         }`.trim()}
@@ -607,9 +627,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
               <span className="text-sm font-medium text-gray-400" aria-hidden>
                 ·
               </span>
-              <p className="min-w-0 text-base font-semibold text-gray-800 break-words">
-                {maybeMissingValue(name)}
-              </p>
+              <DashboardRequestNameLink name={name} embedded />
             </div>
             <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-xs font-medium text-gray-500">Status</span>
@@ -692,15 +710,20 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     const atRisk = evaluateAtRiskRequest(request)
     const waitingOnDisplay =
       requestWaitingOnLabel(request.waiting_on)?.trim() || 'Nothing recorded'
+    const displayName = requestListDisplayName(request)
 
     return (
       <Link
         key={request.id}
         href={requestWorkflowDetailHref(String(request.id), workflow.sectionAnchor)}
+        aria-label={dashboardRequestOpenLabel(displayName)}
         className={`${dashboardRequestLinkCardP4} ${
           followUpOverdue ? dashboardOverdueFollowUpCardClasses : ''
         }`.trim()}
       >
+        <div className="mb-3">
+          <DashboardRequestNameLink name={displayName} embedded size="lg" />
+        </div>
         {renderRequestSummary(request, { showAttentionChips: false })}
         <DashboardRequestRowBadges
           workflow={workflow}
@@ -1006,8 +1029,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       request.status
     )
 
-    const displayName =
-      String(request.parishioner?.full_name ?? '').trim() || '—'
+    const displayName = requestListDisplayName(request)
     const email = String(request.parishioner?.email ?? '').trim()
     const phone = String(request.parishioner?.phone ?? '').trim()
     const staff = assignmentDisplayLabel(request.assigned_staff_name)
@@ -1021,10 +1043,12 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       checklistIncomplete: Boolean(request.checklist_incomplete),
     })
 
+    const requestDetailHref = `/dashboard/requests/${encodeURIComponent(id)}`
+
     return (
       <div
         key={id}
-        className={`rounded-xl border border-gray-200 p-3 shadow-sm ${dashboardCardHoverPolish} ${
+        className={`rounded-xl border border-gray-200 p-3 shadow-sm ${
           followUpOverdue ? dashboardOverdueFollowUpCardClasses : 'bg-white'
         }`}
       >
@@ -1042,105 +1066,111 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="min-w-0 flex-1 space-y-2">
-                <div className="space-y-1">
-                  <p className="text-base font-bold text-gray-900 break-words">
-                    {maybeMissingValue(displayName)}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <RequestTypeBadge requestType={request.request_type} />
-                    <ParishRequestStatusBadgeWithTooltip
-                request={{
-                  status: request.status,
-                  next_follow_up_date: request.next_follow_up_date,
-                  assigned_staff_name: request.assigned_staff_name,
-                  assigned_priest_name: request.assigned_priest_name,
-                  assigned_deacon_name: request.assigned_deacon_name,
-                  request_type: request.request_type,
-                  waiting_on: request.waiting_on,
-                  scheduleRow: dashboardRequestScheduleRow(request),
-                }}
-              />
-                  </div>
-                </div>
-                {requestWaitingOnLabel(request.waiting_on) ? (
-                  <p className="text-sm text-gray-700">
-                    <span className="font-medium text-gray-500">Waiting for </span>
-                    <span className="font-semibold text-indigo-950">
-                      {requestWaitingOnLabel(request.waiting_on)}
-                    </span>
-                  </p>
-                ) : null}
-
-                {highlightLines.length > 0 ? (
-                  <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
-                    <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                      Highlights
-                    </p>
-                    <ul className="space-y-0.5" aria-label="Queue highlights">
-                      {highlightLines.map((line, idx) => (
-                        <li key={idx} className="flex gap-2 text-sm text-gray-700">
-                          <span className="shrink-0 text-gray-300" aria-hidden>
-                            ·
-                          </span>
-                          <span className="min-w-0 leading-snug">{line}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-                  <div>
-                    <p className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                      <User className="h-4 w-4 shrink-0 text-brand" aria-hidden />
-                      Contact
-                    </p>
-                    <div className="space-y-0.5">
-                      {email ? (
-                        <p className="flex gap-1.5 break-all text-sm font-medium text-gray-800">
-                          <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
-                          <span className="min-w-0">{email}</span>
-                        </p>
-                      ) : (
-                        <p className="text-xs">{maybeMissingValue('No email on file')}</p>
-                      )}
-                      {phone ? (
-                        <p className="flex gap-1.5 text-xs text-gray-600">
-                          <Phone className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
-                          <span className="min-w-0">{phone}</span>
-                        </p>
-                      ) : null}
-                      <p className="text-xs text-gray-600">
-                        <span className="text-gray-500">Staff</span>{' '}
-                        <span className="font-medium text-gray-800">
-                          {maybeMissingValue(staff)}
-                        </span>
-                        {' · '}
-                        <span className="text-gray-500">Priest</span>{' '}
-                        <span className="font-medium text-gray-800">
-                          {maybeMissingValue(priest)}
-                        </span>
-                        {' · '}
-                        <span className="text-gray-500">Deacon</span>{' '}
-                        <span className="font-medium text-gray-800">
-                          {maybeMissingValue(deacon)}
+                <Link
+                  href={requestDetailHref}
+                  aria-label={dashboardRequestOpenLabel(displayName)}
+                  className={dashboardRequestContentLink}
+                >
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <DashboardRequestNameLink name={displayName} embedded />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <RequestTypeBadge requestType={request.request_type} />
+                        <ParishRequestStatusBadgeWithTooltip
+                          request={{
+                            status: request.status,
+                            next_follow_up_date: request.next_follow_up_date,
+                            assigned_staff_name: request.assigned_staff_name,
+                            assigned_priest_name: request.assigned_priest_name,
+                            assigned_deacon_name: request.assigned_deacon_name,
+                            request_type: request.request_type,
+                            waiting_on: request.waiting_on,
+                            scheduleRow: dashboardRequestScheduleRow(request),
+                          }}
+                        />
+                      </div>
+                    </div>
+                    {requestWaitingOnLabel(request.waiting_on) ? (
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium text-gray-500">Waiting for </span>
+                        <span className="font-semibold text-indigo-950">
+                          {requestWaitingOnLabel(request.waiting_on)}
                         </span>
                       </p>
+                    ) : null}
+
+                    {highlightLines.length > 0 ? (
+                      <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
+                        <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                          Highlights
+                        </p>
+                        <ul className="space-y-0.5" aria-label="Queue highlights">
+                          {highlightLines.map((line, idx) => (
+                            <li key={idx} className="flex gap-2 text-sm text-gray-700">
+                              <span className="shrink-0 text-gray-300" aria-hidden>
+                                ·
+                              </span>
+                              <span className="min-w-0 leading-snug">{line}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                      <div>
+                        <p className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                          <User className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                          Contact
+                        </p>
+                        <div className="space-y-0.5">
+                          {email ? (
+                            <p className="flex gap-1.5 break-all text-sm font-medium text-gray-800">
+                              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                              <span className="min-w-0">{email}</span>
+                            </p>
+                          ) : (
+                            <p className="text-xs">{maybeMissingValue('No email on file')}</p>
+                          )}
+                          {phone ? (
+                            <p className="flex gap-1.5 text-xs text-gray-600">
+                              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                              <span className="min-w-0">{phone}</span>
+                            </p>
+                          ) : null}
+                          <p className="text-xs text-gray-600">
+                            <span className="text-gray-500">Staff</span>{' '}
+                            <span className="font-medium text-gray-800">
+                              {maybeMissingValue(staff)}
+                            </span>
+                            {' · '}
+                            <span className="text-gray-500">Priest</span>{' '}
+                            <span className="font-medium text-gray-800">
+                              {maybeMissingValue(priest)}
+                            </span>
+                            {' · '}
+                            <span className="text-gray-500">Deacon</span>{' '}
+                            <span className="font-medium text-gray-800">
+                              {maybeMissingValue(deacon)}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                          Email subject
+                        </p>
+                        <p
+                          className="line-clamp-2 text-sm font-medium leading-snug text-gray-800"
+                          title={emailSubject}
+                        >
+                          {emailSubject}
+                        </p>
+                      </div>
                     </div>
                   </div>
-
-                  <div>
-                    <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                      Email subject
-                    </p>
-                    <p
-                      className="line-clamp-2 text-sm font-medium leading-snug text-gray-800"
-                      title={emailSubject}
-                    >
-                      {emailSubject}
-                    </p>
-                  </div>
-                </div>
+                </Link>
 
                 {followUpRowMessages[id] ? (
                   <InlineFormMessage message={followUpRowMessages[id]} className="!mt-0" />

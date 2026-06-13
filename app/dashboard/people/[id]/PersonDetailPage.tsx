@@ -23,6 +23,12 @@ import { formatSacramentDateDisplay, parseSacramentalRecordRow } from '@/lib/sac
 import { formatRequestStatus } from '@/lib/requestStatus'
 import { secondaryButtonMd } from '@/lib/buttonStyles'
 import { supabase } from '@/lib/supabase'
+import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
+import {
+  dashboardRequestLinkCardP4,
+} from '@/lib/cardStyles'
+import { dashboardRequestOpenLabel } from '@/lib/dashboardRequestNavigation'
+import { DashboardRequestNameLink } from '@/app/dashboard/_components/DashboardRequestNameLink'
 import type { PersonRow } from '@/lib/types/people'
 import type { SacramentalRecordRow } from '@/lib/types/sacramentalRecords'
 
@@ -368,16 +374,22 @@ export function PersonDetailPage() {
                     ? `Child: ${String(request.child_name).trim()}`
                     : null
                 const submitted = formatSubmittedDate(request.created_at)
+                const requestName = getRequestDetailPrimaryHeading({
+                  request_type: request.request_type,
+                  child_name: request.child_name,
+                  parishioner: person ? { full_name: formatPersonDisplayName(person) } : null,
+                })
                 return (
                   <li key={request.id}>
                     <Link
                       href={`/dashboard/requests/${request.id}`}
-                      className="block rounded-xl border border-gray-200/90 bg-slate-50/80 px-4 py-3 transition hover:border-gray-300 hover:bg-white"
+                      aria-label={dashboardRequestOpenLabel(requestName)}
+                      className={`${dashboardRequestLinkCardP4} !rounded-xl !p-4`}
                     >
-                      <p className="font-semibold text-gray-900">
-                        {formatRequestType(request.request_type)}
-                      </p>
+                      <DashboardRequestNameLink name={requestName} embedded />
                       <p className="mt-1 text-sm text-gray-600">
+                        {formatRequestType(request.request_type)}
+                        {' · '}
                         {formatRequestStatus(request.status)}
                         {submitted ? ` · Submitted ${submitted}` : ''}
                         {subtitle ? ` · ${subtitle}` : ''}
@@ -412,12 +424,11 @@ export function PersonDetailPage() {
                     <span className="text-sm text-gray-600">({item.method})</span>
                   </p>
                   <p className="mt-1 text-sm">
-                    <Link
-                      href={`/dashboard/requests/${item.requestId}`}
-                      className="font-medium text-blue-800 underline underline-offset-2 hover:text-blue-950"
-                    >
-                      {item.requestLabel}
-                    </Link>
+                    <DashboardRequestNameLink
+                      requestId={item.requestId}
+                      name={item.requestLabel}
+                      size="sm"
+                    />
                   </p>
                   {item.notes ? (
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
