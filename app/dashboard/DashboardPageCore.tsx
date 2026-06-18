@@ -6,6 +6,7 @@ import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
+import { DashboardStaffWorkload } from './DashboardStaffWorkload'
 import { DashboardRequestNameLink } from './_components/DashboardRequestNameLink'
 import { DashboardRequestRowBadges } from './DashboardRequestRowBadges'
 import { DashboardRequestFilters } from './DashboardRequestFilters'
@@ -80,6 +81,7 @@ import {
   buildStaffCommandCenterRows,
   type StaffCommandCenterRow,
 } from '@/lib/staffCommandCenter'
+import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import {
   vineaEmptyStateClassName,
@@ -1731,6 +1733,11 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [isHome, requests, searchedRequests, dashboardMetricsAt]
   )
 
+  const staffWorkloadRows = useMemo(
+    () => buildStaffWorkloadRows(isHome ? requests : searchedRequests, dashboardMetricsAt),
+    [isHome, requests, searchedRequests, dashboardMetricsAt]
+  )
+
   const followUpToolbarLocked =
     loading ||
     followUpBatchBusy !== null ||
@@ -2015,6 +2022,12 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
           )}
         </div>
       </section>
+
+      <DashboardStaffWorkload
+        rows={staffWorkloadRows}
+        loading={loading}
+        dataUnavailable={requestsFetchFailed}
+      />
 
       {isHome ? (
       <section

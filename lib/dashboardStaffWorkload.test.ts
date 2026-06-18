@@ -27,6 +27,7 @@ describe('buildStaffWorkloadRows', () => {
           next_follow_up_date: '2026-06-01',
           created_at: '2026-06-01T12:00:00.000Z',
           last_contacted_at: '2026-06-10T12:00:00.000Z',
+          waiting_on: 'documents',
           request_type: 'baptism',
           confirmed_baptism_date: null,
         },
@@ -47,6 +48,8 @@ describe('buildStaffWorkloadRows', () => {
     expect(bob.openRequests).toBe(1)
     expect(bob.overdueFollowUps).toBe(1)
     expect(bob.actionRequired).toBe(1)
+    expect(bob.blockedRequests).toBe(1)
+    expect(bob.agingRequests).toBe(1)
     const unassigned = rows.find((r) => r.staffDisplay === STAFF_WORKLOAD_UNASSIGNED_LABEL)!
     expect(unassigned.openRequests).toBe(1)
   })
@@ -93,6 +96,7 @@ describe('buildStaffWorkloadRows', () => {
       key: keyof Pick<
         StaffWorkloadRow,
         'openRequests' | 'overdueFollowUps' | 'actionRequired' | 'upcomingScheduled'
+        | 'blockedRequests' | 'agingRequests'
       >
     ) => rows.reduce((acc, r) => acc + r[key], 0)
 
@@ -100,5 +104,7 @@ describe('buildStaffWorkloadRows', () => {
     expect(sum('overdueFollowUps')).toBe(summary.overdueFollowUps)
     expect(sum('actionRequired')).toBe(summary.actionRequired)
     expect(sum('upcomingScheduled')).toBe(summary.upcomingScheduled)
+    expect(sum('blockedRequests')).toBe(0)
+    expect(sum('agingRequests')).toBe(3)
   })
 })

@@ -110,6 +110,16 @@ export function DashboardStaffWorkload({
                     valueClass={row.actionRequired > 0 ? 'text-amber-900' : undefined}
                   />
                   <MetricBlock
+                    label="Blocked"
+                    value={row.blockedRequests}
+                    valueClass={row.blockedRequests > 0 ? 'text-violet-900' : undefined}
+                  />
+                  <MetricBlock
+                    label="Aging"
+                    value={row.agingRequests}
+                    valueClass={row.agingRequests > 0 ? 'text-orange-900' : undefined}
+                  />
+                  <MetricBlock
                     label="Upcoming scheduled"
                     value={row.upcomingScheduled}
                     valueClass={row.upcomingScheduled > 0 ? 'text-emerald-900' : undefined}
@@ -120,7 +130,7 @@ export function DashboardStaffWorkload({
           </div>
 
           <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200/90 bg-white shadow-sm ring-1 ring-gray-900/[0.03]">
-            <table className="w-full min-w-[36rem] border-collapse text-left">
+            <table className="w-full min-w-[48rem] border-collapse text-left">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50/90">
                   <th scope="col" className={`${headClass} pl-4`}>
@@ -134,6 +144,12 @@ export function DashboardStaffWorkload({
                   </th>
                   <th scope="col" className={headNumClass}>
                     Needs attention
+                  </th>
+                  <th scope="col" className={headNumClass}>
+                    Blocked
+                  </th>
+                  <th scope="col" className={headNumClass}>
+                    Aging
                   </th>
                   <th scope="col" className={`${headNumClass} pr-4`}>
                     Upcoming scheduled
@@ -170,6 +186,16 @@ export function DashboardStaffWorkload({
                       className={`${cellClass} ${row.actionRequired > 0 ? 'text-amber-900' : 'text-gray-700'}`}
                     >
                       {row.actionRequired}
+                    </td>
+                    <td
+                      className={`${cellClass} ${row.blockedRequests > 0 ? 'text-violet-900' : 'text-gray-700'}`}
+                    >
+                      {row.blockedRequests}
+                    </td>
+                    <td
+                      className={`${cellClass} ${row.agingRequests > 0 ? 'text-orange-900' : 'text-gray-700'}`}
+                    >
+                      {row.agingRequests}
                     </td>
                     <td
                       className={`${cellClass} pr-4 ${row.upcomingScheduled > 0 ? 'text-emerald-900' : 'text-gray-700'}`}
