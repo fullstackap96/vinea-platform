@@ -10,6 +10,7 @@ import type {
 } from '@/lib/types/requests'
 import { parseFollowUpCalendarDate } from '@/lib/nextFollowUpDate'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
+import { normalizeRequestWaitingOn } from '@/lib/requestWaitingOn'
 
 export type UpdateRequestAssignmentResult =
   | { ok: true }
@@ -18,6 +19,10 @@ export type UpdateRequestAssignmentResult =
 export type AddRequestNoteResult = { ok: true } | { ok: false; error: string }
 
 export type UpdateRequestNextFollowUpDateResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+export type UpdateRequestWaitingOnResult =
   | { ok: true }
   | { ok: false; error: string }
 
@@ -102,6 +107,62 @@ export async function updateRequestNextFollowUpDate(input: {
     .from('requests')
     .update(payload)
     .eq('id', requestId)
+
+  if (error) {
+    return { ok: false, error: error.message }
+  }
+
+  return { ok: true }
+}
+
+export async function updateRequestWaitingOn(input: {
+  requestId: string
+  waitingOn: unknown
+}): Promise<UpdateRequestWaitingOnResult> {
+  const requestId = String(input.requestId ?? '').trim()
+  if (!requestId) {
+    return { ok: false, error: 'Missing request id.' }
+  }
+
+  const raw = String(input.waitingOn ?? '').trim()
+  const waiting_on = raw ? normalizeRequestWaitingOn(raw) : null
+  if (raw && !waiting_on) {
+    return { ok: false, error: 'Invalid waiting-for value.' }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { ok: false, error: 'Unauthorized' }
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from('requests')
+    .select('waiting_on, waiting_on_changed_at')
+    .eq('id', requestId)
+    .single()
+
+  if (existingError) {
+    return { ok: false, error: existingError.message }
+  }
+
+  const existingWaitingOn = normalizeRequestWaitingOn(existing?.waiting_on)
+  const blockerChanged = existingWaitingOn !== waiting_on
+  const payload: {
+    waiting_on: typeof waiting_on
+    waiting_on_changed_at?: string | null
+  } = {
+    waiting_on,
+  }
+  if (blockerChanged) {
+    payload.waiting_on_changed_at = waiting_on ? new Date().toISOString() : null
+  }
+
+  const { error } = await supabase.from('requests').update(payload).eq('id', requestId)
 
   if (error) {
     return { ok: false, error: error.message }

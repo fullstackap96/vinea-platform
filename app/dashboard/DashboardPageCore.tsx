@@ -746,6 +746,10 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
           ? '1 checklist item open'
           : `${row.openChecklistCount} checklist items open`
         : 'Checklist OK'
+    const blockerDisplay =
+      row.blockerAgeDays !== null
+        ? `${row.blockerLabel} · ${row.blockerAgeDays}d`
+        : row.blockerLabel
 
     return (
       <Link
@@ -784,7 +788,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
                 Owner: {row.ownerLabel}
               </span>
               <span className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-violet-950">
-                Blocker: {row.blockerLabel}
+                Blocker: {blockerDisplay}
               </span>
               <span className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-gray-800">
                 {ageLabel}

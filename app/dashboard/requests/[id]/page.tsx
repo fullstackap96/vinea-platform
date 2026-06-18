@@ -78,6 +78,7 @@ import {
   validateSuggestedDateNotPast,
 } from '@/lib/scheduleValidation'
 import { formatNextFollowUpDateCompact, parseFollowUpCalendarDate } from '@/lib/nextFollowUpDate'
+import { updateRequestWaitingOn } from '../actions'
 import {
   isGoogleOAuthReconnectError,
   userFacingGoogleCalendarErrorMessage,
@@ -550,13 +551,13 @@ async function updateRequestStatus(newStatus: string) {
 }
 
 async function updateWaitingOn(next: string | null) {
-  const { error } = await supabase
-    .from('requests')
-    .update({ waiting_on: next })
-    .eq('id', routeId)
+  const result = await updateRequestWaitingOn({
+    requestId: routeId,
+    waitingOn: next,
+  })
 
-  if (error) {
-    throw new Error(error.message)
+  if (!result.ok) {
+    throw new Error(result.error)
   }
   loadRequest()
 }

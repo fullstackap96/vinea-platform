@@ -21,6 +21,7 @@ export type StaffCommandCenterRequest = {
   last_contacted_at?: unknown
   next_follow_up_date?: unknown
   waiting_on?: unknown
+  waiting_on_changed_at?: unknown
   assigned_staff_name?: unknown
   assigned_priest_name?: unknown
   assigned_deacon_name?: unknown
@@ -48,6 +49,7 @@ export type StaffCommandCenterRow = {
   bucketLabel: string
   ownerLabel: string
   blockerLabel: string
+  blockerAgeDays: number | null
   ageDays: number | null
   daysSinceContact: number | null
   missingConfirmedSchedule: boolean
@@ -168,6 +170,9 @@ export function buildStaffCommandCenterRows(
     const atRisk = evaluateAtRiskRequest(request, { now })
     const daysSinceContact = wholeDaysSince(request.last_contacted_at, now)
     const waitingLabel = requestWaitingOnLabel(request.waiting_on)
+    const blockerAgeDays = waitingLabel
+      ? wholeDaysSince(request.waiting_on_changed_at, now)
+      : null
     const bucket = resolveBucket({ row: request, workflow, smartFollowUp, atRisk, daysSinceContact })
     const openChecklistCount = checklistCount(request)
     const row: StaffCommandCenterRow = {
@@ -178,6 +183,7 @@ export function buildStaffCommandCenterRows(
       bucketLabel: BUCKET_LABELS[bucket],
       ownerLabel: displayName(request.assigned_staff_name),
       blockerLabel: waitingLabel ?? 'No blocker',
+      blockerAgeDays,
       ageDays: wholeDaysSince(request.created_at, now),
       daysSinceContact,
       missingConfirmedSchedule: isMissingConfirmedSchedule(scheduleRow),

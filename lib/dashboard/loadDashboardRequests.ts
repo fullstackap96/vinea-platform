@@ -58,7 +58,8 @@ export async function loadDashboardRequests(
         assigned_priest_name,
         assigned_deacon_name,
         next_follow_up_date,
-        waiting_on
+        waiting_on,
+        waiting_on_changed_at
       `)
       .in('parishioner_id', parishScope.parishionerIds)
       .order('created_at', { ascending: false })

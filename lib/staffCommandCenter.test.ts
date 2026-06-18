@@ -54,6 +54,7 @@ describe('buildStaffCommandCenterRows', () => {
           last_contacted_at: '2026-06-17T12:00:00.000Z',
           next_follow_up_date: '2026-06-25',
           waiting_on: 'documents',
+          waiting_on_changed_at: '2026-06-14T12:00:00.000Z',
           assigned_staff_name: 'Jane',
           wedding_detail: { confirmed_ceremony_at: '2026-08-01T17:00:00.000Z' },
         },
@@ -74,6 +75,7 @@ describe('buildStaffCommandCenterRows', () => {
     const byId = Object.fromEntries(result.rows.map((r) => [r.requestId, r]))
     expect(byId.blocked.bucket).toBe('blocked')
     expect(byId.blocked.blockerLabel).toBe('Documents')
+    expect(byId.blocked.blockerAgeDays).toBe(4)
     expect(byId.aging.bucket).toBe('aging')
     expect(byId.aging.daysSinceContact).toBe(10)
     expect(result.summary.blocked).toBe(1)
