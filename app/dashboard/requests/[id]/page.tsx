@@ -31,6 +31,7 @@ import { RequestWorkflowChecklist } from './_components/RequestWorkflowChecklist
 import { ReadyToCompleteCard } from './_components/ReadyToCompleteCard'
 import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmartQuickActions'
 import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
+import { RequestCareCadenceCard } from './_components/RequestCareCadenceCard'
 import { RequestHandoffBriefCard } from './_components/RequestHandoffBrief'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
 import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection'
@@ -90,6 +91,7 @@ import { buildReadyToCompleteItems } from '@/lib/requestReadyToComplete'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
 import { buildRequestHandoffBrief } from '@/lib/requestHandoffBrief'
+import { evaluateCareCadence } from '@/lib/careCadence'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -1761,6 +1763,13 @@ async function deleteGoogleCalendarEvent() {
     funeralDetail,
     weddingDetail,
   })
+  const careCadence = evaluateCareCadence({
+    ...(request ?? {}),
+    parishioner,
+    funeral_detail: funeralDetail,
+    wedding_detail: weddingDetail,
+    ocia_detail: ociaDetail,
+  })
 
   const followUpNotNeeded = String(request?.status || '') === 'complete'
   const followUpReady = hasFollowUp || followUpNotNeeded
@@ -1909,6 +1918,8 @@ async function deleteGoogleCalendarEvent() {
           />
 
           <RequestHandoffBriefCard brief={handoffBrief} />
+
+          <RequestCareCadenceCard cadence={careCadence} onSaved={loadRequest} />
 
           <RequestTimelineSection timelineInput={timelineInput} loading={loading} />
 
