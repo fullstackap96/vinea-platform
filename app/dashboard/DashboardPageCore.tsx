@@ -76,6 +76,10 @@ import {
   workflowUrgencyChipClassName,
   workflowUrgencyLabel,
 } from '@/lib/requestWorkflowV2'
+import {
+  buildStaffCommandCenterRows,
+  type StaffCommandCenterRow,
+} from '@/lib/staffCommandCenter'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import {
   vineaEmptyStateClassName,
@@ -87,6 +91,34 @@ const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 const FOLLOWUP_QUEUE_CONTACT_NOTES = 'Marked as contacted from Follow-Up Queue'
+
+function commandCenterBucketTone(bucket: StaffCommandCenterRow['bucket']): string {
+  switch (bucket) {
+    case 'act_now':
+      return 'border-rose-200 bg-rose-50 text-rose-950'
+    case 'blocked':
+      return 'border-violet-200 bg-violet-50 text-violet-950'
+    case 'aging':
+      return 'border-amber-200 bg-amber-50 text-amber-950'
+    case 'upcoming':
+    default:
+      return 'border-slate-200 bg-slate-50 text-slate-900'
+  }
+}
+
+function commandCenterFollowUpTone(urgency: StaffCommandCenterRow['smartFollowUp']['urgency']): string {
+  switch (urgency) {
+    case 'critical':
+      return 'border-red-300 bg-red-50 text-red-950'
+    case 'high':
+      return 'border-orange-300 bg-orange-50 text-orange-950'
+    case 'medium':
+      return 'border-sky-200 bg-sky-50 text-sky-950'
+    case 'low':
+    default:
+      return 'border-slate-200 bg-slate-50 text-slate-900'
+  }
+}
 
 function requestListDisplayName(request: {
   request_type?: unknown
@@ -691,6 +723,93 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
               </span>
             </p>
           </div>
+        </div>
+      </Link>
+    )
+  }
+
+  function renderCommandCenterRow(row: StaffCommandCenterRow) {
+    const request = row.request
+    const name = requestListDisplayName(request)
+    const contact = String(request.parishioner?.full_name ?? '').trim()
+    const followUpLabel = formatNextFollowUpDateCompact(request.next_follow_up_date) || 'Not set'
+    const ageLabel = row.ageDays === null ? 'Age unknown' : `${row.ageDays}d open`
+    const contactAgeLabel =
+      row.daysSinceContact === null
+        ? 'Never contacted'
+        : row.daysSinceContact <= 0
+          ? 'Contacted today'
+          : `${row.daysSinceContact}d since contact`
+    const checklistLabel =
+      row.openChecklistCount > 0
+        ? row.openChecklistCount === 1
+          ? '1 checklist item open'
+          : `${row.openChecklistCount} checklist items open`
+        : 'Checklist OK'
+
+    return (
+      <Link
+        key={row.requestId}
+        href={row.detailHref}
+        aria-label={dashboardRequestOpenLabel(name)}
+        className={`${dashboardRequestLinkCardP4} block`}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <RequestTypeBadge requestType={row.requestType} />
+              <span
+                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${commandCenterBucketTone(row.bucket)}`}
+              >
+                {row.bucketLabel}
+              </span>
+              <span
+                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${workflowUrgencyChipClassName(row.workflow.urgency)}`}
+              >
+                {workflowUrgencyLabel[row.workflow.urgency]}
+              </span>
+            </div>
+            <p className="mt-2 text-lg font-bold leading-snug text-gray-900 text-balance">
+              {row.workflow.nextStepTitle}
+            </p>
+            <p className="mt-1 text-sm font-medium leading-relaxed text-gray-700 text-pretty">
+              {row.workflow.nextStepDescription}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              <span className="font-semibold text-gray-900">{name}</span>
+              {contact && contact !== name ? <> · {contact}</> : null}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+              <span className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-gray-800">
+                Owner: {row.ownerLabel}
+              </span>
+              <span className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-violet-950">
+                Blocker: {row.blockerLabel}
+              </span>
+              <span className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-gray-800">
+                {ageLabel}
+              </span>
+              <span className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-gray-800">
+                {contactAgeLabel}
+              </span>
+              <span
+                className={`rounded-lg border px-2.5 py-1 ${commandCenterFollowUpTone(row.smartFollowUp.urgency)}`}
+              >
+                Follow-up: {followUpLabel}
+              </span>
+              <span className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-gray-800">
+                {checklistLabel}
+              </span>
+              {row.missingConfirmedSchedule ? (
+                <span className="rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1 text-orange-950">
+                  Schedule missing
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <span className={`${primaryButtonSm} w-full justify-center sm:w-auto`}>
+            {row.workflow.recommendedActionLabel}
+          </span>
         </div>
       </Link>
     )
@@ -1599,6 +1718,15 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [requests, dashboardMetricsAt]
   )
 
+  const staffCommandCenter = useMemo(
+    () =>
+      buildStaffCommandCenterRows(isHome ? requests : searchedRequests, {
+        now: dashboardMetricsAt,
+        limit: isHome ? 6 : 12,
+      }),
+    [isHome, requests, searchedRequests, dashboardMetricsAt]
+  )
+
   const followUpToolbarLocked =
     loading ||
     followUpBatchBusy !== null ||
@@ -1793,6 +1921,96 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
           disabled={loading || requestsFetchFailed}
         />
       )}
+
+      <section
+        className={vineaSectionShellClassName}
+        aria-labelledby="staff-command-center-heading"
+        aria-busy={loading}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 id="staff-command-center-heading" className={sectionHeadingClassName}>
+              Staff command center
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
+              Owned next actions across funerals, weddings, baptisms, and OCIA, ranked by
+              urgency, blockers, aging, and follow-up risk.
+            </p>
+          </div>
+          {!isHome ? (
+            <span className="text-sm font-medium text-gray-600">
+              Showing {staffCommandCenter.rows.length} prioritized rows
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          {[
+            ['Act now', staffCommandCenter.summary.actNow, 'act_now'],
+            ['Blocked', staffCommandCenter.summary.blocked, 'blocked'],
+            ['Aging', staffCommandCenter.summary.aging, 'aging'],
+            ['Upcoming', staffCommandCenter.summary.upcoming, 'upcoming'],
+          ].map(([label, value, bucket]) => (
+            <div
+              key={String(bucket)}
+              className={`rounded-lg border px-3 py-3 ${commandCenterBucketTone(
+                bucket as StaffCommandCenterRow['bucket']
+              )}`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">
+                {loading ? '—' : value}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 space-y-3">
+          {loading ? (
+            <div
+              role="status"
+              aria-live="polite"
+              aria-label="Loading staff command center"
+              className="space-y-3"
+            >
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="animate-pulse rounded-lg border border-gray-200 bg-white p-4"
+                >
+                  <div className="h-4 w-32 rounded bg-gray-200" />
+                  <div className="mt-3 h-5 w-56 rounded bg-gray-200" />
+                  <div className="mt-2 h-4 w-full max-w-xl rounded bg-gray-200" />
+                  <div className="mt-3 flex gap-2">
+                    <div className="h-7 w-24 rounded bg-gray-200" />
+                    <div className="h-7 w-24 rounded bg-gray-200" />
+                    <div className="h-7 w-24 rounded bg-gray-200" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : listLoadFailed ? (
+            <div className={vineaEmptyStateClassName} role="alert">
+              <p className="text-base font-semibold text-gray-900">
+                Requests could not be loaded.
+              </p>
+              <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
+                The command center will appear after request data loads successfully.
+              </p>
+            </div>
+          ) : staffCommandCenter.rows.length === 0 ? (
+            <div className={vineaEmptyStateClassName} role="status">
+              <p className="text-base font-semibold text-gray-900">
+                No open command-center work
+              </p>
+              <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-gray-600">
+                Open requests appear here when they need ownership, follow-up, schedule
+                confirmation, blocker review, or checklist work.
+              </p>
+            </div>
+          ) : (
+            staffCommandCenter.rows.map((row) => renderCommandCenterRow(row))
+          )}
+        </div>
+      </section>
 
       {isHome ? (
       <section
