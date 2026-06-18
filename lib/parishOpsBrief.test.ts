@@ -33,7 +33,13 @@ describe('buildParishOpsBrief', () => {
     expect(brief.headline).toContain('need action today')
     expect(brief.items.find((item) => item.key === 'act_now')?.value).toBe(1)
     expect(brief.items.find((item) => item.key === 'unassigned')?.value).toBe(1)
-    expect(brief.focusRequestIds[0]).toBe('urgent')
+    expect(brief.focusItems[0]).toMatchObject({
+      requestId: 'urgent',
+      requestTypeLabel: 'Funeral',
+      nextStepTitle: 'Assign ownership',
+      ownerLabel: 'Unassigned',
+    })
+    expect(brief.focusItems[0].href).toContain('/dashboard/requests/urgent#')
   })
 
   it('surfaces blockers when there is no urgent work', () => {
@@ -57,5 +63,6 @@ describe('buildParishOpsBrief', () => {
     expect(brief.headline).toContain('are blocked')
     expect(brief.items.find((item) => item.key === 'blocked')?.value).toBe(1)
     expect(brief.items.find((item) => item.key === 'blocked')?.severity).toBe('warning')
+    expect(brief.focusItems[0].blockerLabel).toBe('Documents')
   })
 })

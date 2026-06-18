@@ -6,6 +6,19 @@ import {
   buildStaffWorkloadRows,
   STAFF_WORKLOAD_UNASSIGNED_LABEL,
 } from '@/lib/dashboardStaffWorkload'
+import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
+import { formatRequestType } from '@/lib/formatRequestType'
+
+export type ParishOpsBriefFocusItem = {
+  requestId: string
+  title: string
+  requestTypeLabel: string
+  nextStepTitle: string
+  actionLabel: string
+  ownerLabel: string
+  blockerLabel: string
+  href: string
+}
 
 export type ParishOpsBriefSeverity = 'urgent' | 'warning' | 'steady'
 
@@ -21,7 +34,7 @@ export type ParishOpsBrief = {
   headline: string
   subline: string
   items: ParishOpsBriefItem[]
-  focusRequestIds: string[]
+  focusItems: ParishOpsBriefFocusItem[]
 }
 
 function plural(n: number, singular: string, pluralForm = `${singular}s`) {
@@ -133,6 +146,21 @@ export function buildParishOpsBrief(
     headline,
     subline,
     items,
-    focusRequestIds: commandCenter.rows.slice(0, 3).map((row) => row.requestId),
+    focusItems: commandCenter.rows.slice(0, 3).map((row) => ({
+      requestId: row.requestId,
+      title: getRequestDetailPrimaryHeading({
+        request_type: row.request.request_type,
+        child_name: row.request.child_name,
+        parishioner: row.request.parishioner,
+        funeralDetail: row.request.funeral_detail,
+        weddingDetail: row.request.wedding_detail,
+      }),
+      requestTypeLabel: formatRequestType(row.requestType),
+      nextStepTitle: row.workflow.nextStepTitle,
+      actionLabel: row.workflow.recommendedActionLabel,
+      ownerLabel: row.ownerLabel,
+      blockerLabel: row.blockerLabel,
+      href: row.detailHref,
+    })),
   }
 }

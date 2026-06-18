@@ -1,6 +1,7 @@
 'use client'
 
 import { AlertTriangle, CheckCircle2, ClipboardList } from 'lucide-react'
+import Link from 'next/link'
 import type { ParishOpsBrief, ParishOpsBriefSeverity } from '@/lib/parishOpsBrief'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
@@ -78,9 +79,9 @@ export function DashboardParishOpsBrief({
                 {brief.subline}
               </p>
             </div>
-            {brief.focusRequestIds.length > 0 ? (
+            {brief.focusItems.length > 0 ? (
               <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
-                Top {brief.focusRequestIds.length} focus rows ready
+                Top {brief.focusItems.length} focus rows ready
               </span>
             ) : null}
           </div>
@@ -100,6 +101,41 @@ export function DashboardParishOpsBrief({
               </div>
             ))}
           </div>
+
+          {brief.focusItems.length > 0 ? (
+            <div className="mt-4 border-t border-gray-200 pt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                Start here
+              </p>
+              <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-3">
+                {brief.focusItems.map((item) => (
+                  <Link
+                    key={item.requestId}
+                    href={item.href}
+                    className="block rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm transition-colors hover:border-brand/30 hover:bg-brand-muted/40"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-700">
+                        {item.requestTypeLabel}
+                      </span>
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        {item.actionLabel}
+                      </span>
+                    </div>
+                    <p className="mt-2 font-bold leading-snug text-gray-900 text-balance">
+                      {item.nextStepTitle}
+                    </p>
+                    <p className="mt-1 text-sm leading-snug text-gray-700 text-balance">
+                      {item.title}
+                    </p>
+                    <p className="mt-2 text-xs leading-snug text-gray-500">
+                      Owner: {item.ownerLabel} · Blocker: {item.blockerLabel}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
     </section>
