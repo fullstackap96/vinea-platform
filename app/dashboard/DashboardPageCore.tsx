@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
+import { DashboardParishOpsBrief } from './DashboardParishOpsBrief'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
 import { DashboardRequestNameLink } from './_components/DashboardRequestNameLink'
@@ -82,6 +83,7 @@ import {
   type StaffCommandCenterRow,
 } from '@/lib/staffCommandCenter'
 import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
+import { buildParishOpsBrief } from '@/lib/parishOpsBrief'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import {
   vineaEmptyStateClassName,
@@ -1738,6 +1740,11 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [isHome, requests, searchedRequests, dashboardMetricsAt]
   )
 
+  const parishOpsBrief = useMemo(
+    () => buildParishOpsBrief(requests, { now: dashboardMetricsAt }),
+    [requests, dashboardMetricsAt]
+  )
+
   const followUpToolbarLocked =
     loading ||
     followUpBatchBusy !== null ||
@@ -1906,6 +1913,12 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       <div className={isHome ? 'space-y-3 sm:space-y-4' : 'space-y-4 sm:space-y-5'}>
       {isHome ? (
         <>
+          <DashboardParishOpsBrief
+            brief={parishOpsBrief}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+          />
+
           <DashboardCommandSummary
             requests={requests}
             loading={loading}
