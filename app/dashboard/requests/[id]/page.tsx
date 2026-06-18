@@ -31,6 +31,7 @@ import { RequestWorkflowChecklist } from './_components/RequestWorkflowChecklist
 import { ReadyToCompleteCard } from './_components/ReadyToCompleteCard'
 import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmartQuickActions'
 import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
+import { RequestHandoffBriefCard } from './_components/RequestHandoffBrief'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
 import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection'
 import { RequestRelationshipSuggestions } from './_components/RequestRelationshipSuggestions'
@@ -88,6 +89,7 @@ import { getRequestDetailSmartQuickActions } from '@/lib/requestDetailQuickActio
 import { buildReadyToCompleteItems } from '@/lib/requestReadyToComplete'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
+import { buildRequestHandoffBrief } from '@/lib/requestHandoffBrief'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -1744,6 +1746,21 @@ async function deleteGoogleCalendarEvent() {
   const hasConfirmedSchedule = requiresConfirmedSchedule ? Boolean(confirmedIso) : true
 
   const remainingChecklistCount = checklistItems.filter((i: any) => i?.is_complete === false).length
+  const handoffBrief = buildRequestHandoffBrief({
+    request: request
+      ? {
+          ...request,
+          parishioner,
+        }
+      : null,
+    scheduleRow: scheduleRowForProgress,
+    checklistIncomplete,
+    remainingChecklistCount,
+    notesCount: requestNotes.length,
+    communicationsCount: communications.length,
+    funeralDetail,
+    weddingDetail,
+  })
 
   const followUpNotNeeded = String(request?.status || '') === 'complete'
   const followUpReady = hasFollowUp || followUpNotNeeded
@@ -1890,6 +1907,8 @@ async function deleteGoogleCalendarEvent() {
             hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
             onMarkComplete={jumpToCompletion}
           />
+
+          <RequestHandoffBriefCard brief={handoffBrief} />
 
           <RequestTimelineSection timelineInput={timelineInput} loading={loading} />
 
