@@ -18,8 +18,16 @@ export default function FuneralRequestPage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [deceasedName, setDeceasedName] = useState('')
+  const [familyRelationship, setFamilyRelationship] = useState('')
   const [dateOfDeath, setDateOfDeath] = useState('')
   const [funeralHome, setFuneralHome] = useState('')
+  const [funeralDirectorContact, setFuneralDirectorContact] = useState('')
+  const [serviceLocation, setServiceLocation] = useState('')
+  const [visitationDetails, setVisitationDetails] = useState('')
+  const [cemeteryOrCommittal, setCemeteryOrCommittal] = useState('')
+  const [readingsMusicNotes, setReadingsMusicNotes] = useState('')
+  const [obituaryProgramNotes, setObituaryProgramNotes] = useState('')
+  const [postFuneralFollowUpDate, setPostFuneralFollowUpDate] = useState('')
   const [preferredServiceNotes, setPreferredServiceNotes] = useState('')
   const [notes, setNotes] = useState('')
   const [message, setMessage] = useState('')
@@ -72,8 +80,16 @@ export default function FuneralRequestPage() {
       {
         request_id: request.id,
         deceased_name: deceasedName.trim(),
+        family_relationship: familyRelationship.trim() || null,
         date_of_death: dateOfDeath || null,
         funeral_home_or_location: funeralHome.trim() || null,
+        funeral_director_contact: funeralDirectorContact.trim() || null,
+        service_location: serviceLocation.trim() || null,
+        visitation_details: visitationDetails.trim() || null,
+        cemetery_or_committal: cemeteryOrCommittal.trim() || null,
+        readings_music_notes: readingsMusicNotes.trim() || null,
+        obituary_program_notes: obituaryProgramNotes.trim() || null,
+        post_funeral_follow_up_date: postFuneralFollowUpDate || null,
         preferred_service_notes: preferredServiceNotes.trim() || null,
       },
     ])
@@ -85,10 +101,14 @@ export default function FuneralRequestPage() {
     }
 
     const checklist = [
-      { request_id: request.id, item_name: 'Death certificate / vital records' },
-      { request_id: request.id, item_name: 'Obituary or program preferences' },
-      { request_id: request.id, item_name: 'Music and readings (if known)' },
-      { request_id: request.id, item_name: 'Cemetery or cremation arrangements' },
+      { request_id: request.id, item_name: 'Initial family contact / pastoral care' },
+      { request_id: request.id, item_name: 'Coordinate with funeral home' },
+      { request_id: request.id, item_name: 'Confirm service date and time' },
+      { request_id: request.id, item_name: 'Collect death certificate / vital records' },
+      { request_id: request.id, item_name: 'Readings and music selected' },
+      { request_id: request.id, item_name: 'Obituary, worship aid, or livestream details' },
+      { request_id: request.id, item_name: 'Cemetery, cremation, or committal arrangements' },
+      { request_id: request.id, item_name: 'Post-funeral family follow-up' },
     ]
 
     const { error: checklistError } = await supabase.from('checklist_items').insert(checklist)
@@ -112,8 +132,20 @@ export default function FuneralRequestPage() {
           notes,
           requestSpecificSummary: [
             deceasedName ? `Deceased: ${deceasedName.trim()}` : null,
+            familyRelationship ? `Relationship: ${familyRelationship.trim()}` : null,
             dateOfDeath ? `Date of death: ${dateOfDeath}` : null,
             funeralHome ? `Funeral home/location: ${funeralHome.trim()}` : null,
+            funeralDirectorContact
+              ? `Funeral director contact: ${funeralDirectorContact.trim()}`
+              : null,
+            serviceLocation ? `Service location: ${serviceLocation.trim()}` : null,
+            visitationDetails ? `Visitation: ${visitationDetails.trim()}` : null,
+            cemeteryOrCommittal ? `Cemetery/committal: ${cemeteryOrCommittal.trim()}` : null,
+            readingsMusicNotes ? `Readings/music: ${readingsMusicNotes.trim()}` : null,
+            obituaryProgramNotes ? `Obituary/program: ${obituaryProgramNotes.trim()}` : null,
+            postFuneralFollowUpDate
+              ? `Post-funeral follow-up: ${postFuneralFollowUpDate}`
+              : null,
             preferredServiceNotes
               ? `Preferred dates/times/notes: ${preferredServiceNotes.trim()}`
               : null,
@@ -135,8 +167,16 @@ export default function FuneralRequestPage() {
     setEmail('')
     setPhone('')
     setDeceasedName('')
+    setFamilyRelationship('')
     setDateOfDeath('')
     setFuneralHome('')
+    setFuneralDirectorContact('')
+    setServiceLocation('')
+    setVisitationDetails('')
+    setCemeteryOrCommittal('')
+    setReadingsMusicNotes('')
+    setObituaryProgramNotes('')
+    setPostFuneralFollowUpDate('')
     setPreferredServiceNotes('')
     setNotes('')
     setLoading(false)
@@ -184,6 +224,13 @@ export default function FuneralRequestPage() {
           required
         />
 
+        <input
+          className={intakeInputClass}
+          placeholder="Your relationship to the deceased"
+          value={familyRelationship}
+          onChange={(e) => setFamilyRelationship(e.target.value)}
+        />
+
         <label className={intakeLabelClass}>Date of death (if known)</label>
         <input
           className={intakeInputClass}
@@ -197,6 +244,56 @@ export default function FuneralRequestPage() {
           placeholder="Funeral home or church location (if known)"
           value={funeralHome}
           onChange={(e) => setFuneralHome(e.target.value)}
+        />
+
+        <input
+          className={intakeInputClass}
+          placeholder="Funeral director contact (if known)"
+          value={funeralDirectorContact}
+          onChange={(e) => setFuneralDirectorContact(e.target.value)}
+        />
+
+        <input
+          className={intakeInputClass}
+          placeholder="Preferred or confirmed service location"
+          value={serviceLocation}
+          onChange={(e) => setServiceLocation(e.target.value)}
+        />
+
+        <textarea
+          className={intakeTextareaClass}
+          placeholder="Wake, visitation, or viewing details"
+          value={visitationDetails}
+          onChange={(e) => setVisitationDetails(e.target.value)}
+        />
+
+        <textarea
+          className={intakeTextareaClass}
+          placeholder="Cemetery, burial, cremation, or committal details"
+          value={cemeteryOrCommittal}
+          onChange={(e) => setCemeteryOrCommittal(e.target.value)}
+        />
+
+        <textarea
+          className={intakeTextareaClass}
+          placeholder="Readings, music, or minister preferences"
+          value={readingsMusicNotes}
+          onChange={(e) => setReadingsMusicNotes(e.target.value)}
+        />
+
+        <textarea
+          className={intakeTextareaClass}
+          placeholder="Obituary, worship aid, livestream, or program notes"
+          value={obituaryProgramNotes}
+          onChange={(e) => setObituaryProgramNotes(e.target.value)}
+        />
+
+        <label className={intakeLabelClass}>Preferred family follow-up date (optional)</label>
+        <input
+          className={intakeInputClass}
+          type="date"
+          value={postFuneralFollowUpDate}
+          onChange={(e) => setPostFuneralFollowUpDate(e.target.value)}
         />
 
         <textarea

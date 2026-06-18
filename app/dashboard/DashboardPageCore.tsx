@@ -772,8 +772,16 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       if (requestType === 'funeral') {
         const fd = request.funeral_detail
         payload.deceasedName = fd?.deceased_name ?? ''
+        payload.familyRelationship = fd?.family_relationship ?? ''
         payload.dateOfDeath = fd?.date_of_death ?? ''
         payload.funeralHome = fd?.funeral_home_or_location ?? ''
+        payload.funeralDirectorContact = fd?.funeral_director_contact ?? ''
+        payload.serviceLocation = fd?.service_location ?? ''
+        payload.visitationDetails = fd?.visitation_details ?? ''
+        payload.cemeteryOrCommittal = fd?.cemetery_or_committal ?? ''
+        payload.readingsMusicNotes = fd?.readings_music_notes ?? ''
+        payload.obituaryProgramNotes = fd?.obituary_program_notes ?? ''
+        payload.postFuneralFollowUpDate = fd?.post_funeral_follow_up_date ?? ''
         payload.preferredServiceNotes = fd?.preferred_service_notes ?? ''
       } else if (requestType === 'wedding') {
         const wd = request.wedding_detail

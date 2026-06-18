@@ -75,6 +75,12 @@ export function RequestContactIntakeSection({
                 value={maybeMissingValue(String(funeralDetail?.deceased_name ?? '').trim() || '—')}
               />
               <LabelValueRow
+                label="Relationship"
+                value={maybeMissingValue(
+                  String(funeralDetail?.family_relationship ?? '').trim() || 'â€”'
+                )}
+              />
+              <LabelValueRow
                 label={<FieldLabel icon={Calendar}>Date of death</FieldLabel>}
                 value={maybeMissingValue(
                   funeralDetail?.date_of_death
@@ -86,6 +92,50 @@ export function RequestContactIntakeSection({
                 label="Funeral home / location"
                 value={maybeMissingValue(
                   String(funeralDetail?.funeral_home_or_location ?? '').trim() || '—'
+                )}
+              />
+              <LabelValueRow
+                label="Funeral director"
+                value={maybeMissingValue(
+                  String(funeralDetail?.funeral_director_contact ?? '').trim() || 'â€”'
+                )}
+              />
+              <LabelValueRow
+                label="Service location"
+                value={maybeMissingValue(
+                  String(funeralDetail?.service_location ?? '').trim() || 'â€”'
+                )}
+              />
+              <LabelValueRow
+                label="Visitation"
+                value={maybeMissingValue(
+                  String(funeralDetail?.visitation_details ?? '').trim() || 'â€”'
+                )}
+              />
+              <LabelValueRow
+                label="Cemetery / committal"
+                value={maybeMissingValue(
+                  String(funeralDetail?.cemetery_or_committal ?? '').trim() || 'â€”'
+                )}
+              />
+              <LabelValueRow
+                label="Readings / music"
+                value={maybeMissingValue(
+                  String(funeralDetail?.readings_music_notes ?? '').trim() || 'â€”'
+                )}
+              />
+              <LabelValueRow
+                label="Obituary / program"
+                value={maybeMissingValue(
+                  String(funeralDetail?.obituary_program_notes ?? '').trim() || 'â€”'
+                )}
+              />
+              <LabelValueRow
+                label={<FieldLabel icon={Calendar}>Family follow-up</FieldLabel>}
+                value={maybeMissingValue(
+                  funeralDetail?.post_funeral_follow_up_date
+                    ? String(funeralDetail.post_funeral_follow_up_date)
+                    : 'â€”'
                 )}
               />
               <LabelValueRow

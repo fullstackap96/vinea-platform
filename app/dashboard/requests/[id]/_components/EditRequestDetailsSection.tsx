@@ -55,8 +55,16 @@ export function EditRequestDetailsSection({
   const [childName, setChildName] = useState('')
   const [preferredDates, setPreferredDates] = useState('')
   const [deceasedName, setDeceasedName] = useState('')
+  const [funeralFamilyRelationship, setFuneralFamilyRelationship] = useState('')
   const [dateOfDeath, setDateOfDeath] = useState('')
   const [funeralHome, setFuneralHome] = useState('')
+  const [funeralDirectorContact, setFuneralDirectorContact] = useState('')
+  const [funeralServiceLocation, setFuneralServiceLocation] = useState('')
+  const [funeralVisitationDetails, setFuneralVisitationDetails] = useState('')
+  const [funeralCemeteryOrCommittal, setFuneralCemeteryOrCommittal] = useState('')
+  const [funeralReadingsMusicNotes, setFuneralReadingsMusicNotes] = useState('')
+  const [funeralObituaryProgramNotes, setFuneralObituaryProgramNotes] = useState('')
+  const [funeralPostFollowUpDate, setFuneralPostFollowUpDate] = useState('')
   const [funeralPreferred, setFuneralPreferred] = useState('')
   const [partnerOne, setPartnerOne] = useState('')
   const [partnerTwo, setPartnerTwo] = useState('')
@@ -82,10 +90,22 @@ export function EditRequestDetailsSection({
     setChildName(String(request?.child_name ?? ''))
     setPreferredDates(String(request?.preferred_dates ?? ''))
     setDeceasedName(String(funeralDetail?.deceased_name ?? ''))
+    setFuneralFamilyRelationship(String(funeralDetail?.family_relationship ?? ''))
     setDateOfDeath(
       funeralDetail?.date_of_death ? String(funeralDetail.date_of_death).slice(0, 10) : ''
     )
     setFuneralHome(String(funeralDetail?.funeral_home_or_location ?? ''))
+    setFuneralDirectorContact(String(funeralDetail?.funeral_director_contact ?? ''))
+    setFuneralServiceLocation(String(funeralDetail?.service_location ?? ''))
+    setFuneralVisitationDetails(String(funeralDetail?.visitation_details ?? ''))
+    setFuneralCemeteryOrCommittal(String(funeralDetail?.cemetery_or_committal ?? ''))
+    setFuneralReadingsMusicNotes(String(funeralDetail?.readings_music_notes ?? ''))
+    setFuneralObituaryProgramNotes(String(funeralDetail?.obituary_program_notes ?? ''))
+    setFuneralPostFollowUpDate(
+      funeralDetail?.post_funeral_follow_up_date
+        ? String(funeralDetail.post_funeral_follow_up_date).slice(0, 10)
+        : ''
+    )
     setFuneralPreferred(String(funeralDetail?.preferred_service_notes ?? ''))
     setPartnerOne(String(weddingDetail?.partner_one_name ?? ''))
     setPartnerTwo(String(weddingDetail?.partner_two_name ?? ''))
@@ -141,8 +161,16 @@ export function EditRequestDetailsSection({
           ...base,
           funeral: {
             deceasedName: deceasedName.trim(),
+            familyRelationship: funeralFamilyRelationship.trim() || null,
             dateOfDeath: dateOfDeath || null,
             funeralHome: funeralHome.trim() || null,
+            funeralDirectorContact: funeralDirectorContact.trim() || null,
+            serviceLocation: funeralServiceLocation.trim() || null,
+            visitationDetails: funeralVisitationDetails.trim() || null,
+            cemeteryOrCommittal: funeralCemeteryOrCommittal.trim() || null,
+            readingsMusicNotes: funeralReadingsMusicNotes.trim() || null,
+            obituaryProgramNotes: funeralObituaryProgramNotes.trim() || null,
+            postFuneralFollowUpDate: funeralPostFollowUpDate || null,
             preferredServiceNotes: funeralPreferred.trim() || null,
           },
         }
@@ -282,6 +310,17 @@ export function EditRequestDetailsSection({
               />
             </div>
             <div>
+              <label className={labelClass} htmlFor="edit-funeral-relationship">
+                Relationship to deceased
+              </label>
+              <input
+                id="edit-funeral-relationship"
+                className={inputClass}
+                value={funeralFamilyRelationship}
+                onChange={(e) => setFuneralFamilyRelationship(e.target.value)}
+              />
+            </div>
+            <div>
               <label className={labelClass} htmlFor="edit-dod">
                 Date of death
               </label>
@@ -302,6 +341,84 @@ export function EditRequestDetailsSection({
                 className={inputClass}
                 value={funeralHome}
                 onChange={(e) => setFuneralHome(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="edit-funeral-director">
+                Funeral director contact
+              </label>
+              <input
+                id="edit-funeral-director"
+                className={inputClass}
+                value={funeralDirectorContact}
+                onChange={(e) => setFuneralDirectorContact(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="edit-service-location">
+                Service location
+              </label>
+              <input
+                id="edit-service-location"
+                className={inputClass}
+                value={funeralServiceLocation}
+                onChange={(e) => setFuneralServiceLocation(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="edit-visitation-details">
+                Wake / visitation / viewing details
+              </label>
+              <textarea
+                id="edit-visitation-details"
+                className={`${inputClass} min-h-[80px]`}
+                value={funeralVisitationDetails}
+                onChange={(e) => setFuneralVisitationDetails(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="edit-committal-details">
+                Cemetery / committal details
+              </label>
+              <textarea
+                id="edit-committal-details"
+                className={`${inputClass} min-h-[80px]`}
+                value={funeralCemeteryOrCommittal}
+                onChange={(e) => setFuneralCemeteryOrCommittal(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="edit-readings-music">
+                Readings / music / ministers
+              </label>
+              <textarea
+                id="edit-readings-music"
+                className={`${inputClass} min-h-[80px]`}
+                value={funeralReadingsMusicNotes}
+                onChange={(e) => setFuneralReadingsMusicNotes(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="edit-obituary-program">
+                Obituary / worship aid / livestream
+              </label>
+              <textarea
+                id="edit-obituary-program"
+                className={`${inputClass} min-h-[80px]`}
+                value={funeralObituaryProgramNotes}
+                onChange={(e) => setFuneralObituaryProgramNotes(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="edit-post-funeral-follow-up">
+                Post-funeral family follow-up
+              </label>
+              <input
+                id="edit-post-funeral-follow-up"
+                type="date"
+                className={inputClass}
+                value={funeralPostFollowUpDate}
+                onChange={(e) => setFuneralPostFollowUpDate(e.target.value)}
               />
             </div>
             <div>

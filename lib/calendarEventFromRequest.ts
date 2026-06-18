@@ -90,9 +90,23 @@ export async function buildCalendarEventFromRequest(
     lines.push(`Email: ${parishionerEmail}`)
     if (parishionerPhone) lines.push(`Phone: ${parishionerPhone}`)
     lines.push(`Deceased: ${fd.deceased_name || ''}`)
+    if (fd.family_relationship) lines.push(`Relationship: ${fd.family_relationship}`)
     if (fd.date_of_death) lines.push(`Date of death: ${fd.date_of_death}`)
     if (fd.funeral_home_or_location) {
       lines.push(`Location / funeral home: ${fd.funeral_home_or_location}`)
+    }
+    if (fd.funeral_director_contact) {
+      lines.push(`Funeral director contact: ${fd.funeral_director_contact}`)
+    }
+    if (fd.service_location) lines.push(`Service location: ${fd.service_location}`)
+    if (fd.visitation_details) lines.push(`Visitation: ${fd.visitation_details}`)
+    if (fd.cemetery_or_committal) {
+      lines.push(`Cemetery / committal: ${fd.cemetery_or_committal}`)
+    }
+    if (fd.readings_music_notes) lines.push(`Readings / music: ${fd.readings_music_notes}`)
+    if (fd.obituary_program_notes) lines.push(`Obituary / program: ${fd.obituary_program_notes}`)
+    if (fd.post_funeral_follow_up_date) {
+      lines.push(`Post-funeral family follow-up: ${fd.post_funeral_follow_up_date}`)
     }
     if (fd.preferred_service_notes) {
       lines.push(`Preferred service notes: ${fd.preferred_service_notes}`)

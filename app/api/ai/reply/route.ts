@@ -27,9 +27,17 @@ function baseRequestBlock(body: Record<string, unknown>, requestType: string) {
 Contact Name: ${body.fullName}
 Email: ${body.email}
 Deceased: ${body.deceasedName}
+Relationship: ${body.familyRelationship || '—'}
 Date of death: ${body.dateOfDeath || '—'}
 Funeral home / location: ${body.funeralHome || '—'}
 Preferred service notes: ${body.preferredServiceNotes || '—'}
+Funeral director contact: ${body.funeralDirectorContact || '—'}
+Service location: ${body.serviceLocation || '—'}
+Visitation: ${body.visitationDetails || '—'}
+Cemetery / committal: ${body.cemeteryOrCommittal || '—'}
+Readings / music: ${body.readingsMusicNotes || '—'}
+Obituary / program: ${body.obituaryProgramNotes || '—'}
+Post-funeral family follow-up: ${body.postFuneralFollowUpDate || '—'}
 Notes: ${body.notes}`
   }
   if (requestType === 'wedding') {

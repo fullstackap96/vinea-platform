@@ -162,8 +162,16 @@ export type SaveRequestIntakeDetailsInput = {
   }
   funeral?: {
     deceasedName: string
+    familyRelationship: string | null
     dateOfDeath: string | null
     funeralHome: string | null
+    funeralDirectorContact: string | null
+    serviceLocation: string | null
+    visitationDetails: string | null
+    cemeteryOrCommittal: string | null
+    readingsMusicNotes: string | null
+    obituaryProgramNotes: string | null
+    postFuneralFollowUpDate: string | null
     preferredServiceNotes: string | null
   }
   wedding?: {
@@ -292,8 +300,16 @@ export async function saveRequestIntakeDetails(
       {
         request_id: requestId,
         deceased_name: f.deceasedName.trim(),
+        family_relationship: f.familyRelationship?.trim() || null,
         date_of_death: f.dateOfDeath || null,
         funeral_home_or_location: f.funeralHome?.trim() || null,
+        funeral_director_contact: f.funeralDirectorContact?.trim() || null,
+        service_location: f.serviceLocation?.trim() || null,
+        visitation_details: f.visitationDetails?.trim() || null,
+        cemetery_or_committal: f.cemeteryOrCommittal?.trim() || null,
+        readings_music_notes: f.readingsMusicNotes?.trim() || null,
+        obituary_program_notes: f.obituaryProgramNotes?.trim() || null,
+        post_funeral_follow_up_date: f.postFuneralFollowUpDate || null,
         preferred_service_notes: f.preferredServiceNotes?.trim() || null,
         confirmed_service_at: existing?.confirmed_service_at ?? null,
       },

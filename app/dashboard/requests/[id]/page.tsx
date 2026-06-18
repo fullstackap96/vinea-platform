@@ -158,8 +158,16 @@ const [staffNotes, setStaffNotes] = useState('')
 
   const [funeralDetail, setFuneralDetail] = useState<any | null>(null)
   const [funeralDeceasedName, setFuneralDeceasedName] = useState('')
+  const [funeralFamilyRelationship, setFuneralFamilyRelationship] = useState('')
   const [funeralDateOfDeath, setFuneralDateOfDeath] = useState('')
   const [funeralHome, setFuneralHome] = useState('')
+  const [funeralDirectorContact, setFuneralDirectorContact] = useState('')
+  const [funeralServiceLocation, setFuneralServiceLocation] = useState('')
+  const [funeralVisitationDetails, setFuneralVisitationDetails] = useState('')
+  const [funeralCemeteryOrCommittal, setFuneralCemeteryOrCommittal] = useState('')
+  const [funeralReadingsMusicNotes, setFuneralReadingsMusicNotes] = useState('')
+  const [funeralObituaryProgramNotes, setFuneralObituaryProgramNotes] = useState('')
+  const [funeralPostFollowUpDate, setFuneralPostFollowUpDate] = useState('')
   const [funeralPreferredNotes, setFuneralPreferredNotes] = useState('')
   const [funeralSaving, setFuneralSaving] = useState(false)
   const [funeralMessage, setFuneralMessage] = useState('')
@@ -336,10 +344,22 @@ const [staffNotes, setStaffNotes] = useState('')
 
       setFuneralDetail(fDetail)
       setFuneralDeceasedName(fDetail?.deceased_name || '')
+      setFuneralFamilyRelationship(fDetail?.family_relationship || '')
       setFuneralDateOfDeath(
         fDetail?.date_of_death ? String(fDetail.date_of_death).slice(0, 10) : ''
       )
       setFuneralHome(fDetail?.funeral_home_or_location || '')
+      setFuneralDirectorContact(fDetail?.funeral_director_contact || '')
+      setFuneralServiceLocation(fDetail?.service_location || '')
+      setFuneralVisitationDetails(fDetail?.visitation_details || '')
+      setFuneralCemeteryOrCommittal(fDetail?.cemetery_or_committal || '')
+      setFuneralReadingsMusicNotes(fDetail?.readings_music_notes || '')
+      setFuneralObituaryProgramNotes(fDetail?.obituary_program_notes || '')
+      setFuneralPostFollowUpDate(
+        fDetail?.post_funeral_follow_up_date
+          ? String(fDetail.post_funeral_follow_up_date).slice(0, 10)
+          : ''
+      )
       setFuneralPreferredNotes(fDetail?.preferred_service_notes || '')
       setConfirmedFuneralService(isoToDatetimeLocal(fDetail?.confirmed_service_at))
 
@@ -372,8 +392,16 @@ const [staffNotes, setStaffNotes] = useState('')
 
       setFuneralDetail(null)
       setFuneralDeceasedName('')
+      setFuneralFamilyRelationship('')
       setFuneralDateOfDeath('')
       setFuneralHome('')
+      setFuneralDirectorContact('')
+      setFuneralServiceLocation('')
+      setFuneralVisitationDetails('')
+      setFuneralCemeteryOrCommittal('')
+      setFuneralReadingsMusicNotes('')
+      setFuneralObituaryProgramNotes('')
+      setFuneralPostFollowUpDate('')
       setFuneralPreferredNotes('')
       setConfirmedFuneralService('')
 
@@ -399,8 +427,16 @@ const [staffNotes, setStaffNotes] = useState('')
 
       setFuneralDetail(null)
       setFuneralDeceasedName('')
+      setFuneralFamilyRelationship('')
       setFuneralDateOfDeath('')
       setFuneralHome('')
+      setFuneralDirectorContact('')
+      setFuneralServiceLocation('')
+      setFuneralVisitationDetails('')
+      setFuneralCemeteryOrCommittal('')
+      setFuneralReadingsMusicNotes('')
+      setFuneralObituaryProgramNotes('')
+      setFuneralPostFollowUpDate('')
       setFuneralPreferredNotes('')
       setConfirmedFuneralService('')
 
@@ -423,8 +459,16 @@ const [staffNotes, setStaffNotes] = useState('')
 
       setFuneralDetail(null)
       setFuneralDeceasedName('')
+      setFuneralFamilyRelationship('')
       setFuneralDateOfDeath('')
       setFuneralHome('')
+      setFuneralDirectorContact('')
+      setFuneralServiceLocation('')
+      setFuneralVisitationDetails('')
+      setFuneralCemeteryOrCommittal('')
+      setFuneralReadingsMusicNotes('')
+      setFuneralObituaryProgramNotes('')
+      setFuneralPostFollowUpDate('')
       setFuneralPreferredNotes('')
       setConfirmedFuneralService('')
 
@@ -440,8 +484,16 @@ const [staffNotes, setStaffNotes] = useState('')
     } else {
       setFuneralDetail(null)
       setFuneralDeceasedName('')
+      setFuneralFamilyRelationship('')
       setFuneralDateOfDeath('')
       setFuneralHome('')
+      setFuneralDirectorContact('')
+      setFuneralServiceLocation('')
+      setFuneralVisitationDetails('')
+      setFuneralCemeteryOrCommittal('')
+      setFuneralReadingsMusicNotes('')
+      setFuneralObituaryProgramNotes('')
+      setFuneralPostFollowUpDate('')
       setFuneralPreferredNotes('')
       setConfirmedFuneralService('')
 
@@ -545,8 +597,23 @@ async function generateSummary() {
         notes: request.notes,
         status: request.status,
         deceasedName: funeralDetail?.deceased_name || funeralDeceasedName,
+        familyRelationship:
+          funeralDetail?.family_relationship || funeralFamilyRelationship,
         dateOfDeath: funeralDetail?.date_of_death || funeralDateOfDeath,
         funeralHome: funeralDetail?.funeral_home_or_location || funeralHome,
+        funeralDirectorContact:
+          funeralDetail?.funeral_director_contact || funeralDirectorContact,
+        serviceLocation: funeralDetail?.service_location || funeralServiceLocation,
+        visitationDetails:
+          funeralDetail?.visitation_details || funeralVisitationDetails,
+        cemeteryOrCommittal:
+          funeralDetail?.cemetery_or_committal || funeralCemeteryOrCommittal,
+        readingsMusicNotes:
+          funeralDetail?.readings_music_notes || funeralReadingsMusicNotes,
+        obituaryProgramNotes:
+          funeralDetail?.obituary_program_notes || funeralObituaryProgramNotes,
+        postFuneralFollowUpDate:
+          funeralDetail?.post_funeral_follow_up_date || funeralPostFollowUpDate,
         preferredServiceNotes:
           funeralDetail?.preferred_service_notes || funeralPreferredNotes,
         confirmedServiceAt: funeralDetail?.confirmed_service_at,
@@ -641,8 +708,23 @@ async function generateReplyDraft() {
     }
     if (requestType === 'funeral') {
       replyBody.deceasedName = funeralDetail?.deceased_name || funeralDeceasedName
+      replyBody.familyRelationship =
+        funeralDetail?.family_relationship || funeralFamilyRelationship
       replyBody.dateOfDeath = funeralDetail?.date_of_death || funeralDateOfDeath
       replyBody.funeralHome = funeralDetail?.funeral_home_or_location || funeralHome
+      replyBody.funeralDirectorContact =
+        funeralDetail?.funeral_director_contact || funeralDirectorContact
+      replyBody.serviceLocation = funeralDetail?.service_location || funeralServiceLocation
+      replyBody.visitationDetails =
+        funeralDetail?.visitation_details || funeralVisitationDetails
+      replyBody.cemeteryOrCommittal =
+        funeralDetail?.cemetery_or_committal || funeralCemeteryOrCommittal
+      replyBody.readingsMusicNotes =
+        funeralDetail?.readings_music_notes || funeralReadingsMusicNotes
+      replyBody.obituaryProgramNotes =
+        funeralDetail?.obituary_program_notes || funeralObituaryProgramNotes
+      replyBody.postFuneralFollowUpDate =
+        funeralDetail?.post_funeral_follow_up_date || funeralPostFollowUpDate
       replyBody.preferredServiceNotes =
         funeralDetail?.preferred_service_notes || funeralPreferredNotes
     } else if (requestType === 'wedding') {
@@ -870,8 +952,16 @@ async function saveFuneralDetails() {
     {
       request_id: routeId,
       deceased_name: name,
+      family_relationship: funeralFamilyRelationship.trim() || null,
       date_of_death: funeralDateOfDeath || null,
       funeral_home_or_location: funeralHome.trim() || null,
+      funeral_director_contact: funeralDirectorContact.trim() || null,
+      service_location: funeralServiceLocation.trim() || null,
+      visitation_details: funeralVisitationDetails.trim() || null,
+      cemetery_or_committal: funeralCemeteryOrCommittal.trim() || null,
+      readings_music_notes: funeralReadingsMusicNotes.trim() || null,
+      obituary_program_notes: funeralObituaryProgramNotes.trim() || null,
+      post_funeral_follow_up_date: funeralPostFollowUpDate || null,
       preferred_service_notes: funeralPreferredNotes.trim() || null,
       confirmed_service_at: funeralDetail?.confirmed_service_at ?? null,
     },
@@ -1933,10 +2023,26 @@ async function deleteGoogleCalendarEvent() {
                 <FuneralDetailsSection
                   deceasedName={funeralDeceasedName}
                   setDeceasedName={setFuneralDeceasedName}
+                  familyRelationship={funeralFamilyRelationship}
+                  setFamilyRelationship={setFuneralFamilyRelationship}
                   dateOfDeath={funeralDateOfDeath}
                   setDateOfDeath={setFuneralDateOfDeath}
                   funeralHome={funeralHome}
                   setFuneralHome={setFuneralHome}
+                  funeralDirectorContact={funeralDirectorContact}
+                  setFuneralDirectorContact={setFuneralDirectorContact}
+                  serviceLocation={funeralServiceLocation}
+                  setServiceLocation={setFuneralServiceLocation}
+                  visitationDetails={funeralVisitationDetails}
+                  setVisitationDetails={setFuneralVisitationDetails}
+                  cemeteryOrCommittal={funeralCemeteryOrCommittal}
+                  setCemeteryOrCommittal={setFuneralCemeteryOrCommittal}
+                  readingsMusicNotes={funeralReadingsMusicNotes}
+                  setReadingsMusicNotes={setFuneralReadingsMusicNotes}
+                  obituaryProgramNotes={funeralObituaryProgramNotes}
+                  setObituaryProgramNotes={setFuneralObituaryProgramNotes}
+                  postFuneralFollowUpDate={funeralPostFollowUpDate}
+                  setPostFuneralFollowUpDate={setFuneralPostFollowUpDate}
                   preferredServiceNotes={funeralPreferredNotes}
                   setPreferredServiceNotes={setFuneralPreferredNotes}
                   onSave={saveFuneralDetails}
