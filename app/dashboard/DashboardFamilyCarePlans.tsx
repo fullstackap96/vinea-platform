@@ -29,7 +29,19 @@ type Props = {
   ) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
-function priorityClass(priority: CarePlanPriority): string {
+function priorityAccentClass(priority: CarePlanPriority): string {
+  switch (priority) {
+    case 'urgent':
+      return 'border-l-rose-500'
+    case 'high':
+      return 'border-l-amber-500'
+    case 'steady':
+    default:
+      return 'border-l-emerald-500'
+  }
+}
+
+function priorityChipClass(priority: CarePlanPriority): string {
   switch (priority) {
     case 'urgent':
       return 'border-rose-200 bg-rose-50 text-rose-950'
@@ -41,10 +53,23 @@ function priorityClass(priority: CarePlanPriority): string {
   }
 }
 
+function priorityLabel(priority: CarePlanPriority): string {
+  if (priority === 'urgent') return 'Urgent'
+  if (priority === 'high') return 'Needs care'
+  return 'Steady'
+}
+
 function stageLabel(stage: CarePlan['stage']): string {
   if (stage === 'before_service') return 'Before service'
   if (stage === 'post_funeral') return 'Post-funeral'
   return 'Ongoing care'
+}
+
+function formatDateLabel(value: string): string {
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 export function DashboardFamilyCarePlans({
@@ -84,6 +109,10 @@ export function DashboardFamilyCarePlans({
     }
   }
 
+  function selectedNextDate(plan: CarePlan): string {
+    return nextDateByPlanId[plan.requestId] || plan.nextFollowUpRecommendations[0]?.date || ''
+  }
+
   return (
     <section
       className={vineaSectionShellClassName}
@@ -99,7 +128,7 @@ export function DashboardFamilyCarePlans({
             Families needing care
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
-            Funeral bereavement care and other family care plans that need a staff touchpoint.
+            Families with a next pastoral touchpoint, sorted by urgency.
           </p>
         </div>
         {!loading && !hidePanel ? (
@@ -140,33 +169,36 @@ export function DashboardFamilyCarePlans({
           {plans.map((plan) => (
             <article
               key={`${plan.planType}-${plan.requestId}`}
-              className={`rounded-xl border px-4 py-4 shadow-sm ${priorityClass(plan.priority)}`}
+              className={`rounded-xl border border-l-4 border-gray-200 bg-white px-4 py-4 shadow-sm ${priorityAccentClass(plan.priority)}`}
             >
               <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/80 text-gray-900 ring-1 ring-gray-200">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-muted text-brand-foreground ring-1 ring-brand/15">
                   <HeartHandshake className="h-5 w-5" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`${chipBase} border border-white/80 bg-white/70 text-[10px] uppercase`}>
+                    <span className={`${chipBase} border text-[10px] uppercase ${priorityChipClass(plan.priority)}`}>
+                      {priorityLabel(plan.priority)}
+                    </span>
+                    <span className={`${chipBase} border border-gray-200 bg-gray-50 text-[10px] uppercase text-gray-700`}>
                       {stageLabel(plan.stage)}
                     </span>
-                    <span className="text-xs font-semibold uppercase tracking-wide opacity-75">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                       {plan.dueLabel}
                     </span>
                   </div>
                   <p className="mt-2 text-base font-bold leading-snug">{plan.headline}</p>
                   <p className="mt-1 text-sm font-semibold">{plan.familyLabel}</p>
-                  <p className="mt-1 text-sm leading-relaxed opacity-90">{plan.summary}</p>
-                  <p className="mt-2 text-sm leading-relaxed">
-                    <span className="font-semibold">Next: </span>
+                  <p className="mt-1 text-sm leading-relaxed text-gray-600">{plan.summary}</p>
+                  <p className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm leading-relaxed text-gray-800">
+                    <span className="font-semibold">Recommended next step: </span>
                     {plan.nextTouchpoint}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {onCompleteTouchpoint ? (
                       <button
                         type="button"
-                        className={`${primaryButtonSm} gap-2 bg-white text-gray-950 hover:bg-white/90`}
+                        className={`${primaryButtonSm} gap-2`}
                         onClick={() =>
                           setOpenPlanId((current) =>
                             current === plan.requestId ? null : plan.requestId
@@ -179,7 +211,7 @@ export function DashboardFamilyCarePlans({
                     ) : null}
                     <Link
                       href={plan.detailHref}
-                      className={`${secondaryButtonSm} gap-2 border-white/80 bg-white/70 text-gray-950 hover:bg-white/90`}
+                      className={`${secondaryButtonSm} gap-2`}
                     >
                       Open request
                       <ArrowRight className="h-4 w-4" aria-hidden />
@@ -188,15 +220,16 @@ export function DashboardFamilyCarePlans({
 
                   {openPlanId === plan.requestId && onCompleteTouchpoint ? (
                     <form
-                      className="mt-4 rounded-xl border border-white/80 bg-white/80 p-3 text-gray-950"
+                      className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-gray-950"
                       onSubmit={(event) => {
                         event.preventDefault()
                         void submitCarePlan(plan)
                       }}
                     >
-                      <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
-                        <label className="text-sm font-semibold">
-                          Contact type
+                      <p className="text-sm font-semibold text-gray-950">Log what happened</p>
+                      <div className="mt-2 grid gap-3 sm:grid-cols-[11rem_1fr]">
+                        <label className="text-sm font-medium text-gray-700">
+                          Touchpoint type
                           <select
                             className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                             value={methodByPlanId[plan.requestId] || 'phone'}
@@ -214,11 +247,11 @@ export function DashboardFamilyCarePlans({
                             <option value="in_person">In person</option>
                           </select>
                         </label>
-                        <label className="text-sm font-semibold">
-                          Notes
+                        <label className="text-sm font-medium text-gray-700">
+                          Notes for the next staff member
                           <textarea
                             className="mt-1 min-h-20 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed"
-                            placeholder="Optional: what happened or what the family needs next"
+                            placeholder="Optional: what happened, what the family needs, or what to remember next"
                             value={notesByPlanId[plan.requestId] || ''}
                             onChange={(event) =>
                               setNotesByPlanId((current) => ({
@@ -231,22 +264,27 @@ export function DashboardFamilyCarePlans({
                       </div>
 
                       <fieldset className="mt-3">
-                        <legend className="text-sm font-semibold">Next follow-up</legend>
+                        <legend className="text-sm font-semibold text-gray-950">
+                          Schedule the next touchpoint
+                        </legend>
                         <div className="mt-2 grid gap-2 sm:grid-cols-3">
                           {plan.nextFollowUpRecommendations.map((recommendation) => (
                             <label
                               key={recommendation.id}
-                              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+                              className={`cursor-pointer rounded-xl border px-3 py-2 text-sm transition ${
+                                !careCompleteByPlanId[plan.requestId] &&
+                                selectedNextDate(plan) === recommendation.date
+                                  ? 'border-brand bg-brand-muted text-brand-foreground'
+                                  : 'border-gray-200 bg-white text-gray-800 hover:border-brand/40'
+                              }`}
                             >
                               <input
                                 type="radio"
                                 name={`next-follow-up-${plan.requestId}`}
-                                className="mr-2"
+                                className="sr-only"
                                 checked={
                                   !careCompleteByPlanId[plan.requestId] &&
-                                  (nextDateByPlanId[plan.requestId] ||
-                                    plan.nextFollowUpRecommendations[0]?.date) ===
-                                    recommendation.date
+                                  selectedNextDate(plan) === recommendation.date
                                 }
                                 onChange={() => {
                                   setCareCompleteByPlanId((current) => ({
@@ -259,8 +297,11 @@ export function DashboardFamilyCarePlans({
                                   }))
                                 }}
                               />
-                              <span className="font-semibold">{recommendation.label}</span>
-                              <span className="mt-1 block text-xs leading-relaxed text-gray-600">
+                              <span className="block font-semibold">{recommendation.label}</span>
+                              <span className="mt-0.5 block text-xs font-medium">
+                                {formatDateLabel(recommendation.date)}
+                              </span>
+                              <span className="mt-1 block text-xs leading-relaxed opacity-80">
                                 {recommendation.description}
                               </span>
                             </label>
@@ -268,17 +309,15 @@ export function DashboardFamilyCarePlans({
                         </div>
                       </fieldset>
 
-                      <label className="mt-3 block text-sm font-semibold">
-                        Specific date
+                      <label className="mt-3 block text-sm font-medium text-gray-700">
+                        Or choose a specific date
                         <input
                           type="date"
                           className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm sm:w-52"
                           value={
                             careCompleteByPlanId[plan.requestId]
                               ? ''
-                              : nextDateByPlanId[plan.requestId] ||
-                                plan.nextFollowUpRecommendations[0]?.date ||
-                                ''
+                              : selectedNextDate(plan)
                           }
                           disabled={Boolean(careCompleteByPlanId[plan.requestId])}
                           onChange={(event) => {
@@ -295,7 +334,7 @@ export function DashboardFamilyCarePlans({
                       </label>
 
                       {plan.canCompleteCareCycle ? (
-                        <label className="mt-3 flex items-start gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+                        <label className="mt-3 flex items-start gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm">
                           <input
                             type="checkbox"
                             className="mt-1"
@@ -308,9 +347,9 @@ export function DashboardFamilyCarePlans({
                             }
                           />
                           <span>
-                            <span className="block font-semibold">Care cycle is complete</span>
+                            <span className="block font-semibold">No further follow-up needed</span>
                             <span className="block text-xs leading-relaxed text-gray-600">
-                              Use this only when no further bereavement follow-up is needed.
+                              This completes the care plan and removes it from this dashboard list.
                             </span>
                           </span>
                         </label>
