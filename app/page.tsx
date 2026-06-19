@@ -91,13 +91,12 @@ export default function Home() {
                   {PARISH_OPERATIONS_DESCRIPTOR} for Catholic parishes
                 </p>
                 <h1 className="mt-5 text-3xl sm:text-4xl lg:text-[2.75rem] font-bold text-gray-900 tracking-tight leading-[1.12] text-balance">
-                  Never lose track of a parish request again.
+                  Better Parish Operations. Better Parishioner Care.
                 </h1>
                 <p className="mt-5 text-lg sm:text-xl text-gray-600 leading-relaxed text-pretty">
-                  <span className="font-semibold text-gray-900">{PRODUCT_NAME}</span> keeps
-                  baptisms, funerals, weddings, OCIA, sacramental records, people, households,
-                  and follow-ups organized in one place—so your staff spends less time searching
-                  and more time serving.
+                  <span className="font-semibold text-gray-900">{PRODUCT_NAME}</span> helps
+                  Catholic parish teams know what needs attention today, coordinate staff
+                  follow-up, and care for every family from first request to final record.
                 </p>
                 <div className="mt-8 flex flex-col items-stretch sm:items-start gap-3">
                   <Link href="#schedule-demo" className={primaryButton}>
@@ -139,12 +138,30 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="rounded-2xl border border-gray-200/80 bg-gray-50/80 px-6 py-7 sm:px-8 sm:py-8">
               <p className="text-center text-sm font-semibold uppercase tracking-wider text-brand-foreground">
-                Built for real parish work
+                Built specifically for Catholic parish operations
               </p>
               <p className="mx-auto mt-3 max-w-3xl text-center text-base leading-relaxed text-gray-700 sm:text-lg">
-                Designed with Catholic parish workflows in mind: sacramental preparation,
-                pastoral follow-up, parish records, and staff coordination.
+                Vinea supports the workflows parish offices handle every week: baptisms,
+                funerals, weddings, OCIA, sacramental records, follow-up tracking, and staff
+                handoffs.
               </p>
+              <ul className="mx-auto mt-5 flex max-w-4xl flex-wrap justify-center gap-2 text-sm font-medium text-gray-700">
+                {[
+                  'Baptisms',
+                  'Funerals',
+                  'Weddings',
+                  'OCIA',
+                  'Sacramental records',
+                  'Follow-up tracking',
+                ].map((item) => (
+                  <li
+                    key={item}
+                    className="rounded-full border border-gray-200 bg-white px-3 py-1 shadow-sm"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
@@ -152,41 +169,41 @@ export default function Home() {
         {/* Platform overview */}
         <section id="platform" className="border-t border-gray-100 bg-white py-16 sm:py-20 scroll-mt-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <h2 className={sectionHeadingClassName}>Everything your parish team needs in one place</h2>
+            <h2 className={sectionHeadingClassName}>Know exactly what needs attention today</h2>
             <p className={sectionIntroClass}>
-              From the first family inquiry to the final certificate, Vinea connects intake,
-              follow-up, records, and people—without spreadsheets or scattered email threads.
+              Vinea turns parish requests into owned next actions, clear follow-up, and connected
+              records, so staff can spend less time searching and more time serving.
             </p>
             <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               <PlatformCard
                 icon={Inbox}
-                title="Intake & follow-up"
-                body="Public forms for baptism, funeral, wedding, OCIA, and joining the parish. Staff work from a command center with a follow-up queue, assignments, and clear status."
+                title="Every request has an owner"
+                body="Baptism, funeral, wedding, OCIA, and parish inquiries move from intake to assignment, follow-up, and completion without getting buried in email."
               />
               <PlatformCard
                 icon={BookOpen}
-                title="Sacramental records & certificates"
-                body="Keep your parish register organized. Create records from completed requests and generate baptism certificates when ready."
+                title="Records stay connected"
+                body="Sacramental records, certificates, people, households, and the original request stay linked so staff can find the full context quickly."
               />
               <PlatformCard
                 icon={Users}
-                title="People & households"
-                body="Build profiles linked to intake contacts, requests, and records. Organize households with relationships and primary contacts."
+                title="Families feel cared for"
+                body="Care cadence, communication history, and follow-up accountability help staff know who needs a call, reply, or next step today."
               />
               <PlatformCard
                 icon={Flame}
-                title="Mass intentions"
-                body="Track who requested each intention, offering details, dates, and fulfillment status in the same staff workspace."
+                title="Less administrative chasing"
+                body="Dashboards highlight overdue follow-ups, blockers, missing details, and staff assignments before they become last-minute problems."
               />
               <PlatformCard
                 icon={Mail}
-                title="Email & AI assistance"
-                body="Send email from the request workflow. Draft replies and internal summaries with AI—you review every message before it goes out."
+                title="Clear staff coordination"
+                body="Internal notes, handoff briefs, task ownership, and command-center views keep priests, deacons, and office staff aligned."
               />
               <PlatformCard
                 icon={Lightbulb}
-                title="Never miss the next step"
-                body="Vinea highlights missing records, unlinked people, overdue follow-ups, and certificate opportunities before they become problems."
+                title="AI helps, staff decides"
+                body="AI-assisted summaries and reply drafts save time while keeping parish staff in control of every message and pastoral decision."
               />
             </div>
           </div>
@@ -197,21 +214,21 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <h2 className={sectionHeadingClassName}>How it works</h2>
             <p className={sectionIntroClass}>
-              Simple for families. Clear for staff. Connected across your parish.
+              Simple for families. Clear for staff. Accountable from request to record.
             </p>
             <ol className="mt-10 grid gap-5 sm:grid-cols-2">
               {[
                 {
                   title: 'Families submit requests',
-                  body: 'Parishioners use dedicated intake forms for each sacramental path or joining the parish. Submissions arrive as structured requests—not scattered emails.',
+                  body: 'Parishioners use dedicated intake forms for sacramental paths and parish inquiries. Submissions arrive as structured requests, not scattered emails.',
                 },
                 {
-                  title: 'Staff manage the work',
-                  body: 'Your team reviews the command center, assigns follow-ups, logs communications, syncs Google Calendar, and works checklists until each request is complete.',
+                  title: 'Staff knows what to do next',
+                  body: 'Vinea shows ownership, urgency, blockers, first-review guidance, and follow-up dates so the office can start with the right work.',
                 },
                 {
-                  title: 'Built-in follow-up guidance',
-                  body: 'Vinea surfaces overdue follow-ups, missing register entries, and people who still need to be linked—always for staff review, never automatic.',
+                  title: 'Follow-up stays accountable',
+                  body: 'Care cadence, communication commitments, and work queues show who needs a reply, who is waiting, and what staff owes next.',
                 },
                 {
                   title: 'Records, people, and follow-ups stay connected',
@@ -315,16 +332,19 @@ export default function Home() {
         {/* Why Vinea */}
         <section className="border-t border-gray-100 bg-white py-16 sm:py-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <h2 className={sectionHeadingClassName}>Why Vinea</h2>
+            <h2 className={sectionHeadingClassName}>Not just another church database</h2>
             <div className="mt-6 rounded-2xl border border-brand/15 bg-brand-muted/35 px-6 py-7 shadow-sm sm:px-10 sm:py-9">
               <div className="max-w-3xl space-y-4 text-base leading-relaxed text-gray-800 sm:text-lg">
-                <p>Parish ministry is relational. The software supporting it should be too.</p>
                 <p>
-                  Vinea keeps every conversation, follow-up, sacramental record, and family
-                  connection organized in one place.
+                  Many church systems store people and records. Vinea helps parish staff manage
+                  the actual work: requests, ownership, follow-up, handoffs, and care.
+                </p>
+                <p>
+                  Built for Catholic parish operations, Vinea keeps baptisms, funerals, weddings,
+                  OCIA, sacramental records, and family communication moving with clarity.
                 </p>
                 <p className="font-medium text-gray-900">
-                  No spreadsheets. No scattered emails. No wondering who followed up last.
+                  No spreadsheets. No scattered emails. No wondering who owns the next step.
                 </p>
               </div>
             </div>
@@ -336,7 +356,7 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <h2 className={sectionHeadingClassName}>See the workflow</h2>
             <p className={sectionIntroClass}>
-              A calm, parish-friendly interface designed for daily staff use.
+              A calm, parish-friendly interface designed for daily staff use and clear handoffs.
             </p>
             <div className="mt-10 grid gap-6 sm:grid-cols-2">
               <WorkflowScreenshotCard
@@ -431,8 +451,8 @@ export default function Home() {
             <div className="rounded-2xl border border-gray-200/70 bg-gradient-to-b from-white to-gray-50 px-6 py-8 shadow-sm sm:px-10 sm:py-12">
               <h2 className={sectionHeadingClassName}>Schedule a demo</h2>
               <p className="mt-2 max-w-2xl text-base leading-relaxed text-gray-600">
-                Tell us about your parish and we&apos;ll set up a personal walkthrough—intake,
-                dashboard, records, and people.
+                See how Vinea can help your parish save staff time, coordinate follow-up, and
+                care for parishioners through baptisms, funerals, weddings, OCIA, and records.
               </p>
               <ScheduleDemoForm submitButtonClassName={primaryButton} />
             </div>
@@ -445,8 +465,8 @@ export default function Home() {
             <div className="rounded-2xl border border-gray-200/70 bg-gradient-to-b from-white to-gray-50 px-6 py-8 shadow-sm sm:px-10 sm:py-12 text-center sm:text-left">
               <h2 className={sectionHeadingClassName}>See Vinea in action</h2>
               <p className="mx-auto max-w-xl text-gray-600 sm:mx-0 text-base leading-relaxed">
-                Schedule a 15-minute walkthrough and see how Vinea can organize requests,
-                records, follow-ups, and parish communication in one place.
+                Schedule a walkthrough and see how Vinea helps parish teams know what needs
+                attention, who owns it, and how to care for every family.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap justify-center sm:justify-start">
                 <Link href="#schedule-demo" className={`${primaryButtonLanding} border border-transparent`}>
