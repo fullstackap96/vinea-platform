@@ -11,6 +11,7 @@ import type {
 import { parseFollowUpCalendarDate } from '@/lib/nextFollowUpDate'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import { normalizeRequestWaitingOn } from '@/lib/requestWaitingOn'
+import { buildWorkflowPlaybookSuggestion } from '@/lib/workflowPlaybooks'
 
 export type UpdateRequestAssignmentResult =
   | { ok: true }
@@ -24,6 +25,10 @@ export type UpdateRequestNextFollowUpDateResult =
 
 export type UpdateRequestWaitingOnResult =
   | { ok: true }
+  | { ok: false; error: string }
+
+export type ApplyWorkflowPlaybookResult =
+  | { ok: true; addedCount: number; skippedCount: number }
   | { ok: false; error: string }
 
 function normalizeOptionalName(value: unknown): string | null {
@@ -169,6 +174,81 @@ export async function updateRequestWaitingOn(input: {
   }
 
   return { ok: true }
+}
+
+export async function applyWorkflowPlaybookChecklist(input: {
+  requestId: string
+}): Promise<ApplyWorkflowPlaybookResult> {
+  const requestId = String(input.requestId ?? '').trim()
+  if (!requestId) {
+    return { ok: false, error: 'Missing request id.' }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { ok: false, error: 'Unauthorized' }
+  }
+
+  const { data: request, error: requestError } = await supabase
+    .from('requests')
+    .select('id, request_type')
+    .eq('id', requestId)
+    .single()
+
+  if (requestError || !request) {
+    return { ok: false, error: requestError?.message ?? 'Request not found.' }
+  }
+
+  const requestType = requestTypeFromRow(request as { request_type?: unknown })
+  const { data: existingChecklist, error: checklistError } = await supabase
+    .from('checklist_items')
+    .select('item_name')
+    .eq('request_id', requestId)
+
+  if (checklistError) {
+    return { ok: false, error: checklistError.message }
+  }
+
+  const suggestion = buildWorkflowPlaybookSuggestion({
+    requestType,
+    checklistItems: existingChecklist || [],
+  })
+
+  if (!suggestion) {
+    return { ok: false, error: 'No playbook is available for this request type.' }
+  }
+
+  if (suggestion.missingItems.length === 0) {
+    return {
+      ok: true,
+      addedCount: 0,
+      skippedCount: suggestion.playbook.items.length,
+    }
+  }
+
+  const admin = createSupabaseServiceRoleClient()
+  const { error: insertError } = await admin.from('checklist_items').insert(
+    suggestion.missingItems.map((item) => ({
+      request_id: requestId,
+      item_name: item.itemName,
+      is_complete: false,
+    }))
+  )
+
+  if (insertError) {
+    return { ok: false, error: insertError.message }
+  }
+
+  return {
+    ok: true,
+    addedCount: suggestion.missingItems.length,
+    skippedCount: suggestion.existingCount,
+  }
 }
 
 export async function addRequestNote(input: {

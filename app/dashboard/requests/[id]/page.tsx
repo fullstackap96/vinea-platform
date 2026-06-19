@@ -28,6 +28,7 @@ import { RequestNextStepCard, resolveRequestNextStep } from './_components/Reque
 import { RequestProgressCard } from './_components/RequestProgressCard'
 import { RequestTimelineSection } from './_components/RequestTimelineSection'
 import { RequestWorkflowChecklist } from './_components/RequestWorkflowChecklist'
+import { WorkflowPlaybookBuilder } from './_components/WorkflowPlaybookBuilder'
 import { ReadyToCompleteCard } from './_components/ReadyToCompleteCard'
 import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmartQuickActions'
 import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
@@ -2271,6 +2272,14 @@ async function deleteGoogleCalendarEvent() {
             <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
               Mark items as you complete parish process steps.
             </p>
+            <div className="mt-4">
+              <WorkflowPlaybookBuilder
+                requestId={routeId}
+                requestType={request?.request_type}
+                checklistItems={checklistItems}
+                onApplied={loadRequest}
+              />
+            </div>
             <div className="mt-4">
               <ChecklistSection
                 checklistItems={checklistItems}
