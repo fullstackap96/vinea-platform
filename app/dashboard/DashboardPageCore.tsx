@@ -6,6 +6,7 @@ import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
 import { DashboardTodayView } from './DashboardTodayView'
+import { DashboardTodaysCareBrief } from './DashboardTodaysCareBrief'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
 import { DashboardOwnershipHealth } from './DashboardOwnershipHealth'
@@ -92,6 +93,7 @@ import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
 import { buildCareCadenceQueue } from '@/lib/careCadence'
 import { buildCommunicationCommitmentQueue } from '@/lib/communicationCommitments'
 import { buildCarePlans } from '@/lib/carePlans'
+import { buildTodaysCareBrief } from '@/lib/parishCareCalendar'
 import { evaluateIntakeTriage } from '@/lib/intakeTriage'
 import { buildOwnershipHealth } from '@/lib/ownershipHealth'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
@@ -1886,6 +1888,22 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [isHome, requests, searchedRequests, dashboardMetricsAt]
   )
 
+  const allFamilyCarePlans = useMemo(
+    () => buildCarePlans(requests, { now: dashboardMetricsAt }),
+    [requests, dashboardMetricsAt]
+  )
+
+  const todaysCareBrief = useMemo(
+    () =>
+      buildTodaysCareBrief({
+        requests,
+        carePlans: allFamilyCarePlans,
+        now: dashboardMetricsAt,
+        limit: 4,
+      }),
+    [requests, allFamilyCarePlans, dashboardMetricsAt]
+  )
+
   const communicationCommitments = useMemo(
     () =>
       buildCommunicationCommitmentQueue(isHome ? requests : searchedRequests, {
@@ -2064,6 +2082,12 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
             careCadence={careCadence}
             communicationCommitments={communicationCommitments}
             staffCommandCenter={staffCommandCenter}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+          />
+
+          <DashboardTodaysCareBrief
+            brief={todaysCareBrief}
             loading={loading}
             dataUnavailable={requestsFetchFailed}
           />
