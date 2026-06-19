@@ -6,6 +6,7 @@ import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
 import { DashboardCareCadence } from './DashboardCareCadence'
+import { DashboardCommunicationCommitments } from './DashboardCommunicationCommitments'
 import { DashboardParishOpsBrief } from './DashboardParishOpsBrief'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
@@ -86,6 +87,7 @@ import {
 import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
 import { buildParishOpsBrief } from '@/lib/parishOpsBrief'
 import { buildCareCadenceQueue } from '@/lib/careCadence'
+import { buildCommunicationCommitmentQueue } from '@/lib/communicationCommitments'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import {
   vineaEmptyStateClassName,
@@ -1756,6 +1758,15 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [isHome, requests, searchedRequests, dashboardMetricsAt]
   )
 
+  const communicationCommitments = useMemo(
+    () =>
+      buildCommunicationCommitmentQueue(isHome ? requests : searchedRequests, {
+        now: dashboardMetricsAt,
+        limit: isHome ? 4 : 8,
+      }),
+    [isHome, requests, searchedRequests, dashboardMetricsAt]
+  )
+
   const followUpToolbarLocked =
     loading ||
     followUpBatchBusy !== null ||
@@ -1932,6 +1943,12 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
 
           <DashboardCareCadence
             cadence={careCadence}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+          />
+
+          <DashboardCommunicationCommitments
+            queue={communicationCommitments}
             loading={loading}
             dataUnavailable={requestsFetchFailed}
           />

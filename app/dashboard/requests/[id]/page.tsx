@@ -32,6 +32,7 @@ import { WorkflowPlaybookBuilder } from './_components/WorkflowPlaybookBuilder'
 import { ReadyToCompleteCard } from './_components/ReadyToCompleteCard'
 import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmartQuickActions'
 import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
+import { RequestCommunicationCommitmentCard } from './_components/RequestCommunicationCommitmentCard'
 import { RequestCareCadenceCard } from './_components/RequestCareCadenceCard'
 import { RequestHandoffBriefCard } from './_components/RequestHandoffBrief'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
@@ -93,6 +94,7 @@ import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
 import { buildRequestHandoffBrief } from '@/lib/requestHandoffBrief'
 import { evaluateCareCadence } from '@/lib/careCadence'
+import { evaluateCommunicationCommitment } from '@/lib/communicationCommitments'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -1771,6 +1773,16 @@ async function deleteGoogleCalendarEvent() {
     wedding_detail: weddingDetail,
     ocia_detail: ociaDetail,
   })
+  const communicationCommitment = evaluateCommunicationCommitment({
+    request: {
+      ...(request ?? {}),
+      parishioner,
+      funeral_detail: funeralDetail,
+      wedding_detail: weddingDetail,
+    },
+    communications,
+    notes: requestNotes,
+  })
 
   const followUpNotNeeded = String(request?.status || '') === 'complete'
   const followUpReady = hasFollowUp || followUpNotNeeded
@@ -1921,6 +1933,8 @@ async function deleteGoogleCalendarEvent() {
           <RequestHandoffBriefCard brief={handoffBrief} />
 
           <RequestCareCadenceCard cadence={careCadence} onSaved={loadRequest} />
+
+          <RequestCommunicationCommitmentCard commitment={communicationCommitment} />
 
           <RequestTimelineSection timelineInput={timelineInput} loading={loading} />
 
