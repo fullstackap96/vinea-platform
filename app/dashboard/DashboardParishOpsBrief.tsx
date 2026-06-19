@@ -1,6 +1,7 @@
 'use client'
 
-import { AlertTriangle, CheckCircle2, ClipboardList } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, CheckCircle2, Clipboard, ClipboardList } from 'lucide-react'
 import Link from 'next/link'
 import type { ParishOpsBrief, ParishOpsBriefSeverity } from '@/lib/parishOpsBrief'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
@@ -35,7 +36,18 @@ export function DashboardParishOpsBrief({
   loading,
   dataUnavailable = false,
 }: Props) {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
   const hideBrief = Boolean(dataUnavailable && !loading)
+
+  async function copyHuddleNote() {
+    try {
+      await navigator.clipboard.writeText(brief.huddleNote)
+      setCopyStatus('copied')
+      window.setTimeout(() => setCopyStatus('idle'), 2500)
+    } catch {
+      setCopyStatus('failed')
+    }
+  }
 
   return (
     <section
@@ -79,10 +91,34 @@ export function DashboardParishOpsBrief({
                 {brief.subline}
               </p>
             </div>
-            {brief.focusItems.length > 0 ? (
-              <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
-                Top {brief.focusItems.length} focus rows ready
-              </span>
+            <div className="flex flex-col gap-2 sm:items-end">
+              {brief.focusItems.length > 0 ? (
+                <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
+                  Top {brief.focusItems.length} focus rows ready
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={copyHuddleNote}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 shadow-sm transition-colors hover:border-brand/30 hover:bg-brand-muted/40 focus:outline-none focus:ring-2 focus:ring-brand/25"
+              >
+                <Clipboard className="h-4 w-4" aria-hidden />
+                {copyStatus === 'copied' ? 'Copied' : 'Copy staff brief'}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-brand/15 bg-brand-muted/30 px-3 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-foreground">
+              First action
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-relaxed text-gray-900">
+              {brief.firstAction}
+            </p>
+            {copyStatus === 'failed' ? (
+              <p className="mt-2 text-xs font-medium text-rose-700">
+                Copy did not work in this browser. You can still open the top focus row.
+              </p>
             ) : null}
           </div>
 
@@ -129,7 +165,7 @@ export function DashboardParishOpsBrief({
                       {item.title}
                     </p>
                     <p className="mt-2 text-xs leading-snug text-gray-500">
-                      Owner: {item.ownerLabel} · Blocker: {item.blockerLabel}
+                      Owner: {item.ownerLabel} | Blocker: {item.blockerLabel}
                     </p>
                   </Link>
                 ))}

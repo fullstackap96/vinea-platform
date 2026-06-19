@@ -33,6 +33,8 @@ export type ParishOpsBriefItem = {
 export type ParishOpsBrief = {
   headline: string
   subline: string
+  firstAction: string
+  huddleNote: string
   items: ParishOpsBriefItem[]
   focusItems: ParishOpsBriefFocusItem[]
 }
@@ -41,9 +43,65 @@ function plural(n: number, singular: string, pluralForm = `${singular}s`) {
   return n === 1 ? singular : pluralForm
 }
 
+function isOrAre(n: number) {
+  return n === 1 ? 'is' : 'are'
+}
+
+function needsOrNeed(n: number) {
+  return n === 1 ? 'needs' : 'need'
+}
+
 function severityForCount(count: number, urgentAt = 1): ParishOpsBriefSeverity {
   if (count >= urgentAt) return 'urgent'
   return 'steady'
+}
+
+function buildFirstAction(input: {
+  urgentCount: number
+  unassignedCount: number
+  blockedCount: number
+  agingCount: number
+  firstFocusItem: ParishOpsBriefFocusItem | null
+}): string {
+  if (input.firstFocusItem) {
+    return `${input.firstFocusItem.nextStepTitle}: ${input.firstFocusItem.title}`
+  }
+  if (input.unassignedCount > 0) return 'Assign clear owners before routine follow-up.'
+  if (input.blockedCount > 0) return 'Review blockers and decide who needs a nudge.'
+  if (input.agingCount > 0) return 'Send a short check-in on the stalest family thread.'
+  if (input.urgentCount > 0) return 'Open the command center and work the urgent rows first.'
+  return 'Review upcoming work and keep follow-up dates current.'
+}
+
+function buildHuddleNote(input: {
+  headline: string
+  subline: string
+  items: ParishOpsBriefItem[]
+  focusItems: ParishOpsBriefFocusItem[]
+  firstAction: string
+}): string {
+  const counts = input.items
+    .filter((item) => item.key !== 'owner_focus')
+    .map((item) => `${item.label}: ${item.value}`)
+    .join(' | ')
+  const focusLines =
+    input.focusItems.length > 0
+      ? input.focusItems
+          .map(
+            (item, index) =>
+              `${index + 1}. ${item.requestTypeLabel}: ${item.title} - ${item.nextStepTitle} (${item.actionLabel}; owner: ${item.ownerLabel}; blocker: ${item.blockerLabel})`
+          )
+          .join('\n')
+      : 'No urgent focus rows are currently flagged.'
+
+  return [
+    `Parish ops brief: ${input.headline}`,
+    input.subline,
+    `First action: ${input.firstAction}`,
+    `Counts: ${counts}`,
+    'Start here:',
+    focusLines,
+  ].join('\n')
 }
 
 export function buildParishOpsBrief(
@@ -70,11 +128,11 @@ export function buildParishOpsBrief(
 
   const headline =
     urgentCount > 0
-      ? `${urgentCount} ${plural(urgentCount, 'request')} need action today`
+      ? `${urgentCount} ${plural(urgentCount, 'request')} ${needsOrNeed(urgentCount)} action today`
       : blockedCount > 0
-        ? `${blockedCount} ${plural(blockedCount, 'request')} are blocked`
+        ? `${blockedCount} ${plural(blockedCount, 'request')} ${isOrAre(blockedCount)} blocked`
         : agingCount > 0
-          ? `${agingCount} ${plural(agingCount, 'request')} need a fresh touchpoint`
+          ? `${agingCount} ${plural(agingCount, 'request')} ${needsOrNeed(agingCount)} a fresh touchpoint`
           : 'Parish operations are in good shape'
 
   const subline =
@@ -142,25 +200,36 @@ export function buildParishOpsBrief(
     })
   }
 
+  const focusItems = commandCenter.rows.slice(0, 3).map((row) => ({
+    requestId: row.requestId,
+    title: getRequestDetailPrimaryHeading({
+      request_type: row.request.request_type,
+      child_name: row.request.child_name,
+      parishioner: row.request.parishioner,
+      funeralDetail: row.request.funeral_detail,
+      weddingDetail: row.request.wedding_detail,
+    }),
+    requestTypeLabel: formatRequestType(row.requestType),
+    nextStepTitle: row.workflow.nextStepTitle,
+    actionLabel: row.workflow.recommendedActionLabel,
+    ownerLabel: row.ownerLabel,
+    blockerLabel: row.blockerLabel,
+    href: row.detailHref,
+  }))
+  const firstAction = buildFirstAction({
+    urgentCount,
+    unassignedCount,
+    blockedCount,
+    agingCount,
+    firstFocusItem: focusItems[0] ?? null,
+  })
+
   return {
     headline,
     subline,
+    firstAction,
+    huddleNote: buildHuddleNote({ headline, subline, items, focusItems, firstAction }),
     items,
-    focusItems: commandCenter.rows.slice(0, 3).map((row) => ({
-      requestId: row.requestId,
-      title: getRequestDetailPrimaryHeading({
-        request_type: row.request.request_type,
-        child_name: row.request.child_name,
-        parishioner: row.request.parishioner,
-        funeralDetail: row.request.funeral_detail,
-        weddingDetail: row.request.wedding_detail,
-      }),
-      requestTypeLabel: formatRequestType(row.requestType),
-      nextStepTitle: row.workflow.nextStepTitle,
-      actionLabel: row.workflow.recommendedActionLabel,
-      ownerLabel: row.ownerLabel,
-      blockerLabel: row.blockerLabel,
-      href: row.detailHref,
-    })),
+    focusItems,
   }
 }

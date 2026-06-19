@@ -30,7 +30,7 @@ describe('buildParishOpsBrief', () => {
       { now }
     )
 
-    expect(brief.headline).toContain('need action today')
+    expect(brief.headline).toContain('needs action today')
     expect(brief.items.find((item) => item.key === 'act_now')?.value).toBe(1)
     expect(brief.items.find((item) => item.key === 'unassigned')?.value).toBe(1)
     expect(brief.focusItems[0]).toMatchObject({
@@ -40,6 +40,10 @@ describe('buildParishOpsBrief', () => {
       ownerLabel: 'Unassigned',
     })
     expect(brief.focusItems[0].href).toContain('/dashboard/requests/urgent#')
+    expect(brief.firstAction).toBe('Assign ownership: Unnamed contact')
+    expect(brief.huddleNote).toContain('Parish ops brief: 1 request needs action today')
+    expect(brief.huddleNote).toContain('First action: Assign ownership: Unnamed contact')
+    expect(brief.huddleNote).toContain('Act now: 1 | Unassigned: 1 | Blocked: 0 | Aging: 0')
   })
 
   it('surfaces blockers when there is no urgent work', () => {
@@ -60,9 +64,12 @@ describe('buildParishOpsBrief', () => {
       { now }
     )
 
-    expect(brief.headline).toContain('are blocked')
+    expect(brief.headline).toContain('is blocked')
     expect(brief.items.find((item) => item.key === 'blocked')?.value).toBe(1)
     expect(brief.items.find((item) => item.key === 'blocked')?.severity).toBe('warning')
     expect(brief.focusItems[0].blockerLabel).toBe('Documents')
+    expect(brief.huddleNote).toContain(
+      'Wedding: Unnamed contact - Waiting for documents (Log contact; owner: Jane; blocker: Documents)'
+    )
   })
 })
