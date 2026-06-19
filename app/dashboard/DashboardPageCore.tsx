@@ -5,9 +5,7 @@ import Link from 'next/link'
 import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
-import { DashboardCareCadence } from './DashboardCareCadence'
-import { DashboardCommunicationCommitments } from './DashboardCommunicationCommitments'
-import { DashboardParishOpsBrief } from './DashboardParishOpsBrief'
+import { DashboardTodayView } from './DashboardTodayView'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
 import { DashboardRequestNameLink } from './_components/DashboardRequestNameLink'
@@ -85,7 +83,6 @@ import {
   type StaffCommandCenterRow,
 } from '@/lib/staffCommandCenter'
 import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
-import { buildParishOpsBrief } from '@/lib/parishOpsBrief'
 import { buildCareCadenceQueue } from '@/lib/careCadence'
 import { buildCommunicationCommitmentQueue } from '@/lib/communicationCommitments'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
@@ -1744,11 +1741,6 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [isHome, requests, searchedRequests, dashboardMetricsAt]
   )
 
-  const parishOpsBrief = useMemo(
-    () => buildParishOpsBrief(requests, { now: dashboardMetricsAt }),
-    [requests, dashboardMetricsAt]
-  )
-
   const careCadence = useMemo(
     () =>
       buildCareCadenceQueue(isHome ? requests : searchedRequests, {
@@ -1857,9 +1849,6 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     requestsFetchFailed ||
     (Boolean(requestsLoadError) && requests.length === 0 && !loading)
 
-  const showQuickWinBanner =
-    !requestsFetchFailed && (!loading || requests.length > 0)
-
   const isDevRuntime = process.env.NODE_ENV === 'development'
 
   return (
@@ -1875,7 +1864,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
         </p>
       </header>
 
-      {isHome && showQuickWinBanner ? (
+      {false ? (
         <div
           className={`mb-4 rounded-lg border px-4 py-3 sm:mb-5 ${
             actionRequiredCount > 0
@@ -1935,20 +1924,10 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       <div className={isHome ? 'space-y-3 sm:space-y-4' : 'space-y-4 sm:space-y-5'}>
       {isHome ? (
         <>
-          <DashboardParishOpsBrief
-            brief={parishOpsBrief}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-          />
-
-          <DashboardCareCadence
-            cadence={careCadence}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-          />
-
-          <DashboardCommunicationCommitments
-            queue={communicationCommitments}
+          <DashboardTodayView
+            careCadence={careCadence}
+            communicationCommitments={communicationCommitments}
+            staffCommandCenter={staffCommandCenter}
             loading={loading}
             dataUnavailable={requestsFetchFailed}
           />
