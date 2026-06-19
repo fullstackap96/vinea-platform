@@ -35,9 +35,9 @@ import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHe
 import { RequestCommunicationCommitmentCard } from './_components/RequestCommunicationCommitmentCard'
 import { RequestCareCadenceCard } from './_components/RequestCareCadenceCard'
 import { RequestFirstReviewCard } from './_components/RequestFirstReviewCard'
-import { RequestIntakeQualityCard } from './_components/RequestIntakeQualityCard'
 import { RequestHandoffBriefCard } from './_components/RequestHandoffBrief'
 import { RequestCommandCard } from './_components/RequestCommandCard'
+import { RequestIntakeTriageCard } from './_components/RequestIntakeTriageCard'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
 import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection'
 import { RequestRelationshipSuggestions } from './_components/RequestRelationshipSuggestions'
@@ -99,7 +99,7 @@ import { buildRequestHandoffBrief } from '@/lib/requestHandoffBrief'
 import { evaluateCareCadence } from '@/lib/careCadence'
 import { evaluateCommunicationCommitment } from '@/lib/communicationCommitments'
 import { buildRequestFirstReview } from '@/lib/requestFirstReview'
-import { evaluateIntakeQuality } from '@/lib/intakeQuality'
+import { evaluateIntakeTriage } from '@/lib/intakeTriage'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -1810,7 +1810,7 @@ async function deleteGoogleCalendarEvent() {
     funeralDetail,
     weddingDetail,
   })
-  const intakeQuality = evaluateIntakeQuality({
+  const intakeTriage = evaluateIntakeTriage({
     ...(request ?? {}),
     parishioner,
     funeral_detail: funeralDetail,
@@ -1965,9 +1965,9 @@ async function deleteGoogleCalendarEvent() {
             onMarkComplete={jumpToCompletion}
           />
 
-          <RequestFirstReviewCard review={firstReview} />
+          <RequestIntakeTriageCard triage={intakeTriage} onNavigateToSection={goToSection} />
 
-          <RequestIntakeQualityCard quality={intakeQuality} />
+          <RequestFirstReviewCard review={firstReview} />
 
           <RequestHandoffBriefCard brief={handoffBrief} />
 

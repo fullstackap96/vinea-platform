@@ -85,6 +85,7 @@ import {
 import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
 import { buildCareCadenceQueue } from '@/lib/careCadence'
 import { buildCommunicationCommitmentQueue } from '@/lib/communicationCommitments'
+import { evaluateIntakeTriage } from '@/lib/intakeTriage'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import {
   vineaEmptyStateClassName,
@@ -836,6 +837,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     })
     const smartFollowUp = evaluateSmartFollowUp(request)
     const atRisk = evaluateAtRiskRequest(request)
+    const intakeTriage = evaluateIntakeTriage(request)
     const waitingOnDisplay =
       requestWaitingOnLabel(request.waiting_on)?.trim() || 'Nothing recorded'
     const displayName = requestListDisplayName(request)
@@ -857,6 +859,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
           workflow={workflow}
           smartFollowUp={smartFollowUp}
           atRisk={atRisk}
+          intakeTriage={intakeTriage}
           waitingOnDisplay={waitingOnDisplay}
           staffDisplay={assignmentDisplayLabel(request.assigned_staff_name)}
           priestDisplay={assignmentDisplayLabel(request.assigned_priest_name)}

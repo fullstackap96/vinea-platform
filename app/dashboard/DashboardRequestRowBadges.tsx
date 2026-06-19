@@ -3,6 +3,7 @@
 import type { AtRiskEvaluation, AtRiskLevel } from '@/lib/atRiskRequest'
 import type { FollowUpEngineUrgency, SmartFollowUpEvaluation } from '@/lib/smartFollowUpEngine'
 import type { RequestWorkflowV2Result } from '@/lib/requestWorkflowV2'
+import type { IntakeTriageResult, IntakeTriageStatus } from '@/lib/intakeTriage'
 import {
   workflowUrgencyChipClassName,
   workflowUrgencyLabel,
@@ -47,6 +48,18 @@ function followUpTone(urgency: FollowUpEngineUrgency): string {
   }
 }
 
+function triageTone(status: IntakeTriageStatus): string {
+  switch (status) {
+    case 'urgent_pastoral_contact':
+      return 'border-rose-300/90 bg-rose-50 text-rose-950'
+    case 'needs_review':
+      return 'border-amber-200/90 bg-amber-50 text-amber-950'
+    case 'ready_to_start':
+    default:
+      return 'border-emerald-200/90 bg-emerald-50 text-emerald-950'
+  }
+}
+
 function LabeledTile(props: {
   label: string
   value: string
@@ -66,6 +79,7 @@ export type DashboardRequestRowBadgesProps = {
   workflow: RequestWorkflowV2Result
   smartFollowUp: SmartFollowUpEvaluation
   atRisk: AtRiskEvaluation
+  intakeTriage: IntakeTriageResult
   waitingOnDisplay: string
   staffDisplay: string
   priestDisplay: string
@@ -76,7 +90,7 @@ export type DashboardRequestRowBadgesProps = {
  * (risk, follow-up engine, waiting, assignments). Uses sentence-sized type.
  */
 export function DashboardRequestRowBadges(props: DashboardRequestRowBadgesProps) {
-  const { workflow, smartFollowUp, atRisk, waitingOnDisplay, staffDisplay, priestDisplay } =
+  const { workflow, smartFollowUp, atRisk, intakeTriage, waitingOnDisplay, staffDisplay, priestDisplay } =
     props
 
   const riskValue = atRisk.isAtRisk
@@ -106,6 +120,12 @@ export function DashboardRequestRowBadges(props: DashboardRequestRowBadgesProps)
       <div>
         <p className="sr-only">Request status overview</p>
         <div className="flex flex-wrap gap-2">
+          <LabeledTile
+            label="Intake"
+            value={intakeTriage.label}
+            toneClass={triageTone(intakeTriage.status)}
+            title={intakeTriage.headline}
+          />
           <LabeledTile
             label="Risk"
             value={riskValue}
