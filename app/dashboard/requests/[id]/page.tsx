@@ -24,7 +24,7 @@ import {
 import { CommunicationHubSubsection } from './_components/CommunicationHubSubsection'
 import { SendEmailSection } from './_components/SendEmailSection'
 import { GoogleCalendarSection } from './_components/GoogleCalendarSection'
-import { RequestNextStepCard, resolveRequestNextStep } from './_components/RequestNextStepCard'
+import { resolveRequestNextStep } from './_components/RequestNextStepCard'
 import { RequestProgressCard } from './_components/RequestProgressCard'
 import { RequestTimelineSection } from './_components/RequestTimelineSection'
 import { RequestWorkflowChecklist } from './_components/RequestWorkflowChecklist'
@@ -37,6 +37,7 @@ import { RequestCareCadenceCard } from './_components/RequestCareCadenceCard'
 import { RequestFirstReviewCard } from './_components/RequestFirstReviewCard'
 import { RequestIntakeQualityCard } from './_components/RequestIntakeQualityCard'
 import { RequestHandoffBriefCard } from './_components/RequestHandoffBrief'
+import { RequestCommandCard } from './_components/RequestCommandCard'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
 import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection'
 import { RequestRelationshipSuggestions } from './_components/RequestRelationshipSuggestions'
@@ -1947,19 +1948,20 @@ async function deleteGoogleCalendarEvent() {
           hidden={activeTab !== 'overview'}
           className="space-y-5 p-4 sm:space-y-6 sm:p-6"
         >
+          <RequestCommandCard
+            nextStep={nextStep}
+            firstReview={firstReview}
+            handoffBrief={handoffBrief}
+            completionRequirements={completionRequirements}
+            followUpDisplay={followUpSummaryDisplay}
+            canMarkComplete={canMarkComplete}
+            onNavigateToSection={goToSection}
+            onMarkComplete={jumpToCompletion}
+          />
+
           <RequestFirstReviewCard review={firstReview} />
 
           <RequestIntakeQualityCard quality={intakeQuality} />
-
-          <RequestNextStepCard
-            variant="dominant"
-            request={request}
-            scheduleRow={scheduleRowForProgress}
-            checklistIncomplete={checklistIncomplete}
-            canMarkComplete={canMarkComplete}
-            hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
-            onMarkComplete={jumpToCompletion}
-          />
 
           <RequestHandoffBriefCard brief={handoffBrief} />
 
