@@ -35,6 +35,7 @@ import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHe
 import { RequestCommunicationCommitmentCard } from './_components/RequestCommunicationCommitmentCard'
 import { RequestCareCadenceCard } from './_components/RequestCareCadenceCard'
 import { RequestFirstReviewCard } from './_components/RequestFirstReviewCard'
+import { RequestIntakeQualityCard } from './_components/RequestIntakeQualityCard'
 import { RequestHandoffBriefCard } from './_components/RequestHandoffBrief'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
 import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection'
@@ -97,6 +98,7 @@ import { buildRequestHandoffBrief } from '@/lib/requestHandoffBrief'
 import { evaluateCareCadence } from '@/lib/careCadence'
 import { evaluateCommunicationCommitment } from '@/lib/communicationCommitments'
 import { buildRequestFirstReview } from '@/lib/requestFirstReview'
+import { evaluateIntakeQuality } from '@/lib/intakeQuality'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -1801,6 +1803,13 @@ async function deleteGoogleCalendarEvent() {
     funeralDetail,
     weddingDetail,
   })
+  const intakeQuality = evaluateIntakeQuality({
+    ...(request ?? {}),
+    parishioner,
+    funeral_detail: funeralDetail,
+    wedding_detail: weddingDetail,
+    ocia_detail: ociaDetail,
+  })
 
   const followUpNotNeeded = String(request?.status || '') === 'complete'
   const followUpReady = hasFollowUp || followUpNotNeeded
@@ -1939,6 +1948,8 @@ async function deleteGoogleCalendarEvent() {
           className="space-y-5 p-4 sm:space-y-6 sm:p-6"
         >
           <RequestFirstReviewCard review={firstReview} />
+
+          <RequestIntakeQualityCard quality={intakeQuality} />
 
           <RequestNextStepCard
             variant="dominant"
