@@ -9,7 +9,9 @@ import {
   LabelValueRow,
 } from '@/app/dashboard/requests/[id]/_components/LabelValueGrid'
 import { WorkflowSectionCard } from '@/app/dashboard/requests/[id]/_components/WorkflowSectionCard'
+import { CareTimelineSection } from '@/app/dashboard/_components/CareTimelineSection'
 import { devDashboardConsoleError } from '@/lib/dashboardSupabaseError'
+import { buildCareTimeline, type CareTimelineRequest, type CareTimelineCommunication } from '@/lib/careTimeline'
 import {
   formatHouseholdAddressLine,
   formatHouseholdMemberLabel,
@@ -18,9 +20,11 @@ import {
   parseHouseholdRow,
 } from '@/lib/households'
 import { maybeMissingValue } from '@/lib/missingValue'
+import { parseSacramentalRecordRow } from '@/lib/sacramentalRecords'
 import { secondaryButtonMd } from '@/lib/buttonStyles'
 import { supabase } from '@/lib/supabase'
 import type { HouseholdMemberWithPerson, HouseholdRow } from '@/lib/types/households'
+import type { SacramentalRecordRow } from '@/lib/types/sacramentalRecords'
 
 function displayValue(value: string | null | undefined) {
   const s = String(value ?? '').trim()
@@ -33,6 +37,9 @@ export function HouseholdDetailPage() {
 
   const [household, setHousehold] = useState<HouseholdRow | null>(null)
   const [members, setMembers] = useState<HouseholdMemberWithPerson[]>([])
+  const [requests, setRequests] = useState<CareTimelineRequest[]>([])
+  const [records, setRecords] = useState<SacramentalRecordRow[]>([])
+  const [communications, setCommunications] = useState<CareTimelineCommunication[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -86,6 +93,76 @@ export function HouseholdDetailPage() {
         })
       )
 
+      const personIds = (memberRows ?? [])
+        .map((row) => String((row as Record<string, unknown>).person_id ?? '').trim())
+        .filter(Boolean)
+
+      if (personIds.length > 0) {
+        const { data: requestRows } = await supabase
+          .from('requests')
+          .select('id, request_type, status, child_name, created_at, person_id')
+          .in('person_id', personIds)
+          .order('created_at', { ascending: false })
+
+        const householdRequests: CareTimelineRequest[] = (requestRows ?? []).map((row) => {
+          const raw = row as Record<string, unknown>
+          return {
+            id: String(raw.id),
+            request_type: String(raw.request_type ?? ''),
+            status: String(raw.status ?? ''),
+            child_name: raw.child_name != null ? String(raw.child_name) : null,
+            created_at: String(raw.created_at ?? ''),
+          }
+        })
+        setRequests(householdRequests)
+
+        const { data: recordRows } = await supabase
+          .from('sacramental_records')
+          .select('*')
+          .in('person_id', personIds)
+          .order('sacrament_date', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+
+        setRecords(
+          (recordRows ?? []).map((row) =>
+            parseSacramentalRecordRow(row as Record<string, unknown>)
+          )
+        )
+
+        const requestIds = householdRequests.map((request) => request.id)
+        if (requestIds.length > 0) {
+          const { data: commRows } = await supabase
+            .from('request_communications')
+            .select('id, request_id, contacted_at, method, notes')
+            .in('request_id', requestIds)
+            .order('contacted_at', { ascending: false })
+
+          const labelByRequestId = new Map(
+            householdRequests.map((request) => [request.id, request.request_type])
+          )
+          setCommunications(
+            (commRows ?? []).map((row) => {
+              const raw = row as Record<string, unknown>
+              const requestId = String(raw.request_id ?? '')
+              return {
+                id: String(raw.id),
+                requestId,
+                requestLabel: labelByRequestId.get(requestId) ?? 'Request',
+                contacted_at: String(raw.contacted_at ?? ''),
+                method: String(raw.method ?? ''),
+                notes: raw.notes != null ? String(raw.notes) : null,
+              }
+            })
+          )
+        } else {
+          setCommunications([])
+        }
+      } else {
+        setRequests([])
+        setRecords([])
+        setCommunications([])
+      }
+
       setLoading(false)
     }
 
@@ -122,6 +199,19 @@ export function HouseholdDetailPage() {
   }
 
   const addressLine = formatHouseholdAddressLine(household)
+  const careTimelineEvents = buildCareTimeline({
+    requests,
+    records,
+    communications,
+    households: [
+      {
+        householdId: household.id,
+        householdName: household.name,
+        relationship: 'Household',
+        isPrimaryContact: false,
+      },
+    ],
+  })
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
@@ -162,6 +252,12 @@ export function HouseholdDetailPage() {
             <LabelValueRow label="Notes" value={displayValue(household.notes)} />
           </LabelValueGrid>
         </WorkflowSectionCard>
+
+        <CareTimelineSection
+          events={careTimelineEvents}
+          title="Household care timeline"
+          description="Requests, records, and communication linked to members of this household."
+        />
 
         <WorkflowSectionCard title="Members" description="People in this household.">
           {members.length === 0 ? (

@@ -29,6 +29,8 @@ import {
 } from '@/lib/cardStyles'
 import { dashboardRequestOpenLabel } from '@/lib/dashboardRequestNavigation'
 import { DashboardRequestNameLink } from '@/app/dashboard/_components/DashboardRequestNameLink'
+import { CareTimelineSection } from '@/app/dashboard/_components/CareTimelineSection'
+import { buildCareTimeline } from '@/lib/careTimeline'
 import type { PersonRow } from '@/lib/types/people'
 import type { SacramentalRecordRow } from '@/lib/types/sacramentalRecords'
 
@@ -260,6 +262,12 @@ export function PersonDetailPage() {
   const displayName = formatPersonDisplayName(person)
   const dobDisplay = formatPersonDateOfBirthDisplay(person.date_of_birth)
   const contactParts = [person.email, person.phone].filter(Boolean)
+  const careTimelineEvents = buildCareTimeline({
+    requests,
+    records,
+    communications,
+    households,
+  })
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
@@ -309,6 +317,8 @@ export function PersonDetailPage() {
             <LabelValueRow label="Notes" value={displayValue(person.notes)} />
           </LabelValueGrid>
         </WorkflowSectionCard>
+
+        <CareTimelineSection events={careTimelineEvents} />
 
         <WorkflowSectionCard title="Households" description="Household memberships for this person.">
           {households.length === 0 ? (

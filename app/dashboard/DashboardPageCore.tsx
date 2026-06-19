@@ -9,6 +9,7 @@ import { DashboardTodayView } from './DashboardTodayView'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
 import { DashboardOwnershipHealth } from './DashboardOwnershipHealth'
+import { DashboardFamilyCarePlans } from './DashboardFamilyCarePlans'
 import { DashboardRequestNameLink } from './_components/DashboardRequestNameLink'
 import { DashboardRequestRowBadges } from './DashboardRequestRowBadges'
 import { DashboardRequestFilters } from './DashboardRequestFilters'
@@ -86,6 +87,7 @@ import {
 import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
 import { buildCareCadenceQueue } from '@/lib/careCadence'
 import { buildCommunicationCommitmentQueue } from '@/lib/communicationCommitments'
+import { buildCarePlans } from '@/lib/carePlans'
 import { evaluateIntakeTriage } from '@/lib/intakeTriage'
 import { buildOwnershipHealth } from '@/lib/ownershipHealth'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
@@ -1764,6 +1766,15 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [isHome, requests, searchedRequests, dashboardMetricsAt]
   )
 
+  const familyCarePlans = useMemo(
+    () =>
+      buildCarePlans(isHome ? requests : searchedRequests, {
+        now: dashboardMetricsAt,
+        limit: isHome ? 4 : 8,
+      }),
+    [isHome, requests, searchedRequests, dashboardMetricsAt]
+  )
+
   const communicationCommitments = useMemo(
     () =>
       buildCommunicationCommitmentQueue(isHome ? requests : searchedRequests, {
@@ -1959,6 +1970,12 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
             loading={loading || suggestedActionsLoading}
             dataUnavailable={requestsFetchFailed}
             compact
+          />
+
+          <DashboardFamilyCarePlans
+            plans={familyCarePlans}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
           />
         </>
       ) : (
