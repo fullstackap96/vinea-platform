@@ -14,7 +14,9 @@ function isValidEmail(value: string): boolean {
 async function loadPrimaryParishWithGoogle(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
   const { data: parish, error: parishErr } = await admin
     .from('parishes')
-    .select('id, name, default_notification_email, staff_directory, priest_directory, created_at')
+    .select(
+      'id, name, default_notification_email, staff_directory, priest_directory, daily_ops_brief_enabled, daily_ops_brief_email, daily_ops_brief_last_sent_on, daily_ops_brief_last_error, created_at'
+    )
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
@@ -82,6 +84,10 @@ export async function GET(request: NextRequest) {
           id: parish.id,
           name: parish.name,
           default_notification_email: String(parish.default_notification_email ?? '').trim(),
+          daily_ops_brief_enabled: Boolean(parish.daily_ops_brief_enabled),
+          daily_ops_brief_email: String(parish.daily_ops_brief_email ?? '').trim(),
+          daily_ops_brief_last_sent_on: parish.daily_ops_brief_last_sent_on ?? null,
+          daily_ops_brief_last_error: parish.daily_ops_brief_last_error ?? null,
           staff_names: directoryFromJsonColumn(parish.staff_directory),
           priest_names: directoryFromJsonColumn(parish.priest_directory),
         },
@@ -129,6 +135,25 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
+    const dailyBriefEnabled = Boolean(body.daily_ops_brief_enabled)
+    const dailyBriefEmailRaw = String(body.daily_ops_brief_email ?? '').trim()
+    if (dailyBriefEmailRaw && !isValidEmail(dailyBriefEmailRaw)) {
+      return NextResponse.json(
+        { ok: false, error: 'Please enter a valid daily brief email, or leave it blank.' },
+        { status: 400 }
+      )
+    }
+    if (dailyBriefEnabled && !dailyBriefEmailRaw && !emailRaw) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Daily brief delivery needs either a daily brief email or a default notification email.',
+        },
+        { status: 400 }
+      )
+    }
+
     const staff = directoryFromJsonColumn(
       Array.isArray(body.staff_names) ? body.staff_names : []
     )
@@ -153,6 +178,8 @@ export async function PATCH(request: NextRequest) {
       .update({
         name,
         default_notification_email: emailRaw || null,
+        daily_ops_brief_enabled: dailyBriefEnabled,
+        daily_ops_brief_email: dailyBriefEmailRaw || null,
         staff_directory: staff,
         priest_directory: priests,
         updated_at: new Date().toISOString(),

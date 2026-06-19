@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/parish/daily-brief",
+      "schedule": "0 13 * * *"
+    }
+  ]
+}

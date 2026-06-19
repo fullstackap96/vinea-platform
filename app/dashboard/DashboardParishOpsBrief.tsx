@@ -56,11 +56,11 @@ export function DashboardParishOpsBrief({
       aria-busy={loading}
     >
       <h2 id="parish-ops-brief-heading" className={sectionHeadingClassName}>
-        Parish ops brief
+        Today&apos;s parish brief
       </h2>
       <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
-        A quick staff briefing for today&apos;s ownership, blockers, aging follow-up, and
-        operational risk.
+        A quick morning view of first contacts, follow-ups, urgent funerals, blockers, missing
+        dates, and the best place to start.
       </p>
 
       {loading ? (
@@ -94,7 +94,7 @@ export function DashboardParishOpsBrief({
             <div className="flex flex-col gap-2 sm:items-end">
               {brief.focusItems.length > 0 ? (
                 <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
-                  Top {brief.focusItems.length} focus rows ready
+                  Top {brief.focusItems.length} focus items ready
                 </span>
               ) : null}
               <button

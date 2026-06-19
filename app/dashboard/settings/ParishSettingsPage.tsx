@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
-import { primaryButtonMd } from '@/lib/buttonStyles'
+import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import {
   vineaInputFieldClassName,
   vineaSectionShellClassName,
@@ -24,8 +24,16 @@ type ParishPayload = {
   name: string
   /** Absent or null when unset in DB; API normalizes to string but we tolerate null. */
   default_notification_email?: string | null
+  daily_ops_brief_enabled?: boolean | null
+  daily_ops_brief_email?: string | null
+  daily_ops_brief_last_sent_on?: string | null
+  daily_ops_brief_last_error?: string | null
   staff_names?: string[]
   priest_names?: string[]
+}
+
+function messageFromUnknown(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
 }
 
 export function ParishSettingsPage() {
@@ -37,6 +45,12 @@ export function ParishSettingsPage() {
 
   const [parishName, setParishName] = useState('')
   const [notificationEmail, setNotificationEmail] = useState('')
+  const [dailyBriefEnabled, setDailyBriefEnabled] = useState(false)
+  const [dailyBriefEmail, setDailyBriefEmail] = useState('')
+  const [dailyBriefLastSentOn, setDailyBriefLastSentOn] = useState<string | null>(null)
+  const [dailyBriefLastError, setDailyBriefLastError] = useState<string | null>(null)
+  const [dailyBriefSending, setDailyBriefSending] = useState(false)
+  const [dailyBriefMessage, setDailyBriefMessage] = useState('')
   const [staffText, setStaffText] = useState('')
   const [priestText, setPriestText] = useState('')
   const [googleCalendar, setGoogleCalendar] = useState<ParishGoogleIntegrationSnapshot | null>(
@@ -60,11 +74,15 @@ export function ParishSettingsPage() {
       }
       setParishName(p.name)
       setNotificationEmail(String(p.default_notification_email ?? '').trim() || '')
+      setDailyBriefEnabled(Boolean(p.daily_ops_brief_enabled))
+      setDailyBriefEmail(String(p.daily_ops_brief_email ?? '').trim() || '')
+      setDailyBriefLastSentOn(p.daily_ops_brief_last_sent_on ?? null)
+      setDailyBriefLastError(p.daily_ops_brief_last_error ?? null)
       setStaffText(directoryToMultilineText(Array.isArray(p.staff_names) ? p.staff_names : []))
       setPriestText(directoryToMultilineText(Array.isArray(p.priest_names) ? p.priest_names : []))
       setGoogleCalendar((data.googleCalendar as ParishGoogleIntegrationSnapshot | null) ?? null)
-    } catch (e: any) {
-      setLoadError(e?.message || 'Could not load settings.')
+    } catch (error: unknown) {
+      setLoadError(messageFromUnknown(error, 'Could not load settings.'))
     } finally {
       setLoading(false)
     }
@@ -89,6 +107,8 @@ export function ParishSettingsPage() {
         body: JSON.stringify({
           name: parishName.trim(),
           default_notification_email: notificationEmail.trim(),
+          daily_ops_brief_enabled: dailyBriefEnabled,
+          daily_ops_brief_email: dailyBriefEmail.trim(),
           staff_names,
           priest_names,
         }),
@@ -100,10 +120,32 @@ export function ParishSettingsPage() {
       }
       setSaveMessage('Settings saved.')
       await load()
-    } catch (err: any) {
-      setSaveError(err?.message || 'Save failed')
+    } catch (error: unknown) {
+      setSaveError(messageFromUnknown(error, 'Save failed'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function sendDailyBriefNow() {
+    setDailyBriefSending(true)
+    setDailyBriefMessage('')
+    try {
+      const res = await fetch('/api/parish/daily-brief', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        setDailyBriefMessage(String(data?.error || 'Could not send the daily brief.'))
+        return
+      }
+      setDailyBriefMessage(`Daily brief sent to ${String(data.to || '').trim() || 'the parish inbox'}.`)
+      await load()
+    } catch (error: unknown) {
+      setDailyBriefMessage(messageFromUnknown(error, 'Could not send the daily brief.'))
+    } finally {
+      setDailyBriefSending(false)
     }
   }
 
@@ -185,6 +227,72 @@ export function ParishSettingsPage() {
                   separate <span className="font-mono text-[11px]">REQUEST_NOTIFICATION_TO_EMAIL</span>{' '}
                   address. Leave blank to rely on that server setting only.
                 </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-slate-50 px-4 py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      Daily parish brief email
+                    </h3>
+                    <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                      Send a simple morning summary of urgent requests, due follow-ups, blockers,
+                      missing dates, and the top work to start with.
+                    </p>
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
+                    <input
+                      type="checkbox"
+                      checked={dailyBriefEnabled}
+                      onChange={(e) => setDailyBriefEnabled(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand-ring"
+                    />
+                    Send daily
+                  </label>
+                </div>
+
+                <div className="mt-4">
+                  <label
+                    htmlFor="parish-daily-brief-email"
+                    className="mb-1 block text-sm font-medium text-gray-800"
+                  >
+                    Daily brief recipient
+                  </label>
+                  <input
+                    id="parish-daily-brief-email"
+                    type="email"
+                    className={vineaInputFieldClassName}
+                    value={dailyBriefEmail}
+                    onChange={(e) => setDailyBriefEmail(e.target.value)}
+                    placeholder={notificationEmail.trim() || 'office@yourparish.org'}
+                    autoComplete="email"
+                  />
+                  <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
+                    Leave blank to use the default notification email above.
+                    {dailyBriefLastSentOn ? (
+                      <> Last sent: {dailyBriefLastSentOn}.</>
+                    ) : null}
+                  </p>
+                  {dailyBriefLastError ? (
+                    <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                      Last delivery issue: {dailyBriefLastError}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={sendDailyBriefNow}
+                    disabled={dailyBriefSending}
+                    className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
+                  >
+                    {dailyBriefSending ? 'Sending brief...' : "Send today's brief now"}
+                  </button>
+                  {dailyBriefMessage ? (
+                    <p className="text-sm font-medium text-gray-700">{dailyBriefMessage}</p>
+                  ) : null}
+                </div>
               </div>
 
               <div>

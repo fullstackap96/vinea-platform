@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
 import { DashboardTodayView } from './DashboardTodayView'
 import { DashboardTodaysCareBrief } from './DashboardTodaysCareBrief'
+import { DashboardParishOpsBrief } from './DashboardParishOpsBrief'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
 import { DashboardOwnershipHealth } from './DashboardOwnershipHealth'
@@ -96,6 +97,7 @@ import { buildCarePlans } from '@/lib/carePlans'
 import { buildTodaysCareBrief } from '@/lib/parishCareCalendar'
 import { evaluateIntakeTriage } from '@/lib/intakeTriage'
 import { buildOwnershipHealth } from '@/lib/ownershipHealth'
+import { buildParishOpsBrief } from '@/lib/parishOpsBrief'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import {
   vineaEmptyStateClassName,
@@ -1904,6 +1906,11 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [requests, allFamilyCarePlans, dashboardMetricsAt]
   )
 
+  const parishOpsBrief = useMemo(
+    () => buildParishOpsBrief(requests, { now: dashboardMetricsAt }),
+    [requests, dashboardMetricsAt]
+  )
+
   const communicationCommitments = useMemo(
     () =>
       buildCommunicationCommitmentQueue(isHome ? requests : searchedRequests, {
@@ -2088,6 +2095,12 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
 
           <DashboardTodaysCareBrief
             brief={todaysCareBrief}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+          />
+
+          <DashboardParishOpsBrief
+            brief={parishOpsBrief}
             loading={loading}
             dataUnavailable={requestsFetchFailed}
           />

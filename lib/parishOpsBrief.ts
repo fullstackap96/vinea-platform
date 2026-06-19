@@ -8,6 +8,9 @@ import {
 } from '@/lib/dashboardStaffWorkload'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { formatRequestType } from '@/lib/formatRequestType'
+import { dashboardRequestScheduleRow } from '@/lib/requestWorkflowV2'
+import { isMissingConfirmedSchedule } from '@/lib/requestConfirmedSchedule'
+import { isNextFollowUpDueToday, isNextFollowUpOverdue } from '@/lib/nextFollowUpDate'
 
 export type ParishOpsBriefFocusItem = {
   requestId: string
@@ -37,6 +40,15 @@ export type ParishOpsBrief = {
   huddleNote: string
   items: ParishOpsBriefItem[]
   focusItems: ParishOpsBriefFocusItem[]
+  today: {
+    firstContactNeeded: number
+    followUpsDueToday: number
+    overdueFollowUps: number
+    urgentFunerals: number
+    missingConfirmedSchedules: number
+    blocked: number
+    completed: number
+  }
 }
 
 function plural(n: number, singular: string, pluralForm = `${singular}s`) {
@@ -54,6 +66,16 @@ function needsOrNeed(n: number) {
 function severityForCount(count: number, urgentAt = 1): ParishOpsBriefSeverity {
   if (count >= urgentAt) return 'urgent'
   return 'steady'
+}
+
+function isOpenRequest(request: StaffCommandCenterRequest): boolean {
+  return String(request.status ?? '').trim() !== 'complete'
+}
+
+function isBlank(value: unknown): boolean {
+  if (value == null) return true
+  if (typeof value === 'string') return !value.trim()
+  return false
 }
 
 function buildFirstAction(input: {
@@ -79,6 +101,7 @@ function buildHuddleNote(input: {
   items: ParishOpsBriefItem[]
   focusItems: ParishOpsBriefFocusItem[]
   firstAction: string
+  today: ParishOpsBrief['today']
 }): string {
   const counts = input.items
     .filter((item) => item.key !== 'owner_focus')
@@ -99,6 +122,7 @@ function buildHuddleNote(input: {
     input.subline,
     `First action: ${input.firstAction}`,
     `Counts: ${counts}`,
+    `Today: first contact ${input.today.firstContactNeeded} | due today ${input.today.followUpsDueToday} | overdue ${input.today.overdueFollowUps} | urgent funerals ${input.today.urgentFunerals} | missing schedules ${input.today.missingConfirmedSchedules} | completed ${input.today.completed}`,
     'Start here:',
     focusLines,
   ].join('\n')
@@ -110,7 +134,9 @@ export function buildParishOpsBrief(
 ): ParishOpsBrief {
   const now = options?.now ?? new Date()
   const commandCenter = buildStaffCommandCenterRows(requests, { now, limit: 5 })
+  const allCommandCenterRows = buildStaffCommandCenterRows(requests, { now }).rows
   const workload = buildStaffWorkloadRows(requests, now)
+  const openRequests = requests.filter(isOpenRequest)
 
   const unassigned = workload.find(
     (row) => row.staffDisplay === STAFF_WORKLOAD_UNASSIGNED_LABEL
@@ -119,6 +145,26 @@ export function buildParishOpsBrief(
   const urgentCount = commandCenter.summary.actNow
   const blockedCount = commandCenter.summary.blocked
   const agingCount = commandCenter.summary.aging
+  const today: ParishOpsBrief['today'] = {
+    firstContactNeeded: openRequests.filter((request) => isBlank(request.last_contacted_at)).length,
+    followUpsDueToday: openRequests.filter((request) =>
+      isNextFollowUpDueToday(request.next_follow_up_date, request.status, now)
+    ).length,
+    overdueFollowUps: openRequests.filter((request) =>
+      isNextFollowUpOverdue(request.next_follow_up_date, request.status, now)
+    ).length,
+    urgentFunerals: allCommandCenterRows.filter(
+      (row) => row.requestType === 'funeral' && row.bucket === 'act_now'
+    ).length,
+    missingConfirmedSchedules: openRequests.filter((request) => {
+      const requestType = String(request.request_type ?? '').trim()
+      if (!['baptism', 'funeral', 'wedding', 'ocia'].includes(requestType)) return false
+      return isMissingConfirmedSchedule(dashboardRequestScheduleRow(request))
+    }).length,
+    blocked: blockedCount,
+    completed: requests.filter((request) => String(request.status ?? '').trim() === 'complete')
+      .length,
+  }
   const overloadedOwner = workload
     .filter((row) => row.staffDisplay !== STAFF_WORKLOAD_UNASSIGNED_LABEL)
     .sort((a, b) => {
@@ -185,6 +231,49 @@ export function buildParishOpsBrief(
           : 'No stale-contact command-center rows are currently flagged.',
       severity: agingCount > 0 ? 'warning' : 'steady',
     },
+    {
+      key: 'first_contact',
+      label: 'First contact',
+      value: today.firstContactNeeded,
+      detail:
+        today.firstContactNeeded > 0
+          ? `${today.firstContactNeeded} open ${plural(today.firstContactNeeded, 'request')} still need first contact logged.`
+          : 'Every open request has a first contact logged.',
+      severity: severityForCount(today.firstContactNeeded),
+    },
+    {
+      key: 'due_today',
+      label: 'Due today',
+      value: today.followUpsDueToday,
+      detail:
+        today.followUpsDueToday > 0
+          ? `${today.followUpsDueToday} ${plural(today.followUpsDueToday, 'follow-up')} should happen today.`
+          : 'No follow-ups are due today.',
+      severity: today.followUpsDueToday > 0 ? 'warning' : 'steady',
+    },
+    {
+      key: 'overdue_followup',
+      label: 'Overdue',
+      value: today.overdueFollowUps,
+      detail:
+        today.overdueFollowUps > 0
+          ? `${today.overdueFollowUps} ${plural(today.overdueFollowUps, 'follow-up')} are past due.`
+          : 'No follow-ups are overdue.',
+      severity: severityForCount(today.overdueFollowUps),
+    },
+    {
+      key: 'missing_schedule',
+      label: 'Missing dates',
+      value: today.missingConfirmedSchedules,
+      detail:
+        today.missingConfirmedSchedules > 0
+          ? `${today.missingConfirmedSchedules} sacramental or pastoral ${plural(
+              today.missingConfirmedSchedules,
+              'request'
+            )} need a confirmed date/time.`
+          : 'Required dates and times are confirmed.',
+      severity: today.missingConfirmedSchedules > 0 ? 'warning' : 'steady',
+    },
   ]
 
   if (overloadedOwner && overloadedOwner.actionRequired > 0) {
@@ -228,8 +317,9 @@ export function buildParishOpsBrief(
     headline,
     subline,
     firstAction,
-    huddleNote: buildHuddleNote({ headline, subline, items, focusItems, firstAction }),
+    huddleNote: buildHuddleNote({ headline, subline, items, focusItems, firstAction, today }),
     items,
     focusItems,
+    today,
   }
 }
