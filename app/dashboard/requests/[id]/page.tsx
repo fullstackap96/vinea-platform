@@ -38,6 +38,7 @@ import { RequestFirstReviewCard } from './_components/RequestFirstReviewCard'
 import { RequestHandoffBriefCard } from './_components/RequestHandoffBrief'
 import { RequestCommandCard } from './_components/RequestCommandCard'
 import { RequestIntakeTriageCard } from './_components/RequestIntakeTriageCard'
+import { RequestPlaybookProgressPanel } from './_components/RequestPlaybookProgressPanel'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
 import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection'
 import { RequestRelationshipSuggestions } from './_components/RequestRelationshipSuggestions'
@@ -100,6 +101,7 @@ import { evaluateCareCadence } from '@/lib/careCadence'
 import { evaluateCommunicationCommitment } from '@/lib/communicationCommitments'
 import { buildRequestFirstReview } from '@/lib/requestFirstReview'
 import { evaluateIntakeTriage } from '@/lib/intakeTriage'
+import { buildRequestPlaybookProgress } from '@/lib/requestPlaybookProgress'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -1817,6 +1819,17 @@ async function deleteGoogleCalendarEvent() {
     wedding_detail: weddingDetail,
     ocia_detail: ociaDetail,
   })
+  const playbookProgress = buildRequestPlaybookProgress({
+    request,
+    parishioner,
+    communications,
+    checklistItems,
+    sacramentalRecord: linkedSacramentalRecord,
+    funeralDetail,
+    weddingDetail,
+    ociaDetail,
+    scheduleRow: scheduleRowForProgress,
+  })
 
   const followUpNotNeeded = String(request?.status || '') === 'complete'
   const followUpReady = hasFollowUp || followUpNotNeeded
@@ -1964,6 +1977,13 @@ async function deleteGoogleCalendarEvent() {
             onNavigateToSection={goToSection}
             onMarkComplete={jumpToCompletion}
           />
+
+          {playbookProgress ? (
+            <RequestPlaybookProgressPanel
+              progress={playbookProgress}
+              onNavigateToSection={goToSection}
+            />
+          ) : null}
 
           <RequestIntakeTriageCard triage={intakeTriage} onNavigateToSection={goToSection} />
 
