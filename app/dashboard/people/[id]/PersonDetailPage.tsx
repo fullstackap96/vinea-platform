@@ -30,7 +30,7 @@ import {
 import { dashboardRequestOpenLabel } from '@/lib/dashboardRequestNavigation'
 import { DashboardRequestNameLink } from '@/app/dashboard/_components/DashboardRequestNameLink'
 import { CareTimelineSection } from '@/app/dashboard/_components/CareTimelineSection'
-import { buildCareTimeline } from '@/lib/careTimeline'
+import { buildPersonCareTimeline } from '@/lib/careTimeline'
 import type { PersonRow } from '@/lib/types/people'
 import type { SacramentalRecordRow } from '@/lib/types/sacramentalRecords'
 
@@ -48,6 +48,11 @@ type LinkedRequest = {
   status: string
   child_name: string | null
   created_at: string
+  last_contacted_at: string | null
+  next_follow_up_date: string | null
+  assigned_staff_name: string | null
+  assigned_priest_name: string | null
+  assigned_deacon_name: string | null
   linkSource: 'person_id' | 'parishioner_id'
 }
 
@@ -164,7 +169,9 @@ export function PersonDetailPage() {
 
       let requestsQuery = supabase
         .from('requests')
-        .select('id, request_type, status, child_name, created_at, person_id, parishioner_id')
+        .select(
+          'id, request_type, status, child_name, created_at, last_contacted_at, next_follow_up_date, assigned_staff_name, assigned_priest_name, assigned_deacon_name, person_id, parishioner_id'
+        )
         .order('created_at', { ascending: false })
 
       if (parsedPerson.parishioner_id) {
@@ -187,6 +194,15 @@ export function PersonDetailPage() {
           status: String(r.status ?? ''),
           child_name: r.child_name != null ? String(r.child_name) : null,
           created_at: String(r.created_at ?? ''),
+          last_contacted_at: r.last_contacted_at != null ? String(r.last_contacted_at) : null,
+          next_follow_up_date:
+            r.next_follow_up_date != null ? String(r.next_follow_up_date) : null,
+          assigned_staff_name:
+            r.assigned_staff_name != null ? String(r.assigned_staff_name) : null,
+          assigned_priest_name:
+            r.assigned_priest_name != null ? String(r.assigned_priest_name) : null,
+          assigned_deacon_name:
+            r.assigned_deacon_name != null ? String(r.assigned_deacon_name) : null,
           linkSource,
         }
       })
@@ -262,7 +278,7 @@ export function PersonDetailPage() {
   const displayName = formatPersonDisplayName(person)
   const dobDisplay = formatPersonDateOfBirthDisplay(person.date_of_birth)
   const contactParts = [person.email, person.phone].filter(Boolean)
-  const careTimelineEvents = buildCareTimeline({
+  const careTimeline = buildPersonCareTimeline({
     requests,
     records,
     communications,
@@ -318,7 +334,11 @@ export function PersonDetailPage() {
           </LabelValueGrid>
         </WorkflowSectionCard>
 
-        <CareTimelineSection events={careTimelineEvents} />
+        <CareTimelineSection
+          events={careTimeline.events}
+          nextAction={careTimeline.nextAction}
+          counts={careTimeline.counts}
+        />
 
         <WorkflowSectionCard title="Households" description="Household memberships for this person.">
           {households.length === 0 ? (
