@@ -34,6 +34,7 @@ import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmart
 import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
 import { RequestCommunicationCommitmentCard } from './_components/RequestCommunicationCommitmentCard'
 import { RequestCareCadenceCard } from './_components/RequestCareCadenceCard'
+import { RequestFirstReviewCard } from './_components/RequestFirstReviewCard'
 import { RequestHandoffBriefCard } from './_components/RequestHandoffBrief'
 import { WorkflowSectionCard } from './_components/WorkflowSectionCard'
 import { RequestPersonLinkSection } from './_components/RequestPersonLinkSection'
@@ -95,6 +96,7 @@ import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
 import { buildRequestHandoffBrief } from '@/lib/requestHandoffBrief'
 import { evaluateCareCadence } from '@/lib/careCadence'
 import { evaluateCommunicationCommitment } from '@/lib/communicationCommitments'
+import { buildRequestFirstReview } from '@/lib/requestFirstReview'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -1783,6 +1785,22 @@ async function deleteGoogleCalendarEvent() {
     communications,
     notes: requestNotes,
   })
+  const firstReview = buildRequestFirstReview({
+    request: request
+      ? {
+          ...request,
+          parishioner,
+        }
+      : null,
+    scheduleRow: scheduleRowForProgress,
+    checklistItems,
+    checklistIncomplete,
+    hasRecipientEmail: Boolean(String(parishioner?.email ?? '').trim()),
+    careCadence,
+    communicationCommitment,
+    funeralDetail,
+    weddingDetail,
+  })
 
   const followUpNotNeeded = String(request?.status || '') === 'complete'
   const followUpReady = hasFollowUp || followUpNotNeeded
@@ -1920,6 +1938,8 @@ async function deleteGoogleCalendarEvent() {
           hidden={activeTab !== 'overview'}
           className="space-y-5 p-4 sm:space-y-6 sm:p-6"
         >
+          <RequestFirstReviewCard review={firstReview} />
+
           <RequestNextStepCard
             variant="dominant"
             request={request}
