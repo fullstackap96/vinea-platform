@@ -80,4 +80,27 @@ describe('buildParishIntakeQueue', () => {
     })
     expect(items[0]?.filters).toContain('ready_to_schedule')
   })
+
+  it('omits requests that have minimum intake triage complete', () => {
+    const items = buildParishIntakeQueue({
+      now,
+      requests: [
+        {
+          id: 'ready-1',
+          request_type: 'baptism',
+          status: 'in_progress',
+          child_name: 'Sofia',
+          preferred_dates: 'July',
+          created_at: '2026-06-19T12:00:00.000Z',
+          parishioner: { full_name: 'Ana Lopez', email: 'ana@example.com', phone: '555-2000' },
+          assigned_staff_name: 'Maria',
+          last_contacted_at: '2026-06-19T12:00:00.000Z',
+          next_follow_up_date: '2026-06-25',
+          person_id: 'person-1',
+        },
+      ],
+    })
+
+    expect(items).toEqual([])
+  })
 })

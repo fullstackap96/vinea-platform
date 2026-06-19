@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowRight, ClipboardList, Filter } from 'lucide-react'
 import type {
   ParishIntakeQueueFilter,
@@ -12,6 +13,7 @@ import { primaryButtonSm, secondaryButtonSm } from '@/lib/buttonStyles'
 import { chipBase } from '@/lib/chipStyles'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaEmptyStateClassName } from '@/lib/vineaUi'
+import { quickTriageMassIntention, quickTriageRequest } from './actions'
 
 type FilterKey = 'all' | ParishIntakeQueueFilter
 
@@ -57,11 +59,67 @@ export function DashboardIntakePageClient({
   errorMessage = '',
   softWarnings = [],
 }: Props) {
+  const router = useRouter()
   const [filter, setFilter] = useState<FilterKey>('needs_review')
+  const [openItemId, setOpenItemId] = useState<string | null>(null)
+  const [savingItemId, setSavingItemId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<Record<string, string>>({})
   const visibleItems = useMemo(() => filterItems(items, filter), [items, filter])
   const urgentCount = items.filter((item) => item.priority === 'urgent').length
   const missingCount = items.filter((item) => item.filters.includes('missing_info')).length
   const ownerCount = items.filter((item) => item.filters.includes('needs_owner')).length
+
+  function setItemMessage(itemId: string, message: string) {
+    setMessages((current) => ({ ...current, [itemId]: message }))
+  }
+
+  async function saveRequestTriage(item: ParishIntakeQueueItem, formData: FormData) {
+    setSavingItemId(item.id)
+    setItemMessage(item.id, '')
+    try {
+      const result = await quickTriageRequest({
+        requestId: item.sourceId,
+        assignedStaffName: formData.get('assignedStaffName'),
+        nextFollowUpDate: formData.get('nextFollowUpDate'),
+        contactMethod: formData.get('contactMethod'),
+        contactNotes: formData.get('contactNotes'),
+        markFirstContact: formData.get('markFirstContact') === 'on',
+        doneForNow: formData.get('doneForNow') === 'on',
+      })
+      if (!result.ok) {
+        setItemMessage(item.id, `Could not save: ${result.error}`)
+        return
+      }
+      setItemMessage(item.id, 'Quick triage saved.')
+      setOpenItemId(null)
+      router.refresh()
+    } finally {
+      setSavingItemId(null)
+    }
+  }
+
+  async function saveMassIntentionTriage(item: ParishIntakeQueueItem, formData: FormData) {
+    setSavingItemId(item.id)
+    setItemMessage(item.id, '')
+    try {
+      const result = await quickTriageMassIntention({
+        intentionId: item.sourceId,
+        assignedMassDate: formData.get('assignedMassDate'),
+        assignedPriestName: formData.get('assignedPriestName'),
+        stipendReceived: formData.get('stipendReceived') === 'on',
+        doneForNow: formData.get('doneForNow') === 'on',
+      })
+      if (!result.ok) {
+        setItemMessage(item.id, `Could not save: ${result.error}`)
+        return
+      }
+      setItemMessage(item.id, 'Mass intention triage saved.')
+      setOpenItemId(null)
+      router.refresh()
+    } finally {
+      setSavingItemId(null)
+    }
+  }
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -196,13 +254,171 @@ export function DashboardIntakePageClient({
                         )}
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className={secondaryButtonSm}
+                          onClick={() =>
+                            setOpenItemId((current) => (current === item.id ? null : item.id))
+                          }
+                        >
+                          Quick triage
+                        </button>
                         <Link href={item.href} className={`${primaryButtonSm} gap-2`}>
-                          Open and triage
+                          Open full record
                           <ArrowRight className="h-4 w-4" aria-hidden />
                         </Link>
                       </div>
                     </div>
                   </div>
+
+                  {openItemId === item.id ? (
+                    <form
+                      className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3"
+                      action={(formData) => {
+                        if (item.kind === 'mass_intention') {
+                          void saveMassIntentionTriage(item, formData)
+                        } else {
+                          void saveRequestTriage(item, formData)
+                        }
+                      }}
+                    >
+                      <p className="text-sm font-semibold text-gray-950">
+                        Quick triage
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                        Save the basic next step here, then open the full record only if more
+                        detail is needed.
+                      </p>
+
+                      {item.kind === 'mass_intention' ? (
+                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                          <label className="text-sm font-medium text-gray-700">
+                            Mass date
+                            <input
+                              type="date"
+                              name="assignedMassDate"
+                              defaultValue={item.currentMassDate}
+                              className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
+                            />
+                          </label>
+                          <label className="text-sm font-medium text-gray-700">
+                            Priest
+                            <input
+                              type="text"
+                              name="assignedPriestName"
+                              defaultValue={item.currentPriestName}
+                              placeholder="Fr. name"
+                              className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
+                            />
+                          </label>
+                          <label className="flex items-end gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700">
+                            <input
+                              type="checkbox"
+                              name="stipendReceived"
+                              defaultChecked={item.stipendReceived}
+                              className="mb-1"
+                            />
+                            Stipend received
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                          <label className="text-sm font-medium text-gray-700">
+                            Staff owner
+                            <input
+                              type="text"
+                              name="assignedStaffName"
+                              defaultValue={item.currentOwner}
+                              placeholder="Name of staff owner"
+                              className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
+                            />
+                          </label>
+                          <label className="text-sm font-medium text-gray-700">
+                            Next follow-up
+                            <input
+                              type="date"
+                              name="nextFollowUpDate"
+                              defaultValue={item.currentFollowUpDate}
+                              className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
+                            />
+                          </label>
+                          <label className="text-sm font-medium text-gray-700">
+                            Contact method
+                            <select
+                              name="contactMethod"
+                              defaultValue="phone"
+                              className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
+                            >
+                              <option value="phone">Phone call</option>
+                              <option value="email">Email</option>
+                              <option value="voicemail">Left voicemail</option>
+                              <option value="in_person">In person</option>
+                            </select>
+                          </label>
+                          <label className="text-sm font-medium text-gray-700">
+                            Contact note
+                            <input
+                              type="text"
+                              name="contactNotes"
+                              placeholder="Short note for communication history"
+                              className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
+                            />
+                          </label>
+                          <label className="flex items-start gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 lg:col-span-2">
+                            <input type="checkbox" name="markFirstContact" className="mt-1" />
+                            <span>
+                              <span className="block font-semibold">Mark first contact complete</span>
+                              <span className="block text-xs leading-relaxed text-gray-600">
+                                Logs a communication entry and updates the request contact summary.
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+                      )}
+
+                      <label className="mt-3 flex items-start gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+                        <input type="checkbox" name="doneForNow" className="mt-1" />
+                        <span>
+                          <span className="block font-semibold">Done for now</span>
+                          <span className="block text-xs leading-relaxed text-gray-600">
+                            Use this when the intake item has enough ownership or scheduling to
+                            leave the front-desk queue.
+                          </span>
+                        </span>
+                      </label>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="submit"
+                          className={primaryButtonSm}
+                          disabled={savingItemId === item.id}
+                        >
+                          {savingItemId === item.id ? 'Saving...' : 'Save quick triage'}
+                        </button>
+                        <button
+                          type="button"
+                          className={secondaryButtonSm}
+                          onClick={() => setOpenItemId(null)}
+                          disabled={savingItemId === item.id}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : null}
+
+                  {messages[item.id] ? (
+                    <p
+                      className={`mt-3 rounded-xl border px-3 py-2 text-sm leading-relaxed ${
+                        messages[item.id].startsWith('Could not')
+                          ? 'border-rose-200 bg-rose-50 text-rose-950'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                      }`}
+                      role={messages[item.id].startsWith('Could not') ? 'alert' : 'status'}
+                    >
+                      {messages[item.id]}
+                    </p>
+                  ) : null}
                 </article>
               ))}
             </div>

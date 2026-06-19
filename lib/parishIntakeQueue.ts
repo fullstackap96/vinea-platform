@@ -32,6 +32,7 @@ export type ParishIntakeQueueRequest = Parameters<typeof evaluateIntakeTriage>[0
 
 export type ParishIntakeQueueItem = {
   id: string
+  sourceId: string
   kind: ParishIntakeQueueKind
   title: string
   subtitle: string
@@ -44,6 +45,11 @@ export type ParishIntakeQueueItem = {
   href: string
   createdAt: string
   ageLabel: string
+  currentOwner: string
+  currentFollowUpDate: string
+  currentMassDate: string
+  currentPriestName: string
+  stipendReceived: boolean
 }
 
 function text(value: unknown): string {
@@ -106,6 +112,8 @@ function buildRequestItem(
   const triage = evaluateIntakeTriage(request, { now })
   const requestType = requestTypeFromRow(request)
   const waiting = Boolean(text(request.waiting_on))
+  if (triage.status === 'ready_to_start' && !waiting) return null
+
   const ownerMissing = !hasOwner(request)
   const missingInfo = triage.quality.status === 'needs_confirmation'
   const needsSchedule =
@@ -130,6 +138,7 @@ function buildRequestItem(
 
   return {
     id: `request-${id}`,
+    sourceId: id,
     kind: 'request',
     title,
     subtitle: `${typeLabel} intake`,
@@ -142,6 +151,11 @@ function buildRequestItem(
     href: requestHref(request, triage.actionSectionId),
     createdAt: text(request.created_at),
     ageLabel: ageLabel(request.created_at, now),
+    currentOwner: text(request.assigned_staff_name),
+    currentFollowUpDate: text(request.next_follow_up_date).slice(0, 10),
+    currentMassDate: '',
+    currentPriestName: '',
+    stipendReceived: false,
   }
 }
 
@@ -162,6 +176,7 @@ function buildMassIntentionItem(
 
   return {
     id: `mass-intention-${intention.id}`,
+    sourceId: intention.id,
     kind: 'mass_intention',
     title: intention.requester_name,
     subtitle: 'Mass intention intake',
@@ -176,6 +191,11 @@ function buildMassIntentionItem(
     href: `/dashboard/intentions/${encodeURIComponent(intention.id)}`,
     createdAt: intention.created_at,
     ageLabel: ageLabel(intention.created_at, now),
+    currentOwner: '',
+    currentFollowUpDate: '',
+    currentMassDate: intention.assigned_mass_date ?? '',
+    currentPriestName: intention.assigned_priest_name ?? '',
+    stipendReceived: intention.stipend_received,
   }
 }
 
