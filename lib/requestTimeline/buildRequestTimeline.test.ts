@@ -93,7 +93,7 @@ describe('buildRequestTimeline', () => {
 
     const commEvent = events.find((event) => event.kind === 'communication_logged')
     expect(commEvent?.label).toBe('Communication logged')
-    expect(commEvent?.detail).toBe('Phone call')
+    expect(commEvent?.detail).toBe('Phone call: Left voicemail')
   })
 
   it('includes confirmed baptism date', () => {
@@ -122,6 +122,40 @@ describe('buildRequestTimeline', () => {
     const record = events.find((event) => event.kind === 'sacramental_record')
     expect(record?.label).toBe('Sacramental record created')
     expect(record?.detail).toBe('For Lucia Smith')
+  })
+
+  it('includes blockers, next follow-up, note detail, and completion', () => {
+    const events = buildRequestTimeline({
+      ...baseInput,
+      request: {
+        created_at: '2026-06-01T10:00:00.000Z',
+        request_type: 'baptism',
+        status: 'complete',
+        updated_at: '2026-06-20T10:00:00.000Z',
+        next_follow_up_date: '2026-06-15',
+        waiting_on: 'documents',
+        waiting_on_changed_at: '2026-06-05T10:00:00.000Z',
+      },
+      requestNotes: [
+        {
+          id: 'n1',
+          created_at: '2026-06-06T10:00:00.000Z',
+          body: 'Family dropped off certificate copy at the parish office.',
+        },
+      ],
+    })
+
+    expect(events.find((event) => event.kind === 'blocked')).toMatchObject({
+      label: 'Request marked blocked',
+      detail: 'Waiting on Documents.',
+    })
+    expect(events.find((event) => event.kind === 'follow_up_set')?.label).toBe(
+      'Next follow-up set'
+    )
+    expect(events.find((event) => event.kind === 'internal_note')?.detail).toBe(
+      'Family dropped off certificate copy at the parish office.'
+    )
+    expect(events[0]?.kind).toBe('completed')
   })
 
   it('uses funeral-specific confirmed label', () => {

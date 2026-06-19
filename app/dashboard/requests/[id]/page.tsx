@@ -1633,6 +1633,12 @@ async function deleteGoogleCalendarEvent() {
         ? {
             created_at: request.created_at,
             request_type: request.request_type,
+            status: request.status,
+            updated_at: request.updated_at,
+            last_contacted_at: request.last_contacted_at,
+            next_follow_up_date: request.next_follow_up_date,
+            waiting_on: request.waiting_on,
+            waiting_on_changed_at: request.waiting_on_changed_at,
           }
         : null,
       scheduleRow: scheduleRowForProgress,

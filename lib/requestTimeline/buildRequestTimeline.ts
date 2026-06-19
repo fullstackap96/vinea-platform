@@ -1,6 +1,7 @@
 import { formatRequestType } from '@/lib/formatRequestType'
 import { type RequestScheduleRow } from '@/lib/requestConfirmedSchedule'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
+import { requestWaitingOnLabel } from '@/lib/requestWaitingOn'
 import type { RequestTimelineEvent } from './types'
 
 export type BuildRequestTimelineCommunication = {
@@ -14,6 +15,7 @@ export type BuildRequestTimelineCommunication = {
 export type BuildRequestTimelineNote = {
   id: string
   created_at: string
+  body?: string | null
 }
 
 export type BuildRequestTimelineSacramentalRecord = {
@@ -25,6 +27,12 @@ export type BuildRequestTimelineInput = {
   request: {
     created_at?: string | null
     request_type?: unknown
+    status?: unknown
+    updated_at?: string | null
+    last_contacted_at?: string | null
+    next_follow_up_date?: string | null
+    waiting_on?: unknown
+    waiting_on_changed_at?: string | null
   } | null
   scheduleRow: RequestScheduleRow
   communications: BuildRequestTimelineCommunication[]
@@ -82,7 +90,37 @@ function communicationDetail(comm: BuildRequestTimelineCommunication): string | 
   }
 
   const methodLabel = communicationMethodLabel(comm.method)
-  return methodLabel || undefined
+  const notes = String(comm.notes ?? '').trim()
+  if (methodLabel && notes) return `${methodLabel}: ${notes}`
+  return methodLabel || notes || undefined
+}
+
+function compactText(value: unknown, maxLength = 140): string | undefined {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim()
+  if (!text) return undefined
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength - 1).trimEnd()}...`
+}
+
+function calendarDateToIso(value: unknown): string | null {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (match) {
+    return new Date(`${raw}T12:00:00.000`).toISOString()
+  }
+  return parseIso(raw)
+}
+
+function formatTimelineDateOnly(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(String(iso))
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 function confirmedDateLabel(requestType: string): string {
@@ -149,7 +187,31 @@ export function buildRequestTimeline(input: BuildRequestTimelineInput): RequestT
       key: `note-${note.id}`,
       kind: 'internal_note',
       label: 'Internal note added',
+      detail: compactText(note.body),
       occurredAt,
+    })
+  }
+
+  const waitingOnLabel = requestWaitingOnLabel(input.request?.waiting_on)
+  const waitingOnChangedAt = parseIso(input.request?.waiting_on_changed_at)
+  if (waitingOnLabel && waitingOnChangedAt) {
+    events.push({
+      key: 'waiting-on',
+      kind: 'blocked',
+      label: 'Request marked blocked',
+      detail: `Waiting on ${waitingOnLabel}.`,
+      occurredAt: waitingOnChangedAt,
+    })
+  }
+
+  const nextFollowUpIso = calendarDateToIso(input.request?.next_follow_up_date)
+  if (nextFollowUpIso) {
+    events.push({
+      key: 'next-follow-up',
+      kind: 'follow_up_set',
+      label: 'Next follow-up set',
+      detail: formatTimelineDateOnly(nextFollowUpIso),
+      occurredAt: nextFollowUpIso,
     })
   }
 
@@ -173,6 +235,21 @@ export function buildRequestTimeline(input: BuildRequestTimelineInput): RequestT
         kind: 'sacramental_record',
         label: 'Sacramental record created',
         detail: personName ? `For ${personName}` : undefined,
+        occurredAt,
+      })
+    }
+  }
+
+  if (String(input.request?.status ?? '').trim() === 'complete') {
+    const occurredAt =
+      parseIso(input.request?.updated_at) ??
+      parseIso(input.sacramentalRecord?.created_at) ??
+      getConfirmedScheduleIso(input.scheduleRow)
+    if (occurredAt) {
+      events.push({
+        key: 'completed',
+        kind: 'completed',
+        label: 'Request marked complete',
         occurredAt,
       })
     }

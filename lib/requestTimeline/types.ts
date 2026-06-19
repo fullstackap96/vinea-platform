@@ -4,6 +4,9 @@ export type RequestTimelineEventKind =
   | 'communication_logged'
   | 'internal_note'
   | 'confirmed_date'
+  | 'follow_up_set'
+  | 'blocked'
+  | 'completed'
   | 'sacramental_record'
 
 export type RequestTimelineEvent = {
