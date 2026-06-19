@@ -8,6 +8,7 @@ import { DashboardCommandSummary } from './DashboardCommandSummary'
 import { DashboardTodayView } from './DashboardTodayView'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
+import { DashboardOwnershipHealth } from './DashboardOwnershipHealth'
 import { DashboardRequestNameLink } from './_components/DashboardRequestNameLink'
 import { DashboardRequestRowBadges } from './DashboardRequestRowBadges'
 import { DashboardRequestFilters } from './DashboardRequestFilters'
@@ -86,6 +87,7 @@ import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
 import { buildCareCadenceQueue } from '@/lib/careCadence'
 import { buildCommunicationCommitmentQueue } from '@/lib/communicationCommitments'
 import { evaluateIntakeTriage } from '@/lib/intakeTriage'
+import { buildOwnershipHealth } from '@/lib/ownershipHealth'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import {
   vineaEmptyStateClassName,
@@ -1744,6 +1746,15 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [isHome, requests, searchedRequests, dashboardMetricsAt]
   )
 
+  const ownershipHealth = useMemo(
+    () =>
+      buildOwnershipHealth(isHome ? requests : searchedRequests, {
+        now: dashboardMetricsAt,
+        limit: isHome ? 4 : 6,
+      }),
+    [isHome, requests, searchedRequests, dashboardMetricsAt]
+  )
+
   const careCadence = useMemo(
     () =>
       buildCareCadenceQueue(isHome ? requests : searchedRequests, {
@@ -2051,6 +2062,12 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
           )}
         </div>
       </section>
+
+      <DashboardOwnershipHealth
+        health={ownershipHealth}
+        loading={loading}
+        dataUnavailable={requestsFetchFailed}
+      />
 
       <DashboardStaffWorkload
         rows={staffWorkloadRows}
