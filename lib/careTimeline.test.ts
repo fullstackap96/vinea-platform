@@ -47,6 +47,7 @@ describe('buildCareTimeline', () => {
       'request',
       'household',
     ])
+    expect(events[0]?.label).toBe('Phone call touchpoint')
     expect(events[0]?.detail).toBe('Called family after service.')
   })
 })

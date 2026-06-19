@@ -9,7 +9,10 @@ import { DashboardTodayView } from './DashboardTodayView'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
 import { DashboardOwnershipHealth } from './DashboardOwnershipHealth'
-import { DashboardFamilyCarePlans } from './DashboardFamilyCarePlans'
+import {
+  DashboardFamilyCarePlans,
+  type CompleteCarePlanTouchpointInput,
+} from './DashboardFamilyCarePlans'
 import { DashboardRequestNameLink } from './_components/DashboardRequestNameLink'
 import { DashboardRequestRowBadges } from './DashboardRequestRowBadges'
 import { DashboardRequestFilters } from './DashboardRequestFilters'
@@ -53,6 +56,7 @@ import { ParishRequestStatusBadgeWithTooltip } from '@/lib/ParishRequestStatusBa
 import {
   followUpSortPriority,
   formatNextFollowUpDateCompact,
+  formatNextFollowUpDateDisplay,
   isNextFollowUpDueToday,
   isNextFollowUpOverdue,
   parseFollowUpCalendarDate,
@@ -193,6 +197,8 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     null
   )
   const [followUpBatchMessage, setFollowUpBatchMessage] = useState('')
+  const [carePlanCompletingId, setCarePlanCompletingId] = useState<string | null>(null)
+  const [carePlanMessages, setCarePlanMessages] = useState<Record<string, string>>({})
   const [requestsLoadError, setRequestsLoadError] = useState<string | null>(null)
   const [requestsFetchFailed, setRequestsFetchFailed] = useState(false)
   const [requestsLoadTechnicalDetail, setRequestsLoadTechnicalDetail] = useState<
@@ -216,6 +222,10 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
 
   function normalize(value: any) {
     return String(value || '').toLowerCase().trim()
+  }
+
+  function setCarePlanMessage(requestId: string, message: string) {
+    setCarePlanMessages((current) => ({ ...current, [requestId]: message }))
   }
 
   function sortWithNullsLast(list: any[]) {
@@ -1149,6 +1159,107 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     }
   }
 
+  async function completeCarePlanTouchpoint({
+    plan,
+    method,
+    notes,
+    nextFollowUpDate,
+    careCycleComplete,
+  }: CompleteCarePlanTouchpointInput): Promise<
+    { ok: true } | { ok: false; error: string }
+  > {
+    const id = String(plan.requestId)
+    const normalizedMethod = String(method || 'phone').trim()
+    const trimmedNotes = String(notes || '').trim()
+
+    if (!careCycleComplete && !parseFollowUpCalendarDate(nextFollowUpDate)) {
+      const error = 'Choose the next follow-up date before saving.'
+      setCarePlanMessage(id, error)
+      return { ok: false, error }
+    }
+
+    setCarePlanCompletingId(id)
+    setCarePlanMessage(id, '')
+
+    try {
+      const contactedAtIso = new Date().toISOString()
+      const nextFollowUpDisplay = careCycleComplete
+        ? 'Care cycle complete'
+        : `Next follow-up: ${formatNextFollowUpDateDisplay(nextFollowUpDate)}`
+      const communicationNotes = [
+        `Care plan touchpoint: ${plan.familyLabel}`,
+        trimmedNotes || plan.nextTouchpoint,
+        nextFollowUpDisplay,
+      ].join('\n')
+
+      const insertRes = await supabase.from('request_communications').insert({
+        request_id: id,
+        contacted_at: contactedAtIso,
+        method: normalizedMethod,
+        notes: communicationNotes,
+      })
+
+      if (insertRes.error) {
+        setCarePlanMessage(id, `Could not log care touchpoint: ${insertRes.error.message}`)
+        return { ok: false, error: insertRes.error.message }
+      }
+
+      if (plan.planType === 'funeral_bereavement') {
+        const funeralUpdate = await supabase
+          .from('funeral_request_details')
+          .update({
+            post_funeral_follow_up_date: careCycleComplete ? null : nextFollowUpDate,
+          })
+          .eq('request_id', id)
+
+        if (funeralUpdate.error) {
+          const error = `Logged touchpoint, but failed updating funeral care date: ${funeralUpdate.error.message}`
+          setCarePlanMessage(id, error)
+          await loadRequests(true)
+          return { ok: false, error }
+        }
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        last_contacted_at: contactedAtIso,
+        last_contact_method: normalizedMethod,
+        communication_notes: communicationNotes,
+        next_follow_up_date: careCycleComplete ? null : nextFollowUpDate,
+      }
+      if (careCycleComplete) {
+        updatePayload.status = 'complete'
+      }
+
+      const updateRes = await supabase
+        .from('requests')
+        .update(updatePayload)
+        .eq('id', id)
+
+      if (updateRes.error) {
+        const error = `Logged touchpoint, but failed updating request: ${updateRes.error.message}`
+        setCarePlanMessage(id, error)
+        await loadRequests(true)
+        return { ok: false, error }
+      }
+
+      setCarePlanMessage(
+        id,
+        careCycleComplete
+          ? 'Care touchpoint saved and care cycle completed.'
+          : 'Care touchpoint saved and next follow-up scheduled.'
+      )
+      await loadRequests(true)
+      return { ok: true }
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? `Error: ${error.message}` : 'Error: Unknown error'
+      setCarePlanMessage(id, message)
+      return { ok: false, error: message }
+    } finally {
+      setCarePlanCompletingId(null)
+    }
+  }
+
   function followUpQueueRow(request: any) {
     const id = String(request.id)
     const followUpGlobalBusy =
@@ -1976,6 +2087,9 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
             plans={familyCarePlans}
             loading={loading}
             dataUnavailable={requestsFetchFailed}
+            completingPlanId={carePlanCompletingId}
+            messages={carePlanMessages}
+            onCompleteTouchpoint={completeCarePlanTouchpoint}
           />
         </>
       ) : (

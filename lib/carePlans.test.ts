@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildCarePlans, buildFuneralBereavementCarePlan } from '@/lib/carePlans'
+import {
+  buildCarePlanFollowUpRecommendations,
+  buildCarePlans,
+  buildFuneralBereavementCarePlan,
+} from '@/lib/carePlans'
 
 const now = new Date('2026-06-19T12:00:00.000Z')
 
@@ -78,5 +82,15 @@ describe('buildFuneralBereavementCarePlan', () => {
     )
 
     expect(plans[0]?.requestId).toBe('urgent')
+  })
+
+  it('recommends simple next follow-up dates for staff', () => {
+    const recommendations = buildCarePlanFollowUpRecommendations('post_funeral', now)
+
+    expect(recommendations.map((recommendation) => recommendation.date)).toEqual([
+      '2026-06-26',
+      '2026-07-19',
+      '2026-11-03',
+    ])
   })
 })

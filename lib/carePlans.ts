@@ -31,7 +31,16 @@ export type CarePlan = {
   nextTouchpoint: string
   dueLabel: string
   detailHref: string
+  nextFollowUpRecommendations: CarePlanFollowUpRecommendation[]
+  canCompleteCareCycle: boolean
   sortScore: number
+}
+
+export type CarePlanFollowUpRecommendation = {
+  id: 'one_week' | 'one_month' | 'after_all_souls'
+  label: string
+  date: string
+  description: string
 }
 
 function text(value: unknown): string {
@@ -70,6 +79,60 @@ function formatDueLabel(request: CarePlanRequest, now: Date): string {
     return `Past due: ${formatted}`
   }
   return `Next follow-up: ${formatted}`
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, '0')
+}
+
+function toCalendarDate(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function addCalendarDays(now: Date, days: number): string {
+  const d = new Date(now)
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() + days)
+  return toCalendarDate(d)
+}
+
+function nextAfterAllSouls(now: Date): string {
+  const year = now.getMonth() > 10 || (now.getMonth() === 10 && now.getDate() >= 3)
+    ? now.getFullYear() + 1
+    : now.getFullYear()
+  return toCalendarDate(new Date(year, 10, 3, 12, 0, 0, 0))
+}
+
+export function buildCarePlanFollowUpRecommendations(
+  stage: CarePlanStage,
+  now: Date = new Date()
+): CarePlanFollowUpRecommendation[] {
+  const firstLabel = stage === 'before_service' ? 'After the service' : 'In 1 week'
+  const firstDescription =
+    stage === 'before_service'
+      ? 'Use this after the funeral if the family should be checked on soon.'
+      : 'Best when the family needs a near-term pastoral check-in.'
+
+  return [
+    {
+      id: 'one_week',
+      label: firstLabel,
+      date: addCalendarDays(now, 7),
+      description: firstDescription,
+    },
+    {
+      id: 'one_month',
+      label: 'In 1 month',
+      date: addCalendarDays(now, 30),
+      description: 'A simple bereavement cadence after the immediate details are handled.',
+    },
+    {
+      id: 'after_all_souls',
+      label: 'After All Souls',
+      date: nextAfterAllSouls(now),
+      description: 'Useful for annual remembrance and longer-term parish care.',
+    },
+  ]
 }
 
 export function buildFuneralBereavementCarePlan(
@@ -133,6 +196,8 @@ export function buildFuneralBereavementCarePlan(
     nextTouchpoint,
     dueLabel: formatDueLabel(request, now),
     detailHref: `/dashboard/requests/${encodeURIComponent(requestId)}#next-follow-up`,
+    nextFollowUpRecommendations: buildCarePlanFollowUpRecommendations(stage, now),
+    canCompleteCareCycle: stage !== 'before_service',
     sortScore,
   }
 }

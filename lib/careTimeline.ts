@@ -64,6 +64,16 @@ function compact(value: unknown, max = 150): string {
   return `${raw.slice(0, max - 1).trimEnd()}...`
 }
 
+function formatCommunicationMethod(value: unknown): string {
+  const method = text(value).toLowerCase()
+  if (method === 'phone') return 'Phone call'
+  if (method === 'email') return 'Email'
+  if (method === 'voicemail') return 'Voicemail'
+  if (method === 'card') return 'Card'
+  if (method === 'in_person') return 'In-person'
+  return text(value) || 'Contact'
+}
+
 export function formatCareTimelineWhen(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
@@ -116,7 +126,7 @@ export function buildCareTimeline(input: {
   for (const communication of input.communications ?? []) {
     const occurredAt = parseIso(communication.contacted_at)
     if (!occurredAt) continue
-    const method = text(communication.method) || 'Contact'
+    const method = formatCommunicationMethod(communication.method)
     events.push({
       key: `communication-${communication.id}`,
       kind: 'communication',
