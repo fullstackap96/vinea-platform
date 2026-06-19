@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', match: 'exact' as const },
   { href: '/dashboard/calendar', label: 'Calendar', match: 'prefix' as const },
   { href: '/dashboard/intake', label: 'Intake', match: 'prefix' as const },
+  { href: '/dashboard/communications', label: 'Communications', match: 'prefix' as const },
   { href: '/dashboard/requests', label: 'Requests', match: 'prefix' as const },
   { href: '/dashboard/records', label: 'Records', match: 'prefix' as const },
   { href: '/dashboard/people', label: 'People', match: 'prefix' as const },
