@@ -1,8 +1,9 @@
 'use client'
 
-import { ArrowRight, ClipboardCheck } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRight, Clipboard, ClipboardCheck } from 'lucide-react'
 import { chipBase } from '@/lib/chipStyles'
-import { primaryButtonMd } from '@/lib/buttonStyles'
+import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import {
   type RequestHandoffBrief,
   type RequestHandoffBriefTone,
@@ -23,6 +24,18 @@ function toneClass(tone: RequestHandoffBriefTone): string {
 }
 
 export function RequestHandoffBriefCard({ brief }: { brief: RequestHandoffBrief }) {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
+
+  async function copyHandoffNote() {
+    try {
+      await navigator.clipboard.writeText(brief.handoffNote)
+      setCopyStatus('copied')
+      window.setTimeout(() => setCopyStatus('idle'), 2500)
+    } catch {
+      setCopyStatus('failed')
+    }
+  }
+
   return (
     <section
       className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6"
@@ -56,14 +69,30 @@ export function RequestHandoffBriefCard({ brief }: { brief: RequestHandoffBrief 
             </p>
           </div>
         </div>
-        <a
-          href={brief.nextActionHref}
-          className={`${primaryButtonMd} w-full justify-center gap-2 lg:w-auto`}
-        >
-          {brief.nextActionLabel}
-          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
-        </a>
+        <div className="flex w-full flex-col gap-2 lg:w-auto">
+          <a
+            href={brief.nextActionHref}
+            className={`${primaryButtonMd} w-full justify-center gap-2 lg:w-auto`}
+          >
+            {brief.nextActionLabel}
+            <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+          </a>
+          <button
+            type="button"
+            onClick={copyHandoffNote}
+            className={`${secondaryButtonMd} w-full justify-center gap-2 lg:w-auto`}
+          >
+            <Clipboard className="h-4 w-4 shrink-0" aria-hidden />
+            {copyStatus === 'copied' ? 'Copied handoff note' : 'Copy handoff note'}
+          </button>
+        </div>
       </div>
+
+      {copyStatus === 'failed' ? (
+        <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-950">
+          Copy did not work in this browser. You can still review the handoff details below.
+        </p>
+      ) : null}
 
       <dl className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {brief.items.map((item) => (

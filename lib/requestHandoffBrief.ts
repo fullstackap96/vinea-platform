@@ -4,6 +4,7 @@ import {
   isNextFollowUpOverdue,
 } from '@/lib/nextFollowUpDate'
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
+import { formatRequestType } from '@/lib/formatRequestType'
 import { type RequestScheduleRow } from '@/lib/requestConfirmedSchedule'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { requestWaitingOnLabel } from '@/lib/requestWaitingOn'
@@ -55,6 +56,7 @@ export type RequestHandoffBrief = {
   nextAction: string
   nextActionLabel: string
   nextActionHref: string
+  handoffNote: string
   urgencyLabel: string
   urgencyTone: RequestHandoffBriefTone
   statusLine: string
@@ -138,6 +140,32 @@ function careLine(request: NonNullable<RequestHandoffBriefRequest>, communicatio
     : contactLabel
 }
 
+function buildHandoffNote(input: {
+  title: string
+  requestType: string
+  owner: string
+  blocker: string
+  nextAction: string
+  followUp: string
+  care: string
+  checklist: string
+  risk: string
+  context: string
+}): string {
+  return [
+    `Handoff: ${input.requestType} request for ${input.title}`,
+    '',
+    `Owner: ${input.owner}`,
+    `Blocker: ${input.blocker}`,
+    `Next action: ${input.nextAction}`,
+    `Follow-up: ${input.followUp}`,
+    `Care history: ${input.care}`,
+    `Checklist: ${input.checklist}`,
+    `Risk: ${input.risk}`,
+    `Context: ${input.context}`,
+  ].join('\n')
+}
+
 export function buildRequestHandoffBrief(input: RequestHandoffBriefInput): RequestHandoffBrief {
   const now = input.now ?? new Date()
   const request = input.request ?? {}
@@ -158,6 +186,7 @@ export function buildRequestHandoffBrief(input: RequestHandoffBriefInput): Reque
     funeralDetail: input.funeralDetail,
     weddingDetail: input.weddingDetail,
   })
+  const requestTypeLabel = formatRequestType(request.request_type) || 'Request'
   const status = text(request.status) || 'new'
   const blocker = blockerLine(request, now)
   const checklistLine =
@@ -171,12 +200,25 @@ export function buildRequestHandoffBrief(input: RequestHandoffBriefInput): Reque
   const owner = ownerLine(request)
   const followUp = followUpLine(request, now)
   const care = careLine(request, communicationsCount, now)
+  const context = `${plural(notesCount, 'internal note')} and ${plural(communicationsCount, 'communication')} on file.`
 
   return {
     title,
     nextAction: workflow.nextStepDescription,
     nextActionLabel: workflow.recommendedActionLabel,
     nextActionHref: `#${workflow.sectionAnchor as WorkflowSectionAnchor}`,
+    handoffNote: buildHandoffNote({
+      title,
+      requestType: requestTypeLabel,
+      owner,
+      blocker,
+      nextAction: workflow.nextStepDescription,
+      followUp,
+      care,
+      checklist: checklistLine,
+      risk: riskLine,
+      context,
+    }),
     urgencyLabel: workflowUrgencyLabel[workflow.urgency],
     urgencyTone: handoffTone,
     statusLine: `Status: ${status.replaceAll('_', ' ')}.`,
@@ -186,7 +228,7 @@ export function buildRequestHandoffBrief(input: RequestHandoffBriefInput): Reque
     checklistLine,
     riskLine,
     careLine: care,
-    contextLine: `${plural(notesCount, 'internal note')} and ${plural(communicationsCount, 'communication')} on file.`,
+    contextLine: context,
     items: [
       { key: 'owner', label: 'Owner', value: owner, tone: owner.includes('No owner') ? 'warning' : 'steady' },
       { key: 'blocker', label: 'Blocker', value: blocker, tone: blocker.includes('Waiting on') ? 'warning' : 'muted' },

@@ -35,6 +35,10 @@ describe('buildRequestHandoffBrief', () => {
     expect(brief.checklistLine).toBe('3 checklist items still open.')
     expect(brief.riskLine).toContain('CRITICAL risk')
     expect(brief.careLine).toBe('No logged family contact yet.')
+    expect(brief.handoffNote).toContain('Handoff: Funeral request for Jose Santos')
+    expect(brief.handoffNote).toContain('Owner: No owner assigned yet.')
+    expect(brief.handoffNote).toContain('Blocker: Waiting on: Documents for 8 days.')
+    expect(brief.handoffNote).toContain('Next action: Assign a staff member, priest, or deacon')
   })
 
   it('summarizes steady owned work without false blockers', () => {
@@ -68,5 +72,8 @@ describe('buildRequestHandoffBrief', () => {
     expect(brief.riskLine).toBe('No at-risk signals detected.')
     expect(brief.careLine).toContain('Last contact was today')
     expect(brief.nextActionHref).toMatch(/^#/)
+    expect(brief.handoffNote).toContain('Handoff: Wedding request for Anna Lee & Mark Cruz')
+    expect(brief.handoffNote).toContain('Owner: Staff: Jane | Priest: Fr. Paul')
+    expect(brief.handoffNote).toContain('Checklist: Checklist is complete.')
   })
 })
