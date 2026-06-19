@@ -11,7 +11,12 @@ import {
 import { WorkflowSectionCard } from '@/app/dashboard/requests/[id]/_components/WorkflowSectionCard'
 import { CareTimelineSection } from '@/app/dashboard/_components/CareTimelineSection'
 import { devDashboardConsoleError } from '@/lib/dashboardSupabaseError'
-import { buildCareTimeline, type CareTimelineRequest, type CareTimelineCommunication } from '@/lib/careTimeline'
+import {
+  buildHouseholdCareTimeline,
+  type CareTimelineCommunication,
+  type CareTimelineRequest,
+} from '@/lib/careTimeline'
+import { formatRequestType } from '@/lib/formatRequestType'
 import {
   formatHouseholdAddressLine,
   formatHouseholdMemberLabel,
@@ -29,6 +34,40 @@ import type { SacramentalRecordRow } from '@/lib/types/sacramentalRecords'
 function displayValue(value: string | null | undefined) {
   const s = String(value ?? '').trim()
   return s ? s : maybeMissingValue('Not set')
+}
+
+function parseTimelineRequest(row: Record<string, unknown>): CareTimelineRequest {
+  return {
+    id: String(row.id),
+    request_type: String(row.request_type ?? ''),
+    status: String(row.status ?? ''),
+    child_name: row.child_name != null ? String(row.child_name) : null,
+    created_at: String(row.created_at ?? ''),
+    last_contacted_at: row.last_contacted_at != null ? String(row.last_contacted_at) : null,
+    next_follow_up_date:
+      row.next_follow_up_date != null ? String(row.next_follow_up_date) : null,
+    assigned_staff_name:
+      row.assigned_staff_name != null ? String(row.assigned_staff_name) : null,
+    assigned_priest_name:
+      row.assigned_priest_name != null ? String(row.assigned_priest_name) : null,
+    assigned_deacon_name:
+      row.assigned_deacon_name != null ? String(row.assigned_deacon_name) : null,
+  }
+}
+
+function membershipPersonParishionerIds(rows: readonly unknown[]): string[] {
+  const ids = new Set<string>()
+  for (const raw of rows) {
+    if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) continue
+    const row = raw as Record<string, unknown>
+    const peopleRaw = row.people
+    if (peopleRaw == null || typeof peopleRaw !== 'object' || Array.isArray(peopleRaw)) continue
+    const parishionerId = String(
+      (peopleRaw as Record<string, unknown>).parishioner_id ?? ''
+    ).trim()
+    if (parishionerId) ids.add(parishionerId)
+  }
+  return Array.from(ids)
 }
 
 export function HouseholdDetailPage() {
@@ -73,7 +112,7 @@ export function HouseholdDetailPage() {
       const { data: memberRows } = await supabase
         .from('household_members')
         .select(
-          'id, parish_id, household_id, person_id, relationship, is_primary_contact, created_at, people(id, first_name, middle_name, last_name, email, phone)'
+          'id, parish_id, household_id, person_id, relationship, is_primary_contact, created_at, people(id, parishioner_id, first_name, middle_name, last_name, email, phone)'
         )
         .eq('household_id', householdId)
         .order('is_primary_contact', { ascending: false })
@@ -96,24 +135,40 @@ export function HouseholdDetailPage() {
       const personIds = (memberRows ?? [])
         .map((row) => String((row as Record<string, unknown>).person_id ?? '').trim())
         .filter(Boolean)
+      const parishionerIds = membershipPersonParishionerIds(memberRows ?? [])
 
       if (personIds.length > 0) {
-        const { data: requestRows } = await supabase
+        const requestById = new Map<string, CareTimelineRequest>()
+        const requestSelect =
+          'id, request_type, status, child_name, created_at, last_contacted_at, next_follow_up_date, assigned_staff_name, assigned_priest_name, assigned_deacon_name, person_id, parishioner_id'
+
+        const { data: directRequestRows } = await supabase
           .from('requests')
-          .select('id, request_type, status, child_name, created_at, person_id')
+          .select(requestSelect)
           .in('person_id', personIds)
           .order('created_at', { ascending: false })
 
-        const householdRequests: CareTimelineRequest[] = (requestRows ?? []).map((row) => {
-          const raw = row as Record<string, unknown>
-          return {
-            id: String(raw.id),
-            request_type: String(raw.request_type ?? ''),
-            status: String(raw.status ?? ''),
-            child_name: raw.child_name != null ? String(raw.child_name) : null,
-            created_at: String(raw.created_at ?? ''),
+        for (const row of directRequestRows ?? []) {
+          const parsed = parseTimelineRequest(row as Record<string, unknown>)
+          requestById.set(parsed.id, parsed)
+        }
+
+        if (parishionerIds.length > 0) {
+          const { data: contactRequestRows } = await supabase
+            .from('requests')
+            .select(requestSelect)
+            .in('parishioner_id', parishionerIds)
+            .order('created_at', { ascending: false })
+
+          for (const row of contactRequestRows ?? []) {
+            const parsed = parseTimelineRequest(row as Record<string, unknown>)
+            requestById.set(parsed.id, parsed)
           }
-        })
+        }
+
+        const householdRequests = Array.from(requestById.values()).sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
         setRequests(householdRequests)
 
         const { data: recordRows } = await supabase
@@ -138,7 +193,7 @@ export function HouseholdDetailPage() {
             .order('contacted_at', { ascending: false })
 
           const labelByRequestId = new Map(
-            householdRequests.map((request) => [request.id, request.request_type])
+            householdRequests.map((request) => [request.id, formatRequestType(request.request_type)])
           )
           setCommunications(
             (commRows ?? []).map((row) => {
@@ -199,7 +254,8 @@ export function HouseholdDetailPage() {
   }
 
   const addressLine = formatHouseholdAddressLine(household)
-  const careTimelineEvents = buildCareTimeline({
+  const careTimeline = buildHouseholdCareTimeline({
+    householdId: household.id,
     requests,
     records,
     communications,
@@ -211,6 +267,8 @@ export function HouseholdDetailPage() {
         isPrimaryContact: false,
       },
     ],
+    memberCount: members.length,
+    primaryContactCount: members.filter((member) => member.is_primary_contact).length,
   })
 
   return (
@@ -254,9 +312,11 @@ export function HouseholdDetailPage() {
         </WorkflowSectionCard>
 
         <CareTimelineSection
-          events={careTimelineEvents}
+          events={careTimeline.events}
+          nextAction={careTimeline.nextAction}
+          counts={careTimeline.counts}
           title="Household care timeline"
-          description="Requests, records, and communication linked to members of this household."
+          description="Requests, records, communication, and follow-ups linked to this family."
         />
 
         <WorkflowSectionCard title="Members" description="People in this household.">

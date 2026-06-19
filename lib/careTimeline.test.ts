@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildCareTimeline, buildPersonCareTimeline } from '@/lib/careTimeline'
+import {
+  buildCareTimeline,
+  buildHouseholdCareTimeline,
+  buildPersonCareTimeline,
+} from '@/lib/careTimeline'
 
 describe('buildCareTimeline', () => {
   it('combines requests, records, communications, and households newest first', () => {
@@ -140,5 +144,75 @@ describe('buildPersonCareTimeline', () => {
       tone: 'steady',
     })
     expect(timeline.counts.records).toBe(1)
+  })
+})
+
+describe('buildHouseholdCareTimeline', () => {
+  it('recommends adding members before routine household care when empty', () => {
+    const timeline = buildHouseholdCareTimeline({
+      householdId: 'household-1',
+      memberCount: 0,
+      primaryContactCount: 0,
+      households: [
+        {
+          householdId: 'household-1',
+          householdName: 'Santos Household',
+          relationship: 'Household',
+          isPrimaryContact: false,
+        },
+      ],
+    })
+
+    expect(timeline.nextAction).toMatchObject({
+      title: 'Add household members',
+      label: 'Add members',
+      tone: 'warning',
+    })
+    expect(timeline.nextAction.href).toBe('/dashboard/households/household-1/edit')
+  })
+
+  it('keeps urgent request care ahead of household cleanup', () => {
+    const timeline = buildHouseholdCareTimeline({
+      now: new Date('2026-06-19T12:00:00.000Z'),
+      householdId: 'household-2',
+      memberCount: 3,
+      primaryContactCount: 0,
+      requests: [
+        {
+          id: 'request-1',
+          request_type: 'funeral',
+          status: 'new',
+          created_at: '2026-06-18T12:00:00.000Z',
+          last_contacted_at: null,
+        },
+      ],
+    })
+
+    expect(timeline.nextAction.title).toBe('Log the first pastoral touchpoint')
+    expect(timeline.nextAction.tone).toBe('urgent')
+    expect(timeline.memberCount).toBe(3)
+    expect(timeline.primaryContactCount).toBe(0)
+  })
+
+  it('suggests choosing a primary contact when household history is otherwise organized', () => {
+    const timeline = buildHouseholdCareTimeline({
+      householdId: 'household-3',
+      memberCount: 2,
+      primaryContactCount: 0,
+      households: [
+        {
+          householdId: 'household-3',
+          householdName: 'Cruz Household',
+          relationship: 'Household',
+          isPrimaryContact: false,
+        },
+      ],
+    })
+
+    expect(timeline.nextAction).toMatchObject({
+      title: 'Choose a primary household contact',
+      label: 'Set primary contact',
+      tone: 'steady',
+    })
   })
 })

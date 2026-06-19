@@ -61,6 +61,7 @@ export function parseHouseholdMemberWithPerson(raw: Record<string, unknown>): Ho
     ...member,
     person: {
       id: String(personObj.id ?? member.person_id),
+      parishioner_id: trimOrNull(personObj.parishioner_id),
       first_name: String(personObj.first_name ?? '').trim(),
       middle_name: trimOrNull(personObj.middle_name),
       last_name: String(personObj.last_name ?? '').trim(),

@@ -33,6 +33,7 @@ export type HouseholdMemberRow = {
 export type HouseholdMemberWithPerson = HouseholdMemberRow & {
   person: {
     id: string
+    parishioner_id: string | null
     first_name: string
     middle_name: string | null
     last_name: string

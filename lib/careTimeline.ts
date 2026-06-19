@@ -78,6 +78,11 @@ export type PersonCareTimeline = {
   }
 }
 
+export type HouseholdCareTimeline = PersonCareTimeline & {
+  memberCount: number
+  primaryContactCount: number
+}
+
 function text(value: unknown): string {
   return String(value ?? '').trim()
 }
@@ -305,5 +310,54 @@ export function buildPersonCareTimeline(input: {
       communications: communications.length,
       households: households.length,
     },
+  }
+}
+
+export function buildHouseholdCareTimeline(input: {
+  householdId?: string
+  requests?: readonly CareTimelineRequest[]
+  records?: readonly CareTimelineRecord[]
+  communications?: readonly CareTimelineCommunication[]
+  households?: readonly CareTimelineHousehold[]
+  memberCount?: number
+  primaryContactCount?: number
+  now?: Date
+}): HouseholdCareTimeline {
+  const base = buildPersonCareTimeline(input)
+  const memberCount = Math.max(0, Math.floor(Number(input.memberCount ?? 0)))
+  const primaryContactCount = Math.max(0, Math.floor(Number(input.primaryContactCount ?? 0)))
+  const householdId = text(input.householdId)
+  const editHref = householdId
+    ? `/dashboard/households/${encodeURIComponent(householdId)}/edit`
+    : '/dashboard/households'
+
+  let nextAction = base.nextAction
+  if (memberCount === 0) {
+    nextAction = {
+      title: 'Add household members',
+      detail: 'Add family members so requests, records, and care history can be viewed together.',
+      href: editHref,
+      label: 'Add members',
+      tone: 'warning',
+    }
+  } else if (
+    primaryContactCount === 0 &&
+    base.nextAction.tone === 'steady' &&
+    base.nextAction.title === 'Care history is organized'
+  ) {
+    nextAction = {
+      title: 'Choose a primary household contact',
+      detail: 'A primary contact helps staff know who to call or email first for family matters.',
+      href: editHref,
+      label: 'Set primary contact',
+      tone: 'steady',
+    }
+  }
+
+  return {
+    ...base,
+    nextAction,
+    memberCount,
+    primaryContactCount,
   }
 }
