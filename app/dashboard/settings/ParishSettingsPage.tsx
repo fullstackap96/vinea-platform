@@ -18,6 +18,7 @@ import {
   directoryToMultilineText,
   PARISH_DIRECTORY_MAX_NAMES,
 } from '@/lib/parishDirectory'
+import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 
 type ParishPayload = {
   id: string
@@ -102,6 +103,8 @@ export function ParishSettingsPage() {
   const [staffAccessLoading, setStaffAccessLoading] = useState(false)
   const [staffAccessMessage, setStaffAccessMessage] = useState('')
   const [staffAccessError, setStaffAccessError] = useState('')
+  const [recentAuditEvents, setRecentAuditEvents] = useState<AuditEventRow[]>([])
+  const [recentAuditError, setRecentAuditError] = useState('')
   const [newStaffEmail, setNewStaffEmail] = useState('')
   const [newStaffRole, setNewStaffRole] = useState<'admin' | 'staff'>('staff')
   const [googleCalendar, setGoogleCalendar] = useState<ParishGoogleIntegrationSnapshot | null>(
@@ -124,6 +127,25 @@ export function ParishSettingsPage() {
       setStaffAccessError(messageFromUnknown(error, 'Could not load staff access.'))
     } finally {
       setStaffAccessLoading(false)
+    }
+  }, [])
+
+  const loadRecentAuditEvents = useCallback(async () => {
+    setRecentAuditError('')
+    try {
+      const res = await fetch('/api/audit-events?limit=5', { credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        setRecentAuditEvents([])
+        if (res.status !== 403) {
+          setRecentAuditError(String(data?.error || 'Could not load recent activity.'))
+        }
+        return
+      }
+      setRecentAuditEvents(Array.isArray(data.events) ? data.events : [])
+    } catch (error: unknown) {
+      setRecentAuditEvents([])
+      setRecentAuditError(messageFromUnknown(error, 'Could not load recent activity.'))
     }
   }, [])
 
@@ -154,12 +176,13 @@ export function ParishSettingsPage() {
       setPriestText(directoryToMultilineText(Array.isArray(p.priest_names) ? p.priest_names : []))
       setGoogleCalendar((data.googleCalendar as ParishGoogleIntegrationSnapshot | null) ?? null)
       await loadStaffAccess()
+      await loadRecentAuditEvents()
     } catch (error: unknown) {
       setLoadError(messageFromUnknown(error, 'Could not load settings.'))
     } finally {
       setLoading(false)
     }
-  }, [loadStaffAccess])
+  }, [loadRecentAuditEvents, loadStaffAccess])
 
   useEffect(() => {
     void load()
@@ -232,6 +255,7 @@ export function ParishSettingsPage() {
       setNewStaffRole('staff')
       setStaffAccessMessage('Staff access saved.')
       await loadStaffAccess()
+      await loadRecentAuditEvents()
     } catch (error: unknown) {
       setStaffAccessError(messageFromUnknown(error, 'Could not add staff access.'))
     }
@@ -255,6 +279,7 @@ export function ParishSettingsPage() {
       }
       setStaffAccessMessage('Staff access updated.')
       await loadStaffAccess()
+      await loadRecentAuditEvents()
     } catch (error: unknown) {
       setStaffAccessError(messageFromUnknown(error, 'Could not update staff access.'))
     }
@@ -656,6 +681,50 @@ export function ParishSettingsPage() {
                 {staffAccessError}
               </p>
             ) : null}
+          </section>
+
+          <section className={vineaSectionShellClassName}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Recent admin activity</h2>
+                <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                  A quick view of recent settings, staff access, intake, and request changes.
+                </p>
+              </div>
+              <a
+                href="/dashboard/admin/audit-log"
+                className={`${secondaryButtonMd} justify-center`}
+              >
+                View full audit log
+              </a>
+            </div>
+
+            {recentAuditError ? (
+              <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                {recentAuditError}
+              </p>
+            ) : recentAuditEvents.length === 0 ? (
+              <p className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-600">
+                No recent admin activity found.
+              </p>
+            ) : (
+              <div className="mt-4 divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+                {recentAuditEvents.map((event) => (
+                  <div key={event.id} className="px-4 py-3">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {auditEventTitle(event)}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                      {auditEventDetail(event)}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {event.actor_email || 'System'} -{' '}
+                      {new Date(event.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <SettingsGoogleCalendarSection integration={googleCalendar} />

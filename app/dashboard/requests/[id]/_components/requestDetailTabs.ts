@@ -26,6 +26,7 @@ export const REQUEST_DETAIL_SECTION_TAB: Record<string, RequestDetailTabId> = {
   'email-communication': 'communication',
   'internal-notes': 'notes',
   'staff-notes': 'notes',
+  activity: 'notes',
   'ready-to-complete': 'notes',
   completion: 'notes',
   'next-step': 'overview',

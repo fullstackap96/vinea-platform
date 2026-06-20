@@ -102,6 +102,7 @@ import { evaluateCommunicationCommitment } from '@/lib/communicationCommitments'
 import { buildRequestFirstReview } from '@/lib/requestFirstReview'
 import { evaluateIntakeTriage } from '@/lib/intakeTriage'
 import { buildRequestPlaybookProgress } from '@/lib/requestPlaybookProgress'
+import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -142,6 +143,8 @@ const [staffNotes, setStaffNotes] = useState('')
   const [requestNotes, setRequestNotes] = useState<
     Array<{ id: string; body: string; created_at: string }>
   >([])
+  const [activityEvents, setActivityEvents] = useState<AuditEventRow[]>([])
+  const [activityError, setActivityError] = useState('')
   const [suggested1, setSuggested1] = useState('')
   const [suggested2, setSuggested2] = useState('')
   const [suggested3, setSuggested3] = useState('')
@@ -243,6 +246,50 @@ const [staffNotes, setStaffNotes] = useState('')
     const d = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  async function loadActivityEvents(requestId: string) {
+    setActivityError('')
+    const params = new URLSearchParams({
+      targetType: 'request',
+      targetId: requestId,
+      limit: '50',
+    })
+    try {
+      const res = await fetch(`/api/audit-events?${params.toString()}`, {
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        setActivityEvents([])
+        setActivityError(String(data?.error || 'Could not load request activity.'))
+        return
+      }
+      setActivityEvents(Array.isArray(data.events) ? data.events : [])
+    } catch (error: unknown) {
+      setActivityEvents([])
+      setActivityError(error instanceof Error ? error.message : 'Could not load request activity.')
+    }
+  }
+
+  async function recordRequestActivity(action: string, metadata?: Record<string, unknown>) {
+    if (!routeId) return
+    try {
+      await fetch('/api/audit-events', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          targetType: 'request',
+          targetId: routeId,
+          metadata: metadata ?? {},
+        }),
+      })
+      await loadActivityEvents(routeId)
+    } catch (error) {
+      devDashboardConsoleError('record request activity', error)
+    }
   }
 
   useEffect(() => {
@@ -539,27 +586,39 @@ const [staffNotes, setStaffNotes] = useState('')
           }
         : null
     )
+    await loadActivityEvents(String(requestData.id))
 
     setLoading(false)
   }
 
   async function toggleChecklistItem(itemId: string, currentValue: boolean) {
+    const item = checklistItems.find((row) => String(row.id) === String(itemId))
     const { error } = await supabase
       .from('checklist_items')
       .update({ is_complete: !currentValue })
       .eq('id', itemId)
 
     if (!error) {
+      await recordRequestActivity('request.checklist.updated', {
+        itemId,
+        label: item?.item_name || 'Checklist item',
+        to: !currentValue ? 'Complete' : 'Incomplete',
+      })
       loadRequest()
     }
   }
 async function updateRequestStatus(newStatus: string) {
+  const previousStatus = String(request?.status ?? '').trim()
   const { error } = await supabase
     .from('requests')
     .update({ status: newStatus })
     .eq('id', routeId)
 
   if (!error) {
+    await recordRequestActivity('request.status.updated', {
+      from: previousStatus,
+      to: newStatus,
+    })
     loadRequest()
   }
 }
@@ -573,6 +632,7 @@ async function updateWaitingOn(next: string | null) {
   if (!result.ok) {
     throw new Error(result.error)
   }
+  await loadActivityEvents(routeId)
   loadRequest()
 }
 
@@ -700,6 +760,9 @@ await supabase
   .from('requests')
   .update({ ai_summary: summaryText })
   .eq('id', routeId)
+await recordRequestActivity('request.ai_summary.updated', {
+  summary: summaryText.slice(0, 120),
+})
   } catch (error: any) {
     setAiSummary(`Error: ${error.message}`)
   } finally {
@@ -787,12 +850,18 @@ async function generateReplyDraft() {
         .from('requests')
         .update({ reply_draft: parsed.body })
         .eq('id', routeId)
+      await recordRequestActivity('request.reply_draft.updated', {
+        summary: parsed.subject || 'AI reply draft saved',
+      })
     } else {
       setReplyDraft(replyText)
       await supabase
         .from('requests')
         .update({ reply_draft: replyText })
         .eq('id', routeId)
+      await recordRequestActivity('request.reply_draft.updated', {
+        summary: 'AI reply draft saved',
+      })
     }
   } catch (error: any) {
     setReplyDraft(`Error: ${error.message}`)
@@ -848,6 +917,11 @@ async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
       `Template applied, but saving the draft failed: ${error.message}`
     )
   }
+  if (!error) {
+    await recordRequestActivity('request.reply_draft.updated', {
+      summary: `Template applied: ${templateId}`,
+    })
+  }
 }
 
 async function saveStaffNotes() {
@@ -862,6 +936,9 @@ async function saveStaffNotes() {
     return
   }
   setStaffNotesMessage('Staff notes saved.')
+  await recordRequestActivity('request.staff_notes.updated', {
+    summary: 'Staff notes saved',
+  })
   loadRequest()
 }
 
@@ -897,6 +974,9 @@ async function saveStaffNotes() {
 
   setSuggestedMessage('Suggested dates saved successfully.')
   setSuggestedSaving(false)
+  await recordRequestActivity('request.suggested_dates.updated', {
+    summary: 'Suggested dates saved',
+  })
   loadRequest()
 }
 
@@ -927,6 +1007,10 @@ async function saveConfirmedBaptismDate() {
 
   setConfirmedMessage('Confirmed date saved successfully.')
   setConfirmedSaving(false)
+  await recordRequestActivity('request.schedule.updated', {
+    label: 'Confirmed baptism date',
+    to: confirmedBaptismDate,
+  })
   loadRequest()
 }
 
@@ -949,6 +1033,10 @@ async function clearConfirmedBaptismDate() {
 
   setConfirmedMessage('Confirmed date cleared.')
   setConfirmedSaving(false)
+  await recordRequestActivity('request.schedule.updated', {
+    label: 'Confirmed baptism date',
+    to: 'Cleared',
+  })
   loadRequest()
 }
 
@@ -991,6 +1079,10 @@ async function saveFuneralDetails() {
 
   setFuneralMessage('Funeral details saved.')
   setFuneralSaving(false)
+  await recordRequestActivity('request.intake.updated', {
+    requestType: 'funeral',
+    summary: 'Funeral details saved',
+  })
   loadRequest()
 }
 
@@ -1022,6 +1114,10 @@ async function saveConfirmedFuneralService() {
 
   setFuneralConfirmedMessage('Confirmed service time saved.')
   setFuneralConfirmedSaving(false)
+  await recordRequestActivity('request.schedule.updated', {
+    label: 'Confirmed funeral service',
+    to: confirmedFuneralService,
+  })
   loadRequest()
 }
 
@@ -1045,6 +1141,10 @@ async function clearConfirmedFuneralService() {
 
   setFuneralConfirmedMessage('Cleared.')
   setFuneralConfirmedSaving(false)
+  await recordRequestActivity('request.schedule.updated', {
+    label: 'Confirmed funeral service',
+    to: 'Cleared',
+  })
   loadRequest()
 }
 
@@ -1079,6 +1179,10 @@ async function saveWeddingDetails() {
 
   setWeddingMessage('Wedding details saved.')
   setWeddingSaving(false)
+  await recordRequestActivity('request.intake.updated', {
+    requestType: 'wedding',
+    summary: 'Wedding details saved',
+  })
   loadRequest()
 }
 
@@ -1110,6 +1214,10 @@ async function saveConfirmedWeddingCeremony() {
 
   setWeddingConfirmedMessage('Confirmed ceremony time saved.')
   setWeddingConfirmedSaving(false)
+  await recordRequestActivity('request.schedule.updated', {
+    label: 'Confirmed wedding ceremony',
+    to: confirmedWeddingCeremony,
+  })
   loadRequest()
 }
 
@@ -1133,6 +1241,10 @@ async function clearConfirmedWeddingCeremony() {
 
   setWeddingConfirmedMessage('Cleared.')
   setWeddingConfirmedSaving(false)
+  await recordRequestActivity('request.schedule.updated', {
+    label: 'Confirmed wedding ceremony',
+    to: 'Cleared',
+  })
   loadRequest()
 }
 
@@ -1176,6 +1288,10 @@ async function saveConfirmedOciaSession() {
 
   setOciaSessionMessage('Confirmed OCIA meeting time saved.')
   setOciaSessionSaving(false)
+  await recordRequestActivity('request.schedule.updated', {
+    label: 'Confirmed OCIA meeting',
+    to: confirmedOciaSession,
+  })
   loadRequest()
 }
 
@@ -1211,6 +1327,10 @@ async function clearConfirmedOciaSession() {
 
   setOciaSessionMessage('Cleared.')
   setOciaSessionSaving(false)
+  await recordRequestActivity('request.schedule.updated', {
+    label: 'Confirmed OCIA meeting',
+    to: 'Cleared',
+  })
   loadRequest()
 }
 
@@ -1263,6 +1383,10 @@ async function logCommunication() {
   setCommNotes('')
   setCommMessage('Communication logged.')
   setCommSaving(false)
+  await recordRequestActivity('request.communication.logged', {
+    label: commMethod,
+    to: contactedAtIso,
+  })
   loadRequest()
 }
 
@@ -1339,6 +1463,10 @@ async function sendEmail() {
     }
 
     setEmailMessage('Email sent successfully.')
+    await recordRequestActivity('request.email.sent', {
+      summary,
+      to,
+    })
     loadRequest()
   } catch (error: any) {
     setEmailMessage(`Send failed: ${error?.message || 'Unknown error'}`)
@@ -1411,6 +1539,9 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
 
     setGcalMessage('Calendar event saved. No conflicts found.')
     setGcalConflicts([])
+    await recordRequestActivity('request.schedule.updated', {
+      label: 'Google Calendar event created',
+    })
     loadRequest()
   } catch (error: unknown) {
     if (isGoogleOAuthReconnectError(error)) {
@@ -1486,6 +1617,9 @@ async function updateGoogleCalendarEvent() {
 
     setGcalMessage('Calendar event saved. No conflicts found.')
     setGcalConflicts([])
+    await recordRequestActivity('request.schedule.updated', {
+      label: 'Google Calendar event updated',
+    })
     loadRequest()
   } catch (error: unknown) {
     if (isGoogleOAuthReconnectError(error)) {
@@ -1529,6 +1663,9 @@ async function deleteGoogleCalendarEvent() {
     }
 
     setGcalMessage('Google Calendar event removed and link cleared.')
+    await recordRequestActivity('request.schedule.updated', {
+      label: 'Google Calendar event removed',
+    })
     loadRequest()
   } catch (error: unknown) {
     if (isGoogleOAuthReconnectError(error)) {
@@ -2483,6 +2620,45 @@ async function deleteGoogleCalendarEvent() {
           {staffNotesMessage ? (
             <InlineFormMessage message={staffNotesMessage} className="!mt-3" />
           ) : null}
+        </WorkflowSectionCard>
+
+        <WorkflowSectionCard
+          id="activity"
+          title="Activity"
+          description="Recent staff and system changes for this request."
+        >
+          {activityError ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              {activityError}
+            </p>
+          ) : activityEvents.length === 0 ? (
+            <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-600">
+              No activity has been recorded yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+              {activityEvents.map((event) => (
+                <div key={event.id} className="px-4 py-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {auditEventTitle(event)}
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                        {auditEventDetail(event)}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {event.actor_email || 'System'} - {event.action}
+                      </p>
+                    </div>
+                    <time className="shrink-0 text-xs text-gray-500" dateTime={event.created_at}>
+                      {new Date(event.created_at).toLocaleString()}
+                    </time>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </WorkflowSectionCard>
 
         <div id="ready-to-complete">

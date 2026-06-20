@@ -12,6 +12,7 @@ import { parseFollowUpCalendarDate } from '@/lib/nextFollowUpDate'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import { normalizeRequestWaitingOn } from '@/lib/requestWaitingOn'
 import { buildWorkflowPlaybookSuggestion } from '@/lib/workflowPlaybooks'
+import { writeAuditEvent } from '@/lib/server/auditLog'
 
 export type UpdateRequestAssignmentResult =
   | { ok: true }
@@ -34,6 +35,24 @@ export type ApplyWorkflowPlaybookResult =
 function normalizeOptionalName(value: unknown): string | null {
   const s = String(value ?? '').trim()
   return s.length > 0 ? s : null
+}
+
+async function auditRequestAction(input: {
+  requestId: string
+  actorEmail?: string | null
+  action: string
+  metadata?: Record<string, unknown>
+}) {
+  const admin = createSupabaseServiceRoleClient()
+  const { parishId } = await fetchPrimaryParishId(admin)
+  await writeAuditEvent({
+    parishId,
+    actorEmail: input.actorEmail || null,
+    action: input.action,
+    targetType: 'request',
+    targetId: input.requestId,
+    metadata: input.metadata,
+  })
 }
 
 export async function updateRequestAssignment(input: {
@@ -71,6 +90,17 @@ export async function updateRequestAssignment(input: {
   if (error) {
     return { ok: false, error: error.message }
   }
+
+  await auditRequestAction({
+    requestId,
+    actorEmail: user.email,
+    action: 'request.assignment.updated',
+    metadata: {
+      assignedStaffName: payload.assigned_staff_name,
+      assignedPriestName: payload.assigned_priest_name,
+      assignedDeaconName: payload.assigned_deacon_name,
+    },
+  })
 
   return { ok: true }
 }
@@ -116,6 +146,13 @@ export async function updateRequestNextFollowUpDate(input: {
   if (error) {
     return { ok: false, error: error.message }
   }
+
+  await auditRequestAction({
+    requestId,
+    actorEmail: user.email,
+    action: 'request.follow_up.updated',
+    metadata: { to: next_follow_up_date },
+  })
 
   return { ok: true }
 }
@@ -172,6 +209,13 @@ export async function updateRequestWaitingOn(input: {
   if (error) {
     return { ok: false, error: error.message }
   }
+
+  await auditRequestAction({
+    requestId,
+    actorEmail: user.email,
+    action: 'request.waiting_on.updated',
+    metadata: { from: existingWaitingOn, to: waiting_on },
+  })
 
   return { ok: true }
 }
@@ -244,6 +288,17 @@ export async function applyWorkflowPlaybookChecklist(input: {
     return { ok: false, error: insertError.message }
   }
 
+  await auditRequestAction({
+    requestId,
+    actorEmail: user.email,
+    action: 'request.playbook.applied',
+    metadata: {
+      requestType,
+      addedCount: suggestion.missingItems.length,
+      skippedCount: suggestion.existingCount,
+    },
+  })
+
   return {
     ok: true,
     addedCount: suggestion.missingItems.length,
@@ -283,6 +338,13 @@ export async function addRequestNote(input: {
   if (error) {
     return { ok: false, error: error.message }
   }
+
+  await auditRequestAction({
+    requestId,
+    actorEmail: user.email,
+    action: 'request.note.created',
+    metadata: { summary: body.slice(0, 120) },
+  })
 
   return { ok: true }
 }
@@ -358,6 +420,7 @@ export async function saveRequestIntakeDetails(
   if (userError || !user) {
     return { ok: false, error: 'Unauthorized' }
   }
+  const actorEmail = user.email ?? null
 
   const { data: reqRow, error: reqErr } = await supabase
     .from('requests')
@@ -378,6 +441,17 @@ export async function saveRequestIntakeDetails(
   }
 
   const effectiveRequestType = requestTypeFromRow(reqRow as { request_type?: unknown })
+  async function auditIntakeUpdate() {
+    await auditRequestAction({
+      requestId,
+      actorEmail,
+      action: 'request.intake.updated',
+      metadata: {
+        requestType: effectiveRequestType,
+        contactFullName: fullName,
+      },
+    })
+  }
 
   const phoneTrim = String(input.contactPhone ?? '').trim()
   const phone = phoneTrim.length > 0 ? phoneTrim : null
@@ -417,6 +491,7 @@ export async function saveRequestIntakeDetails(
     if (rErr) {
       return { ok: false, error: rErr.message }
     }
+    await auditIntakeUpdate()
     return { ok: true }
   }
 
@@ -460,6 +535,7 @@ export async function saveRequestIntakeDetails(
     if (fErr) {
       return { ok: false, error: fErr.message }
     }
+    await auditIntakeUpdate()
     return { ok: true }
   }
 
@@ -489,6 +565,7 @@ export async function saveRequestIntakeDetails(
     if (wErr) {
       return { ok: false, error: wErr.message }
     }
+    await auditIntakeUpdate()
     return { ok: true }
   }
 
@@ -528,6 +605,7 @@ export async function saveRequestIntakeDetails(
     if (oErr) {
       return { ok: false, error: oErr.message }
     }
+    await auditIntakeUpdate()
     return { ok: true }
   }
 
@@ -629,6 +707,13 @@ export async function linkRequestToExistingPerson(
     return linked
   }
 
+  await auditRequestAction({
+    requestId: id,
+    actorEmail: user.email,
+    action: 'request.person.linked',
+    metadata: { personId, mode: 'existing' },
+  })
+
   return { ok: true, personId }
 }
 
@@ -679,6 +764,12 @@ export async function createPersonFromRequestParishioner(
     if (!linked.ok) {
       return linked
     }
+    await auditRequestAction({
+      requestId: id,
+      actorEmail: user.email,
+      action: 'request.person.linked',
+      metadata: { personId: existingByParishioner, mode: 'existing' },
+    })
     return { ok: true, personId: existingByParishioner }
   }
 
@@ -738,6 +829,13 @@ export async function createPersonFromRequestParishioner(
   if (!linked.ok) {
     return linked
   }
+
+  await auditRequestAction({
+    requestId: id,
+    actorEmail: user.email,
+    action: 'request.person.linked',
+    metadata: { personId, mode: 'created' },
+  })
 
   return { ok: true, personId }
 }

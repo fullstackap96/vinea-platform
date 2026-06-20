@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/intentions', label: 'Mass Intentions', match: 'prefix' as const },
   { href: '/dashboard/reports', label: 'Reports', match: 'prefix' as const },
   { href: '/dashboard/settings', label: 'Parish Settings', match: 'prefix' as const },
+  { href: '/dashboard/admin/audit-log', label: 'Audit Log', match: 'prefix' as const, adminOnly: true },
 ]
 
 function isNavActive(pathname: string, href: string, match: 'exact' | 'prefix') {
@@ -39,6 +40,7 @@ export function DashboardLayoutClient({
   const router = useRouter()
   const pathname = usePathname()
   const [email, setEmail] = useState<string>('')
+  const [canViewAuditLog, setCanViewAuditLog] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -49,6 +51,13 @@ export function DashboardLayoutClient({
       } = await supabase.auth.getUser()
       if (cancelled) return
       setEmail(user?.email ?? '')
+      if (user) {
+        const res = await fetch('/api/parish/staff-users', { credentials: 'include' })
+        const data = await res.json().catch(() => ({}))
+        if (!cancelled) setCanViewAuditLog(Boolean(res.ok && data?.canManage))
+      } else if (!cancelled) {
+        setCanViewAuditLog(false)
+      }
     }
 
     loadUser()
@@ -113,7 +122,7 @@ export function DashboardLayoutClient({
                 className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium leading-snug lg:min-w-0 lg:flex-1"
                 aria-label="Dashboard sections"
               >
-                {NAV_ITEMS.map((item) => {
+                {NAV_ITEMS.filter((item) => !item.adminOnly || canViewAuditLog).map((item) => {
                   const active = isNavActive(pathname, item.href, item.match)
                   return (
                     <Link
