@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { GitMerge, Plus } from 'lucide-react'
 import { formatPersonDisplayName } from '@/lib/people'
 import { formatHouseholdRelationship } from '@/lib/households'
 import type { PeopleListResult } from '@/lib/server/loadPeopleList'
@@ -26,13 +26,22 @@ export function PeopleListView({ people, errorMessage, searchQuery }: PeopleList
             Parishioner profiles. Search by name or contact info, or add someone new.
           </p>
         </div>
-        <Link
-          href="/dashboard/people/new"
-          className={`${primaryButtonMd} w-full justify-center gap-2 sm:w-auto`}
-        >
-          <Plus className="h-4 w-4 shrink-0" aria-hidden />
-          New person
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/dashboard/people/duplicates"
+            className="inline-flex min-h-[2.75rem] items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm hover:border-gray-300 hover:bg-slate-50"
+          >
+            <GitMerge className="h-4 w-4 shrink-0" aria-hidden />
+            Review duplicates
+          </Link>
+          <Link
+            href="/dashboard/people/new"
+            className={`${primaryButtonMd} w-full justify-center gap-2 sm:w-auto`}
+          >
+            <Plus className="h-4 w-4 shrink-0" aria-hidden />
+            New person
+          </Link>
+        </div>
       </header>
 
       <div className={`mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm ${errorMessage ? '' : 'mb-6'}`}>
