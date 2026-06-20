@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/requests', label: 'Requests', match: 'prefix' as const },
   { href: '/dashboard/records', label: 'Records', match: 'prefix' as const },
   { href: '/dashboard/people', label: 'People', match: 'prefix' as const },
+  { href: '/dashboard/imports', label: 'Import', match: 'prefix' as const },
   { href: '/dashboard/intentions', label: 'Mass Intentions', match: 'prefix' as const },
   { href: '/dashboard/reports', label: 'Reports', match: 'prefix' as const },
   { href: '/dashboard/settings', label: 'Parish Settings', match: 'prefix' as const },
