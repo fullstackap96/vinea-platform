@@ -4,6 +4,23 @@ import { assertParishSettingsEnv } from '@/lib/server/requiredEnv'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import { directoryFromJsonColumn } from '@/lib/parishDirectory'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
+import { writeAuditEvent } from '@/lib/server/auditLog'
+
+const REQUEST_TYPES = ['funeral', 'wedding', 'baptism', 'ocia'] as const
+const DEFAULT_SLA_RULES = {
+  firstContactDays: {
+    funeral: 1,
+    wedding: 2,
+    baptism: 3,
+    ocia: 3,
+  },
+  ownerAssignmentDays: {
+    funeral: 0,
+    wedding: 1,
+    baptism: 2,
+    ocia: 2,
+  },
+}
 
 function isValidEmail(value: string): boolean {
   const s = String(value || '').trim()
@@ -15,11 +32,47 @@ function messageFromError(error: unknown): string {
   return error instanceof Error ? error.message : 'Server error'
 }
 
+function boundedDays(value: unknown, fallback: number): number {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return Math.max(0, Math.min(30, Math.round(n)))
+}
+
+function normalizeSlaRules(value: unknown) {
+  const source =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {}
+  const firstSource =
+    source.firstContactDays && typeof source.firstContactDays === 'object'
+      ? (source.firstContactDays as Record<string, unknown>)
+      : {}
+  const ownerSource =
+    source.ownerAssignmentDays && typeof source.ownerAssignmentDays === 'object'
+      ? (source.ownerAssignmentDays as Record<string, unknown>)
+      : {}
+
+  const firstContactDays: Record<string, number> = {}
+  const ownerAssignmentDays: Record<string, number> = {}
+  for (const type of REQUEST_TYPES) {
+    firstContactDays[type] = boundedDays(
+      firstSource[type],
+      DEFAULT_SLA_RULES.firstContactDays[type]
+    )
+    ownerAssignmentDays[type] = boundedDays(
+      ownerSource[type],
+      DEFAULT_SLA_RULES.ownerAssignmentDays[type]
+    )
+  }
+
+  return { firstContactDays, ownerAssignmentDays }
+}
+
 async function loadPrimaryParishWithGoogle(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
   const { data: parish, error: parishErr } = await admin
     .from('parishes')
     .select(
-      'id, name, default_notification_email, staff_directory, priest_directory, daily_ops_brief_enabled, daily_ops_brief_email, daily_ops_brief_last_sent_on, daily_ops_brief_last_error, created_at'
+      'id, name, default_notification_email, staff_directory, priest_directory, daily_ops_brief_enabled, daily_ops_brief_email, daily_ops_brief_last_sent_on, daily_ops_brief_last_error, onboarding_completed_at, workflow_sla_rules, created_at'
     )
     .order('created_at', { ascending: true })
     .limit(1)
@@ -85,9 +138,12 @@ export async function GET(request: NextRequest) {
           daily_ops_brief_email: String(parish.daily_ops_brief_email ?? '').trim(),
           daily_ops_brief_last_sent_on: parish.daily_ops_brief_last_sent_on ?? null,
           daily_ops_brief_last_error: parish.daily_ops_brief_last_error ?? null,
+          onboarding_completed_at: parish.onboarding_completed_at ?? null,
+          workflow_sla_rules: normalizeSlaRules(parish.workflow_sla_rules),
           staff_names: directoryFromJsonColumn(parish.staff_directory),
           priest_names: directoryFromJsonColumn(parish.priest_directory),
         },
+        staff: staffAuth.staff,
         googleCalendar: google,
       },
       { status: 200 }
@@ -150,6 +206,8 @@ export async function PATCH(request: NextRequest) {
     const priests = directoryFromJsonColumn(
       Array.isArray(body.priest_names) ? body.priest_names : []
     )
+    const workflowSlaRules = normalizeSlaRules(body.workflow_sla_rules)
+    const onboardingComplete = Boolean(body.onboarding_complete)
 
     const admin = createSupabaseServiceRoleClient()
     const { data: parish, error: parishErr } = await admin
@@ -172,6 +230,8 @@ export async function PATCH(request: NextRequest) {
         daily_ops_brief_email: dailyBriefEmailRaw || null,
         staff_directory: staffDirectory,
         priest_directory: priests,
+        workflow_sla_rules: workflowSlaRules,
+        onboarding_completed_at: onboardingComplete ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', parish.id)
@@ -179,6 +239,20 @@ export async function PATCH(request: NextRequest) {
     if (updateErr) {
       return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 })
     }
+
+    await writeAuditEvent({
+      parishId: String(parish.id),
+      actorEmail: staffAuth.staff.email,
+      action: 'parish_settings.updated',
+      targetType: 'parish',
+      targetId: String(parish.id),
+      metadata: {
+        dailyBriefEnabled,
+        onboardingComplete,
+        staffDirectoryCount: staffDirectory.length,
+        priestDirectoryCount: priests.length,
+      },
+    })
 
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (e: unknown) {

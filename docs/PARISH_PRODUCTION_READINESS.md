@@ -5,6 +5,8 @@ Use this checklist before enabling a parish on Vinea.
 ## Staff Access
 
 Vinea dashboard access is limited to signed-in users who are explicitly authorized as staff.
+After the first admin is bootstrapped, parish admins can manage staff access from
+`/dashboard/settings`.
 
 1. Create the parish's first Supabase Auth user.
 2. Add that email to `staff_users` for the parish before sending the login link:
@@ -21,8 +23,21 @@ set role = excluded.role,
     updated_at = now();
 ```
 
-3. Optionally set `STAFF_ALLOWLIST_EMAILS` in Vercel as a comma-separated emergency/admin allowlist.
-4. Confirm an unauthorized Auth user is redirected to `/login?staff=unauthorized`.
+3. Sign in as that admin and add the remaining staff users in Parish Settings.
+4. Optionally set `STAFF_ALLOWLIST_EMAILS` in Vercel as a comma-separated emergency/admin allowlist.
+5. Confirm an unauthorized Auth user is redirected to `/login?staff=unauthorized`.
+
+## First-Run Setup
+
+In `/dashboard/settings`, review:
+
+- Parish name and notification inbox.
+- Daily brief recipient and schedule.
+- Staff login access.
+- Priest and staff display-name lists.
+- Parish response targets for first contact and ownership.
+
+Mark onboarding complete after these items are reviewed.
 
 ## Public Intake
 

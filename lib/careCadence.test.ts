@@ -62,6 +62,31 @@ describe('evaluateCareCadence', () => {
       )
     ).toBeNull()
   })
+
+  it('uses configured first-contact and owner assignment targets', () => {
+    const row = evaluateCareCadence(
+      {
+        id: 'baptism-1',
+        status: 'new',
+        request_type: 'baptism',
+        created_at: '2026-06-16T12:00:00.000Z',
+        assigned_staff_name: '',
+        parishioner: { full_name: 'Jane Santos' },
+        child_name: 'Lucia',
+      },
+      {
+        now,
+        slaRules: {
+          firstContactDays: { baptism: 5 },
+          ownerAssignmentDays: { baptism: 4 },
+        },
+      }
+    )
+
+    expect(row?.reason).not.toContain('No family contact')
+    expect(row?.reason).not.toContain('No staff owner')
+    expect(row?.label).toBe('Follow-up date needed')
+  })
 })
 
 describe('buildCareCadenceQueue', () => {

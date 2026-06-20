@@ -91,7 +91,11 @@ import {
   type StaffCommandCenterRow,
 } from '@/lib/staffCommandCenter'
 import { buildStaffWorkloadRows } from '@/lib/dashboardStaffWorkload'
-import { buildCareCadenceQueue } from '@/lib/careCadence'
+import {
+  buildCareCadenceQueue,
+  DEFAULT_CARE_CADENCE_SLA_RULES,
+  type CareCadenceSlaRules,
+} from '@/lib/careCadence'
 import { buildCommunicationCommitmentQueue } from '@/lib/communicationCommitments'
 import { buildCarePlans } from '@/lib/carePlans'
 import { buildTodaysCareBrief } from '@/lib/parishCareCalendar'
@@ -212,6 +216,22 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     []
   )
   const [suggestedActionsLoading, setSuggestedActionsLoading] = useState(true)
+  const [careCadenceSlaRules, setCareCadenceSlaRules] = useState<CareCadenceSlaRules>(
+    DEFAULT_CARE_CADENCE_SLA_RULES
+  )
+
+  async function loadParishWorkflowSettings() {
+    try {
+      const res = await fetch('/api/parish/settings', { credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      const rules = data?.parish?.workflow_sla_rules
+      if (res.ok && data?.ok && rules && typeof rules === 'object') {
+        setCareCadenceSlaRules(rules as CareCadenceSlaRules)
+      }
+    } catch (error) {
+      logDashboardQueryError('parish workflow settings', error)
+    }
+  }
 
   function toTime(value: any) {
     if (!value) return null
@@ -1754,6 +1774,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
 
   useEffect(() => {
     loadRequests(false)
+    void loadParishWorkflowSettings()
   }, [])
 
   const rowFiltersKey = JSON.stringify(rowFilters)
@@ -1877,8 +1898,9 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       buildCareCadenceQueue(isHome ? requests : searchedRequests, {
         now: dashboardMetricsAt,
         limit: isHome ? 4 : 8,
+        slaRules: careCadenceSlaRules,
       }),
-    [isHome, requests, searchedRequests, dashboardMetricsAt]
+    [isHome, requests, searchedRequests, dashboardMetricsAt, careCadenceSlaRules]
   )
 
   const familyCarePlans = useMemo(
@@ -2091,6 +2113,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
             staffCommandCenter={staffCommandCenter}
             loading={loading}
             dataUnavailable={requestsFetchFailed}
+            slaRules={careCadenceSlaRules}
           />
 
           <DashboardTodaysCareBrief

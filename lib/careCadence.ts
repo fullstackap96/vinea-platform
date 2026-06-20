@@ -67,6 +67,26 @@ export type CareCadenceResult = {
 
 const SACRAMENTAL_REQUEST_TYPES = new Set(['baptism', 'funeral', 'wedding', 'ocia'])
 
+export type CareCadenceSlaRules = {
+  firstContactDays?: Record<string, number>
+  ownerAssignmentDays?: Record<string, number>
+}
+
+export const DEFAULT_CARE_CADENCE_SLA_RULES = {
+  firstContactDays: {
+    funeral: 1,
+    wedding: 2,
+    baptism: 3,
+    ocia: 3,
+  },
+  ownerAssignmentDays: {
+    funeral: 0,
+    wedding: 1,
+    baptism: 2,
+    ocia: 2,
+  },
+} satisfies Required<CareCadenceSlaRules>
+
 const FIRST_CONTACT_SLA_DAYS: Record<string, number> = {
   funeral: 1,
   wedding: 2,
@@ -152,9 +172,20 @@ function isUnassigned(value: unknown): boolean {
   return !s || s === 'unassigned'
 }
 
+function configuredSlaDays(
+  rules: CareCadenceSlaRules | undefined,
+  kind: keyof Required<CareCadenceSlaRules>,
+  requestType: string,
+  fallback: number
+): number {
+  const n = rules?.[kind]?.[requestType]
+  if (typeof n !== 'number' || !Number.isFinite(n)) return fallback
+  return Math.max(0, Math.min(30, Math.round(n)))
+}
+
 export function evaluateCareCadence(
   request: CareCadenceRequest,
-  options?: { now?: Date }
+  options?: { now?: Date; slaRules?: CareCadenceSlaRules }
 ): CareCadenceEvaluation | null {
   const now = options?.now ?? new Date()
   if (text(request.status) === 'complete') return null
@@ -173,8 +204,18 @@ export function evaluateCareCadence(
   const daysSinceContact = wholeDaysSince(request.last_contacted_at, now)
   const waitingLabel = requestWaitingOnLabel(request.waiting_on)
   const waitingDays = waitingLabel ? wholeDaysSince(request.waiting_on_changed_at, now) : null
-  const firstContactSla = FIRST_CONTACT_SLA_DAYS[requestType] ?? 3
-  const ownerSla = OWNER_SLA_DAYS[requestType] ?? 2
+  const firstContactSla = configuredSlaDays(
+    options?.slaRules,
+    'firstContactDays',
+    requestType,
+    FIRST_CONTACT_SLA_DAYS[requestType] ?? 3
+  )
+  const ownerSla = configuredSlaDays(
+    options?.slaRules,
+    'ownerAssignmentDays',
+    requestType,
+    OWNER_SLA_DAYS[requestType] ?? 2
+  )
 
   let level: CareCadenceLevel = 'steady'
   let label = 'Care cadence set'
@@ -277,7 +318,7 @@ export function evaluateCareCadence(
 
 export function buildCareCadenceQueue(
   requests: readonly CareCadenceRequest[],
-  options?: { now?: Date; limit?: number }
+  options?: { now?: Date; limit?: number; slaRules?: CareCadenceSlaRules }
 ): CareCadenceResult {
   const rows = requests
     .map((request) => evaluateCareCadence(request, options))

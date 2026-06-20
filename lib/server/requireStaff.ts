@@ -12,7 +12,7 @@ import {
 } from '@/lib/staffAuthorization'
 
 export type StaffAuthorizationResult =
-  | { ok: true; email: string; source: 'env' | 'database' | 'development' }
+  | { ok: true; email: string; role: 'admin' | 'staff'; source: 'env' | 'database' | 'development' }
   | { ok: false; error: string }
 
 async function loadPrimaryParishId(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
@@ -32,7 +32,7 @@ export async function authorizeStaffUser(user: User | null | undefined): Promise
   if (!user || !email) return { ok: false, error: 'Unauthorized' }
 
   if (isStaffEmailAllowlisted(email)) {
-    return { ok: true, email, source: 'env' }
+    return { ok: true, email, role: 'admin', source: 'env' }
   }
 
   const admin = createSupabaseServiceRoleClient()
@@ -48,7 +48,7 @@ export async function authorizeStaffUser(user: User | null | undefined): Promise
 
   const { data, error } = await admin
     .from('staff_users')
-    .select('id')
+    .select('id, role')
     .eq('parish_id', parishId)
     .eq('active', true)
     .ilike('email', email)
@@ -59,10 +59,11 @@ export async function authorizeStaffUser(user: User | null | undefined): Promise
     return { ok: false, error: 'Could not verify staff access.' }
   }
   if (data?.id) {
-    return { ok: true, email, source: 'database' }
+    const role = data.role === 'admin' ? 'admin' : 'staff'
+    return { ok: true, email, role, source: 'database' }
   }
   if (staffAccessNotConfiguredAllowsDev()) {
-    return { ok: true, email, source: 'development' }
+    return { ok: true, email, role: 'admin', source: 'development' }
   }
 
   return { ok: false, error: 'This login is not authorized for parish staff access.' }

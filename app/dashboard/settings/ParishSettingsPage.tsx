@@ -28,12 +28,54 @@ type ParishPayload = {
   daily_ops_brief_email?: string | null
   daily_ops_brief_last_sent_on?: string | null
   daily_ops_brief_last_error?: string | null
+  onboarding_completed_at?: string | null
+  workflow_sla_rules?: WorkflowSlaRules | null
   staff_names?: string[]
   priest_names?: string[]
 }
 
+type WorkflowSlaRules = {
+  firstContactDays: Record<string, number>
+  ownerAssignmentDays: Record<string, number>
+}
+
+type StaffAccessRow = {
+  id: string
+  email: string
+  role: 'admin' | 'staff'
+  active: boolean
+}
+
+const REQUEST_TYPES = [
+  { key: 'funeral', label: 'Funeral' },
+  { key: 'wedding', label: 'Wedding' },
+  { key: 'baptism', label: 'Baptism' },
+  { key: 'ocia', label: 'OCIA' },
+]
+
+const DEFAULT_SLA_RULES: WorkflowSlaRules = {
+  firstContactDays: { funeral: 1, wedding: 2, baptism: 3, ocia: 3 },
+  ownerAssignmentDays: { funeral: 0, wedding: 1, baptism: 2, ocia: 2 },
+}
+
 function messageFromUnknown(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
+}
+
+function normalizeSlaRules(value: WorkflowSlaRules | null | undefined): WorkflowSlaRules {
+  return {
+    firstContactDays: { ...DEFAULT_SLA_RULES.firstContactDays, ...(value?.firstContactDays ?? {}) },
+    ownerAssignmentDays: {
+      ...DEFAULT_SLA_RULES.ownerAssignmentDays,
+      ...(value?.ownerAssignmentDays ?? {}),
+    },
+  }
+}
+
+function clampDays(value: string): number {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 0
+  return Math.max(0, Math.min(30, Math.round(n)))
 }
 
 export function ParishSettingsPage() {
@@ -53,9 +95,37 @@ export function ParishSettingsPage() {
   const [dailyBriefMessage, setDailyBriefMessage] = useState('')
   const [staffText, setStaffText] = useState('')
   const [priestText, setPriestText] = useState('')
+  const [onboardingComplete, setOnboardingComplete] = useState(false)
+  const [slaRules, setSlaRules] = useState<WorkflowSlaRules>(DEFAULT_SLA_RULES)
+  const [staffAccess, setStaffAccess] = useState<StaffAccessRow[]>([])
+  const [canManageStaff, setCanManageStaff] = useState(false)
+  const [staffAccessLoading, setStaffAccessLoading] = useState(false)
+  const [staffAccessMessage, setStaffAccessMessage] = useState('')
+  const [staffAccessError, setStaffAccessError] = useState('')
+  const [newStaffEmail, setNewStaffEmail] = useState('')
+  const [newStaffRole, setNewStaffRole] = useState<'admin' | 'staff'>('staff')
   const [googleCalendar, setGoogleCalendar] = useState<ParishGoogleIntegrationSnapshot | null>(
     null
   )
+
+  const loadStaffAccess = useCallback(async () => {
+    setStaffAccessLoading(true)
+    setStaffAccessError('')
+    try {
+      const res = await fetch('/api/parish/staff-users', { credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        setStaffAccessError(String(data?.error || 'Could not load staff access.'))
+        return
+      }
+      setStaffAccess(Array.isArray(data.staff) ? data.staff : [])
+      setCanManageStaff(Boolean(data.canManage))
+    } catch (error: unknown) {
+      setStaffAccessError(messageFromUnknown(error, 'Could not load staff access.'))
+    } finally {
+      setStaffAccessLoading(false)
+    }
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -78,15 +148,18 @@ export function ParishSettingsPage() {
       setDailyBriefEmail(String(p.daily_ops_brief_email ?? '').trim() || '')
       setDailyBriefLastSentOn(p.daily_ops_brief_last_sent_on ?? null)
       setDailyBriefLastError(p.daily_ops_brief_last_error ?? null)
+      setOnboardingComplete(Boolean(p.onboarding_completed_at))
+      setSlaRules(normalizeSlaRules(p.workflow_sla_rules))
       setStaffText(directoryToMultilineText(Array.isArray(p.staff_names) ? p.staff_names : []))
       setPriestText(directoryToMultilineText(Array.isArray(p.priest_names) ? p.priest_names : []))
       setGoogleCalendar((data.googleCalendar as ParishGoogleIntegrationSnapshot | null) ?? null)
+      await loadStaffAccess()
     } catch (error: unknown) {
       setLoadError(messageFromUnknown(error, 'Could not load settings.'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [loadStaffAccess])
 
   useEffect(() => {
     void load()
@@ -109,6 +182,8 @@ export function ParishSettingsPage() {
           default_notification_email: notificationEmail.trim(),
           daily_ops_brief_enabled: dailyBriefEnabled,
           daily_ops_brief_email: dailyBriefEmail.trim(),
+          onboarding_complete: onboardingComplete,
+          workflow_sla_rules: slaRules,
           staff_names,
           priest_names,
         }),
@@ -124,6 +199,64 @@ export function ParishSettingsPage() {
       setSaveError(messageFromUnknown(error, 'Save failed'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  function updateSla(kind: keyof WorkflowSlaRules, requestType: string, value: string) {
+    setSlaRules((current) => ({
+      ...current,
+      [kind]: {
+        ...current[kind],
+        [requestType]: clampDays(value),
+      },
+    }))
+  }
+
+  async function addStaffAccess(e: React.FormEvent) {
+    e.preventDefault()
+    setStaffAccessMessage('')
+    setStaffAccessError('')
+    try {
+      const res = await fetch('/api/parish/staff-users', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newStaffEmail.trim(), role: newStaffRole }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        setStaffAccessError(String(data?.error || 'Could not add staff access.'))
+        return
+      }
+      setNewStaffEmail('')
+      setNewStaffRole('staff')
+      setStaffAccessMessage('Staff access saved.')
+      await loadStaffAccess()
+    } catch (error: unknown) {
+      setStaffAccessError(messageFromUnknown(error, 'Could not add staff access.'))
+    }
+  }
+
+  async function updateStaffAccess(row: StaffAccessRow, patch: Partial<StaffAccessRow>) {
+    setStaffAccessMessage('')
+    setStaffAccessError('')
+    const next = { ...row, ...patch }
+    try {
+      const res = await fetch('/api/parish/staff-users', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, role: next.role, active: next.active }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        setStaffAccessError(String(data?.error || 'Could not update staff access.'))
+        return
+      }
+      setStaffAccessMessage('Staff access updated.')
+      await loadStaffAccess()
+    } catch (error: unknown) {
+      setStaffAccessError(messageFromUnknown(error, 'Could not update staff access.'))
     }
   }
 
@@ -189,6 +322,27 @@ export function ParishSettingsPage() {
               This information is used across your workspace. Lists below are optional but help
               keep assignment picklists consistent.
             </p>
+
+            <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-blue-950">Parish onboarding</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-blue-900">
+                    Mark setup complete after the parish name, notification inbox, staff access,
+                    priests, and daily brief have been reviewed.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm font-semibold text-blue-950">
+                  <input
+                    type="checkbox"
+                    checked={onboardingComplete}
+                    onChange={(e) => setOnboardingComplete(e.target.checked)}
+                    className="h-4 w-4 rounded border-blue-300 text-brand focus:ring-brand-ring"
+                  />
+                  Setup complete
+                </label>
+              </div>
+            </div>
 
             <div className="mt-5 space-y-5">
               <div>
@@ -295,6 +449,60 @@ export function ParishSettingsPage() {
                 </div>
               </div>
 
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-4">
+                <h3 className="text-sm font-semibold text-gray-900">Parish response targets</h3>
+                <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                  These targets define when Vinea starts calling attention to missing first contact
+                  or missing ownership. Keep them simple enough for staff to remember.
+                </p>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
+                        <th className="py-2 pr-3 font-semibold">Workflow</th>
+                        <th className="px-3 py-2 font-semibold">First contact within</th>
+                        <th className="px-3 py-2 font-semibold">Owner assigned within</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {REQUEST_TYPES.map((type) => (
+                        <tr key={type.key}>
+                          <td className="py-2 pr-3 font-medium text-gray-900">{type.label}</td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={30}
+                              value={slaRules.firstContactDays[type.key] ?? 0}
+                              onChange={(e) =>
+                                updateSla('firstContactDays', type.key, e.target.value)
+                              }
+                              className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              aria-label={`${type.label} first contact days`}
+                            />{' '}
+                            <span className="text-xs text-gray-500">days</span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={30}
+                              value={slaRules.ownerAssignmentDays[type.key] ?? 0}
+                              onChange={(e) =>
+                                updateSla('ownerAssignmentDays', type.key, e.target.value)
+                              }
+                              className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              aria-label={`${type.label} owner assignment days`}
+                            />{' '}
+                            <span className="text-xs text-gray-500">days</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <div>
                 <label htmlFor="parish-staff" className="mb-1 block text-sm font-medium text-gray-800">
                   Staff members
@@ -350,6 +558,105 @@ export function ParishSettingsPage() {
               </p>
             ) : null}
           </form>
+
+          <section className={vineaSectionShellClassName}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Staff login access</h2>
+                <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                  These email addresses can sign in to the parish dashboard. Admins can manage
+                  access; staff can use the dashboard but cannot add or remove users.
+                </p>
+              </div>
+              {staffAccessLoading ? (
+                <span className="text-sm font-medium text-gray-500">Loading...</span>
+              ) : null}
+            </div>
+
+            {canManageStaff ? (
+              <form onSubmit={addStaffAccess} className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+                <input
+                  type="email"
+                  className={vineaInputFieldClassName}
+                  value={newStaffEmail}
+                  onChange={(e) => setNewStaffEmail(e.target.value)}
+                  placeholder="staff@yourparish.org"
+                  aria-label="Staff email"
+                  required
+                />
+                <select
+                  value={newStaffRole}
+                  onChange={(e) => setNewStaffRole(e.target.value === 'admin' ? 'admin' : 'staff')}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-ring"
+                  aria-label="Staff role"
+                >
+                  <option value="staff">Staff</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <button type="submit" className={`${primaryButtonMd} justify-center`}>
+                  Add access
+                </button>
+              </form>
+            ) : (
+              <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                Your account can use Vinea, but only a parish admin can change staff access.
+              </p>
+            )}
+
+            <div className="mt-5 divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+              {staffAccess.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-gray-600">No staff access rows found.</p>
+              ) : (
+                staffAccess.map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{row.email}</p>
+                      <p className="text-xs text-gray-500">
+                        {row.active ? 'Active' : 'Inactive'} - {row.role === 'admin' ? 'Admin' : 'Staff'}
+                      </p>
+                    </div>
+                    {canManageStaff ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          value={row.role}
+                          onChange={(e) =>
+                            void updateStaffAccess(row, {
+                              role: e.target.value === 'admin' ? 'admin' : 'staff',
+                            })
+                          }
+                          className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm"
+                          aria-label={`Role for ${row.email}`}
+                        >
+                          <option value="staff">Staff</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => void updateStaffAccess(row, { active: !row.active })}
+                          className={secondaryButtonMd}
+                        >
+                          {row.active ? 'Deactivate' : 'Reactivate'}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <InlineFormMessage message={staffAccessMessage} className="!mt-4" />
+            {staffAccessError ? (
+              <p
+                className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900"
+                role="alert"
+              >
+                {staffAccessError}
+              </p>
+            ) : null}
+          </section>
 
           <SettingsGoogleCalendarSection integration={googleCalendar} />
         </div>

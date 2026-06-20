@@ -14,6 +14,7 @@ import type {
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import type { StaffCommandCenterResult } from '@/lib/staffCommandCenter'
 import { vineaEmptyStateClassName, vineaSectionShellClassName } from '@/lib/vineaUi'
+import type { CareCadenceSlaRules } from '@/lib/careCadence'
 
 type TodayCard = {
   key: string
@@ -124,12 +125,14 @@ export function DashboardTodayView({
   staffCommandCenter,
   loading,
   dataUnavailable,
+  slaRules,
 }: {
   careCadence: CareCadenceResult
   communicationCommitments: CommunicationCommitmentQueue
   staffCommandCenter: StaffCommandCenterResult
   loading: boolean
   dataUnavailable: boolean
+  slaRules?: CareCadenceSlaRules
 }) {
   const careItem = careCadence.rows[0]
   const replyItem =
@@ -208,6 +211,16 @@ export function DashboardTodayView({
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
             The clearest next steps for the parish office today.
           </p>
+          {slaRules?.firstContactDays ? (
+            <p className="mt-2 text-xs leading-relaxed text-gray-500">
+              Response targets: funeral first contact within{' '}
+              {slaRules.firstContactDays.funeral ?? 1} day
+              {(slaRules.firstContactDays.funeral ?? 1) === 1 ? '' : 's'}, baptism within{' '}
+              {slaRules.firstContactDays.baptism ?? 3} days, wedding within{' '}
+              {slaRules.firstContactDays.wedding ?? 2} days, OCIA within{' '}
+              {slaRules.firstContactDays.ocia ?? 3} days.
+            </p>
+          ) : null}
         </div>
         {!loading && !dataUnavailable ? (
           <div
