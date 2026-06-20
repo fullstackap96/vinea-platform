@@ -8,6 +8,7 @@ import { DashboardCommandSummary } from './DashboardCommandSummary'
 import { DashboardTodayView } from './DashboardTodayView'
 import { DashboardTodaysCareBrief } from './DashboardTodaysCareBrief'
 import { DashboardParishOpsBrief } from './DashboardParishOpsBrief'
+import { DashboardOnboardingCard } from './DashboardOnboardingCard'
 import { DashboardSuggestedActions } from './DashboardSuggestedActions'
 import { DashboardStaffWorkload } from './DashboardStaffWorkload'
 import { DashboardOwnershipHealth } from './DashboardOwnershipHealth'
@@ -2107,6 +2108,8 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       <div className={isHome ? 'space-y-3 sm:space-y-4' : 'space-y-4 sm:space-y-5'}>
       {isHome ? (
         <>
+          <DashboardOnboardingCard />
+
           <DashboardTodayView
             careCadence={careCadence}
             communicationCommitments={communicationCommitments}

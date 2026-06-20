@@ -29,7 +29,9 @@ set role = excluded.role,
 
 ## First-Run Setup
 
-In `/dashboard/settings`, review:
+Start in `/dashboard/onboarding`, then use `/dashboard/settings` for the underlying controls.
+
+The onboarding page tracks:
 
 - Parish name and notification inbox.
 - Daily brief recipient and schedule.
@@ -37,7 +39,7 @@ In `/dashboard/settings`, review:
 - Priest and staff display-name lists.
 - Parish response targets for first contact and ownership.
 
-Mark onboarding complete after these items are reviewed.
+Mark onboarding complete from `/dashboard/onboarding` after these items are reviewed.
 
 ## Public Intake
 
