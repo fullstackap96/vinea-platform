@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createServerClient } from '@supabase/ssr'
 import type { NextRequest } from 'next/server'
+import { authorizeStaffUser } from '@/lib/server/requireStaff'
 
 function getSupabaseServerClient(request: NextRequest, response: NextResponse) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -39,6 +40,10 @@ function stripLeadingSubjectLineFromPlainText(text: string): string {
   return text.trim()
 }
 
+function messageFromError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error'
+}
+
 export async function POST(request: NextRequest) {
   const response = NextResponse.json({ ok: false })
   try {
@@ -50,6 +55,10 @@ export async function POST(request: NextRequest) {
 
     if (userError || !user) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    }
+    const staff = await authorizeStaffUser(user)
+    if (!staff.ok) {
+      return NextResponse.json({ ok: false, error: staff.error }, { status: 403 })
     }
 
     const body = await request.json()
@@ -88,10 +97,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, id: data?.id || null })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('EMAIL SEND ERROR:', error)
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Unknown error' },
+      { ok: false, error: messageFromError(error) },
       { status: 500 }
     )
   }

@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { fetchIntakeParishId, parishionerInsertPayload } from '@/lib/intakeParishScope'
-import { supabase } from '@/lib/supabase'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import {
   intakeInputClass,
@@ -48,90 +46,40 @@ export default function JoinParishRequestPage() {
     const ln = lastName.trim()
     const fullName = [fn, ln].filter(Boolean).join(' ').trim()
 
-    const parishId = await fetchIntakeParishId(supabase)
-    const { data: parishioner, error: parishionerError } = await supabase
-      .from('parishioners')
-      .insert([
-        parishionerInsertPayload({
-          full_name: fullName,
-          email,
-          phone,
-          parishId,
-        }),
-      ])
-      .select()
-      .single()
-
-    if (parishionerError) {
-      setMessage('Error saving contact information.')
-      setLoading(false)
-      return
-    }
-
-    const { data: request, error: requestError } = await supabase
-      .from('requests')
-      .insert([
-        {
-          parishioner_id: parishioner.id,
-          request_type: 'join_parish',
-          notes,
-        },
-      ])
-      .select()
-      .single()
-
-    if (requestError) {
-      setMessage('Error saving request.')
-      setLoading(false)
-      return
-    }
-
-    const { error: detailError } = await supabase.from('join_parish_request_details').insert([
-      {
-        request_id: request.id,
-        moving_into_parish: movingIntoParish,
-        address: address.trim() || null,
-        household_members: householdMembers.trim() || null,
+    const intakeRes = await fetch('/api/intake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestType: 'join_parish',
+        fullName,
+        email,
+        phone,
+        movingIntoParish,
+        address,
+        householdMembers,
         baptized,
         confirmed,
-        first_communion: firstCommunion,
-        already_catholic: alreadyCatholic,
-        interested_in_ocia: interestedInOcia,
-        reason: reason.trim() || null,
-        notes: notes.trim() || null,
-      },
-    ])
-
-    if (detailError) {
-      console.error('Join parish details insert error:', detailError)
-      setMessage(`Request saved, but join parish details failed: ${detailError.message}`)
+        firstCommunion,
+        alreadyCatholic,
+        interestedInOcia,
+        reason,
+        notes,
+      }),
+    })
+    const intakeData = await intakeRes.json().catch(() => ({}))
+    if (!intakeRes.ok || !intakeData?.ok) {
+      setMessage(String(intakeData?.error || 'Error saving request.'))
       setLoading(false)
       return
     }
-
-    const checklist = [
-      { request_id: request.id, item_name: 'Welcome outreach (email/phone)' },
-      { request_id: request.id, item_name: 'Registration info sent / collected' },
-      { request_id: request.id, item_name: 'Introduce ministries / next steps' },
-      ...(interestedInOcia === 'Yes'
-        ? [{ request_id: request.id, item_name: 'Connect with OCIA coordinator' }]
-        : []),
-    ]
-
-    const { error: checklistError } = await supabase.from('checklist_items').insert(checklist)
-
-    if (checklistError) {
-      setMessage('Request saved, but checklist failed.')
-      setLoading(false)
-      return
-    }
+    const requestId = String(intakeData.requestId)
 
     try {
       const res = await fetch('/api/request-notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          requestId: request.id,
+          requestId,
           requestType: 'join_parish',
           contactName: fullName,
           contactEmail: email,

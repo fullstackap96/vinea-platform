@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { fetchIntakeParishId, parishionerInsertPayload } from '@/lib/intakeParishScope'
-import { supabase } from '@/lib/supabase'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import {
   intakeInputClass,
@@ -26,69 +24,33 @@ export default function BaptismRequestPage() {
     setLoading(true)
     setMessage('')
 
-    const parishId = await fetchIntakeParishId(supabase)
-    const { data: parishioner, error: parishionerError } = await supabase
-      .from('parishioners')
-      .insert([
-        parishionerInsertPayload({
-          full_name: fullName,
-          email,
-          phone,
-          parishId,
-        }),
-      ])
-      .select()
-      .single()
-
-    if (parishionerError) {
-      setMessage('Error saving parishioner.')
+    const intakeRes = await fetch('/api/intake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestType: 'baptism',
+        fullName,
+        email,
+        phone,
+        childName,
+        preferredDates,
+        notes,
+      }),
+    })
+    const intakeData = await intakeRes.json().catch(() => ({}))
+    if (!intakeRes.ok || !intakeData?.ok) {
+      setMessage(String(intakeData?.error || 'Error saving request.'))
       setLoading(false)
       return
     }
-
-    const { data: request, error: requestError } = await supabase
-      .from('requests')
-      .insert([
-        {
-          parishioner_id: parishioner.id,
-          request_type: 'baptism',
-          child_name: childName,
-          preferred_dates: preferredDates,
-          notes,
-        },
-      ])
-      .select()
-      .single()
-
-    if (requestError) {
-      setMessage('Error saving request.')
-      setLoading(false)
-      return
-    }
-
-    const checklist = [
-      { request_id: request.id, item_name: 'Birth certificate' },
-      { request_id: request.id, item_name: 'Godparent information' },
-      { request_id: request.id, item_name: 'Prep class completion' },
-      { request_id: request.id, item_name: 'Baptism date confirmed' },
-    ]
-
-    const { error: checklistError } = await supabase
-      .from('checklist_items')
-      .insert(checklist)
-
-    if (checklistError) {
-      setMessage('Request saved, but checklist failed.')
-      setLoading(false)
-      return
-    }
+    const requestId = String(intakeData.requestId)
 
     try {
       const res = await fetch('/api/request-notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          requestId: request.id,
+          requestId,
           requestType: 'baptism',
           contactName: fullName,
           contactEmail: email,

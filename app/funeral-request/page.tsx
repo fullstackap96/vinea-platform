@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { fetchIntakeParishId, parishionerInsertPayload } from '@/lib/intakeParishScope'
-import { supabase } from '@/lib/supabase'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import {
   intakeInputClass,
@@ -38,93 +36,43 @@ export default function FuneralRequestPage() {
     setLoading(true)
     setMessage('')
 
-    const parishId = await fetchIntakeParishId(supabase)
-    const { data: parishioner, error: parishionerError } = await supabase
-      .from('parishioners')
-      .insert([
-        parishionerInsertPayload({
-          full_name: fullName,
-          email,
-          phone,
-          parishId,
-        }),
-      ])
-      .select()
-      .single()
-
-    if (parishionerError) {
-      setMessage('Error saving contact information.')
+    const intakeRes = await fetch('/api/intake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestType: 'funeral',
+        fullName,
+        email,
+        phone,
+        deceasedName,
+        familyRelationship,
+        dateOfDeath,
+        funeralHome,
+        funeralDirectorContact,
+        serviceLocation,
+        visitationDetails,
+        cemeteryOrCommittal,
+        readingsMusicNotes,
+        obituaryProgramNotes,
+        postFuneralFollowUpDate,
+        preferredServiceNotes,
+        notes,
+      }),
+    })
+    const intakeData = await intakeRes.json().catch(() => ({}))
+    if (!intakeRes.ok || !intakeData?.ok) {
+      setMessage(String(intakeData?.error || 'Error saving request.'))
       setLoading(false)
       return
     }
-
-    const { data: request, error: requestError } = await supabase
-      .from('requests')
-      .insert([
-        {
-          parishioner_id: parishioner.id,
-          request_type: 'funeral',
-          notes,
-        },
-      ])
-      .select()
-      .single()
-
-    if (requestError) {
-      setMessage('Error saving request.')
-      setLoading(false)
-      return
-    }
-
-    const { error: detailError } = await supabase.from('funeral_request_details').insert([
-      {
-        request_id: request.id,
-        deceased_name: deceasedName.trim(),
-        family_relationship: familyRelationship.trim() || null,
-        date_of_death: dateOfDeath || null,
-        funeral_home_or_location: funeralHome.trim() || null,
-        funeral_director_contact: funeralDirectorContact.trim() || null,
-        service_location: serviceLocation.trim() || null,
-        visitation_details: visitationDetails.trim() || null,
-        cemetery_or_committal: cemeteryOrCommittal.trim() || null,
-        readings_music_notes: readingsMusicNotes.trim() || null,
-        obituary_program_notes: obituaryProgramNotes.trim() || null,
-        post_funeral_follow_up_date: postFuneralFollowUpDate || null,
-        preferred_service_notes: preferredServiceNotes.trim() || null,
-      },
-    ])
-
-    if (detailError) {
-      setMessage('Request saved, but funeral details failed. Please contact the parish.')
-      setLoading(false)
-      return
-    }
-
-    const checklist = [
-      { request_id: request.id, item_name: 'Initial family contact / pastoral care' },
-      { request_id: request.id, item_name: 'Coordinate with funeral home' },
-      { request_id: request.id, item_name: 'Confirm service date and time' },
-      { request_id: request.id, item_name: 'Collect death certificate / vital records' },
-      { request_id: request.id, item_name: 'Readings and music selected' },
-      { request_id: request.id, item_name: 'Obituary, worship aid, or livestream details' },
-      { request_id: request.id, item_name: 'Cemetery, cremation, or committal arrangements' },
-      { request_id: request.id, item_name: 'Post-funeral family follow-up' },
-    ]
-
-    const { error: checklistError } = await supabase.from('checklist_items').insert(checklist)
-
-    if (checklistError) {
-      setMessage('Request saved, but checklist failed.')
-      setLoading(false)
-      return
-    }
+    const requestId = String(intakeData.requestId)
 
     try {
       const res = await fetch('/api/request-notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          requestId: request.id,
+          requestId,
           requestType: 'funeral',
           contactName: fullName,
           contactEmail: email,

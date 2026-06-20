@@ -75,7 +75,13 @@ function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
+  const [errorMessage, setErrorMessage] = useState(() => {
+    if (searchParams.get('staff') === 'unauthorized') {
+      return 'Your account is signed in, but it is not authorized for staff access. Ask a parish administrator to add your email to Vinea staff access.'
+    }
+
+    return ''
+  })
 
   useEffect(() => {
     let cancelled = false

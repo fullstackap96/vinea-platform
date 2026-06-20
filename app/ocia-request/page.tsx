@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { fetchIntakeParishId, parishionerInsertPayload } from '@/lib/intakeParishScope'
-import { supabase } from '@/lib/supabase'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import {
   intakeInputClass,
@@ -53,84 +51,38 @@ export default function OciaRequestPage() {
       return
     }
 
-    const parishId = await fetchIntakeParishId(supabase)
-    const { data: parishioner, error: parishionerError } = await supabase
-      .from('parishioners')
-      .insert([
-        parishionerInsertPayload({
-          full_name: fullName,
-          email,
-          phone,
-          parishId,
-        }),
-      ])
-      .select()
-      .single()
-
-    if (parishionerError) {
-      setMessage('Error saving contact information.')
-      setLoading(false)
-      return
-    }
-
-    const { data: request, error: requestError } = await supabase
-      .from('requests')
-      .insert([
-        {
-          parishioner_id: parishioner.id,
-          request_type: 'ocia',
-          notes,
-        },
-      ])
-      .select()
-      .single()
-
-    if (requestError) {
-      setMessage('Error saving request.')
-      setLoading(false)
-      return
-    }
-
-    const { error: detailError } = await supabase.from('ocia_request_details').insert([
-      {
-        request_id: request.id,
-        date_of_birth: dateOfBirth || null,
-        age_or_dob_note: ageOrDobNote.trim() || null,
-        sacramental_background: sacramentalBackground,
+    const intakeRes = await fetch('/api/intake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestType: 'ocia',
+        fullName,
+        email,
+        phone,
+        dateOfBirth,
+        ageOrDobNote,
+        sacramentalBackground,
         seeking,
-        parishioner_status: parishionerStatus.trim(),
-        preferred_contact_method: preferredContactMethod,
-        availability: availability.trim() || null,
-      },
-    ])
-
-    if (detailError) {
-      console.error('OCIA details insert error:', detailError)
-      setMessage(`Request saved, but OCIA details failed: ${detailError.message}`)
+        parishionerStatus,
+        preferredContactMethod,
+        availability,
+        notes,
+      }),
+    })
+    const intakeData = await intakeRes.json().catch(() => ({}))
+    if (!intakeRes.ok || !intakeData?.ok) {
+      setMessage(String(intakeData?.error || 'Error saving request.'))
       setLoading(false)
       return
     }
-
-    const checklist = [
-      { request_id: request.id, item_name: 'Initial conversation with OCIA coordinator' },
-      { request_id: request.id, item_name: 'Inquiry / evangelization materials shared' },
-      { request_id: request.id, item_name: 'Rite of Acceptance / Welcome (as applicable)' },
-    ]
-
-    const { error: checklistError } = await supabase.from('checklist_items').insert(checklist)
-
-    if (checklistError) {
-      setMessage('Request saved, but checklist failed.')
-      setLoading(false)
-      return
-    }
+    const requestId = String(intakeData.requestId)
 
     try {
       const res = await fetch('/api/request-notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          requestId: request.id,
+          requestId,
           requestType: 'ocia',
           contactName: fullName,
           contactEmail: email,

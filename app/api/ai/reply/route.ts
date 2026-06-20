@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { openai } from '@/lib/openai'
+import { authorizeStaffUser } from '@/lib/server/requireStaff'
 
 function getSupabaseServerClient(request: NextRequest, response: NextResponse) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -73,6 +74,10 @@ Preferred Dates: ${body.preferredDates}
 Notes: ${body.notes}`
 }
 
+function messageFromError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error'
+}
+
 export async function POST(request: NextRequest) {
   const response = NextResponse.json({ ok: false })
   try {
@@ -84,6 +89,10 @@ export async function POST(request: NextRequest) {
 
     if (userError || !user) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    }
+    const staff = await authorizeStaffUser(user)
+    if (!staff.ok) {
+      return NextResponse.json({ ok: false, error: staff.error }, { status: 403 })
     }
 
     const body = await request.json()
@@ -222,9 +231,9 @@ ${block}
     })
 
     return NextResponse.json({ reply: aiResponse.output_text })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('AI REPLY ERROR:', error)
-    return new NextResponse(`Reply route error: ${error.message}`, {
+    return new NextResponse(`Reply route error: ${messageFromError(error)}`, {
       status: 500,
     })
   }

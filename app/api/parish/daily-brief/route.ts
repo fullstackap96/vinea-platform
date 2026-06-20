@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { Resend } from 'resend'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
-import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
 import { resolveAppOrigin } from '@/lib/appOrigin'
 import {
   buildParishDailyBriefSubject,
@@ -13,6 +12,7 @@ import {
   loadPrimaryParishDailyBrief,
   type LoadedParishDailyBrief,
 } from '@/lib/server/loadParishDailyBrief'
+import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 
 export const runtime = 'nodejs'
 
@@ -90,15 +90,8 @@ async function sendBriefEmail(input: {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const staff = await requireStaffFromRequest(request)
+    if (!staff.ok) return staff.response
 
     const now = new Date()
     const admin = createSupabaseServiceRoleClient()

@@ -1,21 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { formatNotificationsBadgeCount } from '@/lib/notificationsCenter/buildNotificationsCenter'
 import { loadNotificationsCenter } from '@/lib/server/loadNotificationsCenter'
-import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
+import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 
 export async function GET(request: NextRequest) {
-  const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
+  const staff = await requireStaffFromRequest(request)
+  if (!staff.ok) return staff.response
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const result = await loadNotificationsCenter(supabase)
+  const result = await loadNotificationsCenter(staff.supabase)
 
   return NextResponse.json({
     totalCount: result.totalCount,

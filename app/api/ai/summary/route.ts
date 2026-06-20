@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { openai } from '@/lib/openai'
-import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
+import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const staff = await requireStaffFromRequest(request)
+    if (!staff.ok) return staff.response
 
     const body = await request.json()
     const requestType = String(body?.requestType || 'baptism')

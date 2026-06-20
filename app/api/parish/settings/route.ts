@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { assertParishSettingsEnv } from '@/lib/server/requiredEnv'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
-import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
 import { directoryFromJsonColumn } from '@/lib/parishDirectory'
+import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 
 function isValidEmail(value: string): boolean {
   const s = String(value || '').trim()
   if (!s) return false
   return s.includes('@') && !/\s/.test(s)
+}
+
+function messageFromError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Server error'
 }
 
 async function loadPrimaryParishWithGoogle(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
@@ -60,15 +64,8 @@ export async function GET(request: NextRequest) {
   try {
     assertParishSettingsEnv()
 
-    const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const staffAuth = await requireStaffFromRequest(request)
+    if (!staffAuth.ok) return staffAuth.response
 
     const admin = createSupabaseServiceRoleClient()
     const { parish, google, error } = await loadPrimaryParishWithGoogle(admin)
@@ -95,9 +92,9 @@ export async function GET(request: NextRequest) {
       },
       { status: 200 }
     )
-  } catch (e: any) {
+  } catch (e: unknown) {
     return NextResponse.json(
-      { ok: false, error: e?.message || 'Server error' },
+      { ok: false, error: messageFromError(e) },
       { status: 500 }
     )
   }
@@ -107,15 +104,8 @@ export async function PATCH(request: NextRequest) {
   try {
     assertParishSettingsEnv()
 
-    const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const staffAuth = await requireStaffFromRequest(request)
+    if (!staffAuth.ok) return staffAuth.response
 
     const body = await request.json().catch(() => null as Record<string, unknown> | null)
     if (!body || typeof body !== 'object') {
@@ -154,7 +144,7 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    const staff = directoryFromJsonColumn(
+    const staffDirectory = directoryFromJsonColumn(
       Array.isArray(body.staff_names) ? body.staff_names : []
     )
     const priests = directoryFromJsonColumn(
@@ -180,7 +170,7 @@ export async function PATCH(request: NextRequest) {
         default_notification_email: emailRaw || null,
         daily_ops_brief_enabled: dailyBriefEnabled,
         daily_ops_brief_email: dailyBriefEmailRaw || null,
-        staff_directory: staff,
+        staff_directory: staffDirectory,
         priest_directory: priests,
         updated_at: new Date().toISOString(),
       })
@@ -191,9 +181,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true }, { status: 200 })
-  } catch (e: any) {
+  } catch (e: unknown) {
     return NextResponse.json(
-      { ok: false, error: e?.message || 'Server error' },
+      { ok: false, error: messageFromError(e) },
       { status: 500 }
     )
   }
