@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { GitMerge, Plus } from 'lucide-react'
 import { formatHouseholdAddressLine } from '@/lib/households'
 import type { HouseholdsListResult } from '@/lib/server/loadHouseholdsList'
 import { primaryButtonMd } from '@/lib/buttonStyles'
@@ -23,13 +23,22 @@ export function HouseholdsListView({
             Household directory with address and member roster.
           </p>
         </div>
-        <Link
-          href="/dashboard/households/new"
-          className={`${primaryButtonMd} w-full justify-center gap-2 sm:w-auto`}
-        >
-          <Plus className="h-4 w-4 shrink-0" aria-hidden />
-          New household
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/dashboard/households/duplicates"
+            className="inline-flex min-h-[2.75rem] items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm hover:border-gray-300 hover:bg-slate-50"
+          >
+            <GitMerge className="h-4 w-4 shrink-0" aria-hidden />
+            Review duplicates
+          </Link>
+          <Link
+            href="/dashboard/households/new"
+            className={`${primaryButtonMd} w-full justify-center gap-2 sm:w-auto`}
+          >
+            <Plus className="h-4 w-4 shrink-0" aria-hidden />
+            New household
+          </Link>
+        </div>
       </header>
 
       <div className={`mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm ${errorMessage ? '' : 'mb-6'}`}>
