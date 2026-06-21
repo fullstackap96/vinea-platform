@@ -50,3 +50,48 @@ npm.cmd run lint
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
 - Build still reports the existing Next.js middleware deprecation warning; Phase 1 did not change middleware/proxy behavior.
+
+## Phase 2: Workflow Template Settings UI
+
+Status: Implemented and verified.
+
+### What Changed
+
+- Added a staff-protected workflow template settings API at `/api/parish/workflow-templates`.
+- Added a parish settings section for active Baptism, Wedding, Funeral, and OCIA workflow templates.
+- Staff can edit workflow step title, description, phase, owner type, required status, due offset, and sort order.
+- Workflow step updates are parish-scoped before write and recorded in `audit_events`.
+- Recent admin activity now shows a readable title/detail for workflow template step updates.
+- Added focused tests for workflow template step patch validation.
+- Kept Phase 2 limited to template editing. Existing request detail pages still use legacy `checklist_items` until Phase 3.
+
+### How To Test
+
+1. Apply the Phase 1 migration so default workflow templates exist.
+2. Sign in as authorized parish staff.
+3. Open `/dashboard/settings`.
+4. In Workflow templates, select Baptism, Wedding, Funeral, or OCIA.
+5. Edit a step title, description, phase, owner, required flag, due offset, or order.
+6. Save the step and refresh to confirm the change persists.
+7. Check recent admin activity or `/dashboard/admin/audit-log` for the workflow step update.
+8. Run:
+
+```bash
+npm.cmd test
+npm.cmd run build
+npm.cmd run lint
+```
+
+### Known Risks
+
+- Phase 2 edits affect new requests created after the template change; existing request workflow step instances are not rewritten.
+- The UI edits existing seeded steps only. Adding, deleting, duplicating, and reordering by drag-and-drop are not implemented yet.
+- Active/inactive template management is not exposed yet; the API reads active templates only.
+- Request detail pages do not yet render `request_workflow_steps`; that is Phase 3.
+
+### Verification
+
+- `npm.cmd test` passed: 36 test files, 143 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+- Build still reports the existing Next.js middleware deprecation warning; Phase 2 did not change middleware/proxy behavior.

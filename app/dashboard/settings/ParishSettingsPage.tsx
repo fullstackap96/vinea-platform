@@ -13,6 +13,7 @@ import {
   SettingsGoogleCalendarSection,
   type ParishGoogleIntegrationSnapshot,
 } from './SettingsGoogleCalendarSection'
+import { SettingsWorkflowTemplatesSection } from './SettingsWorkflowTemplatesSection'
 import {
   directoryFromMultilineText,
   directoryToMultilineText,
@@ -726,6 +727,8 @@ export function ParishSettingsPage() {
               </div>
             )}
           </section>
+
+          <SettingsWorkflowTemplatesSection />
 
           <SettingsGoogleCalendarSection integration={googleCalendar} />
         </div>

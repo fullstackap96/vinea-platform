@@ -24,6 +24,8 @@ export function auditEventTitle(event: AuditEventRow): string {
       return `New ${text(metadata.requestType) || 'request'} submitted`
     case 'parish_settings.updated':
       return 'Parish settings updated'
+    case 'workflow_template_step.updated':
+      return 'Workflow step updated'
     case 'staff_user.upserted':
       return `Staff access added for ${text(metadata.email) || 'a user'}`
     case 'staff_user.updated':
@@ -90,6 +92,15 @@ export function auditEventDetail(event: AuditEventRow): string {
     return [
       `Daily brief: ${String(metadata.dailyBriefEnabled)}`,
       `Onboarding complete: ${String(metadata.onboardingComplete)}`,
+    ].join(' | ')
+  }
+
+  if (event.action === 'workflow_template_step.updated') {
+    const next = metadata.next && typeof metadata.next === 'object' ? metadata.next as Record<string, unknown> : {}
+    return [
+      text(metadata.requestType) || 'Workflow',
+      text(next.phase) || 'Step',
+      text(next.title) || 'Updated',
     ].join(' | ')
   }
 
