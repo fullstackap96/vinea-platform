@@ -158,7 +158,7 @@ Status: Implemented and verified.
   - `POST /api/requests/[id]/documents` uploads a document server-side, writes metadata, and records an audit event.
   - `GET /api/requests/[id]/documents/[documentId]` returns a short-lived signed download URL.
   - `PATCH /api/requests/[id]/documents/[documentId]` approves or rejects a document with an optional review note.
-- Added a request-detail “Request documents” section under Workflow steps.
+- Added a request-detail "Request documents" section under Workflow steps.
 - Staff can upload documents, select a document type, tie a document to a workflow step, open the private file, and approve or reject it.
 - Added audit event labels for document uploads and reviews.
 - Added focused unit tests for document filename sanitization, status normalization, row normalization, and file-size formatting.
@@ -195,3 +195,62 @@ npm.cmd run lint
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
 - Build still reports the existing Next.js middleware deprecation warning; Phase 4 did not change middleware/proxy behavior.
+
+## Phase 5: Secure-Token Family Document Portal
+
+Status: Implemented and verified.
+
+### What Changed
+
+- Added `request_portal_tokens` for revocable, expiring family document portal links.
+- Raw family portal tokens are never stored; only SHA-256 token hashes are persisted.
+- `request_portal_tokens` has RLS enabled with no anon/authenticated policies. Access is mediated through server-side routes after staff authorization or token validation.
+- Added `POST /api/requests/[id]/portal-token` so authorized staff can generate a 30-day family upload link from the request detail document panel.
+- Added `/family/request/[token]` as a family-facing document portal.
+- Added `POST /api/family/request-portal/[token]/documents` for token-based family uploads.
+- Family uploads go into the private `request-documents` bucket and create `request_documents` rows with `pending_review` status.
+- The family portal exposes only:
+  - Parish name.
+  - Basic request label, submitted contact name, request type, child name when present, and link expiration.
+  - Workflow steps where `owner_type = 'family'`.
+  - Redacted document metadata tied to those family-owned workflow steps.
+- The family portal does not expose internal notes, staff-only request fields, communication history, AI notes, audit logs, assignment data, private storage paths, staff review notes, or arbitrary documents not tied to family-facing workflow steps.
+- Staff can copy the generated family upload link from the Request documents panel.
+- Added audit labels for family portal link creation and family document uploads.
+- Added focused tests to ensure family portal document metadata is filtered to family-facing workflow steps and staff-only document fields are redacted.
+
+### How To Test
+
+1. Apply Supabase migrations through the normal project migration process.
+2. Open a Baptism, Wedding, Funeral, or OCIA request detail page as authorized staff.
+3. Ensure the request has at least one workflow step owned by `Family`.
+4. Go to the Scheduling tab and find Request documents.
+5. Click `Create family upload link`.
+6. Open the generated `/family/request/[token]` link in a new browser session or private window.
+7. Confirm the page shows only basic request context and family-owned workflow steps.
+8. Upload a small PDF or image for one requested document.
+9. Return to the staff request detail page and confirm the document appears as `Pending review`.
+10. Approve or reject the uploaded document from the staff UI.
+11. Confirm invalid or expired token links show the generic unavailable-link message.
+12. Run:
+
+```bash
+npm.cmd test
+npm.cmd run build
+npm.cmd run lint
+```
+
+### Known Risks
+
+- Portal links are bearer tokens. Anyone with the link can upload documents until expiration or revocation in the database.
+- Staff UI can create links, but revocation and link history are not exposed in the UI yet.
+- Required document rules are still inferred from family-owned workflow steps; there is no separate document-requirement template model yet.
+- The portal intentionally does not expose staff review notes to families, even for rejected documents, because Phase 4 review notes may contain internal context.
+- The portal does not yet send automated email invitations or upload confirmations.
+
+### Verification
+
+- `npm.cmd test` passed: 39 test files, 150 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+- Build still reports the existing Next.js middleware deprecation warning; Phase 5 did not change middleware/proxy behavior.

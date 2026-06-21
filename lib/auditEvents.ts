@@ -44,8 +44,12 @@ export function auditEventTitle(event: AuditEventRow): string {
       return 'Workflow step updated'
     case 'request.document.uploaded':
       return 'Document uploaded'
+    case 'request.document.family_uploaded':
+      return 'Family document uploaded'
     case 'request.document.reviewed':
       return 'Document reviewed'
+    case 'request.portal_token.created':
+      return 'Family portal link created'
     case 'request.note.created':
       return 'Internal note added'
     case 'request.intake.updated':

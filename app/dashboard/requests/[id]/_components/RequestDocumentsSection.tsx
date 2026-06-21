@@ -49,6 +49,8 @@ export function RequestDocumentsSection({
   const [uploading, setUploading] = useState(false)
   const [reviewingId, setReviewingId] = useState('')
   const [downloadingId, setDownloadingId] = useState('')
+  const [creatingPortalLink, setCreatingPortalLink] = useState(false)
+  const [portalLink, setPortalLink] = useState('')
 
   const stepTitleById = useMemo(() => {
     const map = new Map<string, string>()
@@ -156,6 +158,31 @@ export function RequestDocumentsSection({
     }
   }
 
+  async function createPortalLink() {
+    setCreatingPortalLink(true)
+    setMessage('')
+    try {
+      const response = await fetch(`/api/requests/${requestId}/portal-token`, {
+        method: 'POST',
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.ok || !payload.url) {
+        throw new Error(payload?.error || 'Could not create family upload link.')
+      }
+      setPortalLink(payload.url)
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload.url)
+        setMessage('Family upload link copied. It expires in 30 days.')
+      } else {
+        setMessage('Family upload link created. Copy it below.')
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not create family upload link.')
+    } finally {
+      setCreatingPortalLink(false)
+    }
+  }
+
   return (
     <section className="mt-6 border-t border-gray-100 pt-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -166,8 +193,36 @@ export function RequestDocumentsSection({
             when helpful.
           </p>
         </div>
-        {loading ? <span className="text-xs text-gray-500">Loading documents...</span> : null}
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          {loading ? <span className="text-xs text-gray-500">Loading documents...</span> : null}
+          <button
+            type="button"
+            onClick={() => void createPortalLink()}
+            disabled={creatingPortalLink}
+            className={`${secondaryButtonMd} justify-center`}
+          >
+            {creatingPortalLink ? 'Creating link...' : 'Create family upload link'}
+          </button>
+        </div>
       </div>
+
+      {portalLink ? (
+        <div className="mt-4 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-sky-900">
+            Family upload link
+          </label>
+          <input
+            readOnly
+            value={portalLink}
+            className="mt-2 block w-full rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm text-sky-950"
+            onFocus={(event) => event.currentTarget.select()}
+          />
+          <p className="mt-2 text-xs leading-relaxed text-sky-900">
+            Share this with the family when they need to upload requested documents. The link expires
+            in 30 days.
+          </p>
+        </div>
+      ) : null}
 
       <form onSubmit={uploadDocument} className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto] lg:items-end">
