@@ -42,6 +42,10 @@ export function auditEventTitle(event: AuditEventRow): string {
       return 'Checklist item updated'
     case 'request.workflow_step.updated':
       return 'Workflow step updated'
+    case 'request.document.uploaded':
+      return 'Document uploaded'
+    case 'request.document.reviewed':
+      return 'Document reviewed'
     case 'request.note.created':
       return 'Internal note added'
     case 'request.intake.updated':

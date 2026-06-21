@@ -143,3 +143,55 @@ npm.cmd run lint
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
 - Build still reports the existing Next.js middleware deprecation warning; Phase 3 did not change middleware/proxy behavior.
+
+## Phase 4: Request Document Support
+
+Status: Implemented and verified.
+
+### What Changed
+
+- Added private Supabase Storage bucket setup for `request-documents`.
+- Added `request_documents` with staff-only RLS scoped by `is_authorized_staff()`, `primary_parish_id()`, and `request_belongs_to_primary_parish(request_id)`.
+- Documents can optionally be linked to a request-specific `request_workflow_steps` row.
+- Added staff-protected document APIs:
+  - `GET /api/requests/[id]/documents` lists documents for a scoped request.
+  - `POST /api/requests/[id]/documents` uploads a document server-side, writes metadata, and records an audit event.
+  - `GET /api/requests/[id]/documents/[documentId]` returns a short-lived signed download URL.
+  - `PATCH /api/requests/[id]/documents/[documentId]` approves or rejects a document with an optional review note.
+- Added a request-detail “Request documents” section under Workflow steps.
+- Staff can upload documents, select a document type, tie a document to a workflow step, open the private file, and approve or reject it.
+- Added audit event labels for document uploads and reviews.
+- Added focused unit tests for document filename sanitization, status normalization, row normalization, and file-size formatting.
+
+### How To Test
+
+1. Apply Supabase migrations through the normal project migration process.
+2. Open a Baptism, Wedding, Funeral, or OCIA request detail page as authorized staff.
+3. Go to the Scheduling tab and find Workflow steps.
+4. In Request documents, upload a small PDF or image.
+5. Optionally choose a workflow step before uploading.
+6. Confirm the document appears in the list with `Pending review`.
+7. Click Open and verify the document opens through a signed URL.
+8. Add an optional review note and approve or reject the document.
+9. Check request activity or `/dashboard/admin/audit-log` for document upload and review events.
+10. Run:
+
+```bash
+npm.cmd test
+npm.cmd run build
+npm.cmd run lint
+```
+
+### Known Risks
+
+- This phase is staff-facing only. Families cannot upload documents yet; that remains Phase 5.
+- Required document rules are not yet modeled at the workflow-template level. Staff can tie uploaded files to workflow steps, but Vinea does not yet auto-block completion based on missing or rejected documents.
+- Uploaded files are limited to 10 MB in the server route, but file type restrictions are intentionally broad for parish paperwork.
+- Storage access is private and mediated by server-generated signed URLs; direct browser storage policies are not opened in this phase.
+
+### Verification
+
+- `npm.cmd test` passed: 38 test files, 149 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+- Build still reports the existing Next.js middleware deprecation warning; Phase 4 did not change middleware/proxy behavior.

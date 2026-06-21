@@ -12,6 +12,7 @@ import {
 } from './_components/RequestHeader'
 import { FieldLabel, LabelValueGrid, LabelValueRow } from './_components/LabelValueGrid'
 import { ChecklistSection } from './_components/ChecklistSection'
+import { RequestDocumentsSection } from './_components/RequestDocumentsSection'
 import { RequestWorkflowStepsSection } from './_components/RequestWorkflowStepsSection'
 import { AiToolsSection } from './_components/AiToolsSection'
 import { SuggestedDatesSection } from './_components/SuggestedDatesSection'
@@ -2599,6 +2600,8 @@ async function deleteGoogleCalendarEvent() {
             {workflowStepMessage ? (
               <InlineFormMessage message={workflowStepMessage} className="!mt-4" />
             ) : null}
+
+            <RequestDocumentsSection requestId={routeId} workflowSteps={workflowSteps} />
 
             {!hasWorkflowSteps ? (
               <div className="mt-6 border-t border-gray-100 pt-5">
