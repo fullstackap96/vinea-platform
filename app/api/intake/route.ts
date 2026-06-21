@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import { checkRateLimit, clientIpFromRequest } from '@/lib/server/simpleRateLimit'
 import { writeAuditEvent } from '@/lib/server/auditLog'
+import { createRequestWorkflowStepsFromActiveTemplate } from '@/lib/server/requestWorkflowTemplates'
 
 export const runtime = 'nodejs'
 
@@ -228,13 +229,18 @@ export async function POST(request: NextRequest) {
     const { error: checklistError } = await admin.from('checklist_items').insert(checklist)
     if (checklistError) throw checklistError
 
+    const workflowStepsCreated = await createRequestWorkflowStepsFromActiveTemplate({
+      admin,
+      requestId: ids.requestId,
+    })
+
     await writeAuditEvent({
       parishId,
       actorEmail: email,
       action: 'public_intake.created',
       targetType: 'request',
       targetId: ids.requestId,
-      metadata: { requestType, fullName },
+      metadata: { requestType, fullName, workflowStepsCreated },
     })
 
     return NextResponse.json(
