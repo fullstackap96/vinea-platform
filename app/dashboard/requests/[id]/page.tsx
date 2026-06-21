@@ -12,6 +12,7 @@ import {
 } from './_components/RequestHeader'
 import { FieldLabel, LabelValueGrid, LabelValueRow } from './_components/LabelValueGrid'
 import { ChecklistSection } from './_components/ChecklistSection'
+import { RequestWorkflowStepsSection } from './_components/RequestWorkflowStepsSection'
 import { AiToolsSection } from './_components/AiToolsSection'
 import { SuggestedDatesSection } from './_components/SuggestedDatesSection'
 import { ConfirmedBaptismDateSection } from './_components/ConfirmedBaptismDateSection'
@@ -86,7 +87,11 @@ import {
   validateSuggestedDateNotPast,
 } from '@/lib/scheduleValidation'
 import { formatNextFollowUpDateCompact, parseFollowUpCalendarDate } from '@/lib/nextFollowUpDate'
-import { updateRequestWaitingOn } from '../actions'
+import {
+  updateRequestStatus as updateRequestStatusAction,
+  updateRequestWaitingOn,
+  updateRequestWorkflowStepStatus,
+} from '../actions'
 import {
   isGoogleOAuthReconnectError,
   userFacingGoogleCalendarErrorMessage,
@@ -103,6 +108,12 @@ import { buildRequestFirstReview } from '@/lib/requestFirstReview'
 import { evaluateIntakeTriage } from '@/lib/intakeTriage'
 import { buildRequestPlaybookProgress } from '@/lib/requestPlaybookProgress'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
+import {
+  countIncompleteRequiredWorkflowSteps,
+  normalizeRequestWorkflowStep,
+  type RequestWorkflowStep,
+  type RequestWorkflowStepStatus,
+} from '@/lib/requestWorkflowSteps'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -131,6 +142,9 @@ export default function RequestDetailPage() {
     created_at: string
   } | null>(null)
   const [checklistItems, setChecklistItems] = useState<any[]>([])
+  const [workflowSteps, setWorkflowSteps] = useState<RequestWorkflowStep[]>([])
+  const [workflowStepMessage, setWorkflowStepMessage] = useState('')
+  const [workflowStepUpdatingId, setWorkflowStepUpdatingId] = useState('')
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -216,6 +230,7 @@ const [staffNotes, setStaffNotes] = useState('')
 
   const [editingIntake, setEditingIntake] = useState(false)
   const [confirmMarkCompleteOpen, setConfirmMarkCompleteOpen] = useState(false)
+  const [requestStatusMessage, setRequestStatusMessage] = useState('')
   const lastAutoNextStepKeyRef = useRef<string | null>(null)
   const [activeTab, setActiveTab] = useState<RequestDetailTabId>('overview')
 
@@ -375,6 +390,26 @@ const [staffNotes, setStaffNotes] = useState('')
       .order('created_at', { ascending: true })
 
     setChecklistItems(checklistData || [])
+
+    const { data: workflowStepData, error: workflowStepError } = await supabase
+      .from('request_workflow_steps')
+      .select(
+        'id, phase, title, description, owner_type, required, status, due_date, sort_order'
+      )
+      .eq('request_id', requestData.id)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (workflowStepError) {
+      devDashboardConsoleError('Error loading request workflow steps', workflowStepError)
+      setWorkflowSteps([])
+    } else {
+      setWorkflowSteps(
+        (workflowStepData || [])
+          .map((row) => normalizeRequestWorkflowStep(row as Record<string, unknown>))
+          .filter((row): row is RequestWorkflowStep => row !== null)
+      )
+    }
 
     const { data: communicationsData } = await supabase
       .from('request_communications')
@@ -608,18 +643,45 @@ const [staffNotes, setStaffNotes] = useState('')
     }
   }
 async function updateRequestStatus(newStatus: string) {
-  const previousStatus = String(request?.status ?? '').trim()
-  const { error } = await supabase
-    .from('requests')
-    .update({ status: newStatus })
-    .eq('id', routeId)
+  setRequestStatusMessage('')
+  const result = await updateRequestStatusAction({
+    requestId: routeId,
+    status: newStatus,
+  })
 
-  if (!error) {
-    await recordRequestActivity('request.status.updated', {
-      from: previousStatus,
-      to: newStatus,
+  if (!result.ok) {
+    setRequestStatusMessage(result.error)
+    return
+  }
+
+  setRequestStatusMessage('Request status updated.')
+  await loadActivityEvents(routeId)
+  loadRequest()
+}
+
+async function updateWorkflowStepStatus(
+  stepId: string,
+  status: RequestWorkflowStepStatus
+) {
+  setWorkflowStepUpdatingId(stepId)
+  setWorkflowStepMessage('')
+  try {
+    const result = await updateRequestWorkflowStepStatus({
+      requestId: routeId,
+      stepId,
+      status,
     })
+
+    if (!result.ok) {
+      setWorkflowStepMessage(result.error)
+      return
+    }
+
+    setWorkflowStepMessage('Workflow step updated.')
+    await loadActivityEvents(routeId)
     loadRequest()
+  } finally {
+    setWorkflowStepUpdatingId('')
   }
 }
 
@@ -1788,7 +1850,13 @@ async function deleteGoogleCalendarEvent() {
     [request, scheduleRowForProgress, communications, requestNotes, linkedSacramentalRecord]
   )
 
-  const checklistIncomplete = checklistItems.some((i: any) => i?.is_complete === false)
+  const hasWorkflowSteps = workflowSteps.length > 0
+  const incompleteRequiredWorkflowStepCount =
+    countIncompleteRequiredWorkflowSteps(workflowSteps)
+  const completedWorkflowStepCount = workflowSteps.filter((step) => step.status === 'complete').length
+  const checklistIncomplete = hasWorkflowSteps
+    ? incompleteRequiredWorkflowStepCount > 0
+    : checklistItems.some((i: any) => i?.is_complete === false)
   const nextStep = resolveRequestNextStep({
     request,
     scheduleRow: scheduleRowForProgress,
@@ -1900,7 +1968,10 @@ async function deleteGoogleCalendarEvent() {
         : request?.confirmed_baptism_date
   const hasConfirmedSchedule = requiresConfirmedSchedule ? Boolean(confirmedIso) : true
 
-  const remainingChecklistCount = checklistItems.filter((i: any) => i?.is_complete === false).length
+  const remainingLegacyChecklistCount = checklistItems.filter((i: any) => i?.is_complete === false).length
+  const remainingChecklistCount = hasWorkflowSteps
+    ? incompleteRequiredWorkflowStepCount
+    : remainingLegacyChecklistCount
   const handoffBrief = buildRequestHandoffBrief({
     request: request
       ? {
@@ -1972,6 +2043,12 @@ async function deleteGoogleCalendarEvent() {
   const followUpReady = hasFollowUp || followUpNotNeeded
 
   const checklistReady = remainingChecklistCount === 0
+  const checklistRequirementLabel = hasWorkflowSteps
+    ? 'Required workflow steps complete?'
+    : 'Checklist complete?'
+  const checklistMissingText = hasWorkflowSteps
+    ? 'Complete the remaining required workflow steps.'
+    : 'Complete the remaining checklist items.'
 
   const confirmedScheduleReady = !requiresConfirmedSchedule || hasConfirmedSchedule
 
@@ -2006,9 +2083,9 @@ async function deleteGoogleCalendarEvent() {
     },
     {
       key: 'checklist',
-      label: 'Checklist complete?',
+      label: checklistRequirementLabel,
       ok: checklistReady,
-      missingText: 'Complete the remaining checklist items.',
+      missingText: checklistMissingText,
       jumpTo: 'checklist',
     },
   ] as const
@@ -2141,12 +2218,42 @@ async function deleteGoogleCalendarEvent() {
             scheduleRow={scheduleRowForProgress}
           />
 
-          <RequestWorkflowChecklist
-            request={request}
-            scheduleRow={scheduleRowForProgress}
-            hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
-            onNavigateToSection={goToSection}
-          />
+          {hasWorkflowSteps ? (
+            <section
+              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5"
+              aria-labelledby="request-workflow-steps-summary-heading"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h2
+                    id="request-workflow-steps-summary-heading"
+                    className="text-sm font-semibold text-gray-900"
+                  >
+                    Workflow steps
+                  </h2>
+                  <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                    {completedWorkflowStepCount} of{' '}
+                    {workflowSteps.length} steps complete; {incompleteRequiredWorkflowStepCount}{' '}
+                    required step{incompleteRequiredWorkflowStepCount === 1 ? '' : 's'} still open.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => goToSection('checklist')}
+                  className={`${secondaryButtonMd} justify-center`}
+                >
+                  Review workflow
+                </button>
+              </div>
+            </section>
+          ) : (
+            <RequestWorkflowChecklist
+              request={request}
+              scheduleRow={scheduleRowForProgress}
+              hasRecipientEmail={Boolean(String(parishioner?.email ?? '').trim())}
+              onNavigateToSection={goToSection}
+            />
+          )}
 
           <RequestDetailSmartQuickActions
             workflowInput={workflowInputForActions}
@@ -2478,24 +2585,44 @@ async function deleteGoogleCalendarEvent() {
           </div>
 
           <div id="checklist" className="scroll-mt-6 sm:scroll-mt-8 mt-8 border-t border-gray-200 pt-6">
-            <h3 className="text-sm font-semibold text-gray-900">Parish checklist</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Workflow steps</h3>
             <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
-              Mark items as you complete parish process steps.
+              Track the parish process for this request by phase, owner, due date, and status.
             </p>
             <div className="mt-4">
-              <WorkflowPlaybookBuilder
-                requestId={routeId}
-                requestType={request?.request_type}
-                checklistItems={checklistItems}
-                onApplied={loadRequest}
+              <RequestWorkflowStepsSection
+                steps={workflowSteps}
+                updatingStepId={workflowStepUpdatingId}
+                onUpdateStatus={(stepId, status) => void updateWorkflowStepStatus(stepId, status)}
               />
             </div>
-            <div className="mt-4">
-              <ChecklistSection
-                checklistItems={checklistItems}
-                onToggleChecklistItem={toggleChecklistItem}
-              />
-            </div>
+            {workflowStepMessage ? (
+              <InlineFormMessage message={workflowStepMessage} className="!mt-4" />
+            ) : null}
+
+            {!hasWorkflowSteps ? (
+              <div className="mt-6 border-t border-gray-100 pt-5">
+                <h4 className="text-sm font-semibold text-gray-900">Legacy parish checklist</h4>
+                <p className="mt-1 max-w-xl text-xs leading-relaxed text-gray-500">
+                  This request does not have workflow step instances yet, so Vinea is using the
+                  original checklist for this record.
+                </p>
+                <div className="mt-4">
+                  <WorkflowPlaybookBuilder
+                    requestId={routeId}
+                    requestType={request?.request_type}
+                    checklistItems={checklistItems}
+                    onApplied={loadRequest}
+                  />
+                </div>
+                <div className="mt-4">
+                  <ChecklistSection
+                    checklistItems={checklistItems}
+                    onToggleChecklistItem={toggleChecklistItem}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
         </WorkflowSectionCard>
         </div>
@@ -2669,6 +2796,9 @@ async function deleteGoogleCalendarEvent() {
             markCompleteDisabledReason={markCompleteDisabledReason}
             onRequestMarkComplete={() => setConfirmMarkCompleteOpen(true)}
           />
+          {requestStatusMessage ? (
+            <InlineFormMessage message={requestStatusMessage} className="!mt-3" />
+          ) : null}
         </div>
 
         <WorkflowSectionCard

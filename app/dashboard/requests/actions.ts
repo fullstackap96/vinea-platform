@@ -28,6 +28,12 @@ export type UpdateRequestWaitingOnResult =
   | { ok: true }
   | { ok: false; error: string }
 
+export type UpdateRequestStatusResult = { ok: true } | { ok: false; error: string }
+
+export type UpdateRequestWorkflowStepStatusResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
 export type ApplyWorkflowPlaybookResult =
   | { ok: true; addedCount: number; skippedCount: number }
   | { ok: false; error: string }
@@ -53,6 +59,156 @@ async function auditRequestAction(input: {
     targetId: input.requestId,
     metadata: input.metadata,
   })
+}
+
+function normalizeRequestStatus(value: unknown): string | null {
+  const s = String(value ?? '').trim()
+  if (['new', 'in_progress', 'waiting_on_family', 'complete'].includes(s)) return s
+  return null
+}
+
+function normalizeWorkflowStepStatus(value: unknown): string | null {
+  const s = String(value ?? '').trim()
+  if (['not_started', 'in_progress', 'complete', 'skipped'].includes(s)) return s
+  return null
+}
+
+export async function updateRequestStatus(input: {
+  requestId: string
+  status: unknown
+}): Promise<UpdateRequestStatusResult> {
+  const requestId = String(input.requestId ?? '').trim()
+  const status = normalizeRequestStatus(input.status)
+  if (!requestId) return { ok: false, error: 'Missing request id.' }
+  if (!status) return { ok: false, error: 'Invalid request status.' }
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) return { ok: false, error: 'Unauthorized' }
+
+  const { data: existing, error: existingError } = await supabase
+    .from('requests')
+    .select('status')
+    .eq('id', requestId)
+    .single()
+
+  if (existingError || !existing) {
+    return { ok: false, error: existingError?.message ?? 'Request not found.' }
+  }
+
+  if (status === 'complete') {
+    const { data: workflowSteps, error: workflowError } = await supabase
+      .from('request_workflow_steps')
+      .select('id, title, required, status')
+      .eq('request_id', requestId)
+
+    if (workflowError) {
+      return { ok: false, error: workflowError.message }
+    }
+
+    const steps = workflowSteps ?? []
+    const incompleteRequired = steps.filter(
+      (step) => step.required === true && String(step.status ?? '') !== 'complete'
+    )
+    if (incompleteRequired.length > 0) {
+      const first = String(incompleteRequired[0]?.title ?? 'required workflow step')
+      return {
+        ok: false,
+        error: `Complete required workflow steps before marking complete. First open step: ${first}.`,
+      }
+    }
+
+    if (steps.length === 0) {
+      const { data: checklistItems, error: checklistError } = await supabase
+        .from('checklist_items')
+        .select('id')
+        .eq('request_id', requestId)
+        .eq('is_complete', false)
+        .limit(1)
+
+      if (checklistError) {
+        return { ok: false, error: checklistError.message }
+      }
+      if ((checklistItems ?? []).length > 0) {
+        return { ok: false, error: 'Complete checklist items before marking complete.' }
+      }
+    }
+  }
+
+  const { error } = await supabase.from('requests').update({ status }).eq('id', requestId)
+
+  if (error) return { ok: false, error: error.message }
+
+  await auditRequestAction({
+    requestId,
+    actorEmail: user.email,
+    action: 'request.status.updated',
+    metadata: { from: existing.status, to: status },
+  })
+
+  return { ok: true }
+}
+
+export async function updateRequestWorkflowStepStatus(input: {
+  requestId: string
+  stepId: string
+  status: unknown
+}): Promise<UpdateRequestWorkflowStepStatusResult> {
+  const requestId = String(input.requestId ?? '').trim()
+  const stepId = String(input.stepId ?? '').trim()
+  const status = normalizeWorkflowStepStatus(input.status)
+  if (!requestId) return { ok: false, error: 'Missing request id.' }
+  if (!stepId) return { ok: false, error: 'Missing workflow step id.' }
+  if (!status) return { ok: false, error: 'Invalid workflow step status.' }
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) return { ok: false, error: 'Unauthorized' }
+
+  const { data: existing, error: existingError } = await supabase
+    .from('request_workflow_steps')
+    .select('id, title, status')
+    .eq('id', stepId)
+    .eq('request_id', requestId)
+    .single()
+
+  if (existingError || !existing) {
+    return { ok: false, error: existingError?.message ?? 'Workflow step not found.' }
+  }
+
+  const { error } = await supabase
+    .from('request_workflow_steps')
+    .update({
+      status,
+      completed_at: status === 'complete' ? new Date().toISOString() : null,
+      completed_by: status === 'complete' ? user.id : null,
+    })
+    .eq('id', stepId)
+    .eq('request_id', requestId)
+
+  if (error) return { ok: false, error: error.message }
+
+  await auditRequestAction({
+    requestId,
+    actorEmail: user.email,
+    action: 'request.workflow_step.updated',
+    metadata: {
+      stepId,
+      label: existing.title,
+      from: existing.status,
+      to: status,
+    },
+  })
+
+  return { ok: true }
 }
 
 export async function updateRequestAssignment(input: {

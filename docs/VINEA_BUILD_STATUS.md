@@ -95,3 +95,51 @@ npm.cmd run lint
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
 - Build still reports the existing Next.js middleware deprecation warning; Phase 2 did not change middleware/proxy behavior.
+
+## Phase 3: Request Detail Workflow Step System
+
+Status: Implemented and verified.
+
+### What Changed
+
+- Request detail pages now load `request_workflow_steps` for the current request.
+- Added a workflow-step task section grouped by phase with owner, due date, status, and required/optional badges.
+- Staff can mark workflow steps `complete`, reopen them to `not_started`, move them to `in_progress`, and skip optional steps.
+- Workflow step updates use server actions and are recorded in `audit_events`.
+- Request status updates now use a server action instead of direct browser writes.
+- Marking a request complete is blocked server-side when required workflow steps exist and any required step is not complete.
+- Legacy `checklist_items` remain as a fallback for requests that do not have workflow step instances.
+- Overview now summarizes real workflow step completion when workflow steps exist.
+- Added focused tests for workflow step normalization, grouping, owner/status labels, and incomplete-required counting.
+
+### How To Test
+
+1. Apply the Phase 1 migration so request workflow steps exist.
+2. Open a Baptism, Wedding, Funeral, or OCIA request detail page.
+3. Go to the Scheduling tab and review Workflow steps.
+4. Mark a required step complete, reopen it, and set it in progress.
+5. Confirm optional steps can be skipped.
+6. Try to mark the request complete while a required workflow step is open; Vinea should block completion.
+7. Complete all required workflow steps and confirm the request can be marked complete once other completion rules are satisfied.
+8. Check request activity for workflow step updates.
+9. Run:
+
+```bash
+npm.cmd test
+npm.cmd run build
+npm.cmd run lint
+```
+
+### Known Risks
+
+- Dashboard command-center and daily brief summaries still derive checklist counts from legacy `checklist_items`; request detail is now workflow-step-first, but list-level summaries are not fully migrated yet.
+- Workflow steps are loaded client-side on the request detail page; a future cleanup should move more request detail data loading server-side.
+- Existing requests without workflow step instances still use the legacy checklist fallback.
+- Phase 3 does not add document requirements or uploads; that remains Phase 4.
+
+### Verification
+
+- `npm.cmd test` passed: 37 test files, 146 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+- Build still reports the existing Next.js middleware deprecation warning; Phase 3 did not change middleware/proxy behavior.
