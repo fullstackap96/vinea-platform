@@ -212,8 +212,8 @@ Status: Implemented and verified.
 - The family portal exposes only:
   - Parish name.
   - Basic request label, submitted contact name, request type, child name when present, and link expiration.
-  - Workflow steps where `owner_type = 'family'`.
-  - Redacted document metadata tied to those family-owned workflow steps.
+  - Required workflow steps where `owner_type = 'family'`.
+  - Redacted document metadata tied to those required family-owned workflow steps.
 - The family portal does not expose internal notes, staff-only request fields, communication history, AI notes, audit logs, assignment data, private storage paths, staff review notes, or arbitrary documents not tied to family-facing workflow steps.
 - Staff can copy the generated family upload link from the Request documents panel.
 - Added audit labels for family portal link creation and family document uploads.
@@ -223,11 +223,11 @@ Status: Implemented and verified.
 
 1. Apply Supabase migrations through the normal project migration process.
 2. Open a Baptism, Wedding, Funeral, or OCIA request detail page as authorized staff.
-3. Ensure the request has at least one workflow step owned by `Family`.
+3. Ensure the request has at least one required workflow step owned by `Family`.
 4. Go to the Scheduling tab and find Request documents.
 5. Click `Create family upload link`.
 6. Open the generated `/family/request/[token]` link in a new browser session or private window.
-7. Confirm the page shows only basic request context and family-owned workflow steps.
+7. Confirm the page shows only basic request context and required family-owned workflow steps.
 8. Upload a small PDF or image for one requested document.
 9. Return to the staff request detail page and confirm the document appears as `Pending review`.
 10. Approve or reject the uploaded document from the staff UI.
@@ -244,7 +244,7 @@ npm.cmd run lint
 
 - Portal links are bearer tokens. Anyone with the link can upload documents until expiration or revocation in the database.
 - Staff UI can create links, but revocation and link history are not exposed in the UI yet.
-- Required document rules are still inferred from family-owned workflow steps; there is no separate document-requirement template model yet.
+- Required document rules are still inferred from required family-owned workflow steps; there is no separate document-requirement template model yet.
 - The portal intentionally does not expose staff review notes to families, even for rejected documents, because Phase 4 review notes may contain internal context.
 - The portal does not yet send automated email invitations or upload confirmations.
 
@@ -254,3 +254,81 @@ npm.cmd run lint
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
 - Build still reports the existing Next.js middleware deprecation warning; Phase 5 did not change middleware/proxy behavior.
+
+## Platform QA Pass: Buttons, Links, Forms, and Workflow Triggers
+
+Status: Completed with limited live authenticated coverage.
+
+### What Changed
+
+- Paused new feature work and performed a stability-focused QA pass across the current Vinea app.
+- Reviewed static page and route coverage for landing, login, dashboard routes, request detail components, people, households, sacramental records, mass intentions, settings, reports, public intake, family portal, and API-backed workflows.
+- Verified all literal in-app hrefs found by static scan resolve to known app routes.
+- Verified all literal `/api/...` fetch targets found by static scan resolve to known route handlers.
+- Verified no form-contained buttons were missing an explicit `type`, reducing accidental form submissions.
+- Verified public pages render locally:
+  - `/`
+  - `/join-parish-request`
+  - `/baptism-request`
+  - `/funeral-request`
+  - `/wedding-request`
+  - `/ocia-request`
+  - `/login`
+  - `/family/request/not-a-real-token`
+- Verified unauthenticated `/dashboard` redirects to `/login?next=%2Fdashboard`.
+- Verified empty public intake submissions are blocked by required-field validation and focus the first invalid input.
+- Reviewed request workflow server actions for status updates, assignment updates, follow-up dates, waiting-on blockers, workflow steps, playbook application, notes, and intake edits.
+- Reviewed people, households, sacramental records, and mass intention server actions for structured validation and error returns.
+- Fixed broken mojibake fallback text in the request detail header funeral fields by replacing `â€”` with the intended missing-value dash.
+- Kept the Phase 5 portal hardening from the interrupted turn: family portal document loading now exposes only required family-owned workflow steps.
+
+### Broken Or Suspicious Items Found
+
+- Request detail funeral header fallback values had visible broken characters (`â€”`) in several fields.
+- Live authenticated dashboard mutation testing could not be completed because the local browser session was unauthenticated and no staff credentials were available in this QA pass.
+- Google Calendar, outbound email, and AI actions were reviewed statically but not live-clicked, because they can create external side effects and require configured providers.
+
+### How To Test
+
+1. Start the app locally with:
+
+```bash
+npm.cmd run dev -- -p 3000
+```
+
+2. Open `/` and confirm landing navigation reaches public request forms and `/login`.
+3. Open each public intake form and click `Submit request` with empty fields; validation should block the submission.
+4. Open `/dashboard` while signed out; Vinea should redirect to `/login?next=%2Fdashboard`.
+5. Sign in with an authorized staff account.
+6. Manually verify authenticated workflows:
+   - Open the dashboard and navigate all sidebar items.
+   - Open a request detail page from the request list.
+   - Update request status, assignment, follow-up date, waiting-on blocker, workflow step status, internal notes, and documents.
+   - Create, edit, and view people, households, sacramental records, and mass intentions.
+   - Generate a certificate for a supported record.
+   - Use search, filters, and sort controls.
+   - Test Google Calendar, email, and AI actions only against safe configured test accounts.
+7. Run:
+
+```bash
+npm.cmd test
+npm.cmd run build
+npm.cmd run lint
+```
+
+### Known Risks
+
+- Authenticated manual QA still needs to be run with a real staff session and safe test data.
+- Google Calendar, email, AI, certificate downloads, and family document uploads should be tested against configured non-production credentials before demos.
+- The app still reports the existing Next.js middleware deprecation warning during build.
+- Lint still reports 58 existing warnings, all warnings and no errors.
+
+### Verification
+
+- Static route scan passed: 67 literal app hrefs checked, 0 missing route targets.
+- Static API scan passed: all literal `/api/...` fetch targets checked, 0 missing route handlers.
+- Static form-button scan passed: 0 form-contained buttons missing explicit `type`.
+- Browser smoke test passed for landing, public intake pages, login, unauthenticated dashboard redirect, and invalid family portal token page.
+- `npm.cmd test` passed: 39 test files, 150 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.

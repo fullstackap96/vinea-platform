@@ -122,6 +122,7 @@ export async function loadFamilyPortalByToken(
     .eq('request_id', requestId)
     .eq('parish_id', parishId)
     .eq('owner_type', 'family')
+    .eq('required', true)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
   if (stepError) throw stepError

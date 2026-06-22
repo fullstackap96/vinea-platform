@@ -77,7 +77,7 @@ export function RequestContactIntakeSection({
               <LabelValueRow
                 label="Relationship"
                 value={maybeMissingValue(
-                  String(funeralDetail?.family_relationship ?? '').trim() || 'â€”'
+                  String(funeralDetail?.family_relationship ?? '').trim() || '—'
                 )}
               />
               <LabelValueRow
@@ -97,37 +97,37 @@ export function RequestContactIntakeSection({
               <LabelValueRow
                 label="Funeral director"
                 value={maybeMissingValue(
-                  String(funeralDetail?.funeral_director_contact ?? '').trim() || 'â€”'
+                  String(funeralDetail?.funeral_director_contact ?? '').trim() || '—'
                 )}
               />
               <LabelValueRow
                 label="Service location"
                 value={maybeMissingValue(
-                  String(funeralDetail?.service_location ?? '').trim() || 'â€”'
+                  String(funeralDetail?.service_location ?? '').trim() || '—'
                 )}
               />
               <LabelValueRow
                 label="Visitation"
                 value={maybeMissingValue(
-                  String(funeralDetail?.visitation_details ?? '').trim() || 'â€”'
+                  String(funeralDetail?.visitation_details ?? '').trim() || '—'
                 )}
               />
               <LabelValueRow
                 label="Cemetery / committal"
                 value={maybeMissingValue(
-                  String(funeralDetail?.cemetery_or_committal ?? '').trim() || 'â€”'
+                  String(funeralDetail?.cemetery_or_committal ?? '').trim() || '—'
                 )}
               />
               <LabelValueRow
                 label="Readings / music"
                 value={maybeMissingValue(
-                  String(funeralDetail?.readings_music_notes ?? '').trim() || 'â€”'
+                  String(funeralDetail?.readings_music_notes ?? '').trim() || '—'
                 )}
               />
               <LabelValueRow
                 label="Obituary / program"
                 value={maybeMissingValue(
-                  String(funeralDetail?.obituary_program_notes ?? '').trim() || 'â€”'
+                  String(funeralDetail?.obituary_program_notes ?? '').trim() || '—'
                 )}
               />
               <LabelValueRow
@@ -135,7 +135,7 @@ export function RequestContactIntakeSection({
                 value={maybeMissingValue(
                   funeralDetail?.post_funeral_follow_up_date
                     ? String(funeralDetail.post_funeral_follow_up_date)
-                    : 'â€”'
+                    : '—'
                 )}
               />
               <LabelValueRow
