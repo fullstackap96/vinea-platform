@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createRequestPortalToken } from '@/lib/server/requestPortalTokens'
+import {
+  createRequestPortalToken,
+  isRequestPortalTokensTableMissing,
+  REQUEST_PORTAL_TOKENS_NOT_CONFIGURED_MESSAGE,
+} from '@/lib/server/requestPortalTokens'
 import { loadStaffScopedRequestDocumentAccess } from '@/lib/server/requestDocumentAccess'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 import { writeAuditEvent } from '@/lib/server/auditLog'
@@ -46,6 +50,12 @@ export async function POST(request: NextRequest, context: RouteParams) {
 
     return NextResponse.json({ ok: true, url, expiresAt: token.expiresAt })
   } catch (error: unknown) {
+    if (isRequestPortalTokensTableMissing(error as { code?: string; message?: string } | null)) {
+      return NextResponse.json(
+        { ok: false, error: REQUEST_PORTAL_TOKENS_NOT_CONFIGURED_MESSAGE },
+        { status: 503 }
+      )
+    }
     const message = error instanceof Error ? error.message : 'Could not create family portal link.'
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }

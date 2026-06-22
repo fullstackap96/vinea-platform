@@ -1,5 +1,7 @@
 export const REQUEST_DOCUMENTS_BUCKET = 'request-documents'
 export const REQUEST_DOCUMENT_MAX_FILE_BYTES = 10 * 1024 * 1024
+export const REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE =
+  'Request document storage is not configured yet. Apply the document portal migrations and storage bucket before uploading documents.'
 
 export type RequestDocumentStatus = 'pending_review' | 'approved' | 'rejected'
 
@@ -21,6 +23,15 @@ export type RequestDocument = {
 
 function text(value: unknown): string {
   return String(value ?? '').trim()
+}
+
+export function isRequestDocumentsTableMissing(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+
+  return (
+    error.code === 'PGRST205' &&
+    String(error.message ?? '').includes("public.request_documents")
+  )
 }
 
 export function safeRequestDocumentFilename(value: unknown): string {

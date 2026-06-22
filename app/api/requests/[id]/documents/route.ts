@@ -7,8 +7,10 @@ import {
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 import {
   normalizeRequestDocumentRow,
+  isRequestDocumentsTableMissing,
   REQUEST_DOCUMENT_MAX_FILE_BYTES,
   REQUEST_DOCUMENTS_BUCKET,
+  REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
   safeRequestDocumentFilename,
 } from '@/lib/requestDocuments'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
@@ -43,6 +45,12 @@ export async function GET(request: NextRequest, context: RouteParams) {
       .order('created_at', { ascending: false })
 
     if (error) {
+      if (isRequestDocumentsTableMissing(error)) {
+        return NextResponse.json(
+          { ok: false, error: REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE },
+          { status: 503 }
+        )
+      }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
     }
 
@@ -136,6 +144,12 @@ export async function POST(request: NextRequest, context: RouteParams) {
 
     if (insertError) {
       await admin.storage.from(REQUEST_DOCUMENTS_BUCKET).remove([storagePath])
+      if (isRequestDocumentsTableMissing(insertError)) {
+        return NextResponse.json(
+          { ok: false, error: REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE },
+          { status: 503 }
+        )
+      }
       return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
     }
 
@@ -158,6 +172,12 @@ export async function POST(request: NextRequest, context: RouteParams) {
       document: normalizeRequestDocumentRow(inserted as Record<string, unknown>),
     })
   } catch (error: unknown) {
+    if (isRequestDocumentsTableMissing(error as { code?: string; message?: string } | null)) {
+      return NextResponse.json(
+        { ok: false, error: REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE },
+        { status: 503 }
+      )
+    }
     const message = error instanceof Error ? error.message : 'Could not upload document.'
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }

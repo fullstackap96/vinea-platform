@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatRequestDocumentFileSize,
+  isRequestDocumentsTableMissing,
   normalizeRequestDocumentRow,
   normalizeRequestDocumentStatus,
   requestDocumentStatusLabel,
@@ -41,5 +42,21 @@ describe('requestDocuments', () => {
     })
     expect(formatRequestDocumentFileSize(1536)).toBe('1.5 KB')
     expect(formatRequestDocumentFileSize(5 * 1024 * 1024)).toBe('5.0 MB')
+  })
+
+  it('detects missing request document storage migrations', () => {
+    expect(
+      isRequestDocumentsTableMissing({
+        code: 'PGRST205',
+        message: "Could not find the table 'public.request_documents' in the schema cache",
+      })
+    ).toBe(true)
+
+    expect(
+      isRequestDocumentsTableMissing({
+        code: 'PGRST205',
+        message: "Could not find the table 'public.people' in the schema cache",
+      })
+    ).toBe(false)
   })
 })

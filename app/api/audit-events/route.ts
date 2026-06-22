@@ -15,6 +15,15 @@ function clampLimit(value: unknown): number {
   return Math.max(1, Math.min(100, Math.round(n)))
 }
 
+function isMissingAuditEventsTable(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+
+  return (
+    error.code === 'PGRST205' &&
+    String(error.message ?? '').includes("public.audit_events")
+  )
+}
+
 async function primaryParishId(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
   const { data, error } = await admin
     .from('parishes')
@@ -65,6 +74,16 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query
   if (error) {
+    if (isMissingAuditEventsTable(error)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Request activity is not configured yet. Apply the audit-event migration to show activity history.',
+        },
+        { status: 503 }
+      )
+    }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
   }
 
@@ -111,14 +130,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Parish is not configured.' }, { status: 404 })
   }
 
-  await writeAuditEvent({
-    parishId,
-    actorEmail: staff.staff.email,
-    action,
-    targetType,
-    targetId,
-    metadata,
-  })
+  try {
+    await writeAuditEvent({
+      parishId,
+      actorEmail: staff.staff.email,
+      action,
+      targetType,
+      targetId,
+      metadata,
+    })
+  } catch (error) {
+    if (isMissingAuditEventsTable(error as { code?: string; message?: string } | null)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Request activity is not configured yet. Apply the audit-event migration to save activity history.',
+        },
+        { status: 503 }
+      )
+    }
+    throw error
+  }
 
   return NextResponse.json({ ok: true }, { status: 201 })
 }

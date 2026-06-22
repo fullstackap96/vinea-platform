@@ -332,3 +332,72 @@ npm.cmd run lint
 - `npm.cmd test` passed: 39 test files, 150 tests.
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+
+## Authenticated Staff QA Pass: Safe Test Data
+
+Status: Completed with migration gaps documented.
+
+### What Changed
+
+- Created a temporary authenticated QA staff session and verified staff dashboard access in the browser.
+- Created a safe Baptism QA request through `/api/intake` and verified it appears in the authenticated request list.
+- Verified request list search finds the QA request and the request detail route opens correctly.
+- Verified request status update, assignment update, internal note creation, legacy checklist completion, and completion readiness guarding on the QA request.
+- Fixed public intake so valid submissions do not fail when the workflow-template RPC is not present in the connected database yet.
+- Fixed request follow-up date saving so the visible date input value is used at save time; this prevents silent blank saves from date-input/browser state quirks.
+- Fixed authenticated route-handler staff authorization in local development when the `staff_users` table has not been migrated yet, without weakening production behavior.
+- Replaced raw Supabase schema-cache errors with staff-readable messages for missing document storage, family portal token, and audit-event migrations.
+- Verified create, edit, and view flows for People, Households, Sacramental Records, and Mass Intentions using clearly named QA records.
+- Verified a supported record detail page exposes the `Generate certificate` action.
+- Verified authenticated navigation loads Dashboard, Requests, People, Households, Records, Mass Intentions, Settings, Reports, Calendar, Communications, and Intake routes.
+
+### Broken Or Suspicious Items Found
+
+- The connected QA database is missing several migrations/tables/columns:
+  - `create_request_workflow_steps_from_active_template`
+  - `public.staff_users`
+  - `public.request_documents`
+  - `public.request_portal_tokens`
+  - `public.audit_events`
+  - `parishes.daily_ops_brief_enabled`
+  - `requests.waiting_on_changed_at`
+- Because of those migration gaps, workflow-step instances, document upload, family portal links, Settings, Reports, Calendar, Communications, and Intake could not be fully live-verified against this database.
+- Google Calendar, outbound email, and AI generation were not live-clicked because no safe external test provider credentials were confirmed for this QA pass.
+- The login form works, but its email/password controls are placeholder-only in the rendered UI; adding explicit accessible labels would improve usability.
+
+### How To Test
+
+1. Apply all Supabase migrations through the normal project migration process, especially the staff access, audit-event, workflow-template, document, and portal-token migrations.
+2. Start the app:
+
+```bash
+npm.cmd run dev -- -p 3000
+```
+
+3. Sign in with an authorized staff test account.
+4. Submit a safe public intake request and confirm it appears in `/dashboard/requests`.
+5. Open the request detail page and verify:
+   - Status update.
+   - Assignment update.
+   - Follow-up date save.
+   - Internal note save.
+   - Workflow/checklist status updates.
+   - Completion remains unavailable until required readiness items are done.
+   - Document upload and family upload link after Phase 4/5 migrations are present.
+6. Create, edit, and view one safe QA person, household, sacramental record, and Mass intention.
+7. Open a Baptism record detail and verify the certificate generation action is present.
+8. Test Google Calendar, email sending, and AI generation only with confirmed safe provider credentials.
+
+### Known Risks
+
+- The connected QA database is behind the repository migrations, so several modules fail due schema drift rather than current code paths.
+- Document upload and family portal token creation are now safe/friendly when migrations are absent, but still require the Phase 4/5 database objects and storage bucket to work end-to-end.
+- Google Calendar, email, and AI actions still need a dedicated non-production credential pass.
+
+### Verification
+
+- Authenticated browser QA passed for request list/detail navigation, request status, assignment, follow-up, notes, checklist readiness, people, households, records, certificates, Mass intentions, search, and filters.
+- Document portal live execution was blocked by missing Phase 4/5 migrations; staff-facing errors now identify the missing setup clearly.
+- `npm.cmd test` passed: 41 test files, 155 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.

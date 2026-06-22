@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requestDocumentStatusLabel, REQUEST_DOCUMENTS_BUCKET } from '@/lib/requestDocuments'
+import {
+  isRequestDocumentsTableMissing,
+  requestDocumentStatusLabel,
+  REQUEST_DOCUMENTS_BUCKET,
+  REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
+} from '@/lib/requestDocuments'
 import { writeAuditEvent } from '@/lib/server/auditLog'
 import { loadStaffScopedRequestDocumentAccess } from '@/lib/server/requestDocumentAccess'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
@@ -59,6 +64,12 @@ export async function GET(request: NextRequest, context: RouteParams) {
 
     return NextResponse.json({ ok: true, url: data.signedUrl })
   } catch (error: unknown) {
+    if (isRequestDocumentsTableMissing(error as { code?: string; message?: string } | null)) {
+      return NextResponse.json(
+        { ok: false, error: REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE },
+        { status: 503 }
+      )
+    }
     const message = error instanceof Error ? error.message : 'Could not prepare document download.'
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }
@@ -118,6 +129,12 @@ export async function PATCH(request: NextRequest, context: RouteParams) {
       .single()
 
     if (updateError) {
+      if (isRequestDocumentsTableMissing(updateError)) {
+        return NextResponse.json(
+          { ok: false, error: REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE },
+          { status: 503 }
+        )
+      }
       return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 })
     }
 
@@ -137,6 +154,12 @@ export async function PATCH(request: NextRequest, context: RouteParams) {
 
     return NextResponse.json({ ok: true, document: updated })
   } catch (error: unknown) {
+    if (isRequestDocumentsTableMissing(error as { code?: string; message?: string } | null)) {
+      return NextResponse.json(
+        { ok: false, error: REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE },
+        { status: 503 }
+      )
+    }
     const message = error instanceof Error ? error.message : 'Could not review document.'
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }

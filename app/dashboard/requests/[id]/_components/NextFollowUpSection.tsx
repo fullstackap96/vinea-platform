@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { updateRequestNextFollowUpDate } from '../../actions'
 import {
   formatNextFollowUpDateDisplay,
@@ -23,6 +23,7 @@ export function NextFollowUpSection({
   const [draftDate, setDraftDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
   const currentYmd = parseFollowUpCalendarDate(nextFollowUpDate)
 
@@ -40,9 +41,10 @@ export function NextFollowUpSection({
   async function save() {
     setSaving(true)
     setMessage('')
+    const nextDate = inputRef.current?.value ?? draftDate
     const result = await updateRequestNextFollowUpDate({
       requestId,
-      nextFollowUpDate: draftDate.trim() || null,
+      nextFollowUpDate: nextDate.trim() || null,
     })
     setSaving(false)
 
@@ -95,6 +97,7 @@ export function NextFollowUpSection({
               Follow-up date
             </label>
             <input
+              ref={inputRef}
               id="next-follow-up-date"
               className="w-full rounded border p-3"
               type="date"

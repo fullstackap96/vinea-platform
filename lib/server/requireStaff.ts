@@ -27,6 +27,15 @@ async function loadPrimaryParishId(admin: ReturnType<typeof createSupabaseServic
   return data?.id ? String(data.id) : null
 }
 
+function isMissingStaffUsersTable(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+
+  return (
+    error.code === 'PGRST205' &&
+    String(error.message ?? '').includes("public.staff_users")
+  )
+}
+
 export async function authorizeStaffUser(user: User | null | undefined): Promise<StaffAuthorizationResult> {
   const email = normalizeStaffEmail(user?.email)
   if (!user || !email) return { ok: false, error: 'Unauthorized' }
@@ -56,6 +65,9 @@ export async function authorizeStaffUser(user: User | null | undefined): Promise
     .maybeSingle()
 
   if (error) {
+    if (staffAccessNotConfiguredAllowsDev() && isMissingStaffUsersTable(error)) {
+      return { ok: true, email, role: 'admin', source: 'development' }
+    }
     return { ok: false, error: 'Could not verify staff access.' }
   }
   if (data?.id) {

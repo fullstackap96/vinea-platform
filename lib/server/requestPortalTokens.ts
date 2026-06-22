@@ -29,6 +29,20 @@ function text(value: unknown): string {
   return String(value ?? '').trim()
 }
 
+export const REQUEST_PORTAL_TOKENS_NOT_CONFIGURED_MESSAGE =
+  'Family document portal links are not configured yet. Apply the family portal token migration before creating upload links.'
+
+export function isRequestPortalTokensTableMissing(
+  error: { code?: string; message?: string } | null
+): boolean {
+  if (!error) return false
+
+  return (
+    error.code === 'PGRST205' &&
+    String(error.message ?? '').includes("public.request_portal_tokens")
+  )
+}
+
 export function generateFamilyPortalToken(): string {
   return crypto.randomBytes(32).toString('base64url')
 }
