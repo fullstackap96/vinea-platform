@@ -401,3 +401,48 @@ npm.cmd run dev -- -p 3000
 - `npm.cmd test` passed: 41 test files, 155 tests.
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+
+## QA Database Migration Application Attempt
+
+Status: Blocked before migration execution.
+
+### What Changed
+
+- Verified the repository contains all expected Supabase migration files through:
+  - `20260618130000_request_waiting_on_changed_at.sql`
+  - `20260619120000_daily_ops_brief_settings.sql`
+  - `20260620100000_staff_users_authorization.sql`
+  - `20260620110000_parish_admin_readiness.sql`
+  - `20260620113000_audit_event_target_index.sql`
+  - `20260621100000_workflow_templates_phase1.sql`
+  - `20260621130000_request_documents_phase4.sql`
+  - `20260621140000_request_portal_tokens_phase5.sql`
+- Checked local tooling and environment for safe migration execution.
+- Confirmed this workspace currently has Supabase API keys, but not a direct Postgres connection string.
+- Confirmed neither `supabase` CLI nor `psql` is available in the local shell.
+- Confirmed the QA database does not expose an admin SQL RPC such as `exec_sql`, `execute_sql`, `run_sql`, or `sql`.
+
+### Blocker
+
+The current workspace cannot apply DDL migrations to the QA Supabase database. Supabase service-role API access can query and mutate rows, but it cannot create tables, alter columns, create RLS policies, create functions, or apply migration SQL without one of:
+
+- A direct Postgres connection string (`SUPABASE_DB_URL` / `DATABASE_URL`) usable by `psql`.
+- Supabase CLI installed and authenticated to the target QA project.
+- A Supabase access token/project ref workflow that can run migrations through the official CLI.
+- A pre-existing privileged SQL execution RPC in the QA database.
+
+### QA Impact
+
+Authenticated QA for Settings, Reports, Calendar, Communications, Intake, Workflow Steps, Document Upload, and Family Portal should be rerun after migrations are applied. Running those flows before migration application would only reproduce the known schema-drift failures already documented above.
+
+Google Calendar, email, and AI actions still also require confirmed safe non-production provider credentials before live-click testing.
+
+### Next Step
+
+Provide one safe migration path for the QA database:
+
+```bash
+SUPABASE_DB_URL=postgresql://...
+```
+
+or install/authenticate the Supabase CLI for this project, then rerun the migration and authenticated QA prompt.
