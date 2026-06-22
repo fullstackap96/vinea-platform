@@ -733,3 +733,83 @@ npm.cmd run lint
 - `npm.cmd test` passed: 44 test files, 165 tests.
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+
+## Durable Public Intake Rate Limiting QA Migration Attempt
+
+Status: Blocked before migration application.
+
+### What Changed
+
+- Re-read the roadmap/source-of-truth and build status after the durable public intake rate-limiting implementation.
+- Verified the active Codex toolset still does not expose callable Supabase MCP tools.
+- Verified `npx.cmd supabase` is available and reports Supabase CLI `2.107.0`.
+- Verified the CLI is not authenticated in this environment:
+  - `supabase projects list` returns `Access token not provided`.
+  - `supabase migration list --linked` returns `Cannot find project ref`.
+- Verified the QA Supabase project is missing the new durable rate-limit objects:
+  - `public.rate_limit_buckets`
+  - `public.check_public_intake_rate_limit(text, integer, integer)`
+- Verified the QA database does not expose a privileged SQL execution RPC such as `exec_sql`, `execute_sql`, `run_sql`, or `sql`.
+
+### Blocker
+
+The current session can query QA through the app's service-role Supabase client, but it cannot apply DDL migrations. Applying `20260622160000_public_intake_rate_limits.sql` requires one of:
+
+- A direct Postgres connection string passed to:
+
+```bash
+npx.cmd supabase db push --db-url "postgresql://..."
+```
+
+- Or an authenticated Supabase CLI session with project link details:
+
+```bash
+npx.cmd supabase login
+npx.cmd supabase link --project-ref gnfomgsuottcuueasfvi --password "..."
+npx.cmd supabase db push --linked
+```
+
+- Or callable Supabase MCP SQL/migration tools in the active Codex session.
+
+### QA Impact
+
+- `/api/health` is expected to report `checks.schema: false` until the new migration is applied.
+- Public intake still has the rollout fallback to the previous in-memory limiter, so normal intake should not break before migration application.
+- The requested durable 429 behavior cannot be truthfully verified until the database migration is applied.
+
+### Next Highest-Priority Unfinished Roadmap Item
+
+After durable rate-limit QA is unblocked and verified, the next highest-priority unfinished item is true multi-parish/diocesan tenancy foundation.
+
+Reasoning:
+
+- The current V1 `primary_parish_id()` model is repeatedly documented as the largest production/security limitation.
+- It affects RLS, staff authorization, parish data isolation, diocesan pilots, and customer acquisition beyond a single pilot parish.
+- It is more foundational than broader certificates, payment/stipend expansion, richer email templates, or calendar conflict detection.
+
+Recommended next safe phase:
+
+- Design and implement the first tenant-membership foundation only:
+  - Add `parish_memberships` or equivalent user-to-parish membership table.
+  - Add helper functions that resolve parish scope from the authenticated user.
+  - Keep existing `primary_parish_id()` behavior as a compatibility fallback.
+  - Do not migrate all RLS policies in one step.
+
+### How To Test After Credentials Are Available
+
+1. Apply the migration to QA.
+2. Start the app:
+
+```bash
+npm.cmd run dev -- -p 3000
+```
+
+3. Open `/api/health` and confirm `ok: true` and `checks.schema: true`.
+4. Submit one safe public intake request and confirm it creates normally.
+5. Submit more than eight public intake requests from the same client IP within one minute and confirm the ninth returns HTTP 429 with `Retry-After`.
+6. Confirm staff dashboard request processing still works.
+
+### Known Risks
+
+- Running the rate-limit stress test creates safe disposable QA intake records unless a dedicated cleanup script is used afterward.
+- Rate limiting keys depend on trusted forwarded IP headers; production proxy behavior should be verified before launch.
