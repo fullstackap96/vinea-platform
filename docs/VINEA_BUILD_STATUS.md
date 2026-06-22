@@ -446,3 +446,57 @@ SUPABASE_DB_URL=postgresql://...
 ```
 
 or install/authenticate the Supabase CLI for this project, then rerun the migration and authenticated QA prompt.
+
+## Health Schema Readiness Guard
+
+Status: Completed.
+
+### What Changed
+
+- Added schema readiness checks to `/api/health` so deployments can identify the exact pending Supabase migrations that block QA and production readiness.
+- The health check now verifies the migration-critical objects for the current Workflow Templates + Document Portal work:
+  - `staff_users`
+  - `audit_events`
+  - `workflow_templates`
+  - `request_workflow_steps`
+  - `request_documents`
+  - `request_portal_tokens`
+  - Daily-brief columns on `parishes`
+  - `waiting_on_changed_at` on `requests`
+  - `create_request_workflow_steps_from_active_template`
+- Added focused unit tests for missing table, missing column, missing RPC, and unexpected database errors.
+- Confirmed Supabase MCP is installed and OAuth-authenticated in the Codex CLI config, but this active Codex session still does not expose callable Supabase MCP tools through tool discovery.
+
+### Why This Was The Next Safe Phase
+
+- The roadmap file is still absent, but the single-source doc and build status show Workflow Templates + Document Portal as the highest-priority active initiative.
+- The next incomplete work is not another feature surface; it is migration readiness and authenticated QA after schema alignment.
+- Since this active session cannot call Supabase MCP tools and has no `SUPABASE_DB_URL`, adding a non-destructive readiness guard is the safest code-side step that directly supports the incomplete initiative.
+
+### How To Test
+
+1. Ensure the app has Supabase env vars configured.
+2. Run:
+
+```bash
+npm.cmd run dev -- -p 3000
+```
+
+3. Open `/api/health`.
+4. If migrations are missing, the response should include:
+   - `checks.schema: false`
+   - `error: "schema"`
+   - `missingSchema` labels identifying the missing migration-critical objects.
+5. After all migrations are applied, `/api/health` should report `checks.schema: true`.
+
+### Known Risks
+
+- `/api/health` remains unauthenticated by design and now exposes non-secret schema readiness labels. It does not expose connection strings, keys, or data values.
+- The health check cannot apply migrations; it only identifies schema readiness.
+- Supabase MCP tools may require a fresh Codex session before they become callable, despite successful CLI OAuth registration.
+
+### Verification
+
+- `npm.cmd test` passed: 42 test files, 158 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
