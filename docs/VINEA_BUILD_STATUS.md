@@ -1,6 +1,6 @@
 # Vinea Build Status
 
-Last Updated: 2026-06-21
+Last Updated: 2026-06-22
 
 ## Current Initiative
 
@@ -498,5 +498,145 @@ npm.cmd run dev -- -p 3000
 ### Verification
 
 - `npm.cmd test` passed: 42 test files, 158 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+
+## QA Migration Verification + Authenticated Retest
+
+Status: Completed with one external integration blocker.
+
+### What Changed
+
+- Used the Supabase MCP server for project `gnfomgsuottcuueasfvi`.
+- Verified the remote migration ledger records all 32 repository migrations.
+- Verified one additional remote migration is present: `20260622142000_cleanup_legacy_permissive_policies`.
+- Verified migration-critical schema objects exist in QA:
+  - `staff_users`
+  - `audit_events`
+  - `workflow_templates`
+  - `workflow_template_steps`
+  - `request_workflow_steps`
+  - `request_documents`
+  - `request_portal_tokens`
+  - `requests.waiting_on_changed_at`
+  - `parishes.daily_ops_brief_enabled`
+  - `parishes.daily_ops_brief_email`
+  - `create_request_workflow_steps_from_active_template(uuid)`
+  - private Supabase Storage bucket `request-documents`
+- Fixed `/api/health` schema readiness to check `parishes.daily_ops_brief_email`, matching `20260619120000_daily_ops_brief_settings.sql`, instead of the non-existent `daily_ops_brief_recipients`.
+- Added a focused test to prevent daily-brief health-check column drift.
+- Verified `/api/health` returns `ok: true` and `checks.schema: true` locally against the QA Supabase project.
+- Created a temporary safe QA staff account and safe Baptism QA request.
+- Verified authenticated staff pages load without visible alert errors:
+  - Settings
+  - Reports
+  - Calendar
+  - Communications
+  - Intake
+- Verified request detail workflow steps instantiate from the active template and a staff workflow step can be marked complete.
+- Verified staff document upload through the authenticated route into the private `request-documents` bucket.
+- Verified staff family portal link creation and the family-facing portal view.
+- Verified the family portal exposes only basic request context, family-owned required workflow steps, and redacted document metadata; it did not expose staff email, audit activity, AI summary, internal notes, or staff-only notes in the checked view.
+- Verified AI summary generation through the authenticated request detail UI; the summary was saved and audited.
+- Verified email sending through the authenticated request detail UI using a fake `example.com` family address; the communication and audit entries were created.
+- Attempted Google Calendar event creation on the QA request. The route returned the expected user-facing failure because the stored Google Calendar connection is expired or revoked.
+- Cleaned up the temporary QA staff access after testing by deleting the Supabase Auth user, marking its `staff_users` row inactive, and revoking the generated family portal token.
+
+### How To Test
+
+1. Ensure local `.env.local` points at QA Supabase project `gnfomgsuottcuueasfvi`.
+2. Start the app:
+
+```bash
+npm.cmd run dev -- -p 3000
+```
+
+3. Open `/api/health` and confirm:
+   - `ok: true`
+   - `checks.schema: true`
+4. Sign in as an authorized staff test account.
+5. Open `/dashboard/settings`, `/dashboard/reports`, `/dashboard/calendar`, `/dashboard/communications`, and `/dashboard/intake`.
+6. Submit or create a safe Baptism request.
+7. Open the request detail page and verify:
+   - Workflow steps appear and can be updated.
+   - A document can be uploaded and tied to a family-owned workflow step.
+   - A family upload link can be created.
+   - The family portal only shows basic context, family-owned required workflow steps, and redacted document metadata.
+   - AI summary generation saves an internal summary.
+   - Email sending logs a communication and audit event when using a safe test recipient.
+8. Reconnect Google Calendar in Settings, then retry create/update/delete calendar event QA on a disposable future-dated request.
+9. Run:
+
+```bash
+npm.cmd test
+npm.cmd run build
+npm.cmd run lint
+```
+
+### Known Risks
+
+- Google Calendar live event creation is blocked until the parish reconnects Google Calendar; the current stored connection appears expired or revoked.
+- QA created disposable test data in the QA project: a Baptism QA request and a document row/storage object. The temporary staff auth user was deleted, its `staff_users` row was deactivated, and the family portal token was revoked after testing.
+- Email QA used a fake `example.com` address, but it still exercised the configured Resend route.
+- Supabase security advisors still report existing warnings, including publicly executable security-definer functions and several intentional RLS-with-no-policy service-role-only tables. These were not changed in this QA pass.
+- A transient Supabase refresh-token console error appeared during the browser sign-in session, but the authenticated session remained usable and all checked dashboard pages loaded.
+
+### Verification
+
+- Supabase MCP `list_migrations` showed all repo migrations recorded in QA.
+- Supabase object checks confirmed migration-critical tables, columns, RPC, RLS, and private document bucket are present.
+- `/api/health` returned:
+
+```json
+{"ok":true,"checks":{"env":true,"supabase":true,"parishes":true,"schema":true,"resend":true,"googleOAuth":true}}
+```
+
+- `npm.cmd test` passed: 42 test files, 159 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+
+## Repo Migration Parity + Legacy Access Cleanup
+
+Status: Implemented.
+
+### What Changed
+
+- Added the missing local migration file for the QA-applied migration version `20260622142000_cleanup_legacy_permissive_policies`.
+- The migration removes legacy anonymous insert policies from public-intake-era direct table writes.
+- The migration revokes direct anonymous table privileges across parish operational tables.
+- The migration revokes inherited `PUBLIC` execution of parish-scoping helper functions, then explicitly grants authenticated staff the helper execution needed by RLS.
+- The migration revokes direct browser-role execution of trigger/helper functions while preserving authenticated staff RLS and service-role route handlers.
+- Added a focused static test to ensure the migration remains present and keeps the expected cleanup statements.
+
+### Why This Was The Next Safe Phase
+
+- Workflow Templates + Document Portal is complete through Phase 5.
+- Authenticated QA passed after migrations, with Google Calendar blocked only by an expired/revoked external connection.
+- The highest-value incomplete foundation item was repo/database drift: QA had an additional security cleanup migration that was not yet represented in the repository.
+- Capturing that migration locally prevents future environments from missing the same security hardening.
+
+### How To Test
+
+1. Apply repository Supabase migrations to a disposable or QA Supabase project.
+2. Confirm public intake still works through `/api/intake`.
+3. Confirm anonymous clients cannot write directly to parish operational tables.
+4. Confirm authenticated staff can still load dashboard data through existing RLS policies.
+5. Run:
+
+```bash
+npm.cmd test
+npm.cmd run build
+npm.cmd run lint
+```
+
+### Known Risks
+
+- This migration should be applied only after the earlier server-intake migration, because it assumes public forms no longer write directly through anon Supabase table policies.
+- Authenticated staff RLS still depends on `primary_parish_id()`, `request_belongs_to_primary_parish(uuid)`, and `is_authorized_staff()` execution for the authenticated role; this migration does not revoke those authenticated grants.
+- The QA database already records this migration version, so this file primarily restores repo parity for future environments and local migration history.
+
+### Verification
+
+- `npm.cmd test` passed: 43 test files, 160 tests.
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.

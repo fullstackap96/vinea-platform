@@ -98,7 +98,7 @@ export const REQUIRED_SCHEMA_READINESS_CHECKS: readonly SchemaReadinessCheck[] =
     kind: 'select',
     label: 'daily brief parish columns',
     table: 'parishes',
-    columns: 'daily_ops_brief_enabled, daily_ops_brief_recipients',
+    columns: 'daily_ops_brief_enabled, daily_ops_brief_email',
   },
   {
     kind: 'select',

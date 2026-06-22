@@ -6,7 +6,11 @@ vi.mock('@/lib/supabaseServiceServer', () => ({
   createSupabaseServiceRoleClient: vi.fn(),
 }))
 
-import { runSchemaReadinessChecks, type SchemaReadinessCheck } from './healthCheck'
+import {
+  REQUIRED_SCHEMA_READINESS_CHECKS,
+  runSchemaReadinessChecks,
+  type SchemaReadinessCheck,
+} from './healthCheck'
 
 function adminFor(input: {
   selectErrors?: Record<string, { code?: string; message?: string } | null>
@@ -55,6 +59,18 @@ const checks: SchemaReadinessCheck[] = [
 ]
 
 describe('runSchemaReadinessChecks', () => {
+  it('checks the daily brief columns created by the migration', () => {
+    const dailyBriefCheck = REQUIRED_SCHEMA_READINESS_CHECKS.find(
+      (check) => check.label === 'daily brief parish columns'
+    )
+
+    expect(dailyBriefCheck).toMatchObject({
+      kind: 'select',
+      table: 'parishes',
+      columns: 'daily_ops_brief_enabled, daily_ops_brief_email',
+    })
+  })
+
   it('returns labels for missing tables, columns, and RPC functions', async () => {
     const missing = await runSchemaReadinessChecks(
       adminFor({
