@@ -20,7 +20,7 @@ function normalizeOptionalText(value: unknown): string | undefined {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => null as any)
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null
 
     const name = normalizeRequiredText(body?.name)
     const parishName = normalizeRequiredText(body?.parishName)
@@ -86,11 +86,15 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      console.error('[demo-request] RESEND ERROR:', error)
+      return NextResponse.json(
+        { ok: false, error: 'Demo requests are temporarily unavailable. Please email us directly.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ ok: true, id: data?.id || null })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[demo-request] ERROR:', error)
     return NextResponse.json(
       { ok: false, error: 'Demo requests are temporarily unavailable. Please email us directly.' },

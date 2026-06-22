@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { openai } from '@/lib/openai'
+import { getOpenAIClient } from '@/lib/openai'
 import { authorizeStaffUser } from '@/lib/server/requireStaff'
 
 function getSupabaseServerClient(request: NextRequest, response: NextResponse) {
@@ -225,7 +225,7 @@ ${block}
 `
     }
 
-    const aiResponse = await openai.responses.create({
+    const aiResponse = await getOpenAIClient().responses.create({
       model: 'gpt-5-mini',
       input: prompt,
     })

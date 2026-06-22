@@ -253,7 +253,10 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     await cleanupPartial(admin, ids)
-    const message = error instanceof Error ? error.message : 'Could not submit request.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    console.error('[intake] ERROR:', error)
+    return NextResponse.json(
+      { ok: false, error: 'Could not submit request.' },
+      { status: 500 }
+    )
   }
 }

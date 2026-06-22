@@ -153,13 +153,19 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      console.error('[request-notifications] RESEND ERROR:', error)
+      return NextResponse.json(
+        { ok: false, error: 'Could not send request notification.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ ok: true, id: data?.id || null })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('[request-notifications] ERROR:', error)
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: 'Could not send request notification.' },
+      { status: 500 }
+    )
   }
 }
