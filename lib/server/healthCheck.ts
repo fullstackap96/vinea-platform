@@ -96,6 +96,12 @@ export const REQUIRED_SCHEMA_READINESS_CHECKS: readonly SchemaReadinessCheck[] =
   },
   {
     kind: 'select',
+    label: 'rate_limit_buckets table',
+    table: 'rate_limit_buckets',
+    columns: 'key',
+  },
+  {
+    kind: 'select',
     label: 'daily brief parish columns',
     table: 'parishes',
     columns: 'daily_ops_brief_enabled, daily_ops_brief_email',
@@ -111,6 +117,17 @@ export const REQUIRED_SCHEMA_READINESS_CHECKS: readonly SchemaReadinessCheck[] =
     label: 'workflow template copy function',
     functionName: 'create_request_workflow_steps_from_active_template',
     args: { p_request_id: '00000000-0000-0000-0000-000000000000' },
+    missingCodes: ['PGRST202'],
+  },
+  {
+    kind: 'rpc',
+    label: 'public intake rate-limit function',
+    functionName: 'check_public_intake_rate_limit',
+    args: {
+      p_key: 'health:public-intake-rate-limit',
+      p_limit: 0,
+      p_window_seconds: 60,
+    },
     missingCodes: ['PGRST202'],
   },
 ]

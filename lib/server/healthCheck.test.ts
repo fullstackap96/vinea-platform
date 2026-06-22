@@ -71,6 +71,27 @@ describe('runSchemaReadinessChecks', () => {
     })
   })
 
+  it('checks the durable public intake rate-limit schema', () => {
+    expect(REQUIRED_SCHEMA_READINESS_CHECKS).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'select',
+          label: 'rate_limit_buckets table',
+          table: 'rate_limit_buckets',
+          columns: 'key',
+        }),
+        expect.objectContaining({
+          kind: 'rpc',
+          label: 'public intake rate-limit function',
+          functionName: 'check_public_intake_rate_limit',
+          args: expect.objectContaining({
+            p_limit: 0,
+          }),
+        }),
+      ])
+    )
+  })
+
   it('returns labels for missing tables, columns, and RPC functions', async () => {
     const missing = await runSchemaReadinessChecks(
       adminFor({

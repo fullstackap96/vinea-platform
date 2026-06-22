@@ -640,3 +640,96 @@ npm.cmd run lint
 - `npm.cmd test` passed: 43 test files, 160 tests.
 - `npm.cmd run build` passed on Next.js 16.2.2.
 - `npm.cmd run lint` passed with 58 existing warnings and 0 errors.
+
+## Google Calendar Reconnect QA
+
+Status: Completed.
+
+### What Changed
+
+- Reconnected the QA Google Calendar integration from `/dashboard/settings` through the Google OAuth flow.
+- Verified the QA integration row is connected to calendar `primary` for `alexperez913@gmail.com` with `last_error` cleared.
+- Reran Google Calendar create, update, and delete route QA against disposable request `4a96a962-ab72-4a97-b5de-960bcd53be74`.
+- Verified create stored Google event id `e1noq1ps9hvehjiam5ctrfvj5k` on the request, update succeeded against the same event id, and delete cleared `google_calendar_event_id`, `google_calendar_id`, and `google_calendar_event_html_link`.
+- Confirmed a direct Google Calendar search for `Vinea QA Child 20260622095619` on 2026-08-15 returned no active matching events after deletion.
+- Cleaned up the temporary QA staff account used for the route calls by marking its `staff_users` row inactive and deleting the paired Supabase Auth user.
+
+### How To Test
+
+1. Ensure local `.env.local` points at QA Supabase project `gnfomgsuottcuueasfvi`.
+2. Start the app:
+
+```bash
+npm.cmd run dev -- -p 3000
+```
+
+3. Open `/dashboard/settings` as authorized staff and confirm Google Calendar shows a connected state.
+4. Use a disposable future-dated request with a confirmed sacramental date.
+5. POST the request id to:
+   - `/api/google/calendar-event/create` with `forceCreate: true`
+   - `/api/google/calendar-event/update`
+   - `/api/google/calendar-event/delete`
+6. Confirm the delete route clears the request's Google Calendar fields and no active matching event remains in Google Calendar.
+
+### Known Risks
+
+- Google OAuth remains tied to the connected Google test account and can expire or be revoked again, requiring another reconnect.
+- The Google Calendar scope is broad because the current app requests full calendar access for create, update, delete, and conflict checks.
+- The disposable QA request remains in the QA database, but no active Google Calendar event remains linked to it.
+
+### Verification
+
+- Supabase MCP confirmed `parish_google_integrations.status = 'connected'`, `calendar_id = 'primary'`, `google_account_email = 'alexperez913@gmail.com'`, and `last_error is null`.
+- Google Calendar create route returned HTTP 200 with event id `e1noq1ps9hvehjiam5ctrfvj5k`.
+- Google Calendar update route returned HTTP 200 for event id `e1noq1ps9hvehjiam5ctrfvj5k`.
+- Google Calendar delete route returned HTTP 200 and the request row's Google Calendar fields were null afterward.
+- Direct Google Calendar search found `activeMatchingEvents: []` for `Vinea QA Child 20260622095619` on 2026-08-15.
+
+## Durable Public Intake Rate Limiting
+
+Status: Implemented.
+
+### What Changed
+
+- Added a durable `rate_limit_buckets` table for server-side abuse protection on public intake routes.
+- Added `check_public_intake_rate_limit(key, limit, window_seconds)` as an atomic Supabase RPC.
+- Kept `rate_limit_buckets` RLS-enabled with no anon/authenticated policies; access is mediated through service-role route handlers.
+- Updated `/api/intake` to use the durable rate-limit RPC before creating parishioners, requests, checklist rows, workflow steps, or audit events.
+- Preserved the existing in-memory limiter only as a rollout fallback when the new RPC/table has not been deployed yet.
+- Added `/api/health` schema readiness checks for the rate-limit table and RPC.
+- Added focused tests for durable allow/block behavior, rollout fallback, unexpected RPC errors, and schema readiness coverage.
+
+### Why This Was The Next Safe Phase
+
+- Workflow Templates + Document Portal is complete through Phase 5 and migration parity has been restored.
+- The roadmap/source-of-truth identifies in-memory rate limiting as a known production security limitation.
+- Public intake is the main unauthenticated doorway into Vinea. Durable rate limiting protects Baptism, Funeral, Wedding, OCIA, and Join Parish forms without changing staff workflows.
+- This is a high-ROI readiness foundation that is safer than jumping directly into broad multi-parish tenancy.
+
+### How To Test
+
+1. Apply repository Supabase migrations to QA or a disposable Supabase project.
+2. Confirm `/api/health` reports `checks.schema: true`.
+3. Submit a normal public intake form and confirm the request is created.
+4. Submit more than eight public intake requests from the same client IP within one minute.
+5. Confirm the ninth submission returns HTTP 429 with `Retry-After`.
+6. Confirm authenticated staff dashboard access and request processing are unchanged.
+7. Run:
+
+```bash
+npm.cmd test
+npm.cmd run build
+npm.cmd run lint
+```
+
+### Known Risks
+
+- Until the new migration is applied, `/api/intake` intentionally falls back to the previous in-memory limiter so deployments do not break during rollout.
+- Rate limiting keys are based on forwarded IP headers. In production, trusted proxy/header configuration still matters.
+- The current limit remains eight submissions per minute per client IP; parishes with unusual shared-network behavior may need tuning after pilot feedback.
+
+### Verification
+
+- `npm.cmd test` passed: 44 test files, 165 tests.
+- `npm.cmd run build` passed on Next.js 16.2.2.
+- `npm.cmd run lint` passed with 58 existing warnings and 0 errors.

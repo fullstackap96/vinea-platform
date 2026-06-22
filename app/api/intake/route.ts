@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
-import { checkRateLimit, clientIpFromRequest } from '@/lib/server/simpleRateLimit'
+import { checkDurableRateLimit } from '@/lib/server/durableRateLimit'
+import { clientIpFromRequest } from '@/lib/server/simpleRateLimit'
 import { writeAuditEvent } from '@/lib/server/auditLog'
 import { createRequestWorkflowStepsFromActiveTemplate } from '@/lib/server/requestWorkflowTemplates'
 
@@ -91,7 +92,18 @@ async function cleanupPartial(
 }
 
 export async function POST(request: NextRequest) {
-  const rateLimit = checkRateLimit(`public-intake:${clientIpFromRequest(request)}`, RATE_LIMIT)
+  const admin = createSupabaseServiceRoleClient()
+  const rateLimit = await checkDurableRateLimit({
+    admin,
+    key: `public-intake:${clientIpFromRequest(request)}`,
+    ...RATE_LIMIT,
+  }).catch(() => null)
+  if (!rateLimit) {
+    return NextResponse.json(
+      { ok: false, error: 'Could not submit request. Please try again later.' },
+      { status: 503 }
+    )
+  }
   if (!rateLimit.ok) {
     return NextResponse.json(
       { ok: false, error: 'Too many submissions. Please try again later.' },
@@ -135,7 +147,6 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const admin = createSupabaseServiceRoleClient()
   const ids: { requestId?: string; parishionerId?: string } = {}
 
   try {
