@@ -86,7 +86,11 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      console.error('[demo-request] resend failed:', error)
+      return NextResponse.json(
+        { ok: false, error: 'Demo requests are temporarily unavailable. Please email us directly.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ ok: true, id: data?.id || null })

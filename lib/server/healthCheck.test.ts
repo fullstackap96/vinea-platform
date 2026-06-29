@@ -8,6 +8,7 @@ vi.mock('@/lib/supabaseServiceServer', () => ({
 
 import {
   REQUIRED_SCHEMA_READINESS_CHECKS,
+  publicHealthCheckResponse,
   runSchemaReadinessChecks,
   type SchemaReadinessCheck,
 } from './healthCheck'
@@ -153,5 +154,41 @@ describe('runSchemaReadinessChecks', () => {
         checks
       )
     ).rejects.toMatchObject({ code: '42501' })
+  })
+})
+
+describe('publicHealthCheckResponse', () => {
+  it('does not expose internal env, schema, or check details when unhealthy', () => {
+    expect(
+      publicHealthCheckResponse({
+        ok: false,
+        checks: {
+          env: false,
+          supabase: false,
+          parishes: false,
+          schema: false,
+          resend: false,
+          googleOAuth: false,
+        },
+        error: 'SUPABASE_SERVICE_ROLE_KEY',
+        missingSchema: ['request_portal_tokens table'],
+      })
+    ).toEqual({ ok: false, error: 'Service unavailable' })
+  })
+
+  it('returns only ok for healthy public health responses', () => {
+    expect(
+      publicHealthCheckResponse({
+        ok: true,
+        checks: {
+          env: true,
+          supabase: true,
+          parishes: true,
+          schema: true,
+          resend: true,
+          googleOAuth: true,
+        },
+      })
+    ).toEqual({ ok: true })
   })
 })

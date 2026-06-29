@@ -77,9 +77,10 @@ export async function POST(request: NextRequest) {
       contactPhone,
     })
     if (!verification.ok) {
+      console.warn('[request-notifications] verification failed:', verification.error)
       return NextResponse.json(
-        { ok: false, error: verification.error },
-        { status: verification.status }
+        { ok: false, error: 'Could not verify request notification.' },
+        { status: 403 }
       )
     }
 
@@ -153,13 +154,19 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      console.error('[request-notifications] resend failed:', error)
+      return NextResponse.json(
+        { ok: false, error: 'Could not send request notification.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ ok: true, id: data?.id || null })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('[request-notifications] ERROR:', error)
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: 'Could not send request notification.' },
+      { status: 500 }
+    )
   }
 }

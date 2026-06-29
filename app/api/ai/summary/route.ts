@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { openai } from '@/lib/openai'
+import { getOpenAIClient } from '@/lib/openai'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 
 export async function POST(request: NextRequest) {
@@ -125,7 +125,7 @@ Status: ${body.status}
 `
     }
 
-    const response = await openai.responses.create({
+    const response = await getOpenAIClient().responses.create({
       model: 'gpt-5-mini',
       input: prompt,
     })

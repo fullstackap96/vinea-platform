@@ -63,7 +63,11 @@ export async function POST(request: NextRequest, context: RouteParams) {
       .upload(storagePath, buffer, { contentType, upsert: false })
 
     if (uploadError) {
-      return NextResponse.json({ ok: false, error: uploadError.message }, { status: 500 })
+      console.error('[family-documents] storage upload failed:', uploadError)
+      return NextResponse.json(
+        { ok: false, error: 'Could not upload document. Please try again later.' },
+        { status: 500 }
+      )
     }
 
     const { data: inserted, error: insertError } = await admin
@@ -87,7 +91,11 @@ export async function POST(request: NextRequest, context: RouteParams) {
 
     if (insertError) {
       await admin.storage.from(REQUEST_DOCUMENTS_BUCKET).remove([storagePath])
-      return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
+      console.error('[family-documents] request document insert failed:', insertError)
+      return NextResponse.json(
+        { ok: false, error: 'Could not upload document. Please try again later.' },
+        { status: 500 }
+      )
     }
 
     await writeAuditEvent({
@@ -106,7 +114,10 @@ export async function POST(request: NextRequest, context: RouteParams) {
 
     return NextResponse.json({ ok: true })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not upload document.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    console.error('[family-documents] upload failed:', error)
+    return NextResponse.json(
+      { ok: false, error: 'Could not upload document. Please try again later.' },
+      { status: 500 }
+    )
   }
 }

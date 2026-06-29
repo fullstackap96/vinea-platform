@@ -40,6 +40,10 @@ export type HealthCheckResponse = {
   missingSchema?: string[]
 }
 
+export type PublicHealthCheckResponse =
+  | { ok: true }
+  | { ok: false; error: 'Service unavailable' }
+
 type SupabaseAdmin = ReturnType<typeof createSupabaseServiceRoleClient>
 
 export type SchemaReadinessCheck =
@@ -286,4 +290,11 @@ export async function runHealthChecks(): Promise<HealthCheckResponse> {
   }
 
   return { ok: true, checks }
+}
+
+export function publicHealthCheckResponse(
+  result: HealthCheckResponse
+): PublicHealthCheckResponse {
+  if (result.ok) return { ok: true }
+  return { ok: false, error: 'Service unavailable' }
 }

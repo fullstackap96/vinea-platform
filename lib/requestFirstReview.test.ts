@@ -53,7 +53,7 @@ describe('buildRequestFirstReview', () => {
         child_name: 'Lucia',
         assigned_staff_name: 'Jane',
         last_contacted_at: '2026-06-18T12:00:00.000Z',
-        next_follow_up_date: '2026-06-25',
+        next_follow_up_date: '2026-07-05',
         parishioner: { full_name: 'Ana Cruz' },
       },
       scheduleRow: {
