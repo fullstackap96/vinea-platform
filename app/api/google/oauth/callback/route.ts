@@ -7,6 +7,7 @@ import {
   timingSafeStateEquals,
   verifySignedOAuthStateCookie,
 } from '@/lib/googleOAuthStateCookie'
+import { authorizeStaffUser } from '@/lib/server/requireStaff'
 import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
@@ -51,6 +52,11 @@ export async function GET(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
+    return fail()
+  }
+  const staff = await authorizeStaffUser(user)
+  if (!staff.ok) {
+    console.error('Google OAuth callback: unauthorized staff user')
     return fail()
   }
 

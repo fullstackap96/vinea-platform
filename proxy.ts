@@ -6,7 +6,7 @@ import {
   staffAccessNotConfiguredAllowsDev,
 } from '@/lib/staffAuthorization'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -78,4 +78,3 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/dashboard/:path*'],
 }
-

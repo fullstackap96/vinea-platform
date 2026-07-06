@@ -5,6 +5,7 @@ import {
   createSignedOAuthStateValue,
   GCAL_OAUTH_STATE_COOKIE,
 } from '@/lib/googleOAuthStateCookie'
+import { authorizeStaffUser } from '@/lib/server/requireStaff'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/routeHandlerClient'
 
 const GCAL_OAUTH_STATE_MAX_AGE_SEC = 600
@@ -20,6 +21,12 @@ export async function GET(request: NextRequest) {
   if (!user) {
     const login = new URL('/login', resolveAppOrigin(request))
     login.searchParams.set('next', '/api/google/oauth/start')
+    return NextResponse.redirect(login)
+  }
+  const staff = await authorizeStaffUser(user)
+  if (!staff.ok) {
+    const login = new URL('/login', resolveAppOrigin(request))
+    login.searchParams.set('staff', 'unauthorized')
     return NextResponse.redirect(login)
   }
 
