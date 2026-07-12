@@ -7,11 +7,11 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 ## Manifest Identity
 
 - Parent/base commit before this AI provider deadline slice: `8049cbc786c8d715e49da1adc5fc6abfce51925a`
-- Immutable implementation commit: `PENDING_AFTER_COMPLETE_LOCAL_GATE`
+- Immutable implementation commit: `b79577b4cd40d8cb3c384ea1ebd8076bbae3fc86`
 - Release-source aggregate SHA-256: `8D187693F48498884D7689912784BAA120B1B2BA0FE1E76DB756C990E2775665`
 - Source file count: `1455`
-- Tracked or staged source files: `1452`
-- Untracked source files: `3`
+- Tracked or staged source files: `1455`
+- Untracked source files: `0`
 - Worktree dirty: `YES`
 - Production approval granted: `NO`
 
@@ -39,6 +39,6 @@ Environment files, ignored secrets, documentation, command output, file paths, a
 
 ## Limitation
 
-This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. The AI provider deadline slice is still uncommitted while its complete local gate runs; therefore no immutable implementation commit or clean-checkout GitHub Actions result is claimed for this aggregate yet. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
+This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `b79577b4cd40d8cb3c384ea1ebd8076bbae3fc86` on `codex/release-candidate-20260711` is the immutable implementation binding for this aggregate. The complete local release gate passed against this source; clean-checkout GitHub Actions and a correctly configured protected-preview smoke remain pending. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
 
 No production access, deployment, migration, operational RLS change, record mutation, provider call, export, AI call, storage action, signed URL, communication, certificate generation, or public claim was performed.
