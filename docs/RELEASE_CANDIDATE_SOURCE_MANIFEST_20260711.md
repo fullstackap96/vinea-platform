@@ -8,9 +8,9 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
 - Parent/base commit before this error-recovery polish slice: `f849969a1b99e7fe85147d6a15b5e9a994f51cd3`
 - Immutable implementation commit: `90ee398d2e141f56c033000adfc479bcdc35b15b`
-- Release-source aggregate SHA-256: `FBCC65B8C4F462BB547CA7A196692D7D7817325D3C96FF80D7A050C30F8A6433`
-- Source file count: `1442`
-- Tracked or staged source files: `1442`
+- Release-source aggregate SHA-256: `BB1E62201692E4A2505A49C8C598A2097B40DDBCA11213EBCB25C0E1652F0333`
+- Source file count: `1445`
+- Tracked or staged source files: `1445`
 - Untracked source files: `0`
 - Worktree dirty: `YES`
 - Production approval granted: `NO`

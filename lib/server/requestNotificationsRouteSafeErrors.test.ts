@@ -139,6 +139,9 @@ describe('request notifications route safe error handling', () => {
     expect(source).toContain(
       "logServerWarning('[request-notifications] app URL configuration missing'",
     )
+    expect(source).toContain(
+      "logServerWarning('[request-notifications] provider confirmation timed out'",
+    )
     expect(source).toContain("logServerError('[request-notifications] resend send failed'")
     expect(source).toContain(
       "logServerError('[request-notifications] rate limit check failed'",
@@ -259,6 +262,12 @@ describe('request notifications route safe error handling', () => {
     expect(resendSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'parish-b-office@example.test',
+      }),
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(
+          /^vinea-request-notification-[a-f0-9]{64}$/,
+        ),
+        signal: expect.any(AbortSignal),
       }),
     )
   })

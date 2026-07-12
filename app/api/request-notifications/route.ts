@@ -10,6 +10,10 @@ import { checkDurableRateLimit } from '@/lib/server/durableRateLimit'
 import { logServerError, logServerWarning } from '@/lib/server/safeErrorLogging'
 import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 import { durableRateLimitKeyFromRequest } from '@/lib/server/simpleRateLimit'
+import {
+  createRequestNotificationProviderOptions,
+  REQUEST_NOTIFICATION_PROVIDER_TIMEOUT_MS,
+} from '@/lib/server/requestNotificationDelivery'
 import { verifyRequestNotificationPayload } from '@/lib/server/verifyRequestNotification'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
@@ -181,15 +185,49 @@ export async function POST(request: NextRequest) {
     }
 
     const resend = new Resend(apiKey)
-    const { data, error } = await resend.emails.send({
-      from,
-      to,
-      subject,
-      text,
-      html,
+    const providerOptions = createRequestNotificationProviderOptions({
+      parishId: verification.parishId,
+      requestId,
     })
+    let providerResult: Awaited<ReturnType<typeof resend.emails.send>>
+    try {
+      providerResult = await resend.emails.send(
+        {
+          from,
+          to,
+          subject,
+          text,
+          html,
+        },
+        providerOptions,
+      )
+    } catch (error: unknown) {
+      if (providerOptions.signal.aborted) {
+        logServerWarning('[request-notifications] provider confirmation timed out', {
+          route: '/api/request-notifications',
+          timeoutMs: REQUEST_NOTIFICATION_PROVIDER_TIMEOUT_MS,
+        })
+        return NextResponse.json(
+          { ok: false, error: 'Notification could not be sent. Please try again later.' },
+          { status: 504 },
+        )
+      }
+      throw error
+    }
+
+    const { data, error } = providerResult
 
     const providerMessageId = String(data?.id ?? '').trim()
+    if (providerOptions.signal.aborted && !providerMessageId) {
+      logServerWarning('[request-notifications] provider confirmation timed out', {
+        route: '/api/request-notifications',
+        timeoutMs: REQUEST_NOTIFICATION_PROVIDER_TIMEOUT_MS,
+      })
+      return NextResponse.json(
+        { ok: false, error: 'Notification could not be sent. Please try again later.' },
+        { status: 504 },
+      )
+    }
     if (error || !providerMessageId) {
       logServerError('[request-notifications] resend send failed', error ?? new Error('Email provider did not return a message id.'), {
         route: '/api/request-notifications',
