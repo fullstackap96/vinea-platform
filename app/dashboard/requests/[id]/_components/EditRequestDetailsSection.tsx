@@ -1,11 +1,15 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   saveRequestIntakeDetails,
   type SaveRequestIntakeDetailsInput,
 } from '@/app/dashboard/requests/actions'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import {
+  requestDetailClientFailureMessage,
+  requestDetailClientServerActionErrorMessage,
+} from '@/lib/requestDetailClientMessages'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import {
@@ -79,51 +83,59 @@ export function EditRequestDetailsSection({
   const [ociaAvailability, setOciaAvailability] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const saveInFlightRef = useRef(false)
 
   useEffect(() => {
     if (!open) return
-    setMessage('')
-    setContactName(String(parishioner?.full_name ?? ''))
-    setContactEmail(String(parishioner?.email ?? ''))
-    setContactPhone(String(parishioner?.phone ?? ''))
-    setIntakeNotes(String(request?.notes ?? ''))
-    setChildName(String(request?.child_name ?? ''))
-    setPreferredDates(String(request?.preferred_dates ?? ''))
-    setDeceasedName(String(funeralDetail?.deceased_name ?? ''))
-    setFuneralFamilyRelationship(String(funeralDetail?.family_relationship ?? ''))
-    setDateOfDeath(
-      funeralDetail?.date_of_death ? String(funeralDetail.date_of_death).slice(0, 10) : ''
-    )
-    setFuneralHome(String(funeralDetail?.funeral_home_or_location ?? ''))
-    setFuneralDirectorContact(String(funeralDetail?.funeral_director_contact ?? ''))
-    setFuneralServiceLocation(String(funeralDetail?.service_location ?? ''))
-    setFuneralVisitationDetails(String(funeralDetail?.visitation_details ?? ''))
-    setFuneralCemeteryOrCommittal(String(funeralDetail?.cemetery_or_committal ?? ''))
-    setFuneralReadingsMusicNotes(String(funeralDetail?.readings_music_notes ?? ''))
-    setFuneralObituaryProgramNotes(String(funeralDetail?.obituary_program_notes ?? ''))
-    setFuneralPostFollowUpDate(
-      funeralDetail?.post_funeral_follow_up_date
-        ? String(funeralDetail.post_funeral_follow_up_date).slice(0, 10)
-        : ''
-    )
-    setFuneralPreferred(String(funeralDetail?.preferred_service_notes ?? ''))
-    setPartnerOne(String(weddingDetail?.partner_one_name ?? ''))
-    setPartnerTwo(String(weddingDetail?.partner_two_name ?? ''))
-    setProposedWeddingDate(
-      weddingDetail?.proposed_wedding_date
-        ? String(weddingDetail.proposed_wedding_date).slice(0, 10)
-        : ''
-    )
-    setCeremonyNotes(String(weddingDetail?.ceremony_notes ?? ''))
-    setOciaDob(ociaDetail?.date_of_birth ? String(ociaDetail.date_of_birth).slice(0, 10) : '')
-    setOciaAgeNote(String(ociaDetail?.age_or_dob_note ?? ''))
-    setOciaSac(String(ociaDetail?.sacramental_background ?? SACRAMENTAL_BACKGROUND_VALUES[0]))
-    setOciaSeeking(String(ociaDetail?.seeking ?? SEEKING_VALUES[0]))
-    setOciaParishStatus(String(ociaDetail?.parishioner_status ?? ''))
-    setOciaContactMethod(
-      String(ociaDetail?.preferred_contact_method ?? CONTACT_METHOD_VALUES[0])
-    )
-    setOciaAvailability(String(ociaDetail?.availability ?? ''))
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setMessage('')
+      setContactName(String(parishioner?.full_name ?? ''))
+      setContactEmail(String(parishioner?.email ?? ''))
+      setContactPhone(String(parishioner?.phone ?? ''))
+      setIntakeNotes(String(request?.notes ?? ''))
+      setChildName(String(request?.child_name ?? ''))
+      setPreferredDates(String(request?.preferred_dates ?? ''))
+      setDeceasedName(String(funeralDetail?.deceased_name ?? ''))
+      setFuneralFamilyRelationship(String(funeralDetail?.family_relationship ?? ''))
+      setDateOfDeath(
+        funeralDetail?.date_of_death ? String(funeralDetail.date_of_death).slice(0, 10) : ''
+      )
+      setFuneralHome(String(funeralDetail?.funeral_home_or_location ?? ''))
+      setFuneralDirectorContact(String(funeralDetail?.funeral_director_contact ?? ''))
+      setFuneralServiceLocation(String(funeralDetail?.service_location ?? ''))
+      setFuneralVisitationDetails(String(funeralDetail?.visitation_details ?? ''))
+      setFuneralCemeteryOrCommittal(String(funeralDetail?.cemetery_or_committal ?? ''))
+      setFuneralReadingsMusicNotes(String(funeralDetail?.readings_music_notes ?? ''))
+      setFuneralObituaryProgramNotes(String(funeralDetail?.obituary_program_notes ?? ''))
+      setFuneralPostFollowUpDate(
+        funeralDetail?.post_funeral_follow_up_date
+          ? String(funeralDetail.post_funeral_follow_up_date).slice(0, 10)
+          : ''
+      )
+      setFuneralPreferred(String(funeralDetail?.preferred_service_notes ?? ''))
+      setPartnerOne(String(weddingDetail?.partner_one_name ?? ''))
+      setPartnerTwo(String(weddingDetail?.partner_two_name ?? ''))
+      setProposedWeddingDate(
+        weddingDetail?.proposed_wedding_date
+          ? String(weddingDetail.proposed_wedding_date).slice(0, 10)
+          : ''
+      )
+      setCeremonyNotes(String(weddingDetail?.ceremony_notes ?? ''))
+      setOciaDob(ociaDetail?.date_of_birth ? String(ociaDetail.date_of_birth).slice(0, 10) : '')
+      setOciaAgeNote(String(ociaDetail?.age_or_dob_note ?? ''))
+      setOciaSac(String(ociaDetail?.sacramental_background ?? SACRAMENTAL_BACKGROUND_VALUES[0]))
+      setOciaSeeking(String(ociaDetail?.seeking ?? SEEKING_VALUES[0]))
+      setOciaParishStatus(String(ociaDetail?.parishioner_status ?? ''))
+      setOciaContactMethod(
+        String(ociaDetail?.preferred_contact_method ?? CONTACT_METHOD_VALUES[0])
+      )
+      setOciaAvailability(String(ociaDetail?.availability ?? ''))
+    })
+    return () => {
+      cancelled = true
+    }
   }, [
     open,
     parishioner,
@@ -134,6 +146,9 @@ export function EditRequestDetailsSection({
   ])
 
   async function handleSave() {
+    if (saveInFlightRef.current) return
+
+    saveInFlightRef.current = true
     setSaving(true)
     setMessage('')
     try {
@@ -201,13 +216,22 @@ export function EditRequestDetailsSection({
 
       const result = await saveRequestIntakeDetails(payload)
       if (!result.ok) {
-        setMessage(result.error)
+        setMessage(
+          requestDetailClientServerActionErrorMessage('saveIntakeDetails', result.error),
+        )
         return
       }
-      await onSaved()
-    } catch (e: unknown) {
-      setMessage(e instanceof Error ? e.message : 'Save failed.')
+      try {
+        await onSaved()
+      } catch {
+        setMessage(
+          'Request details were saved, but the refreshed view could not load. Refresh the page before editing again.'
+        )
+      }
+    } catch {
+      setMessage(requestDetailClientFailureMessage('saveIntakeDetails'))
     } finally {
+      saveInFlightRef.current = false
       setSaving(false)
     }
   }
@@ -215,7 +239,10 @@ export function EditRequestDetailsSection({
   if (!open) return null
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+    <div
+      className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5"
+      aria-busy={saving}
+    >
       <h2 className={sectionHeadingClassName}>Edit request details</h2>
       <p className="mb-3 text-sm leading-relaxed text-gray-600">
         Correct intake information submitted by the family. Confirmed dates and checklist are

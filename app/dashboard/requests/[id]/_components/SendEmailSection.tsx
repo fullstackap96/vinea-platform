@@ -24,14 +24,14 @@ export function SendEmailSection({
   setBody: (value: string) => void
   templateOptions: Array<{ id: VineaEmailTemplateId; label: string }>
   onApplyTemplate: (id: VineaEmailTemplateId) => void | Promise<void>
-  onSend: () => void
+  onSend: () => Promise<void> | void
   sending: boolean
   message: string
 }) {
-  const canSend = Boolean(toEmail && subject && body) && !sending
   const selectId = useId()
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [applying, setApplying] = useState(false)
+  const canSend = Boolean(toEmail && subject && body) && !sending && !applying
 
   async function handleApplyTemplate() {
     if (!selectedTemplateId) return
@@ -44,7 +44,7 @@ export function SendEmailSection({
   }
 
   return (
-    <div>
+    <div aria-busy={sending || applying}>
       <div className="space-y-4">
         <LabelValueGrid>
           <LabelValueRow
@@ -67,6 +67,7 @@ export function SendEmailSection({
                 id={selectId}
                 className="w-full min-w-0 flex-1 border border-gray-300 bg-white p-2.5 text-sm text-gray-900 rounded-md sm:max-w-md"
                 value={selectedTemplateId}
+                disabled={sending || applying}
                 onChange={(e) => setSelectedTemplateId(e.target.value)}
               >
                 <option value="">Select a template…</option>
@@ -78,7 +79,7 @@ export function SendEmailSection({
               </select>
               <button
                 type="button"
-                disabled={!selectedTemplateId || applying}
+                disabled={!selectedTemplateId || applying || sending}
                 onClick={handleApplyTemplate}
                 className={`${secondaryButtonMd} w-full shrink-0 justify-center sm:w-auto`}
               >
@@ -96,6 +97,7 @@ export function SendEmailSection({
             id="send-email-subject"
             className="w-full border p-3 rounded"
             value={subject}
+            disabled={sending}
             onChange={(e) => setSubject(e.target.value)}
           />
         </div>
@@ -111,6 +113,7 @@ export function SendEmailSection({
             id="send-email-body"
             className="min-h-[200px] w-full border border-gray-300 p-3 text-sm text-gray-900 rounded-md font-sans leading-relaxed"
             value={body}
+            disabled={sending}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Compose your message, or apply a template / AI draft first."
             spellCheck
@@ -119,7 +122,7 @@ export function SendEmailSection({
 
         <button
           type="button"
-          onClick={onSend}
+          onClick={() => void onSend()}
           disabled={!canSend}
           className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
         >

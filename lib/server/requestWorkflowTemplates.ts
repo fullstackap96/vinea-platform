@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { logServerWarning } from '@/lib/server/safeErrorLogging'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 type SupabaseAdmin = ReturnType<typeof createSupabaseServiceRoleClient>
@@ -25,9 +26,10 @@ export async function createRequestWorkflowStepsFromActiveTemplate(input: {
     p_request_id: requestId,
   })
   if (isMissingWorkflowTemplateRpc(error)) {
-    console.warn(
-      'Workflow template RPC is unavailable; request intake will continue without workflow steps.'
-    )
+    logServerWarning('[workflow-templates] rpc unavailable', {
+      helper: 'createRequestWorkflowStepsFromActiveTemplate',
+      rpc: 'create_request_workflow_steps_from_active_template',
+    })
     return 0
   }
   if (error) throw error

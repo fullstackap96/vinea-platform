@@ -29,7 +29,7 @@ export async function verifyRequestNotificationPayload(input: {
   contactName: string
   contactEmail: string
   contactPhone: string
-}): Promise<{ ok: true } | { ok: false; error: string; status: 403 | 404 }> {
+}): Promise<{ ok: true; parishId: string } | { ok: false; error: string; status: 403 | 404 }> {
   const admin = createSupabaseServiceRoleClient()
 
   const { data: reqRow, error: reqErr } = await admin
@@ -57,7 +57,7 @@ export async function verifyRequestNotificationPayload(input: {
 
   const { data: parishioner, error: parishionerErr } = await admin
     .from('parishioners')
-    .select('full_name, email, phone')
+    .select('full_name, email, phone, parish_id')
     .eq('id', parishionerId)
     .maybeSingle()
 
@@ -79,5 +79,10 @@ export async function verifyRequestNotificationPayload(input: {
     return { ok: false, error: 'Contact phone does not match this request.', status: 403 }
   }
 
-  return { ok: true }
+  const parishId = normalizeText(parishioner.parish_id)
+  if (!parishId) {
+    return { ok: false, error: 'Contact is not linked to a parish.', status: 403 }
+  }
+
+  return { ok: true, parishId }
 }

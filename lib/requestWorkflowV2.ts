@@ -10,6 +10,7 @@ import {
   type RequestWaitingOnValue,
 } from '@/lib/requestWaitingOn'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 
 /** Stale contact window aligned with dashboard follow-up queue (`FOLLOWUP_STALE_MS`). */
 export const WORKFLOW_STALE_CONTACT_MS = 7 * 24 * 60 * 60 * 1000
@@ -25,6 +26,8 @@ export type WorkflowSectionAnchor =
   | 'completion'
   | 'send-email'
   | 'internal-notes'
+
+export const REQUEST_WORKFLOW_DETAIL_FALLBACK_HREF = '/dashboard/requests'
 
 export type WorkflowPriorityKey =
   | 'completed'
@@ -161,7 +164,13 @@ export function requestWorkflowDetailHref(
   requestId: string,
   anchor: WorkflowSectionAnchor
 ): string {
-  return `/dashboard/requests/${encodeURIComponent(requestId)}#${anchor}`
+  const normalizedRequestId = String(requestId ?? '').trim()
+  if (!normalizedRequestId) return REQUEST_WORKFLOW_DETAIL_FALLBACK_HREF
+
+  return safeDashboardHrefOrFallback(
+    `/dashboard/requests/${encodeURIComponent(normalizedRequestId)}#${anchor}`,
+    REQUEST_WORKFLOW_DETAIL_FALLBACK_HREF
+  )
 }
 
 /** Lower sort value = more urgent */

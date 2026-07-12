@@ -5,15 +5,38 @@ import {
   REQUEST_DOCUMENTS_BUCKET,
   REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
 } from '@/lib/requestDocuments'
+import { ACTIVE_STAFF_PARISH_COOKIE } from '@/lib/server/activeStaffParishContext'
 import { writeAuditEvent } from '@/lib/server/auditLog'
-import { loadStaffScopedRequestDocumentAccess } from '@/lib/server/requestDocumentAccess'
+import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
+import {
+  loadStaffScopedRequestDocumentAccess,
+  type StaffScopedRequestDocumentAccessOptions,
+} from '@/lib/server/requestDocumentAccess'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { confirmedRequestDocumentSignedUrl } from '@/lib/server/requestDocumentSignedUrl'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 type RouteParams = { params: Promise<{ id: string; documentId: string }> }
 
+const MAX_BODY_BYTES = 32 * 1024
+
 function text(value: unknown): string {
   return String(value ?? '').trim()
+}
+
+function activeParishDocumentAccessOptions(
+  request: NextRequest,
+  staffSupabase: StaffScopedRequestDocumentAccessOptions['staffSupabase']
+): StaffScopedRequestDocumentAccessOptions {
+  const activeParishId = request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+
+  return {
+    staffSupabase,
+    activeParishId,
+    allowPrimaryParishFallback: !activeParishId,
+  }
 }
 
 async function loadDocument(
@@ -39,7 +62,11 @@ export async function GET(request: NextRequest, context: RouteParams) {
   const { id: requestId, documentId } = await context.params
   try {
     const admin = createSupabaseServiceRoleClient()
-    const access = await loadStaffScopedRequestDocumentAccess(admin, requestId)
+    const access = await loadStaffScopedRequestDocumentAccess(
+      admin,
+      requestId,
+      activeParishDocumentAccessOptions(request, staff.supabase)
+    )
     if (!access) {
       return NextResponse.json({ ok: false, error: 'Request not found.' }, { status: 404 })
     }
@@ -58,11 +85,22 @@ export async function GET(request: NextRequest, context: RouteParams) {
       .from(bucket)
       .createSignedUrl(String(document.storage_path), 60)
 
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    const signedUrl = confirmedRequestDocumentSignedUrl(data)
+    if (error || !signedUrl) {
+      logServerError('[request-document] signed-url failed', error, {
+        route: '/api/requests/[id]/documents/[documentId]',
+        hasRequestId: Boolean(requestId),
+        hasDocumentId: Boolean(documentId),
+        activeParishCookiePresent: Boolean(request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value),
+        missingSignedUrl: !signedUrl,
+      })
+      return NextResponse.json(
+        { ok: false, error: 'Could not prepare document download.' },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ ok: true, url: data.signedUrl })
+    return NextResponse.json({ ok: true, url: signedUrl })
   } catch (error: unknown) {
     if (isRequestDocumentsTableMissing(error as { code?: string; message?: string } | null)) {
       return NextResponse.json(
@@ -70,22 +108,48 @@ export async function GET(request: NextRequest, context: RouteParams) {
         { status: 503 }
       )
     }
-    const message = error instanceof Error ? error.message : 'Could not prepare document download.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    logServerError('[request-document] download failed', error, {
+      route: '/api/requests/[id]/documents/[documentId]',
+      hasRequestId: Boolean(requestId),
+      hasDocumentId: Boolean(documentId),
+      activeParishCookiePresent: Boolean(request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value),
+    })
+    return NextResponse.json(
+      { ok: false, error: 'Could not prepare document download.' },
+      { status: 500 }
+    )
   }
 }
 
 export async function PATCH(request: NextRequest, context: RouteParams) {
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
   const staff = await requireStaffFromRequest(request)
   if (!staff.ok) return staff.response
 
   const { id: requestId, documentId } = await context.params
-  const body = await request.json().catch(() => null as Record<string, unknown> | null)
-  if (!body || typeof body !== 'object') {
+  const parsedBody = await readBoundedJsonBody(request, MAX_BODY_BYTES)
+  if (!parsedBody.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          parsedBody.reason === 'too_large'
+            ? 'Document review is too large.'
+            : 'Invalid JSON body.',
+      },
+      { status: parsedBody.reason === 'too_large' ? 413 : 400 }
+    )
+  }
+
+  const body = parsedBody.value
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body.' }, { status: 400 })
   }
 
-  const status = text(body.status)
+  const input = body as Record<string, unknown>
+  const status = text(input.status)
   if (status !== 'approved' && status !== 'rejected') {
     return NextResponse.json(
       { ok: false, error: 'Document status must be approved or rejected.' },
@@ -95,7 +159,11 @@ export async function PATCH(request: NextRequest, context: RouteParams) {
 
   try {
     const admin = createSupabaseServiceRoleClient()
-    const access = await loadStaffScopedRequestDocumentAccess(admin, requestId)
+    const access = await loadStaffScopedRequestDocumentAccess(
+      admin,
+      requestId,
+      activeParishDocumentAccessOptions(request, staff.supabase)
+    )
     if (!access) {
       return NextResponse.json({ ok: false, error: 'Request not found.' }, { status: 404 })
     }
@@ -109,7 +177,7 @@ export async function PATCH(request: NextRequest, context: RouteParams) {
       return NextResponse.json({ ok: false, error: 'Document not found.' }, { status: 404 })
     }
 
-    const reviewNote = text(body.reviewNote) || null
+    const reviewNote = text(input.reviewNote) || null
     const reviewedAt = new Date().toISOString()
     const { data: updated, error: updateError } = await admin
       .from('request_documents')
@@ -135,7 +203,14 @@ export async function PATCH(request: NextRequest, context: RouteParams) {
           { status: 503 }
         )
       }
-      return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 })
+      logServerError('[request-document] review update failed', updateError, {
+        route: '/api/requests/[id]/documents/[documentId]',
+        hasRequestId: Boolean(requestId),
+        hasDocumentId: Boolean(documentId),
+        activeParishCookiePresent: Boolean(request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value),
+        status,
+      })
+      return NextResponse.json({ ok: false, error: 'Could not review document.' }, { status: 500 })
     }
 
     await writeAuditEvent({
@@ -146,9 +221,8 @@ export async function PATCH(request: NextRequest, context: RouteParams) {
       targetId: documentId,
       metadata: {
         requestId: access.requestId,
-        filename: document.original_filename,
         status,
-        summary: `${requestDocumentStatusLabel(status)}: ${document.original_filename}`,
+        summary: requestDocumentStatusLabel(status),
       },
     })
 
@@ -160,7 +234,12 @@ export async function PATCH(request: NextRequest, context: RouteParams) {
         { status: 503 }
       )
     }
-    const message = error instanceof Error ? error.message : 'Could not review document.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    logServerError('[request-document] review failed', error, {
+      route: '/api/requests/[id]/documents/[documentId]',
+      hasRequestId: Boolean(requestId),
+      hasDocumentId: Boolean(documentId),
+      activeParishCookiePresent: Boolean(request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value),
+    })
+    return NextResponse.json({ ok: false, error: 'Could not review document.' }, { status: 500 })
   }
 }

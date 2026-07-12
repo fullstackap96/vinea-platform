@@ -1,29 +1,26 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { vineaInputFieldClassName, vineaSectionShellClassName } from '@/lib/vineaUi'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import {
+  workflowTemplateLoadErrorMessage,
+  workflowTemplateSaveErrorMessage,
+} from '@/lib/workflowTemplateSettingsClientMessages'
+import {
+  parseWorkflowTemplateStepResponse,
+  parseWorkflowTemplatesResponse,
+  type WorkflowTemplateReadModel,
+  type WorkflowTemplateStepReadModel,
+} from '@/lib/workflowTemplateSettings'
 
-type WorkflowStep = {
-  id: string
-  template_id: string
-  phase: string
-  title: string
-  description: string | null
-  owner_type: 'staff' | 'priest' | 'deacon' | 'family'
-  required: boolean
-  due_offset_days: number | null
-  sort_order: number
-}
+type WorkflowStep = WorkflowTemplateStepReadModel
+type WorkflowTemplate = WorkflowTemplateReadModel
 
-type WorkflowTemplate = {
-  id: string
-  request_type: string
-  name: string
-  description: string | null
-  active: boolean
-  steps: WorkflowStep[]
+type SettingsWorkflowTemplatesSectionProps = {
+  activeParishId?: string | null
+  activeParishName?: string | null
 }
 
 const REQUEST_TYPE_LABELS: Record<string, string> = {
@@ -37,18 +34,22 @@ function requestTypeLabel(value: string): string {
   return REQUEST_TYPE_LABELS[value] ?? value
 }
 
-function messageFromUnknown(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback
-}
-
-export function SettingsWorkflowTemplatesSection() {
+export function SettingsWorkflowTemplatesSection({
+  activeParishId = null,
+  activeParishName = null,
+}: SettingsWorkflowTemplatesSectionProps) {
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([])
   const [selectedType, setSelectedType] = useState('baptism')
   const [loading, setLoading] = useState(true)
   const [savingStepId, setSavingStepId] = useState('')
+  const saveInFlightRef = useRef<string | null>(null)
   const [loadError, setLoadError] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const loadSequenceRef = useRef(0)
+  const loadAbortRef = useRef<AbortController | null>(null)
+  const activeParishIdRef = useRef(activeParishId)
+  activeParishIdRef.current = activeParishId
 
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.request_type === selectedType) ?? templates[0],
@@ -56,16 +57,35 @@ export function SettingsWorkflowTemplatesSection() {
   )
 
   const loadTemplates = useCallback(async () => {
+    const loadSequence = ++loadSequenceRef.current
+    loadAbortRef.current?.abort()
+    const controller = new AbortController()
+    loadAbortRef.current = controller
+    const isLatestLoad = () => loadSequence === loadSequenceRef.current
+
     setLoading(true)
     setLoadError('')
+    setMessage('')
+    setError('')
+    setTemplates([])
     try {
-      const res = await fetch('/api/parish/workflow-templates', { credentials: 'include' })
+      const res = await fetch('/api/parish/workflow-templates', {
+        credentials: 'include',
+        signal: controller.signal,
+      })
       const data = await res.json().catch(() => ({}))
+      if (!isLatestLoad()) return
       if (!res.ok || !data?.ok) {
-        setLoadError(String(data?.error || 'Could not load workflow templates.'))
+        setLoadError(workflowTemplateLoadErrorMessage(data?.error))
         return
       }
-      const nextTemplates: WorkflowTemplate[] = Array.isArray(data.templates) ? data.templates : []
+      const parsed = parseWorkflowTemplatesResponse(data, activeParishId)
+      if (!parsed) {
+        setTemplates([])
+        setLoadError(workflowTemplateLoadErrorMessage(null))
+        return
+      }
+      const nextTemplates = parsed.templates
       setTemplates(nextTemplates)
       setSelectedType((current) =>
         nextTemplates.length > 0 && !nextTemplates.some((t) => t.request_type === current)
@@ -73,14 +93,28 @@ export function SettingsWorkflowTemplatesSection() {
           : current
       )
     } catch (loadError: unknown) {
-      setLoadError(messageFromUnknown(loadError, 'Could not load workflow templates.'))
+      if (loadError instanceof DOMException && loadError.name === 'AbortError') return
+      if (!isLatestLoad()) return
+      setLoadError(workflowTemplateLoadErrorMessage(loadError))
     } finally {
-      setLoading(false)
+      if (isLatestLoad()) {
+        loadAbortRef.current = null
+        setLoading(false)
+      }
     }
-  }, [])
+  }, [activeParishId])
 
   useEffect(() => {
-    void loadTemplates()
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) void loadTemplates()
+    })
+    return () => {
+      cancelled = true
+      loadSequenceRef.current += 1
+      loadAbortRef.current?.abort()
+      loadAbortRef.current = null
+    }
   }, [loadTemplates])
 
   function updateStep(stepId: string, patch: Partial<WorkflowStep>) {
@@ -93,6 +127,10 @@ export function SettingsWorkflowTemplatesSection() {
   }
 
   async function saveStep(step: WorkflowStep) {
+    if (saveInFlightRef.current) return
+
+    const saveParishId = activeParishIdRef.current
+    saveInFlightRef.current = step.id
     setSavingStepId(step.id)
     setMessage('')
     setError('')
@@ -115,22 +153,31 @@ export function SettingsWorkflowTemplatesSection() {
         }),
       })
       const data = await res.json().catch(() => ({}))
+      if (activeParishIdRef.current !== saveParishId) return
       if (!res.ok || !data?.ok) {
-        setError(String(data?.error || 'Could not save workflow step.'))
+        setError(workflowTemplateSaveErrorMessage(data?.error))
         return
       }
-      const savedStep = data.step as WorkflowStep
+      const savedStep = parseWorkflowTemplateStepResponse(data, step.id)
+      if (!savedStep) {
+        setError(workflowTemplateSaveErrorMessage(null))
+        return
+      }
       updateStep(savedStep.id, savedStep)
       setMessage('Workflow step saved.')
     } catch (saveError: unknown) {
-      setError(messageFromUnknown(saveError, 'Could not save workflow step.'))
+      if (activeParishIdRef.current !== saveParishId) return
+      setError(workflowTemplateSaveErrorMessage(saveError))
     } finally {
+      saveInFlightRef.current = null
       setSavingStepId('')
     }
   }
 
+  const saving = savingStepId !== ''
+
   return (
-    <section className={vineaSectionShellClassName}>
+    <section className={vineaSectionShellClassName} aria-busy={loading || saving}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-semibold text-gray-900">Workflow templates</h2>
@@ -138,12 +185,17 @@ export function SettingsWorkflowTemplatesSection() {
             Adjust the parish process families and staff follow for each Catholic workflow. These
             edits apply to new requests created after the change.
           </p>
+          {activeParishName ? (
+            <p className="mt-3 inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-950">
+              Workflow templates are scoped to {activeParishName}.
+            </p>
+          ) : null}
         </div>
         <button
           type="button"
           onClick={() => void loadTemplates()}
           className={`${secondaryButtonMd} justify-center`}
-          disabled={loading}
+          disabled={loading || saving}
         >
           Refresh
         </button>
@@ -171,6 +223,7 @@ export function SettingsWorkflowTemplatesSection() {
               <button
                 key={template.id}
                 type="button"
+                disabled={saving}
                 onClick={() => setSelectedType(template.request_type)}
                 className={`rounded-lg border px-3 py-2 text-left text-sm font-semibold transition-colors ${
                   template.request_type === selectedTemplate?.request_type
@@ -204,6 +257,7 @@ export function SettingsWorkflowTemplatesSection() {
                           <input
                             className={vineaInputFieldClassName}
                             value={step.title}
+                            disabled={saving}
                             maxLength={160}
                             onChange={(e) => updateStep(step.id, { title: e.target.value })}
                           />
@@ -216,6 +270,7 @@ export function SettingsWorkflowTemplatesSection() {
                           <textarea
                             className={`min-h-[72px] resize-y ${vineaInputFieldClassName}`}
                             value={step.description ?? ''}
+                            disabled={saving}
                             maxLength={1000}
                             onChange={(e) =>
                               updateStep(step.id, { description: e.target.value || null })
@@ -231,6 +286,7 @@ export function SettingsWorkflowTemplatesSection() {
                             <input
                               className={vineaInputFieldClassName}
                               value={step.phase}
+                              disabled={saving}
                               maxLength={120}
                               onChange={(e) => updateStep(step.id, { phase: e.target.value })}
                             />
@@ -243,6 +299,7 @@ export function SettingsWorkflowTemplatesSection() {
                             <select
                               className={vineaInputFieldClassName}
                               value={step.owner_type}
+                              disabled={saving}
                               onChange={(e) =>
                                 updateStep(step.id, {
                                   owner_type: e.target.value as WorkflowStep['owner_type'],
@@ -266,6 +323,7 @@ export function SettingsWorkflowTemplatesSection() {
                               max={365}
                               className={vineaInputFieldClassName}
                               value={step.due_offset_days ?? ''}
+                              disabled={saving}
                               placeholder="None"
                               onChange={(e) =>
                                 updateStep(step.id, {
@@ -286,6 +344,7 @@ export function SettingsWorkflowTemplatesSection() {
                               max={1000}
                               className={vineaInputFieldClassName}
                               value={step.sort_order}
+                              disabled={saving}
                               onChange={(e) =>
                                 updateStep(step.id, { sort_order: Number(e.target.value) })
                               }
@@ -298,6 +357,7 @@ export function SettingsWorkflowTemplatesSection() {
                             <input
                               type="checkbox"
                               checked={step.required}
+                              disabled={saving}
                               onChange={(e) =>
                                 updateStep(step.id, { required: e.target.checked })
                               }
@@ -309,7 +369,7 @@ export function SettingsWorkflowTemplatesSection() {
                           <button
                             type="button"
                             onClick={() => void saveStep(step)}
-                            disabled={savingStepId === step.id || !step.title.trim() || !step.phase.trim()}
+                            disabled={saving || !step.title.trim() || !step.phase.trim()}
                             className={`${primaryButtonMd} justify-center`}
                           >
                             {savingStepId === step.id ? 'Saving...' : 'Save step'}

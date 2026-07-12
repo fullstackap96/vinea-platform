@@ -11,6 +11,7 @@ import {
   type RequestDocument,
   type RequestDocumentStatus,
 } from '@/lib/requestDocuments'
+import { requestDocumentClientFailureMessage } from '@/lib/requestDocumentClientMessages'
 import type { RequestWorkflowStep } from '@/lib/requestWorkflowSteps'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 
@@ -51,6 +52,9 @@ export function RequestDocumentsSection({
   const [downloadingId, setDownloadingId] = useState('')
   const [creatingPortalLink, setCreatingPortalLink] = useState(false)
   const [portalLink, setPortalLink] = useState('')
+  const mutationInFlightRef = useRef<'upload' | 'review' | 'portal-link' | null>(null)
+
+  const mutationBusy = uploading || Boolean(reviewingId) || creatingPortalLink
 
   const stepTitleById = useMemo(() => {
     const map = new Map<string, string>()
@@ -66,7 +70,7 @@ export function RequestDocumentsSection({
       const response = await fetch(`/api/requests/${requestId}/documents`)
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || 'Could not load documents.')
+        throw new Error(requestDocumentClientFailureMessage('loadDocuments', payload?.error))
       }
       setDocuments(
         (payload.documents ?? [])
@@ -74,24 +78,33 @@ export function RequestDocumentsSection({
           .filter((document: RequestDocument | null): document is RequestDocument => Boolean(document))
       )
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not load documents.')
+      setMessage(requestDocumentClientFailureMessage('loadDocuments', error))
     } finally {
       setLoading(false)
     }
   }, [requestId])
 
   useEffect(() => {
-    void loadDocuments()
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) void loadDocuments()
+    })
+    return () => {
+      cancelled = true
+    }
   }, [loadDocuments])
 
   async function uploadDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (mutationInFlightRef.current) return
+
     const file = fileInputRef.current?.files?.[0]
     if (!file) {
       setMessage('Choose a document to upload.')
       return
     }
 
+    mutationInFlightRef.current = 'upload'
     setUploading(true)
     setMessage('')
     try {
@@ -105,7 +118,7 @@ export function RequestDocumentsSection({
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || 'Could not upload document.')
+        throw new Error(requestDocumentClientFailureMessage('uploadDocument', payload?.error))
       }
       setDocumentType('')
       setWorkflowStepId('')
@@ -113,13 +126,17 @@ export function RequestDocumentsSection({
       setMessage('Document uploaded for staff review.')
       await loadDocuments()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not upload document.')
+      setMessage(requestDocumentClientFailureMessage('uploadDocument', error))
     } finally {
+      mutationInFlightRef.current = null
       setUploading(false)
     }
   }
 
   async function reviewDocument(documentId: string, status: 'approved' | 'rejected') {
+    if (mutationInFlightRef.current) return
+
+    mutationInFlightRef.current = 'review'
     setReviewingId(documentId)
     setMessage('')
     try {
@@ -130,13 +147,14 @@ export function RequestDocumentsSection({
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || 'Could not review document.')
+        throw new Error(requestDocumentClientFailureMessage('reviewDocument', payload?.error))
       }
       setMessage(status === 'approved' ? 'Document approved.' : 'Document rejected.')
       await loadDocuments()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not review document.')
+      setMessage(requestDocumentClientFailureMessage('reviewDocument', error))
     } finally {
+      mutationInFlightRef.current = null
       setReviewingId('')
     }
   }
@@ -144,21 +162,33 @@ export function RequestDocumentsSection({
   async function openDocument(documentId: string) {
     setDownloadingId(documentId)
     setMessage('')
+    const documentWindow = window.open('', '_blank')
+    if (documentWindow) documentWindow.opener = null
+    if (!documentWindow) {
+      setMessage(requestDocumentClientFailureMessage('openDocumentPopupBlocked'))
+      setDownloadingId('')
+      return
+    }
+
     try {
       const response = await fetch(`/api/requests/${requestId}/documents/${documentId}`)
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok || !payload.url) {
-        throw new Error(payload?.error || 'Could not open document.')
+        throw new Error(requestDocumentClientFailureMessage('openDocument', payload?.error))
       }
-      window.open(payload.url, '_blank', 'noopener,noreferrer')
+      documentWindow.location.replace(payload.url)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not open document.')
+      documentWindow.close()
+      setMessage(requestDocumentClientFailureMessage('openDocument', error))
     } finally {
       setDownloadingId('')
     }
   }
 
   async function createPortalLink() {
+    if (mutationInFlightRef.current) return
+
+    mutationInFlightRef.current = 'portal-link'
     setCreatingPortalLink(true)
     setMessage('')
     try {
@@ -167,7 +197,7 @@ export function RequestDocumentsSection({
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok || !payload.url) {
-        throw new Error(payload?.error || 'Could not create family upload link.')
+        throw new Error(requestDocumentClientFailureMessage('createFamilyUploadLink', payload?.error))
       }
       setPortalLink(payload.url)
       if (navigator.clipboard?.writeText) {
@@ -177,8 +207,9 @@ export function RequestDocumentsSection({
         setMessage('Family upload link created. Copy it below.')
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not create family upload link.')
+      setMessage(requestDocumentClientFailureMessage('createFamilyUploadLink', error))
     } finally {
+      mutationInFlightRef.current = null
       setCreatingPortalLink(false)
     }
   }
@@ -198,7 +229,7 @@ export function RequestDocumentsSection({
           <button
             type="button"
             onClick={() => void createPortalLink()}
-            disabled={creatingPortalLink}
+            disabled={mutationBusy}
             className={`${secondaryButtonMd} justify-center`}
           >
             {creatingPortalLink ? 'Creating link...' : 'Create family upload link'}
@@ -224,13 +255,19 @@ export function RequestDocumentsSection({
         </div>
       ) : null}
 
-      <form onSubmit={uploadDocument} className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
+      <form
+        method="post"
+        onSubmit={uploadDocument}
+        className="mt-4 rounded-xl border border-gray-200 bg-white p-4"
+        aria-busy={mutationBusy}
+      >
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto] lg:items-end">
           <label className="block text-sm">
             <span className="font-medium text-gray-800">Document</span>
             <input
               ref={fileInputRef}
               type="file"
+              disabled={mutationBusy}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </label>
@@ -238,6 +275,7 @@ export function RequestDocumentsSection({
             <span className="font-medium text-gray-800">Type</span>
             <input
               value={documentType}
+              disabled={mutationBusy}
               onChange={(event) => setDocumentType(event.target.value)}
               placeholder="Birth certificate"
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
@@ -247,6 +285,7 @@ export function RequestDocumentsSection({
             <span className="font-medium text-gray-800">Workflow step</span>
             <select
               value={workflowStepId}
+              disabled={mutationBusy}
               onChange={(event) => setWorkflowStepId(event.target.value)}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
@@ -258,7 +297,7 @@ export function RequestDocumentsSection({
               ))}
             </select>
           </label>
-          <button type="submit" disabled={uploading} className={`${primaryButtonMd} justify-center`}>
+          <button type="submit" disabled={mutationBusy} className={`${primaryButtonMd} justify-center`}>
             <Upload className="h-4 w-4" aria-hidden />
             {uploading ? 'Uploading...' : 'Upload'}
           </button>
@@ -319,6 +358,7 @@ export function RequestDocumentsSection({
               <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <input
                   value={reviewNotes[document.id] ?? document.review_note ?? ''}
+                  disabled={mutationBusy}
                   onChange={(event) =>
                     setReviewNotes((current) => ({
                       ...current,
@@ -331,7 +371,7 @@ export function RequestDocumentsSection({
                 <button
                   type="button"
                   onClick={() => void reviewDocument(document.id, 'approved')}
-                  disabled={reviewingId === document.id}
+                  disabled={mutationBusy}
                   className={`${primaryButtonMd} justify-center`}
                 >
                   {reviewingId === document.id ? 'Saving...' : 'Approve'}
@@ -339,7 +379,7 @@ export function RequestDocumentsSection({
                 <button
                   type="button"
                   onClick={() => void reviewDocument(document.id, 'rejected')}
-                  disabled={reviewingId === document.id}
+                  disabled={mutationBusy}
                   className={`${secondaryButtonMd} justify-center`}
                 >
                   Reject

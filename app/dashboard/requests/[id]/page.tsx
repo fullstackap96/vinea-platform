@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Mail, Phone, User } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import {
   RequestContactIntakeSection,
   RequestStatusSection,
@@ -25,6 +24,7 @@ import {
 } from './_components/CommunicationSection'
 import { CommunicationHubSubsection } from './_components/CommunicationHubSubsection'
 import { SendEmailSection } from './_components/SendEmailSection'
+import { VineaConfirmDialog } from '@/app/dashboard/_components/VineaConfirmDialog'
 import { GoogleCalendarSection } from './_components/GoogleCalendarSection'
 import { resolveRequestNextStep } from './_components/RequestNextStepCard'
 import { RequestProgressCard } from './_components/RequestProgressCard'
@@ -36,6 +36,7 @@ import { RequestDetailSmartQuickActions } from './_components/RequestDetailSmart
 import { RequestDetailSummaryHeader } from './_components/RequestDetailSummaryHeader'
 import { RequestCommunicationCommitmentCard } from './_components/RequestCommunicationCommitmentCard'
 import { RequestCareCadenceCard } from './_components/RequestCareCadenceCard'
+import { RequestDetailLoadingSkeleton } from './_components/RequestDetailLoadingSkeleton'
 import { RequestFirstReviewCard } from './_components/RequestFirstReviewCard'
 import { RequestHandoffBriefCard } from './_components/RequestHandoffBrief'
 import { RequestCommandCard } from './_components/RequestCommandCard'
@@ -68,11 +69,8 @@ import { NextFollowUpSection } from './_components/NextFollowUpSection'
 import { InternalNotesSection } from './_components/InternalNotesSection'
 import { StaffNotesSection } from './_components/StaffNotesSection'
 import { parseAiEmailDraft } from '@/lib/parseAiEmailDraft'
-import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
-import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
 import {
   devDashboardConsoleError,
-  logDashboardQueryError,
 } from '@/lib/dashboardSupabaseError'
 import {
   buildVineaEmailTemplateContext,
@@ -81,7 +79,6 @@ import {
   type VineaEmailTemplateId,
 } from '@/lib/vineaEmailTemplates'
 import { EditRequestDetailsSection } from './_components/EditRequestDetailsSection'
-import { ensureOciaRequestDetailsIfMissing } from '@/lib/ensureOciaRequestDetails'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import {
   validateConfirmedDateTimeNotPast,
@@ -94,6 +91,7 @@ import {
   updateRequestWorkflowStepStatus,
 } from '../actions'
 import {
+  googleCalendarConflictUserMessage,
   isGoogleOAuthReconnectError,
   userFacingGoogleCalendarErrorMessage,
 } from '@/lib/googleCalendarUserErrors'
@@ -108,6 +106,11 @@ import { evaluateCommunicationCommitment } from '@/lib/communicationCommitments'
 import { buildRequestFirstReview } from '@/lib/requestFirstReview'
 import { evaluateIntakeTriage } from '@/lib/intakeTriage'
 import { buildRequestPlaybookProgress } from '@/lib/requestPlaybookProgress'
+import {
+  requestDetailClientApiErrorMessage,
+  requestDetailClientFailureMessage,
+  requestDetailClientServerActionErrorMessage,
+} from '@/lib/requestDetailClientMessages'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 import {
   countIncompleteRequiredWorkflowSteps,
@@ -115,6 +118,42 @@ import {
   type RequestWorkflowStep,
   type RequestWorkflowStepStatus,
 } from '@/lib/requestWorkflowSteps'
+import {
+  parseRequestChecklistItems,
+  parseRequestCommunications,
+  parseRequestDetailAccess,
+  parseRequestTypeSupport,
+  type RequestChecklistItemDto,
+  type RequestCommunicationDto,
+  type RequestDetailParishionerDto,
+  type RequestDetailRequestDto,
+  type RequestFuneralDetailDto,
+  type RequestJoinParishDetailDto,
+  type RequestLinkedSacramentalRecordDto,
+  type RequestOciaDetailDto,
+  type RequestTypeSupportDto,
+  type RequestWeddingDetailDto,
+} from '@/lib/requestDetailDtos'
+
+type GoogleCalendarConflictDto = {
+  summary: string | null
+  start: string | null
+  end: string | null
+  htmlLink: string | null
+}
+
+type GoogleCalendarMutationPayload = {
+  ok?: boolean
+  error?: unknown
+  message?: unknown
+  conflicts?: GoogleCalendarConflictDto[]
+}
+
+function nowDatetimeLocal() {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -135,18 +174,21 @@ export default function RequestDetailPage() {
     return d.toISOString()
   }
 
-  const [request, setRequest] = useState<any>(null)
-  const [parishioner, setParishioner] = useState<any>(null)
+  const [request, setRequest] = useState<RequestDetailRequestDto | null>(null)
+  const [parishioner, setParishioner] = useState<RequestDetailParishionerDto | null>(null)
   const [hasSacramentalRecord, setHasSacramentalRecord] = useState(false)
-  const [linkedSacramentalRecord, setLinkedSacramentalRecord] = useState<{
-    person_name: string | null
-    created_at: string
-  } | null>(null)
-  const [checklistItems, setChecklistItems] = useState<any[]>([])
+  const [linkedSacramentalRecord, setLinkedSacramentalRecord] =
+    useState<RequestLinkedSacramentalRecordDto | null>(null)
+  const [checklistItems, setChecklistItems] = useState<RequestChecklistItemDto[]>([])
   const [workflowSteps, setWorkflowSteps] = useState<RequestWorkflowStep[]>([])
   const [workflowStepMessage, setWorkflowStepMessage] = useState('')
   const [workflowStepUpdatingId, setWorkflowStepUpdatingId] = useState('')
+  const workflowStepMutationInFlightRef = useRef(false)
+  const [checklistUpdatingId, setChecklistUpdatingId] = useState('')
+  const [checklistMessage, setChecklistMessage] = useState('')
+  const checklistMutationInFlightRef = useRef(false)
   const [loading, setLoading] = useState(true)
+  const requestLoadAbortRef = useRef<AbortController | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
 
   const [aiSummary, setAiSummary] = useState('')
@@ -170,9 +212,9 @@ const [staffNotes, setStaffNotes] = useState('')
   const [confirmedSaving, setConfirmedSaving] = useState(false)
   const [confirmedMessage, setConfirmedMessage] = useState('')
 
-  const [communications, setCommunications] = useState<any[]>([])
+  const [communications, setCommunications] = useState<RequestCommunicationDto[]>([])
   const [commMethod, setCommMethod] = useState<CommunicationMethod>('email')
-  const [commContactedAt, setCommContactedAt] = useState('')
+  const [commContactedAt, setCommContactedAt] = useState(() => nowDatetimeLocal())
   const [commNotes, setCommNotes] = useState('')
   const [commSaving, setCommSaving] = useState(false)
   const [commMessage, setCommMessage] = useState('')
@@ -180,16 +222,21 @@ const [staffNotes, setStaffNotes] = useState('')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailSending, setEmailSending] = useState(false)
   const [emailMessage, setEmailMessage] = useState('')
+  const emailSendInFlightRef = useRef(false)
+  const [pendingEmailTemplateId, setPendingEmailTemplateId] =
+    useState<VineaEmailTemplateId | null>(null)
+  const [emailTemplateApplying, setEmailTemplateApplying] = useState(false)
 
   const [gcalCreating, setGcalCreating] = useState(false)
   const [gcalUpdating, setGcalUpdating] = useState(false)
   const [gcalDeleting, setGcalDeleting] = useState(false)
+  const googleCalendarMutationInFlightRef = useRef(false)
   const [gcalMessage, setGcalMessage] = useState('')
   const [gcalConflicts, setGcalConflicts] = useState<
-    Array<{ summary: string | null; start: string | null; end: string | null; htmlLink: string | null }>
+    GoogleCalendarConflictDto[]
   >([])
 
-  const [funeralDetail, setFuneralDetail] = useState<any | null>(null)
+  const [funeralDetail, setFuneralDetail] = useState<RequestFuneralDetailDto | null>(null)
   const [funeralDeceasedName, setFuneralDeceasedName] = useState('')
   const [funeralFamilyRelationship, setFuneralFamilyRelationship] = useState('')
   const [funeralDateOfDeath, setFuneralDateOfDeath] = useState('')
@@ -208,7 +255,7 @@ const [staffNotes, setStaffNotes] = useState('')
   const [funeralConfirmedSaving, setFuneralConfirmedSaving] = useState(false)
   const [funeralConfirmedMessage, setFuneralConfirmedMessage] = useState('')
 
-  const [weddingDetail, setWeddingDetail] = useState<any | null>(null)
+  const [weddingDetail, setWeddingDetail] = useState<RequestWeddingDetailDto | null>(null)
   const [weddingPartnerOne, setWeddingPartnerOne] = useState('')
   const [weddingPartnerTwo, setWeddingPartnerTwo] = useState('')
   const [weddingProposedDate, setWeddingProposedDate] = useState('')
@@ -219,19 +266,29 @@ const [staffNotes, setStaffNotes] = useState('')
   const [weddingConfirmedSaving, setWeddingConfirmedSaving] = useState(false)
   const [weddingConfirmedMessage, setWeddingConfirmedMessage] = useState('')
 
-  const [ociaDetail, setOciaDetail] = useState<any | null>(null)
+  const [ociaDetail, setOciaDetail] = useState<RequestOciaDetailDto | null>(null)
   const [confirmedOciaSession, setConfirmedOciaSession] = useState('')
   const [ociaSessionSaving, setOciaSessionSaving] = useState(false)
   const [ociaSessionMessage, setOciaSessionMessage] = useState('')
 
-  const [joinParishDetail, setJoinParishDetail] = useState<any | null>(null)
+  const [joinParishDetail, setJoinParishDetail] =
+    useState<RequestJoinParishDetailDto | null>(null)
 
   const [parishStaffNames, setParishStaffNames] = useState<string[]>([])
   const [parishPriestNames, setParishPriestNames] = useState<string[]>([])
 
   const [editingIntake, setEditingIntake] = useState(false)
   const [confirmMarkCompleteOpen, setConfirmMarkCompleteOpen] = useState(false)
+  const [confirmGoogleCalendarDeleteOpen, setConfirmGoogleCalendarDeleteOpen] =
+    useState(false)
+  const [confirmGoogleCalendarConflictOverrideOpen, setConfirmGoogleCalendarConflictOverrideOpen] =
+    useState(false)
+  const [pendingConfirmedScheduleClear, setPendingConfirmedScheduleClear] = useState<
+    'baptism' | 'funeral' | 'wedding' | 'ocia' | null
+  >(null)
   const [requestStatusMessage, setRequestStatusMessage] = useState('')
+  const [requestStatusUpdating, setRequestStatusUpdating] = useState(false)
+  const requestStatusInFlightRef = useRef(false)
   const lastAutoNextStepKeyRef = useRef<string | null>(null)
   const [activeTab, setActiveTab] = useState<RequestDetailTabId>('overview')
 
@@ -246,7 +303,7 @@ const [staffNotes, setStaffNotes] = useState('')
         scrollAndHighlightRequestSectionInPlace(id)
       })
     })
-  }, [])
+  }, [setActiveTab])
 
   useEffect(() => {
     function onGoToSection(event: Event) {
@@ -258,13 +315,11 @@ const [staffNotes, setStaffNotes] = useState('')
       window.removeEventListener(REQUEST_DETAIL_GO_TO_SECTION_EVENT, onGoToSection)
   }, [goToSection])
 
-  function nowDatetimeLocal() {
-    const d = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  function isRequestLoadAbort(error: unknown): boolean {
+    return error instanceof Error && error.name === 'AbortError'
   }
 
-  async function loadActivityEvents(requestId: string) {
+  async function loadActivityEvents(requestId: string, signal?: AbortSignal) {
     setActivityError('')
     const params = new URLSearchParams({
       targetType: 'request',
@@ -274,98 +329,87 @@ const [staffNotes, setStaffNotes] = useState('')
     try {
       const res = await fetch(`/api/audit-events?${params.toString()}`, {
         credentials: 'include',
+        signal,
       })
       const data = await res.json().catch(() => ({}))
+      signal?.throwIfAborted()
       if (!res.ok || !data?.ok) {
         setActivityEvents([])
-        setActivityError(String(data?.error || 'Could not load request activity.'))
+        setActivityError(requestDetailClientApiErrorMessage('loadActivity', data?.error))
         return
       }
       setActivityEvents(Array.isArray(data.events) ? data.events : [])
-    } catch (error: unknown) {
-      setActivityEvents([])
-      setActivityError(error instanceof Error ? error.message : 'Could not load request activity.')
-    }
-  }
-
-  async function recordRequestActivity(action: string, metadata?: Record<string, unknown>) {
-    if (!routeId) return
-    try {
-      await fetch('/api/audit-events', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action,
-          targetType: 'request',
-          targetId: routeId,
-          metadata: metadata ?? {},
-        }),
-      })
-      await loadActivityEvents(routeId)
     } catch (error) {
-      devDashboardConsoleError('record request activity', error)
+      if (signal?.aborted || isRequestLoadAbort(error)) throw error
+      setActivityEvents([])
+      setActivityError(requestDetailClientFailureMessage('loadActivity'))
     }
   }
 
-  useEffect(() => {
-    if (!commContactedAt) setCommContactedAt(nowDatetimeLocal())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
   async function loadRequest() {
+    requestLoadAbortRef.current?.abort()
+    const controller = new AbortController()
+    requestLoadAbortRef.current = controller
+
+    try {
+      await loadRequestCore(controller.signal)
+    } catch (error) {
+      if (
+        controller.signal.aborted ||
+        requestLoadAbortRef.current !== controller ||
+        isRequestLoadAbort(error)
+      ) {
+        return
+      }
+      devDashboardConsoleError(
+        'Error loading request detail',
+        new Error(requestDetailClientFailureMessage('verifyAccess'), { cause: error })
+      )
+      setErrorMessage(requestDetailClientFailureMessage('verifyAccess'))
+    } finally {
+      if (requestLoadAbortRef.current === controller) {
+        requestLoadAbortRef.current = null
+        setLoading(false)
+      }
+    }
+  }
+
+  async function loadRequestCore(signal: AbortSignal) {
     if (!routeId) {
       setErrorMessage('Route ID not found.')
       setLoading(false)
       return
     }
 
-    const { data: requestData, error: requestError } = await supabase
-      .from('requests')
-      .select('*')
-      .eq('id', routeId)
-      .single()
+    const accessRes = await fetch(`/api/requests/${routeId}/detail-access`, {
+      credentials: 'include',
+      signal,
+    })
+    const accessPayload: unknown = await accessRes.json().catch(() => ({}))
+    signal.throwIfAborted()
+    const accessPayloadRecord =
+      accessPayload && typeof accessPayload === 'object'
+        ? (accessPayload as Record<string, unknown>)
+        : null
+    const accessData = parseRequestDetailAccess(accessPayload)
+    if (!accessRes.ok || !accessData) {
+      setErrorMessage(
+        requestDetailClientApiErrorMessage('verifyAccess', accessPayloadRecord?.error),
+      )
+      setLoading(false)
+      return
+    }
 
-    if (requestError || !requestData) {
+    const requestData = accessData.request
+    const parishionerData = accessData.parishioner
+
+    if (!requestData?.id) {
       setErrorMessage('Request not found.')
       setLoading(false)
       return
     }
 
-    const { data: parishionerData, error: parishionerError } = await supabase
-      .from('parishioners')
-      .select('*')
-      .eq('id', requestData.parishioner_id)
-      .single()
-
-    if (parishionerError) {
-      devDashboardConsoleError('Error loading parishioner', parishionerError)
-    }
-    if (parishionerData) {
-      const { parishId, error: parishScopeLookupError } =
-        await fetchPrimaryParishId(supabase)
-      if (parishScopeLookupError) {
-        logDashboardQueryError(
-          'parishes (primary parish id, request detail)',
-          parishScopeLookupError
-        )
-      }
-      const rowParishId = parishionerData.parish_id as string | null | undefined
-      if (
-        parishId &&
-        rowParishId != null &&
-        String(rowParishId).trim() !== '' &&
-        String(rowParishId) !== parishId
-      ) {
-        setErrorMessage('Request not found.')
-        setLoading(false)
-        return
-      }
-    }
-
-    setRequest({
-      ...requestData,
-      request_type: requestTypeFromRow(requestData as { request_type?: unknown }),
-    })
+    setRequest(requestData)
     setAiSummary(requestData.ai_summary || '')
     {
       const draftRaw = requestData.reply_draft || ''
@@ -384,61 +428,154 @@ const [staffNotes, setStaffNotes] = useState('')
       setParishioner(parishionerData)
     }
 
-    const { data: checklistData } = await supabase
-      .from('checklist_items')
-      .select('*')
-      .eq('request_id', requestData.id)
-      .order('created_at', { ascending: true })
-
-    setChecklistItems(checklistData || [])
-
-    const { data: workflowStepData, error: workflowStepError } = await supabase
-      .from('request_workflow_steps')
-      .select(
-        'id, phase, title, description, owner_type, required, status, due_date, sort_order'
-      )
-      .eq('request_id', requestData.id)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true })
-
-    if (workflowStepError) {
-      devDashboardConsoleError('Error loading request workflow steps', workflowStepError)
-      setWorkflowSteps([])
-    } else {
-      setWorkflowSteps(
-        (workflowStepData || [])
-          .map((row) => normalizeRequestWorkflowStep(row as Record<string, unknown>))
-          .filter((row): row is RequestWorkflowStep => row !== null)
-      )
+    const loadWorkflowSupport = async () => {
+      try {
+        const workflowSupportRes = await fetch(`/api/requests/${routeId}/workflow-support`, {
+          credentials: 'include',
+          signal,
+        })
+        const workflowSupportData = await workflowSupportRes.json().catch(() => ({}))
+        signal.throwIfAborted()
+        if (!workflowSupportRes.ok || !workflowSupportData?.ok) {
+          devDashboardConsoleError(
+            'Error loading request workflow support',
+            new Error(
+              requestDetailClientApiErrorMessage(
+                'loadWorkflowSupport',
+                workflowSupportData?.error
+              )
+            )
+          )
+          setChecklistItems([])
+          setWorkflowSteps([])
+        } else {
+          setChecklistItems(parseRequestChecklistItems(workflowSupportData.checklistItems) ?? [])
+          const workflowRows: unknown[] = Array.isArray(workflowSupportData.workflowSteps)
+            ? workflowSupportData.workflowSteps
+            : []
+          setWorkflowSteps(
+            workflowRows
+              .map((row) => normalizeRequestWorkflowStep(row as Record<string, unknown>))
+              .filter((row): row is RequestWorkflowStep => row !== null)
+          )
+        }
+      } catch (error) {
+        if (signal.aborted || isRequestLoadAbort(error)) throw error
+        devDashboardConsoleError(
+          'Error loading request workflow support',
+          new Error(requestDetailClientFailureMessage('loadWorkflowSupport'), { cause: error })
+        )
+        setChecklistItems([])
+        setWorkflowSteps([])
+      }
     }
 
-    const { data: communicationsData } = await supabase
-      .from('request_communications')
-      .select('*')
-      .eq('request_id', requestData.id)
-      .order('contacted_at', { ascending: false })
-
-    setCommunications(communicationsData || [])
-
-    const { data: notesData, error: notesError } = await supabase
-      .from('request_notes')
-      .select('id, body, created_at')
-      .eq('request_id', requestData.id)
-      .order('created_at', { ascending: false })
-
-    if (notesError) {
-      devDashboardConsoleError('Error loading request notes', notesError)
-      setRequestNotes([])
-    } else {
-      setRequestNotes(notesData || [])
+    const loadCommunications = async () => {
+      try {
+        const communicationsRes = await fetch(`/api/requests/${routeId}/communications`, {
+          credentials: 'include',
+          signal,
+        })
+        const communicationsData = await communicationsRes.json().catch(() => ({}))
+        signal.throwIfAborted()
+        if (!communicationsRes.ok || !communicationsData?.ok) {
+          devDashboardConsoleError(
+            'Error loading request communications',
+            new Error(
+              requestDetailClientApiErrorMessage('loadCommunications', communicationsData?.error)
+            )
+          )
+          setCommunications([])
+        } else {
+          setCommunications(parseRequestCommunications(communicationsData.communications) ?? [])
+        }
+      } catch (error) {
+        if (signal.aborted || isRequestLoadAbort(error)) throw error
+        devDashboardConsoleError(
+          'Error loading request communications',
+          new Error(requestDetailClientFailureMessage('loadCommunications'), { cause: error })
+        )
+        setCommunications([])
+      }
     }
+
+    const loadNotes = async () => {
+      try {
+        const notesRes = await fetch(`/api/requests/${routeId}/notes`, {
+          credentials: 'include',
+          signal,
+        })
+        const notesData = await notesRes.json().catch(() => ({}))
+        signal.throwIfAborted()
+        if (!notesRes.ok || !notesData?.ok) {
+          devDashboardConsoleError(
+            'Error loading request notes',
+            new Error(requestDetailClientApiErrorMessage('loadRequestNotes', notesData?.error))
+          )
+          setRequestNotes([])
+        } else {
+          setRequestNotes(Array.isArray(notesData.notes) ? notesData.notes : [])
+        }
+      } catch (error) {
+        if (signal.aborted || isRequestLoadAbort(error)) throw error
+        devDashboardConsoleError(
+          'Error loading request notes',
+          new Error(requestDetailClientFailureMessage('loadRequestNotes'), { cause: error })
+        )
+        setRequestNotes([])
+      }
+    }
+
+    const loadTypeSupport = async (): Promise<RequestTypeSupportDto> => {
+      let requestTypeSupport: RequestTypeSupportDto = {
+        funeralDetail: null,
+        weddingDetail: null,
+        ociaDetail: null,
+        joinParishDetail: null,
+        linkedSacramentalRecord: null,
+      }
+      try {
+        const typeSupportRes = await fetch(`/api/requests/${routeId}/type-support`, {
+          credentials: 'include',
+          signal,
+        })
+        const typeSupportData = await typeSupportRes.json().catch(() => ({}))
+        signal.throwIfAborted()
+        if (!typeSupportRes.ok || !typeSupportData?.ok) {
+          devDashboardConsoleError(
+            'Error loading request type support',
+            new Error(
+              requestDetailClientApiErrorMessage(
+                'loadRequestTypeSupport',
+                typeSupportData?.error
+              )
+            )
+          )
+        } else {
+          const parsedTypeSupport = parseRequestTypeSupport(typeSupportData)
+          if (parsedTypeSupport) requestTypeSupport = parsedTypeSupport
+        }
+      } catch (error) {
+        if (signal.aborted || isRequestLoadAbort(error)) throw error
+        devDashboardConsoleError(
+          'Error loading request type support',
+          new Error(requestDetailClientFailureMessage('loadRequestTypeSupport'), { cause: error })
+        )
+      }
+      return requestTypeSupport
+    }
+
+    const [, , , requestTypeSupport] = await Promise.all([
+      loadWorkflowSupport(),
+      loadCommunications(),
+      loadNotes(),
+      loadTypeSupport(),
+      loadActivityEvents(String(requestData.id), signal),
+    ])
+    signal.throwIfAborted()
 
     if (requestData.request_type === 'funeral') {
-      const { data: fDetail } = await supabase
-        .from('funeral_request_details')
-        .select('*')
-        .eq('request_id', requestData.id)
-        .maybeSingle()
+      const fDetail = requestTypeSupport.funeralDetail
 
       setFuneralDetail(fDetail)
       setFuneralDeceasedName(fDetail?.deceased_name || '')
@@ -471,11 +608,7 @@ const [staffNotes, setStaffNotes] = useState('')
       setOciaDetail(null)
       setConfirmedOciaSession('')
     } else if (requestData.request_type === 'wedding') {
-      const { data: wDetail } = await supabase
-        .from('wedding_request_details')
-        .select('*')
-        .eq('request_id', requestData.id)
-        .maybeSingle()
+      const wDetail = requestTypeSupport.weddingDetail
 
       setWeddingDetail(wDetail)
       setWeddingPartnerOne(wDetail?.partner_one_name || '')
@@ -506,19 +639,7 @@ const [staffNotes, setStaffNotes] = useState('')
       setOciaDetail(null)
       setConfirmedOciaSession('')
     } else if (requestData.request_type === 'ocia') {
-      let { data: oDetail } = await supabase
-        .from('ocia_request_details')
-        .select('*')
-        .eq('request_id', requestData.id)
-        .maybeSingle()
-
-      if (!oDetail) {
-        const ensured = await ensureOciaRequestDetailsIfMissing(supabase, String(requestData.id))
-        if (ensured.error) {
-          devDashboardConsoleError('ensureOciaRequestDetailsIfMissing', ensured.error)
-        }
-        oDetail = ensured.data as typeof oDetail
-      }
+      const oDetail = requestTypeSupport.ociaDetail
 
       setOciaDetail(oDetail ?? null)
       setConfirmedOciaSession(isoToDatetimeLocal(oDetail?.confirmed_session_at))
@@ -547,11 +668,7 @@ const [staffNotes, setStaffNotes] = useState('')
 
       setJoinParishDetail(null)
     } else if (requestData.request_type === 'join_parish') {
-      const { data: jpDetail } = await supabase
-        .from('join_parish_request_details')
-        .select('*')
-        .eq('request_id', requestData.id)
-        .maybeSingle()
+      const jpDetail = requestTypeSupport.joinParishDetail
 
       setJoinParishDetail(jpDetail ?? null)
 
@@ -608,80 +725,148 @@ const [staffNotes, setStaffNotes] = useState('')
       setJoinParishDetail(null)
     }
 
-    const { data: existingSacramentalRecord } = await supabase
-      .from('sacramental_records')
-      .select('id, person_name, created_at')
-      .eq('request_id', requestData.id)
-      .maybeSingle()
+    const existingSacramentalRecord = requestTypeSupport.linkedSacramentalRecord
     setHasSacramentalRecord(Boolean(existingSacramentalRecord?.id))
-    setLinkedSacramentalRecord(
-      existingSacramentalRecord?.created_at
-        ? {
-            person_name: existingSacramentalRecord.person_name ?? null,
-            created_at: String(existingSacramentalRecord.created_at),
-          }
-        : null
-    )
-    await loadActivityEvents(String(requestData.id))
-
-    setLoading(false)
+    setLinkedSacramentalRecord(existingSacramentalRecord)
   }
 
   async function toggleChecklistItem(itemId: string, currentValue: boolean) {
-    const item = checklistItems.find((row) => String(row.id) === String(itemId))
-    const { error } = await supabase
-      .from('checklist_items')
-      .update({ is_complete: !currentValue })
-      .eq('id', itemId)
+    if (checklistMutationInFlightRef.current) return
 
-    if (!error) {
-      await recordRequestActivity('request.checklist.updated', {
-        itemId,
-        label: item?.item_name || 'Checklist item',
-        to: !currentValue ? 'Complete' : 'Incomplete',
+    checklistMutationInFlightRef.current = true
+    setChecklistUpdatingId(itemId)
+    setChecklistMessage('')
+    try {
+      const res = await fetch(`/api/requests/${routeId}/checklist-items/${itemId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isComplete: !currentValue }),
       })
-      loadRequest()
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok || !data?.ok) {
+        const failureMessage = requestDetailClientApiErrorMessage('updateChecklistItem', data?.error)
+        setChecklistMessage(failureMessage)
+        devDashboardConsoleError(
+          'Error updating checklist item',
+          new Error(failureMessage)
+        )
+        return
+      }
+
+      setChecklistMessage('Checklist item updated.')
+      try {
+        await loadRequest()
+      } catch {
+        setChecklistMessage(
+          'Checklist item updated, but the refreshed request could not load. Refresh the page before changing another item.'
+        )
+      }
+    } catch (error) {
+      const failureMessage = requestDetailClientFailureMessage('updateChecklistItem')
+      setChecklistMessage(failureMessage)
+      devDashboardConsoleError(
+        'Error updating checklist item',
+        new Error(failureMessage, { cause: error })
+      )
+    } finally {
+      checklistMutationInFlightRef.current = false
+      setChecklistUpdatingId('')
     }
   }
 async function updateRequestStatus(newStatus: string) {
+  if (requestStatusInFlightRef.current) return
+
+  requestStatusInFlightRef.current = true
+  setRequestStatusUpdating(true)
   setRequestStatusMessage('')
-  const result = await updateRequestStatusAction({
-    requestId: routeId,
-    status: newStatus,
-  })
+  try {
+    let result: Awaited<ReturnType<typeof updateRequestStatusAction>>
+    try {
+      result = await updateRequestStatusAction({
+        requestId: routeId,
+        status: newStatus,
+      })
+    } catch (error: unknown) {
+      setRequestStatusMessage(
+        requestDetailClientServerActionErrorMessage('updateStatus', error)
+      )
+      return
+    }
 
-  if (!result.ok) {
-    setRequestStatusMessage(result.error)
-    return
+    if (!result.ok) {
+      setRequestStatusMessage(
+        requestDetailClientServerActionErrorMessage('updateStatus', result.error)
+      )
+      return
+    }
+
+    setRequestStatusMessage('Request status updated.')
+    try {
+      await loadActivityEvents(routeId)
+    } catch {
+      setRequestStatusMessage(
+        'Request status updated, but activity history could not refresh. Refresh the page before changing status again.'
+      )
+    }
+    loadRequest()
+  } finally {
+    requestStatusInFlightRef.current = false
+    setRequestStatusUpdating(false)
   }
-
-  setRequestStatusMessage('Request status updated.')
-  await loadActivityEvents(routeId)
-  loadRequest()
 }
 
 async function updateWorkflowStepStatus(
   stepId: string,
   status: RequestWorkflowStepStatus
 ) {
+  if (workflowStepMutationInFlightRef.current) return
+
+  workflowStepMutationInFlightRef.current = true
   setWorkflowStepUpdatingId(stepId)
   setWorkflowStepMessage('')
   try {
-    const result = await updateRequestWorkflowStepStatus({
-      requestId: routeId,
-      stepId,
-      status,
-    })
+    let result: Awaited<ReturnType<typeof updateRequestWorkflowStepStatus>>
+    try {
+      result = await updateRequestWorkflowStepStatus({
+        requestId: routeId,
+        stepId,
+        status,
+      })
+    } catch (error: unknown) {
+      setWorkflowStepMessage(
+        requestDetailClientServerActionErrorMessage('updateWorkflowStep', error)
+      )
+      return
+    }
 
     if (!result.ok) {
-      setWorkflowStepMessage(result.error)
+      setWorkflowStepMessage(
+        requestDetailClientServerActionErrorMessage('updateWorkflowStep', result.error)
+      )
       return
     }
 
     setWorkflowStepMessage('Workflow step updated.')
-    await loadActivityEvents(routeId)
-    loadRequest()
+    let refreshFailed = false
+    try {
+      await loadActivityEvents(routeId)
+    } catch {
+      refreshFailed = true
+    }
+    try {
+      await loadRequest()
+    } catch {
+      refreshFailed = true
+    }
+    if (refreshFailed) {
+      setWorkflowStepMessage(
+        'Workflow step updated, but the refreshed request could not fully load. Refresh the page before changing another step.'
+      )
+    }
   } finally {
+    workflowStepMutationInFlightRef.current = false
     setWorkflowStepUpdatingId('')
   }
 }
@@ -693,9 +878,17 @@ async function updateWaitingOn(next: string | null) {
   })
 
   if (!result.ok) {
-    throw new Error(result.error)
+    throw new Error(
+      requestDetailClientServerActionErrorMessage('updateWaitingOn', result.error)
+    )
   }
-  await loadActivityEvents(routeId)
+  try {
+    await loadActivityEvents(routeId)
+  } catch {
+    setActivityError(
+      'The request was updated, but activity history could not refresh. Refresh the page to try again.'
+    )
+  }
   loadRequest()
 }
 
@@ -800,6 +993,8 @@ async function generateSummary() {
       }
     }
 
+    body.requestId = routeId
+
     const res = await fetch('/api/ai/summary', {
       method: 'POST',
       headers: {
@@ -809,35 +1004,83 @@ async function generateSummary() {
     })
 
     if (!res.ok) {
-      const errorText = await res.text()
-      setAiSummary(`Error: ${errorText}`)
+      await res.text().catch(() => '')
+      setAiSummary(requestDetailClientFailureMessage('aiSummary'))
       return
     }
 
     const data = await res.json()
-const summaryText = data.summary || 'No summary returned.'
+    const summaryText = data.summary || 'No summary returned.'
 
-setAiSummary(summaryText)
+    setAiSummary(summaryText)
 
-await supabase
-  .from('requests')
-  .update({ ai_summary: summaryText })
-  .eq('id', routeId)
-await recordRequestActivity('request.ai_summary.updated', {
-  summary: summaryText.slice(0, 120),
-})
-  } catch (error: any) {
-    setAiSummary(`Error: ${error.message}`)
+    await saveAiSummaryToRequest(summaryText)
+  } catch {
+    setAiSummary(requestDetailClientFailureMessage('aiSummary'))
   } finally {
     setAiLoading(false)
   }
 }
+
+async function saveAiSummaryToRequest(summaryText: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/requests/${routeId}/ai-summary`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aiSummary: summaryText }),
+    })
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok || !data?.ok) {
+      setAiSummary(requestDetailClientApiErrorMessage('saveAiSummary', data?.error))
+      return false
+    }
+
+    return true
+  } catch (error) {
+    devDashboardConsoleError(
+      'AI SUMMARY SAVE ERROR',
+      new Error(requestDetailClientFailureMessage('saveAiSummary'), { cause: error })
+    )
+    setAiSummary(requestDetailClientFailureMessage('saveAiSummary'))
+    return false
+  }
+}
+
+async function saveReplyDraftToRequest(replyDraftBody: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/requests/${routeId}/reply-draft`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ replyDraft: replyDraftBody }),
+    })
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok || !data?.ok) {
+      setEmailMessage(requestDetailClientApiErrorMessage('saveReplyDraft', data?.error))
+      return false
+    }
+
+    return true
+  } catch (error) {
+    devDashboardConsoleError(
+      'reply_draft save',
+      new Error(requestDetailClientFailureMessage('saveReplyDraft'), { cause: error })
+    )
+    setEmailMessage(requestDetailClientFailureMessage('saveReplyDraft'))
+    return false
+  }
+}
+
 async function generateReplyDraft() {
   if (!request || !parishioner) return
 
   try {
     setAiLoading(true)
     setReplyDraft('')
+    setEmailMessage('')
 
     const requestType = String(request.request_type || 'baptism')
     const replyBody: Record<string, unknown> = {
@@ -898,8 +1141,8 @@ async function generateReplyDraft() {
     })
 
     if (!res.ok) {
-      const errorText = await res.text()
-      setReplyDraft(`Error: ${errorText}`)
+      await res.text().catch(() => '')
+      setReplyDraft(requestDetailClientFailureMessage('aiReply'))
       return
     }
 
@@ -909,25 +1152,13 @@ async function generateReplyDraft() {
     if (parsed.hadSubjectLine) {
       setEmailSubject(parsed.subject)
       setReplyDraft(parsed.body)
-      await supabase
-        .from('requests')
-        .update({ reply_draft: parsed.body })
-        .eq('id', routeId)
-      await recordRequestActivity('request.reply_draft.updated', {
-        summary: parsed.subject || 'AI reply draft saved',
-      })
+      await saveReplyDraftToRequest(parsed.body)
     } else {
       setReplyDraft(replyText)
-      await supabase
-        .from('requests')
-        .update({ reply_draft: replyText })
-        .eq('id', routeId)
-      await recordRequestActivity('request.reply_draft.updated', {
-        summary: 'AI reply draft saved',
-      })
+      await saveReplyDraftToRequest(replyText)
     }
-  } catch (error: any) {
-    setReplyDraft(`Error: ${error.message}`)
+  } catch {
+    setReplyDraft(requestDetailClientFailureMessage('aiReply'))
   } finally {
     setAiLoading(false)
   }
@@ -945,16 +1176,7 @@ async function copyReplyDraft() {
   }
 }
 
-async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
-  const hasExisting =
-    String(emailSubject || '').trim() || String(replyDraft || '').trim()
-  if (hasExisting) {
-    const ok = window.confirm(
-      'Replace the current subject and body with this template? You can still edit after applying.'
-    )
-    if (!ok) return
-  }
-
+async function applyVineaEmailTemplateNow(templateId: VineaEmailTemplateId) {
   const ctx = buildVineaEmailTemplateContext({
     parishioner,
     request,
@@ -969,39 +1191,56 @@ async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
   setReplyDraft(body)
   setEmailMessage('')
 
-  const { error } = await supabase
-    .from('requests')
-    .update({ reply_draft: body })
-    .eq('id', routeId)
+  await saveReplyDraftToRequest(body)
+}
 
-  if (error) {
-    devDashboardConsoleError('reply_draft save', error)
-    setEmailMessage(
-      `Template applied, but saving the draft failed: ${error.message}`
-    )
+async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
+  const hasExisting =
+    String(emailSubject || '').trim() || String(replyDraft || '').trim()
+  if (hasExisting) {
+    setPendingEmailTemplateId(templateId)
+    return
   }
-  if (!error) {
-    await recordRequestActivity('request.reply_draft.updated', {
-      summary: `Template applied: ${templateId}`,
-    })
+
+  await applyVineaEmailTemplateNow(templateId)
+}
+
+async function confirmVineaEmailTemplate() {
+  if (!pendingEmailTemplateId || emailTemplateApplying) return
+  setEmailTemplateApplying(true)
+  try {
+    await applyVineaEmailTemplateNow(pendingEmailTemplateId)
+    setPendingEmailTemplateId(null)
+  } finally {
+    setEmailTemplateApplying(false)
   }
 }
 
 async function saveStaffNotes() {
   setStaffNotesMessage('')
-  const { error } = await supabase
-    .from('requests')
-    .update({ staff_notes: staffNotes })
-    .eq('id', routeId)
+  try {
+    const res = await fetch(`/api/requests/${routeId}/staff-notes`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staffNotes }),
+    })
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    setStaffNotesMessage(`Save failed: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setStaffNotesMessage(requestDetailClientApiErrorMessage('updateStaffNotes', data?.error))
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'staff_notes save',
+      new Error(requestDetailClientFailureMessage('updateStaffNotes'), { cause: error })
+    )
+    setStaffNotesMessage(requestDetailClientFailureMessage('updateStaffNotes'))
     return
   }
+
   setStaffNotesMessage('Staff notes saved.')
-  await recordRequestActivity('request.staff_notes.updated', {
-    summary: 'Staff notes saved',
-  })
   loadRequest()
 }
 
@@ -1019,27 +1258,36 @@ async function saveStaffNotes() {
     return
   }
 
-  const { error } = await supabase
-    .from('requests')
-    .update({
-      suggested_date_1: suggested1 || null,
-      suggested_date_2: suggested2 || null,
-      suggested_date_3: suggested3 || null,
+  try {
+    const res = await fetch(`/api/requests/${routeId}/suggested-dates`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        suggestedDate1: suggested1 || null,
+        suggestedDate2: suggested2 || null,
+        suggestedDate3: suggested3 || null,
+      }),
     })
-    .eq('id', routeId)
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    devDashboardConsoleError('SAVE SUGGESTED DATES ERROR', error)
-    setSuggestedMessage(`Error saving suggested dates: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setSuggestedMessage(requestDetailClientApiErrorMessage('saveSuggestedDates', data?.error))
+      setSuggestedSaving(false)
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'SAVE SUGGESTED DATES ERROR',
+      new Error(requestDetailClientFailureMessage('saveSuggestedDates'), { cause: error })
+    )
+    setSuggestedMessage(requestDetailClientFailureMessage('saveSuggestedDates'))
     setSuggestedSaving(false)
     return
   }
 
   setSuggestedMessage('Suggested dates saved successfully.')
   setSuggestedSaving(false)
-  await recordRequestActivity('request.suggested_dates.updated', {
-    summary: 'Suggested dates saved',
-  })
   loadRequest()
 }
 
@@ -1054,52 +1302,68 @@ async function saveConfirmedBaptismDate() {
     return
   }
 
-  const { error } = await supabase
-    .from('requests')
-    .update({
-      confirmed_baptism_date: datetimeLocalToIso(confirmedBaptismDate),
+  try {
+    const res = await fetch(`/api/requests/${routeId}/confirmed-baptism-date`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        confirmedBaptismDate: datetimeLocalToIso(confirmedBaptismDate),
+      }),
     })
-    .eq('id', routeId)
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    devDashboardConsoleError('SAVE CONFIRMED BAPTISM DATE ERROR', error)
-    setConfirmedMessage(`Error saving confirmed date: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setConfirmedMessage(requestDetailClientApiErrorMessage('saveConfirmedDate', data?.error))
+      setConfirmedSaving(false)
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'SAVE CONFIRMED BAPTISM DATE ERROR',
+      new Error(requestDetailClientFailureMessage('saveConfirmedDate'), { cause: error })
+    )
+    setConfirmedMessage(requestDetailClientFailureMessage('saveConfirmedDate'))
     setConfirmedSaving(false)
     return
   }
 
   setConfirmedMessage('Confirmed date saved successfully.')
   setConfirmedSaving(false)
-  await recordRequestActivity('request.schedule.updated', {
-    label: 'Confirmed baptism date',
-    to: confirmedBaptismDate,
-  })
   loadRequest()
 }
 
 async function clearConfirmedBaptismDate() {
   setConfirmedSaving(true)
   setConfirmedMessage('')
-  setConfirmedBaptismDate('')
 
-  const { error } = await supabase
-    .from('requests')
-    .update({ confirmed_baptism_date: null })
-    .eq('id', routeId)
+  try {
+    const res = await fetch(`/api/requests/${routeId}/confirmed-baptism-date`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmedBaptismDate: null }),
+    })
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    devDashboardConsoleError('CLEAR CONFIRMED BAPTISM DATE ERROR', error)
-    setConfirmedMessage(`Error clearing confirmed date: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setConfirmedMessage(requestDetailClientApiErrorMessage('clearConfirmedDate', data?.error))
+      setConfirmedSaving(false)
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'CLEAR CONFIRMED BAPTISM DATE ERROR',
+      new Error(requestDetailClientFailureMessage('clearConfirmedDate'), { cause: error })
+    )
+    setConfirmedMessage(requestDetailClientFailureMessage('clearConfirmedDate'))
     setConfirmedSaving(false)
     return
   }
 
+  setConfirmedBaptismDate('')
   setConfirmedMessage('Confirmed date cleared.')
   setConfirmedSaving(false)
-  await recordRequestActivity('request.schedule.updated', {
-    label: 'Confirmed baptism date',
-    to: 'Cleared',
-  })
   loadRequest()
 }
 
@@ -1114,38 +1378,45 @@ async function saveFuneralDetails() {
   setFuneralSaving(true)
   setFuneralMessage('')
 
-  const { error } = await supabase.from('funeral_request_details').upsert(
-    {
-      request_id: routeId,
-      deceased_name: name,
-      family_relationship: funeralFamilyRelationship.trim() || null,
-      date_of_death: funeralDateOfDeath || null,
-      funeral_home_or_location: funeralHome.trim() || null,
-      funeral_director_contact: funeralDirectorContact.trim() || null,
-      service_location: funeralServiceLocation.trim() || null,
-      visitation_details: funeralVisitationDetails.trim() || null,
-      cemetery_or_committal: funeralCemeteryOrCommittal.trim() || null,
-      readings_music_notes: funeralReadingsMusicNotes.trim() || null,
-      obituary_program_notes: funeralObituaryProgramNotes.trim() || null,
-      post_funeral_follow_up_date: funeralPostFollowUpDate || null,
-      preferred_service_notes: funeralPreferredNotes.trim() || null,
-      confirmed_service_at: funeralDetail?.confirmed_service_at ?? null,
-    },
-    { onConflict: 'request_id' }
-  )
+  try {
+    const res = await fetch(`/api/requests/${routeId}/funeral-details`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deceasedName: name,
+        familyRelationship: funeralFamilyRelationship,
+        dateOfDeath: funeralDateOfDeath,
+        funeralHomeOrLocation: funeralHome,
+        funeralDirectorContact,
+        serviceLocation: funeralServiceLocation,
+        visitationDetails: funeralVisitationDetails,
+        cemeteryOrCommittal: funeralCemeteryOrCommittal,
+        readingsMusicNotes: funeralReadingsMusicNotes,
+        obituaryProgramNotes: funeralObituaryProgramNotes,
+        postFuneralFollowUpDate: funeralPostFollowUpDate,
+        preferredServiceNotes: funeralPreferredNotes,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    setFuneralMessage(`Error saving: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setFuneralMessage(requestDetailClientApiErrorMessage('saveFuneralDetails', data?.error))
+      setFuneralSaving(false)
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'SAVE FUNERAL DETAILS ERROR',
+      new Error(requestDetailClientFailureMessage('saveFuneralDetails'), { cause: error })
+    )
+    setFuneralMessage(requestDetailClientFailureMessage('saveFuneralDetails'))
     setFuneralSaving(false)
     return
   }
 
   setFuneralMessage('Funeral details saved.')
   setFuneralSaving(false)
-  await recordRequestActivity('request.intake.updated', {
-    requestType: 'funeral',
-    summary: 'Funeral details saved',
-  })
   loadRequest()
 }
 
@@ -1162,25 +1433,36 @@ async function saveConfirmedFuneralService() {
     return
   }
 
-  const { error } = await supabase
-    .from('funeral_request_details')
-    .update({
-      confirmed_service_at: datetimeLocalToIso(confirmedFuneralService),
+  try {
+    const res = await fetch(`/api/requests/${routeId}/confirmed-funeral-service`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        confirmedServiceAt: datetimeLocalToIso(confirmedFuneralService),
+      }),
     })
-    .eq('request_id', routeId)
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    setFuneralConfirmedMessage(`Error saving: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setFuneralConfirmedMessage(
+        requestDetailClientApiErrorMessage('saveFuneralService', data?.error)
+      )
+      setFuneralConfirmedSaving(false)
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'SAVE CONFIRMED FUNERAL SERVICE ERROR',
+      new Error(requestDetailClientFailureMessage('saveFuneralService'), { cause: error })
+    )
+    setFuneralConfirmedMessage(requestDetailClientFailureMessage('saveFuneralService'))
     setFuneralConfirmedSaving(false)
     return
   }
 
   setFuneralConfirmedMessage('Confirmed service time saved.')
   setFuneralConfirmedSaving(false)
-  await recordRequestActivity('request.schedule.updated', {
-    label: 'Confirmed funeral service',
-    to: confirmedFuneralService,
-  })
   loadRequest()
 }
 
@@ -1189,25 +1471,36 @@ async function clearConfirmedFuneralService() {
 
   setFuneralConfirmedSaving(true)
   setFuneralConfirmedMessage('')
-  setConfirmedFuneralService('')
 
-  const { error } = await supabase
-    .from('funeral_request_details')
-    .update({ confirmed_service_at: null })
-    .eq('request_id', routeId)
+  try {
+    const res = await fetch(`/api/requests/${routeId}/confirmed-funeral-service`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmedServiceAt: null }),
+    })
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    setFuneralConfirmedMessage(`Error clearing: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setFuneralConfirmedMessage(
+        requestDetailClientApiErrorMessage('clearFuneralService', data?.error)
+      )
+      setFuneralConfirmedSaving(false)
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'CLEAR CONFIRMED FUNERAL SERVICE ERROR',
+      new Error(requestDetailClientFailureMessage('clearFuneralService'), { cause: error })
+    )
+    setFuneralConfirmedMessage(requestDetailClientFailureMessage('clearFuneralService'))
     setFuneralConfirmedSaving(false)
     return
   }
 
+  setConfirmedFuneralService('')
   setFuneralConfirmedMessage('Cleared.')
   setFuneralConfirmedSaving(false)
-  await recordRequestActivity('request.schedule.updated', {
-    label: 'Confirmed funeral service',
-    to: 'Cleared',
-  })
   loadRequest()
 }
 
@@ -1222,30 +1515,37 @@ async function saveWeddingDetails() {
   setWeddingSaving(true)
   setWeddingMessage('')
 
-  const { error } = await supabase.from('wedding_request_details').upsert(
-    {
-      request_id: routeId,
-      partner_one_name: name,
-      partner_two_name: weddingPartnerTwo.trim() || null,
-      proposed_wedding_date: weddingProposedDate || null,
-      ceremony_notes: weddingCeremonyNotes.trim() || null,
-      confirmed_ceremony_at: weddingDetail?.confirmed_ceremony_at ?? null,
-    },
-    { onConflict: 'request_id' }
-  )
+  try {
+    const res = await fetch(`/api/requests/${routeId}/wedding-details`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        partnerOneName: name,
+        partnerTwoName: weddingPartnerTwo,
+        proposedWeddingDate: weddingProposedDate,
+        ceremonyNotes: weddingCeremonyNotes,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    setWeddingMessage(`Error saving: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setWeddingMessage(requestDetailClientApiErrorMessage('saveWeddingDetails', data?.error))
+      setWeddingSaving(false)
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'SAVE WEDDING DETAILS ERROR',
+      new Error(requestDetailClientFailureMessage('saveWeddingDetails'), { cause: error })
+    )
+    setWeddingMessage(requestDetailClientFailureMessage('saveWeddingDetails'))
     setWeddingSaving(false)
     return
   }
 
   setWeddingMessage('Wedding details saved.')
   setWeddingSaving(false)
-  await recordRequestActivity('request.intake.updated', {
-    requestType: 'wedding',
-    summary: 'Wedding details saved',
-  })
   loadRequest()
 }
 
@@ -1262,25 +1562,36 @@ async function saveConfirmedWeddingCeremony() {
     return
   }
 
-  const { error } = await supabase
-    .from('wedding_request_details')
-    .update({
-      confirmed_ceremony_at: datetimeLocalToIso(confirmedWeddingCeremony),
+  try {
+    const res = await fetch(`/api/requests/${routeId}/confirmed-wedding-ceremony`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        confirmedCeremonyAt: datetimeLocalToIso(confirmedWeddingCeremony),
+      }),
     })
-    .eq('request_id', routeId)
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    setWeddingConfirmedMessage(`Error saving: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setWeddingConfirmedMessage(
+        requestDetailClientApiErrorMessage('saveWeddingCeremony', data?.error)
+      )
+      setWeddingConfirmedSaving(false)
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'confirmed wedding ceremony save',
+      new Error(requestDetailClientFailureMessage('saveWeddingCeremony'), { cause: error })
+    )
+    setWeddingConfirmedMessage(requestDetailClientFailureMessage('saveWeddingCeremony'))
     setWeddingConfirmedSaving(false)
     return
   }
 
   setWeddingConfirmedMessage('Confirmed ceremony time saved.')
   setWeddingConfirmedSaving(false)
-  await recordRequestActivity('request.schedule.updated', {
-    label: 'Confirmed wedding ceremony',
-    to: confirmedWeddingCeremony,
-  })
   loadRequest()
 }
 
@@ -1289,25 +1600,36 @@ async function clearConfirmedWeddingCeremony() {
 
   setWeddingConfirmedSaving(true)
   setWeddingConfirmedMessage('')
-  setConfirmedWeddingCeremony('')
 
-  const { error } = await supabase
-    .from('wedding_request_details')
-    .update({ confirmed_ceremony_at: null })
-    .eq('request_id', routeId)
+  try {
+    const res = await fetch(`/api/requests/${routeId}/confirmed-wedding-ceremony`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmedCeremonyAt: null }),
+    })
+    const data = await res.json().catch(() => ({}))
 
-  if (error) {
-    setWeddingConfirmedMessage(`Error clearing: ${error.message}`)
+    if (!res.ok || !data?.ok) {
+      setWeddingConfirmedMessage(
+        requestDetailClientApiErrorMessage('clearWeddingCeremony', data?.error)
+      )
+      setWeddingConfirmedSaving(false)
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'confirmed wedding ceremony clear',
+      new Error(requestDetailClientFailureMessage('clearWeddingCeremony'), { cause: error })
+    )
+    setWeddingConfirmedMessage(requestDetailClientFailureMessage('clearWeddingCeremony'))
     setWeddingConfirmedSaving(false)
     return
   }
 
+  setConfirmedWeddingCeremony('')
   setWeddingConfirmedMessage('Cleared.')
   setWeddingConfirmedSaving(false)
-  await recordRequestActivity('request.schedule.updated', {
-    label: 'Confirmed wedding ceremony',
-    to: 'Cleared',
-  })
   loadRequest()
 }
 
@@ -1324,37 +1646,34 @@ async function saveConfirmedOciaSession() {
     return
   }
 
-  if (!ociaDetail) {
-    const ensured = await ensureOciaRequestDetailsIfMissing(supabase, routeId)
-    if (ensured.error || !ensured.data) {
-      setOciaSessionMessage(
-        `Unable to create OCIA intake record: ${ensured.error || 'Unknown error'}`
-      )
+  try {
+    const res = await fetch(`/api/requests/${routeId}/confirmed-ocia-session`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        confirmedSessionAt: datetimeLocalToIso(confirmedOciaSession),
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok || !data?.ok) {
+      setOciaSessionMessage(requestDetailClientApiErrorMessage('saveOciaSession', data?.error))
       setOciaSessionSaving(false)
       return
     }
-    setOciaDetail(ensured.data)
-  }
-
-  const { error } = await supabase
-    .from('ocia_request_details')
-    .update({
-      confirmed_session_at: datetimeLocalToIso(confirmedOciaSession),
-    })
-    .eq('request_id', routeId)
-
-  if (error) {
-    setOciaSessionMessage(`Error saving: ${error.message}`)
+  } catch (error) {
+    devDashboardConsoleError(
+      'confirmed OCIA session save',
+      new Error(requestDetailClientFailureMessage('saveOciaSession'), { cause: error })
+    )
+    setOciaSessionMessage(requestDetailClientFailureMessage('saveOciaSession'))
     setOciaSessionSaving(false)
     return
   }
 
   setOciaSessionMessage('Confirmed OCIA meeting time saved.')
   setOciaSessionSaving(false)
-  await recordRequestActivity('request.schedule.updated', {
-    label: 'Confirmed OCIA meeting',
-    to: confirmedOciaSession,
-  })
   loadRequest()
 }
 
@@ -1363,38 +1682,51 @@ async function clearConfirmedOciaSession() {
 
   setOciaSessionSaving(true)
   setOciaSessionMessage('')
-  setConfirmedOciaSession('')
 
-  if (!ociaDetail) {
-    const ensured = await ensureOciaRequestDetailsIfMissing(supabase, routeId)
-    if (ensured.error || !ensured.data) {
-      setOciaSessionMessage(
-        ensured.error ? `Unable to access OCIA record: ${ensured.error}` : 'Unable to access OCIA record.'
-      )
+  try {
+    const res = await fetch(`/api/requests/${routeId}/confirmed-ocia-session`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmedSessionAt: null }),
+    })
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok || !data?.ok) {
+      setOciaSessionMessage(requestDetailClientApiErrorMessage('clearOciaSession', data?.error))
       setOciaSessionSaving(false)
       return
     }
-    setOciaDetail(ensured.data)
-  }
-
-  const { error } = await supabase
-    .from('ocia_request_details')
-    .update({ confirmed_session_at: null })
-    .eq('request_id', routeId)
-
-  if (error) {
-    setOciaSessionMessage(`Error clearing: ${error.message}`)
+  } catch (error) {
+    devDashboardConsoleError(
+      'confirmed OCIA session clear',
+      new Error(requestDetailClientFailureMessage('clearOciaSession'), { cause: error })
+    )
+    setOciaSessionMessage(requestDetailClientFailureMessage('clearOciaSession'))
     setOciaSessionSaving(false)
     return
   }
 
+  setConfirmedOciaSession('')
   setOciaSessionMessage('Cleared.')
   setOciaSessionSaving(false)
-  await recordRequestActivity('request.schedule.updated', {
-    label: 'Confirmed OCIA meeting',
-    to: 'Cleared',
-  })
   loadRequest()
+}
+
+function confirmConfirmedScheduleClear() {
+  const kind = pendingConfirmedScheduleClear
+  if (!kind) return
+
+  setPendingConfirmedScheduleClear(null)
+  if (kind === 'baptism') {
+    void clearConfirmedBaptismDate()
+  } else if (kind === 'funeral') {
+    void clearConfirmedFuneralService()
+  } else if (kind === 'wedding') {
+    void clearConfirmedWeddingCeremony()
+  } else {
+    void clearConfirmedOciaSession()
+  }
 }
 
 async function logCommunication() {
@@ -1408,52 +1740,47 @@ async function logCommunication() {
     return
   }
 
-  const insertRes = await supabase
-    .from('request_communications')
-    .insert({
-      request_id: routeId,
-      contacted_at: contactedAtIso,
-      method: commMethod,
-      notes: commNotes || null,
+  try {
+    const res = await fetch(`/api/requests/${routeId}/communications`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contactedAt: contactedAtIso,
+        method: commMethod,
+        notes: commNotes,
+      }),
     })
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: unknown }
 
-  if (insertRes.error) {
-    devDashboardConsoleError('LOG COMMUNICATION INSERT ERROR', insertRes.error)
-    setCommMessage(`Error logging communication: ${insertRes.error.message}`)
-    setCommSaving(false)
-    return
-  }
-
-  const updateRes = await supabase
-    .from('requests')
-    .update({
-      last_contacted_at: contactedAtIso,
-      last_contact_method: commMethod,
-      communication_notes: commNotes || null,
-    })
-    .eq('id', routeId)
-
-  if (updateRes.error) {
-    devDashboardConsoleError('LOG COMMUNICATION SUMMARY UPDATE ERROR', updateRes.error)
-    setCommMessage(
-      `Logged history, but failed updating summary fields: ${updateRes.error.message}`
+    if (!res.ok || !data?.ok) {
+      const message = requestDetailClientApiErrorMessage('logCommunication', data?.error)
+      setCommMessage(message)
+      setCommSaving(false)
+      if (message === requestDetailClientFailureMessage('updateCommunicationSummary')) {
+        loadRequest()
+      }
+      return
+    }
+  } catch (error) {
+    devDashboardConsoleError(
+      'LOG COMMUNICATION ERROR',
+      new Error(requestDetailClientFailureMessage('logCommunication'), { cause: error })
     )
+    setCommMessage(requestDetailClientFailureMessage('logCommunication'))
     setCommSaving(false)
-    loadRequest()
     return
   }
 
   setCommNotes('')
   setCommMessage('Communication logged.')
   setCommSaving(false)
-  await recordRequestActivity('request.communication.logged', {
-    label: commMethod,
-    to: contactedAtIso,
-  })
   loadRequest()
 }
 
 async function sendEmail() {
+  if (emailSendInFlightRef.current) return
+
   const to = String(parishioner?.email || '').trim()
   const subject = String(emailSubject || '').trim()
   const text = String(replyDraft || '').trim()
@@ -1471,69 +1798,72 @@ async function sendEmail() {
     return
   }
 
+  emailSendInFlightRef.current = true
+  setEmailSending(true)
+  setEmailMessage('')
   try {
-    setEmailSending(true)
-    setEmailMessage('')
+    let res: Response
+    try {
+      res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: routeId, subject, text }),
+      })
+    } catch {
+      setEmailMessage(requestDetailClientFailureMessage('sendEmail'))
+      return
+    }
 
-    const res = await fetch('/api/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, text }),
-    })
-
-    const payload = await res.json().catch(() => ({} as any))
-    if (!res.ok || !payload?.ok) {
-      const err = payload?.error || `Send failed (${res.status})`
-      setEmailMessage(String(err))
+    const payload = (await res.json().catch(() => null)) as { ok?: boolean } | null
+    if (!res.ok) {
+      setEmailMessage(requestDetailClientFailureMessage('sendEmail'))
+      return
+    }
+    if (payload?.ok !== true) {
+      setEmailMessage(requestDetailClientFailureMessage('confirmEmailSend'))
       return
     }
 
     const contactedAtIso = new Date().toISOString()
     const summary = `Email sent: ${subject}`
 
-    const insertRes = await supabase.from('request_communications').insert({
-      request_id: routeId,
-      contacted_at: contactedAtIso,
-      method: 'email',
-      notes: summary,
-    })
-
-    if (insertRes.error) {
-      devDashboardConsoleError('EMAIL COMMUNICATION LOG INSERT ERROR', insertRes.error)
-      setEmailMessage(
-        `Email sent, but failed logging communication: ${insertRes.error.message}`
-      )
+    let logRes: Response
+    try {
+      logRes = await fetch(`/api/requests/${routeId}/communications`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactedAt: contactedAtIso,
+          method: 'email',
+          notes: summary,
+        }),
+      })
+    } catch {
+      setEmailMessage(requestDetailClientFailureMessage('logSentEmail'))
       loadRequest()
       return
     }
 
-    const updateRes = await supabase
-      .from('requests')
-      .update({
-        last_contacted_at: contactedAtIso,
-        last_contact_method: 'email',
-        communication_notes: summary,
-      })
-      .eq('id', routeId)
-
-    if (updateRes.error) {
-      devDashboardConsoleError('EMAIL SUMMARY UPDATE ERROR', updateRes.error)
-      setEmailMessage(
-        `Email sent and logged, but failed updating summary fields: ${updateRes.error.message}`
-      )
+    const logData = (await logRes.json().catch(() => ({}))) as {
+      ok?: boolean
+      error?: unknown
+    }
+    if (!logRes.ok || !logData?.ok) {
+      const message =
+        requestDetailClientApiErrorMessage('logCommunication', logData?.error) ===
+        requestDetailClientFailureMessage('updateCommunicationSummary')
+          ? requestDetailClientFailureMessage('updateSentEmailSummary')
+          : requestDetailClientFailureMessage('logSentEmail')
+      setEmailMessage(message)
       loadRequest()
       return
     }
 
     setEmailMessage('Email sent successfully.')
-    await recordRequestActivity('request.email.sent', {
-      summary,
-      to,
-    })
     loadRequest()
-  } catch (error: any) {
-    setEmailMessage(`Send failed: ${error?.message || 'Unknown error'}`)
   } finally {
+    emailSendInFlightRef.current = false
     setEmailSending(false)
   }
 }
@@ -1547,6 +1877,8 @@ async function forceCreateGoogleCalendarEvent() {
 }
 
 async function createGoogleCalendarEventInternal(forceCreate: boolean) {
+  if (googleCalendarMutationInFlightRef.current) return
+
   const rt = String(request?.request_type || 'baptism')
   if (rt === 'funeral') {
     if (!funeralDetail?.confirmed_service_at) {
@@ -1577,6 +1909,7 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
     return
   }
 
+  googleCalendarMutationInFlightRef.current = true
   try {
     setGcalCreating(true)
     setGcalMessage('')
@@ -1588,9 +1921,13 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
       body: JSON.stringify({ requestId: routeId, forceCreate }),
     })
 
-    const payload = await res.json().catch(() => ({} as any))
+    const payload = (await res.json().catch(() => ({}))) as GoogleCalendarMutationPayload
     if (res.status === 409 && payload?.error === 'CALENDAR_CONFLICT') {
-      setGcalMessage(String(payload?.message || 'There is already something scheduled at this time.'))
+      setGcalMessage(
+        userFacingGoogleCalendarErrorMessage(
+          payload?.message || googleCalendarConflictUserMessage(),
+        ),
+      )
       setGcalConflicts(Array.isArray(payload?.conflicts) ? payload.conflicts : [])
       return
     }
@@ -1602,29 +1939,23 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
 
     setGcalMessage('Calendar event saved. No conflicts found.')
     setGcalConflicts([])
-    await recordRequestActivity('request.schedule.updated', {
-      label: 'Google Calendar event created',
-    })
     loadRequest()
   } catch (error: unknown) {
     if (isGoogleOAuthReconnectError(error)) {
       setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
     } else {
-      const msg =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'string'
-            ? error
-            : 'Unknown error'
-      setGcalMessage(`Create failed: ${msg}`)
+      setGcalMessage(requestDetailClientFailureMessage('createGoogleCalendarEvent'))
     }
     setGcalConflicts([])
   } finally {
+    googleCalendarMutationInFlightRef.current = false
     setGcalCreating(false)
   }
 }
 
 async function updateGoogleCalendarEvent() {
+  if (googleCalendarMutationInFlightRef.current) return
+
   const rt = String(request?.request_type || 'baptism')
   if (rt === 'funeral') {
     if (!funeralDetail?.confirmed_service_at) {
@@ -1655,6 +1986,7 @@ async function updateGoogleCalendarEvent() {
     return
   }
 
+  googleCalendarMutationInFlightRef.current = true
   try {
     setGcalUpdating(true)
     setGcalMessage('')
@@ -1666,9 +1998,13 @@ async function updateGoogleCalendarEvent() {
       body: JSON.stringify({ requestId: routeId }),
     })
 
-    const payload = await res.json().catch(() => ({} as any))
+    const payload = (await res.json().catch(() => ({}))) as GoogleCalendarMutationPayload
     if (res.status === 409 && payload?.error === 'CALENDAR_CONFLICT') {
-      setGcalMessage(String(payload?.message || 'There is already something scheduled at this time.'))
+      setGcalMessage(
+        userFacingGoogleCalendarErrorMessage(
+          payload?.message || googleCalendarConflictUserMessage(),
+        ),
+      )
       setGcalConflicts(Array.isArray(payload?.conflicts) ? payload.conflicts : [])
       return
     }
@@ -1680,34 +2016,29 @@ async function updateGoogleCalendarEvent() {
 
     setGcalMessage('Calendar event saved. No conflicts found.')
     setGcalConflicts([])
-    await recordRequestActivity('request.schedule.updated', {
-      label: 'Google Calendar event updated',
-    })
     loadRequest()
   } catch (error: unknown) {
     if (isGoogleOAuthReconnectError(error)) {
       setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
     } else {
-      const msg =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'string'
-            ? error
-            : 'Unknown error'
-      setGcalMessage(`Update failed: ${msg}`)
+      setGcalMessage(requestDetailClientFailureMessage('updateGoogleCalendarEvent'))
     }
     setGcalConflicts([])
   } finally {
+    googleCalendarMutationInFlightRef.current = false
     setGcalUpdating(false)
   }
 }
 
 async function deleteGoogleCalendarEvent() {
+  if (googleCalendarMutationInFlightRef.current) return
+
   if (!request?.google_calendar_event_id) {
     setGcalMessage('No Google Calendar event is linked to this request.')
     return
   }
 
+  googleCalendarMutationInFlightRef.current = true
   try {
     setGcalDeleting(true)
     setGcalMessage('')
@@ -1718,7 +2049,7 @@ async function deleteGoogleCalendarEvent() {
       body: JSON.stringify({ requestId: routeId }),
     })
 
-    const payload = await res.json().catch(() => ({} as any))
+    const payload = (await res.json().catch(() => ({}))) as GoogleCalendarMutationPayload
     if (!res.ok || !payload?.ok) {
       const err = payload?.error || `Delete failed (${res.status})`
       setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
@@ -1726,37 +2057,30 @@ async function deleteGoogleCalendarEvent() {
     }
 
     setGcalMessage('Google Calendar event removed and link cleared.')
-    await recordRequestActivity('request.schedule.updated', {
-      label: 'Google Calendar event removed',
-    })
     loadRequest()
   } catch (error: unknown) {
     if (isGoogleOAuthReconnectError(error)) {
       setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
     } else {
-      const msg =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'string'
-            ? error
-            : 'Unknown error'
-      setGcalMessage(`Delete failed: ${msg}`)
+      setGcalMessage(requestDetailClientFailureMessage('deleteGoogleCalendarEvent'))
     }
   } finally {
+    googleCalendarMutationInFlightRef.current = false
     setGcalDeleting(false)
   }
-}
+  }
 
   useEffect(() => {
-    setEmailSubject('')
-  }, [routeId])
-
-  useEffect(() => {
-    setStaffNotesMessage('')
-  }, [routeId])
-
-  useEffect(() => {
-    setEditingIntake(false)
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setEmailSubject('')
+      setStaffNotesMessage('')
+      setEditingIntake(false)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [routeId])
 
   useEffect(() => {
@@ -1774,7 +2098,14 @@ async function deleteGoogleCalendarEvent() {
 
   // Intentionally only re-fetch when the route id changes (loadRequest closes over fresh state).
   useEffect(() => {
-    loadRequest()
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) loadRequest()
+    })
+    return () => {
+      cancelled = true
+      requestLoadAbortRef.current?.abort()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRequest is not stable; routeId is the trigger.
   }, [routeId])
 
@@ -1857,7 +2188,7 @@ async function deleteGoogleCalendarEvent() {
   const completedWorkflowStepCount = workflowSteps.filter((step) => step.status === 'complete').length
   const checklistIncomplete = hasWorkflowSteps
     ? incompleteRequiredWorkflowStepCount > 0
-    : checklistItems.some((i: any) => i?.is_complete === false)
+    : checklistItems.some((item) => item.is_complete === false)
   const nextStep = resolveRequestNextStep({
     request,
     scheduleRow: scheduleRowForProgress,
@@ -1890,21 +2221,12 @@ async function deleteGoogleCalendarEvent() {
     if (!request) return
     if (userIsActivelyTyping()) return
 
-    goToSection(targetId)
+    const frame = requestAnimationFrame(() => goToSection(targetId))
+    return () => cancelAnimationFrame(frame)
   }, [request, nextStep.priorityKey, nextStep.targetSectionId, goToSection])
 
   if (loading) {
-    return (
-      <div
-        className="flex min-h-[45vh] flex-col items-center justify-center gap-4 px-4 py-16 sm:px-6"
-        aria-busy="true"
-        aria-live="polite"
-        aria-label="Loading request"
-      >
-        <span className="h-9 w-9 shrink-0 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" aria-hidden />
-        <p className="text-base font-medium text-gray-800">Loading request…</p>
-      </div>
-    )
+    return <RequestDetailLoadingSkeleton />
   }
 
   if (errorMessage) {
@@ -1935,7 +2257,20 @@ async function deleteGoogleCalendarEvent() {
     )
   }
 
-  const requestType = String(request?.request_type || 'baptism')
+  if (!request) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
+        <div
+          className="rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-950"
+          role="alert"
+        >
+          Request details could not be loaded. Return to Requests and try again.
+        </div>
+      </main>
+    )
+  }
+
+  const requestType = String(request.request_type || 'baptism')
   const isBaptism = requestType === 'baptism'
   const isFuneral = requestType === 'funeral'
   const isWedding = requestType === 'wedding'
@@ -1969,7 +2304,9 @@ async function deleteGoogleCalendarEvent() {
         : request?.confirmed_baptism_date
   const hasConfirmedSchedule = requiresConfirmedSchedule ? Boolean(confirmedIso) : true
 
-  const remainingLegacyChecklistCount = checklistItems.filter((i: any) => i?.is_complete === false).length
+  const remainingLegacyChecklistCount = checklistItems.filter(
+    (item) => item.is_complete === false,
+  ).length
   const remainingChecklistCount = hasWorkflowSteps
     ? incompleteRequiredWorkflowStepCount
     : remainingLegacyChecklistCount
@@ -2292,6 +2629,7 @@ async function deleteGoogleCalendarEvent() {
           parishionerId={
             request?.parishioner_id != null ? String(request.parishioner_id) : null
           }
+          requestParishId={request?.parish_id != null ? String(request.parish_id) : null}
           onLinked={loadRequest}
         />
 
@@ -2300,6 +2638,7 @@ async function deleteGoogleCalendarEvent() {
           personId={
             request?.person_id != null ? String(request.person_id) : null
           }
+          requestParishId={request?.parish_id != null ? String(request.parish_id) : null}
           parishioner={parishioner}
         />
 
@@ -2437,6 +2776,7 @@ async function deleteGoogleCalendarEvent() {
                 request={request}
                 scheduleRow={scheduleRowForProgress}
                 onUpdateStatus={updateRequestStatus}
+                updating={requestStatusUpdating}
               />
               <RequestWaitingOnSection request={request} onSave={updateWaitingOn} />
             </div>
@@ -2519,7 +2859,7 @@ async function deleteGoogleCalendarEvent() {
                     suggested2={suggested2}
                     suggested3={suggested3}
                     onSave={saveConfirmedBaptismDate}
-                    onClear={clearConfirmedBaptismDate}
+                    onClear={() => setPendingConfirmedScheduleClear('baptism')}
                     saving={confirmedSaving}
                     message={confirmedMessage}
                   />
@@ -2529,7 +2869,7 @@ async function deleteGoogleCalendarEvent() {
                     setConfirmedValue={setConfirmedFuneralService}
                     confirmedIso={funeralDetail?.confirmed_service_at}
                     onSave={saveConfirmedFuneralService}
-                    onClear={clearConfirmedFuneralService}
+                    onClear={() => setPendingConfirmedScheduleClear('funeral')}
                     saving={funeralConfirmedSaving}
                     message={funeralConfirmedMessage}
                   />
@@ -2539,7 +2879,7 @@ async function deleteGoogleCalendarEvent() {
                     setConfirmedValue={setConfirmedWeddingCeremony}
                     confirmedIso={weddingDetail?.confirmed_ceremony_at}
                     onSave={saveConfirmedWeddingCeremony}
-                    onClear={clearConfirmedWeddingCeremony}
+                    onClear={() => setPendingConfirmedScheduleClear('wedding')}
                     saving={weddingConfirmedSaving}
                     message={weddingConfirmedMessage}
                   />
@@ -2549,7 +2889,7 @@ async function deleteGoogleCalendarEvent() {
                     setConfirmedValue={setConfirmedOciaSession}
                     confirmedIso={ociaDetail?.confirmed_session_at}
                     onSave={saveConfirmedOciaSession}
-                    onClear={clearConfirmedOciaSession}
+                    onClear={() => setPendingConfirmedScheduleClear('ocia')}
                     saving={ociaSessionSaving}
                     message={ociaSessionMessage}
                   />
@@ -2570,9 +2910,9 @@ async function deleteGoogleCalendarEvent() {
                     eventId={request?.google_calendar_event_id}
                     eventLink={request?.google_calendar_event_html_link}
                     onCreate={createGoogleCalendarEvent}
-                    onForceCreate={forceCreateGoogleCalendarEvent}
+                    onForceCreate={() => setConfirmGoogleCalendarConflictOverrideOpen(true)}
                     onUpdate={updateGoogleCalendarEvent}
-                    onDelete={deleteGoogleCalendarEvent}
+                    onDelete={() => setConfirmGoogleCalendarDeleteOpen(true)}
                     creating={gcalCreating}
                     updating={gcalUpdating}
                     deleting={gcalDeleting}
@@ -2594,7 +2934,7 @@ async function deleteGoogleCalendarEvent() {
               <RequestWorkflowStepsSection
                 steps={workflowSteps}
                 updatingStepId={workflowStepUpdatingId}
-                onUpdateStatus={(stepId, status) => void updateWorkflowStepStatus(stepId, status)}
+                onUpdateStatus={updateWorkflowStepStatus}
               />
             </div>
             {workflowStepMessage ? (
@@ -2622,8 +2962,12 @@ async function deleteGoogleCalendarEvent() {
                   <ChecklistSection
                     checklistItems={checklistItems}
                     onToggleChecklistItem={toggleChecklistItem}
+                    updatingItemId={checklistUpdatingId}
                   />
                 </div>
+                {checklistMessage ? (
+                  <InlineFormMessage message={checklistMessage} className="!mt-4" />
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -2888,48 +3232,74 @@ async function deleteGoogleCalendarEvent() {
         </div>
       </div>
 
-      {confirmMarkCompleteOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Confirm mark complete"
-          className="fixed inset-0 z-50 flex items-center justify-center px-4"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/30"
-            aria-label="Close modal"
-            onClick={() => setConfirmMarkCompleteOpen(false)}
-          />
-          <div className="relative w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-lg">
-            <h2 className="text-base font-semibold text-gray-900">
-              Are you sure you want to mark this request complete?
-            </h2>
-            <p className="mt-2 text-sm leading-relaxed text-gray-600">
-              You can still reopen it later by changing the status.
-            </p>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
-                onClick={() => setConfirmMarkCompleteOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
-                onClick={() => {
-                  setConfirmMarkCompleteOpen(false)
-                  updateRequestStatus('complete')
-                }}
-              >
-                Mark complete
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <VineaConfirmDialog
+        open={confirmMarkCompleteOpen}
+        title="Mark this request complete?"
+        description="Vinea will move this request out of the active work queue and keep its history available to staff."
+        warning="You can reopen the request later by changing its status."
+        confirmLabel="Mark complete"
+        onCancel={() => setConfirmMarkCompleteOpen(false)}
+        onConfirm={() => {
+          setConfirmMarkCompleteOpen(false)
+          updateRequestStatus('complete')
+        }}
+      />
+
+      <VineaConfirmDialog
+        open={pendingConfirmedScheduleClear !== null}
+        title={`Clear confirmed ${
+          pendingConfirmedScheduleClear === 'baptism'
+            ? 'Baptism date'
+            : pendingConfirmedScheduleClear === 'funeral'
+              ? 'Funeral service time'
+              : pendingConfirmedScheduleClear === 'wedding'
+                ? 'Wedding ceremony time'
+                : 'OCIA meeting time'
+        }?`}
+        description="Vinea will remove this confirmed date and time from the request. Staff can enter a new confirmed time later."
+        warning="This does not delete or update any existing Google Calendar event. Review the Calendar section separately."
+        confirmLabel="Clear confirmed time"
+        onCancel={() => setPendingConfirmedScheduleClear(null)}
+        onConfirm={confirmConfirmedScheduleClear}
+      />
+
+      <VineaConfirmDialog
+        open={confirmGoogleCalendarDeleteOpen}
+        title="Delete this Google Calendar event?"
+        description="Vinea will remove the linked event from the selected parish calendar and clear the event link from this request."
+        warning="The confirmed request date or time will remain in Vinea. Change it separately if the schedule itself has changed."
+        confirmLabel="Delete calendar event"
+        onCancel={() => setConfirmGoogleCalendarDeleteOpen(false)}
+        onConfirm={() => {
+          setConfirmGoogleCalendarDeleteOpen(false)
+          void deleteGoogleCalendarEvent()
+        }}
+      />
+
+      <VineaConfirmDialog
+        open={confirmGoogleCalendarConflictOverrideOpen}
+        title="Create this event despite calendar conflicts?"
+        description={`Vinea found ${gcalConflicts.length === 1 ? '1 conflicting event' : `${gcalConflicts.length} conflicting events`} at this time. Review the conflict list before continuing.`}
+        warning="Creating anyway does not resolve or change the existing events. Parish staff remain responsible for confirming the schedule."
+        confirmLabel="Create event anyway"
+        onCancel={() => setConfirmGoogleCalendarConflictOverrideOpen(false)}
+        onConfirm={() => {
+          setConfirmGoogleCalendarConflictOverrideOpen(false)
+          void forceCreateGoogleCalendarEvent()
+        }}
+      />
+
+      <VineaConfirmDialog
+        open={pendingEmailTemplateId !== null}
+        title="Replace the current email draft?"
+        description="Vinea will replace the subject and message currently in the editor with the selected parish template."
+        warning="Your current draft will be replaced. You can review and edit the template before sending."
+        confirmLabel="Replace with template"
+        busy={emailTemplateApplying}
+        busyLabel="Replacing..."
+        onCancel={() => setPendingEmailTemplateId(null)}
+        onConfirm={() => void confirmVineaEmailTemplate()}
+      />
     </main>
   )
 }

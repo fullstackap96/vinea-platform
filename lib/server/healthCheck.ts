@@ -5,6 +5,7 @@ import {
   isEnvSet,
   type EnvRequirement,
 } from '@/lib/server/requiredEnv'
+import { parseExactAppOrigin } from '@/lib/exactAppOrigin'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 /** Minimum env for a running Vinea deployment (names only; never log values). */
@@ -40,6 +41,31 @@ export type HealthCheckResponse = {
   missingSchema?: string[]
 }
 
+export type PublicHealthCheckResponse = {
+  ok: boolean
+  checks: HealthChecks
+  error?: 'unhealthy'
+}
+
+/**
+ * Keeps the public production probe useful without exposing configuration names
+ * or schema labels when a deployment is unhealthy.
+ */
+export function buildPublicHealthCheckResponse(
+  result: HealthCheckResponse,
+  options: { includeFailureDetails: boolean }
+): HealthCheckResponse | PublicHealthCheckResponse {
+  if (result.ok || options.includeFailureDetails) {
+    return result
+  }
+
+  return {
+    ok: false,
+    checks: result.checks,
+    error: 'unhealthy',
+  }
+}
+
 type SupabaseAdmin = ReturnType<typeof createSupabaseServiceRoleClient>
 
 export type SchemaReadinessCheck =
@@ -55,6 +81,7 @@ export type SchemaReadinessCheck =
       functionName: string
       args: Record<string, unknown>
       missingCodes: readonly string[]
+      expectedExistingErrorCodes?: readonly string[]
     }
 
 export const REQUIRED_SCHEMA_READINESS_CHECKS: readonly SchemaReadinessCheck[] = [
@@ -62,6 +89,12 @@ export const REQUIRED_SCHEMA_READINESS_CHECKS: readonly SchemaReadinessCheck[] =
     kind: 'select',
     label: 'staff_users table',
     table: 'staff_users',
+    columns: 'id',
+  },
+  {
+    kind: 'select',
+    label: 'parish_memberships table',
+    table: 'parish_memberships',
     columns: 'id',
   },
   {
@@ -113,6 +146,25 @@ export const REQUIRED_SCHEMA_READINESS_CHECKS: readonly SchemaReadinessCheck[] =
     columns: 'waiting_on_changed_at',
   },
   {
+    kind: 'select',
+    label: 'public intake parish routing columns',
+    table: 'parishes',
+    columns: 'public_slug, public_display_name, public_intake_enabled',
+  },
+  {
+    kind: 'select',
+    label: 'public intake domain routing table',
+    table: 'parish_public_intake_domains',
+    columns:
+      'id, parish_id, hostname, verified_at, verification_dns_name, verification_dns_value, verification_checked_at, verification_error, active',
+  },
+  {
+    kind: 'select',
+    label: 'public intake token routing table',
+    table: 'parish_public_intake_tokens',
+    columns: 'id, parish_id, token_hash, request_type, expires_at, active',
+  },
+  {
     kind: 'rpc',
     label: 'workflow template copy function',
     functionName: 'create_request_workflow_steps_from_active_template',
@@ -124,9 +176,28 @@ export const REQUIRED_SCHEMA_READINESS_CHECKS: readonly SchemaReadinessCheck[] =
     label: 'public intake rate-limit function',
     functionName: 'check_public_intake_rate_limit',
     args: {
-      p_key: 'health:public-intake-rate-limit',
-      p_limit: 0,
+      // The function rejects this before its DELETE/INSERT/UPDATE block. That
+      // proves the RPC signature is present without mutating a rate-limit row.
+      p_key: '',
+      p_limit: 1,
       p_window_seconds: 60,
+    },
+    missingCodes: ['PGRST202'],
+    expectedExistingErrorCodes: ['P0001'],
+  },
+  {
+    kind: 'rpc',
+    label: 'current staff parish scope function',
+    functionName: 'current_staff_parish_ids',
+    args: {},
+    missingCodes: ['PGRST202'],
+  },
+  {
+    kind: 'rpc',
+    label: 'parish authorization scope function',
+    functionName: 'is_authorized_for_parish',
+    args: {
+      p_parish_id: '00000000-0000-0000-0000-000000000000',
     },
     missingCodes: ['PGRST202'],
   },
@@ -140,6 +211,24 @@ export function isEmailSendingEnabled(): boolean {
 /** Calendar OAuth is in use when Google client credentials are partially configured. */
 export function isGoogleCalendarIntegrationEnabled(): boolean {
   return isEnvSet('GOOGLE_CLIENT_ID') || isEnvSet('GOOGLE_CLIENT_SECRET')
+}
+
+type AppOriginEnv = {
+  NEXT_PUBLIC_APP_URL?: string
+  VERCEL?: string
+}
+
+export function isAppOriginReady(
+  env: AppOriginEnv = {
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    VERCEL: process.env.VERCEL,
+  },
+): boolean {
+  return Boolean(
+    parseExactAppOrigin(env.NEXT_PUBLIC_APP_URL, {
+      requireHttps: env.VERCEL === '1',
+    }),
+  )
 }
 
 function checkResendEnv(): { ok: boolean; error?: string } {
@@ -211,10 +300,13 @@ export async function runSchemaReadinessChecks(
     }
 
     const { error } = await admin.rpc(check.functionName, check.args)
-    if (error && check.missingCodes.includes(error.code ?? '')) {
-      missing.push(check.label)
-    } else if (error && isSchemaMissingError(error)) {
-      missing.push(check.label)
+    if (error) {
+      const code = error.code ?? ''
+      if (check.missingCodes.includes(code) || isSchemaMissingError(error)) {
+        missing.push(check.label)
+      } else if (!check.expectedExistingErrorCodes?.includes(code)) {
+        throw error
+      }
     }
   }
 
@@ -235,7 +327,8 @@ export async function runHealthChecks(): Promise<HealthCheckResponse> {
   }
 
   const coreMissing = getMissingRequiredEnv(HEALTH_CORE_REQUIRED_ENV)
-  if (coreMissing.length > 0) {
+  const appOriginReady = isAppOriginReady()
+  if (coreMissing.length > 0 || !appOriginReady) {
     const resend = checkResendEnv()
     const google = checkGoogleOAuthEnv()
     return {
@@ -245,7 +338,7 @@ export async function runHealthChecks(): Promise<HealthCheckResponse> {
         resend: resend.ok,
         googleOAuth: google.ok,
       },
-      error: coreMissing[0],
+      error: coreMissing[0] ?? 'app-origin',
     }
   }
   checks.env = true

@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+
 import {
   addHouseholdMember,
   updateHousehold,
@@ -17,14 +18,10 @@ import {
   type HouseholdMemberFormRow,
   type NewMemberDraft,
 } from '../../_components/HouseholdForm'
-import { devDashboardConsoleError } from '@/lib/dashboardSupabaseError'
-import {
-  parseHouseholdMemberWithPerson,
-  parseHouseholdRow,
-} from '@/lib/households'
-import { formatPersonDisplayName, parsePersonRow } from '@/lib/people'
+import { householdDetailHref } from '@/lib/dashboardEntityNavigation'
+import { coreRecordClientErrorMessage } from '@/lib/coreRecordClientMessages'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
-import { supabase } from '@/lib/supabase'
+import type { HouseholdDetailResult } from '@/lib/server/loadHouseholdDetail'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 
 const initialNewMember: NewMemberDraft = {
@@ -33,104 +30,41 @@ const initialNewMember: NewMemberDraft = {
   isPrimaryContact: false,
 }
 
-export function EditHouseholdPage() {
-  const params = useParams()
+export function EditHouseholdPage({
+  household,
+  members: loadedMembers,
+  peopleOptions: loadedPeopleOptions,
+  errorMessage,
+  activeParishName,
+}: HouseholdDetailResult) {
   const router = useRouter()
-  const householdId = String(params?.id ?? '')
+  const householdId = household?.id ?? ''
 
-  const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [values, setValues] = useState<HouseholdFormValues | null>(null)
-  const [members, setMembers] = useState<HouseholdMemberFormRow[]>([])
-  const [peopleOptions, setPeopleOptions] = useState<{ id: string; label: string }[]>([])
+  const [values, setValues] = useState<HouseholdFormValues | null>(() =>
+    householdToFormValues(household)
+  )
+  const [members, setMembers] = useState<HouseholdMemberFormRow[]>(() =>
+    membersToFormRows(loadedMembers)
+  )
   const [newMember, setNewMember] = useState<NewMemberDraft>(initialNewMember)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [addingMember, setAddingMember] = useState(false)
   const [addMemberMessage, setAddMemberMessage] = useState('')
+  const mutationInFlightRef = useRef<'save' | 'add-member' | null>(null)
+
+  function releaseMutation() {
+    mutationInFlightRef.current = null
+    setSaving(false)
+    setAddingMember(false)
+  }
 
   const memberPersonIds = useMemo(() => new Set(members.map((m) => m.personId)), [members])
 
   const availablePeopleOptions = useMemo(
-    () => peopleOptions.filter((option) => !memberPersonIds.has(option.id)),
-    [peopleOptions, memberPersonIds]
+    () => loadedPeopleOptions.filter((option) => !memberPersonIds.has(option.id)),
+    [loadedPeopleOptions, memberPersonIds]
   )
-
-  const reloadMembers = useCallback(async () => {
-    const { data: memberRows } = await supabase
-      .from('household_members')
-      .select(
-        'id, parish_id, household_id, person_id, relationship, is_primary_contact, created_at, people(id, first_name, middle_name, last_name, email, phone)'
-      )
-      .eq('household_id', householdId)
-      .order('is_primary_contact', { ascending: false })
-
-    const parsed = (memberRows ?? []).map((row) => {
-      const raw = row as Record<string, unknown>
-      const peopleRaw = raw.people
-      const personObj =
-        peopleRaw != null && typeof peopleRaw === 'object' && !Array.isArray(peopleRaw)
-          ? (peopleRaw as Record<string, unknown>)
-          : {}
-      return parseHouseholdMemberWithPerson({
-        ...raw,
-        person: personObj,
-      })
-    })
-
-    setMembers(membersToFormRows(parsed))
-  }, [householdId])
-
-  useEffect(() => {
-    if (!householdId) return
-
-    async function load() {
-      setLoading(true)
-      setErrorMessage('')
-
-      const [{ data: householdRow, error: householdError }, { data: peopleRows, error: peopleError }] =
-        await Promise.all([
-          supabase.from('households').select('*').eq('id', householdId).maybeSingle(),
-          supabase
-            .from('people')
-            .select('id, first_name, middle_name, last_name')
-            .order('last_name', { ascending: true })
-            .order('first_name', { ascending: true }),
-        ])
-
-      if (householdError) {
-        devDashboardConsoleError('households edit load', householdError)
-        setErrorMessage('Could not load this household.')
-        setLoading(false)
-        return
-      }
-      if (!householdRow) {
-        setErrorMessage('Household not found.')
-        setLoading(false)
-        return
-      }
-
-      if (peopleError) {
-        devDashboardConsoleError('people options load', peopleError)
-      }
-
-      setValues(householdToFormValues(parseHouseholdRow(householdRow as Record<string, unknown>)))
-      setPeopleOptions(
-        (peopleRows ?? []).map((row) => {
-          const person = parsePersonRow(row as Record<string, unknown>)
-          return {
-            id: person.id,
-            label: formatPersonDisplayName(person),
-          }
-        })
-      )
-
-      await reloadMembers()
-      setLoading(false)
-    }
-
-    void load()
-  }, [householdId, reloadMembers])
 
   function handleMemberChange(memberId: string, patch: Partial<HouseholdMemberFormRow>) {
     setMembers((current) =>
@@ -141,65 +75,86 @@ export function EditHouseholdPage() {
   }
 
   async function handleAddMember() {
+    if (mutationInFlightRef.current || !householdId) return
+
+    mutationInFlightRef.current = 'add-member'
     setAddingMember(true)
     setAddMemberMessage('')
 
-    const result = await addHouseholdMember(householdId, {
-      personId: newMember.personId,
-      relationship: newMember.relationship,
-      isPrimaryContact: newMember.isPrimaryContact,
-    })
-
-    setAddingMember(false)
+    let result: Awaited<ReturnType<typeof addHouseholdMember>>
+    try {
+      result = await addHouseholdMember(householdId, {
+        personId: newMember.personId,
+        relationship: newMember.relationship,
+        isPrimaryContact: newMember.isPrimaryContact,
+      })
+    } catch (error: unknown) {
+      setAddMemberMessage(coreRecordClientErrorMessage('addHouseholdMember', error))
+      releaseMutation()
+      return
+    }
 
     if (!result.ok) {
-      setAddMemberMessage(result.error)
+      setAddMemberMessage(coreRecordClientErrorMessage('addHouseholdMember', result.error))
+      releaseMutation()
       return
     }
 
     setNewMember(initialNewMember)
-    await reloadMembers()
+    setAddMemberMessage('Member added. Refreshing household members...')
+    releaseMutation()
+    router.refresh()
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!values) return
+    if (mutationInFlightRef.current || !values || !householdId) return
 
+    mutationInFlightRef.current = 'save'
     setSaving(true)
     setMessage('')
 
-    const householdResult = await updateHousehold(householdId, formValuesToWriteInput(values))
+    let householdResult: Awaited<ReturnType<typeof updateHousehold>>
+    try {
+      householdResult = await updateHousehold(householdId, formValuesToWriteInput(values))
+    } catch (error: unknown) {
+      setMessage(coreRecordClientErrorMessage('updateHousehold', error))
+      releaseMutation()
+      return
+    }
+
     if (!householdResult.ok) {
-      setSaving(false)
-      setMessage(householdResult.error)
+      setMessage(coreRecordClientErrorMessage('updateHousehold', householdResult.error))
+      releaseMutation()
       return
     }
 
     for (const member of members) {
-      const memberResult = await updateHouseholdMember(member.memberId, householdId, {
-        relationship: member.relationship,
-        isPrimaryContact: member.isPrimaryContact,
-      })
+      let memberResult: Awaited<ReturnType<typeof updateHouseholdMember>>
+      try {
+        memberResult = await updateHouseholdMember(member.memberId, householdId, {
+          relationship: member.relationship,
+          isPrimaryContact: member.isPrimaryContact,
+        })
+      } catch (error: unknown) {
+        setMessage(coreRecordClientErrorMessage('updateHouseholdMember', error))
+        releaseMutation()
+        return
+      }
+
       if (!memberResult.ok) {
-        setSaving(false)
-        setMessage(memberResult.error)
+        setMessage(
+          coreRecordClientErrorMessage('updateHouseholdMember', memberResult.error),
+        )
+        releaseMutation()
         return
       }
     }
 
-    setSaving(false)
-    router.push(`/dashboard/households/${householdId}`)
+    router.push(householdDetailHref(householdId))
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center px-4" aria-busy="true">
-        <p className="text-sm font-medium text-gray-700">Loading household…</p>
-      </div>
-    )
-  }
-
-  if (errorMessage || !values) {
+  if (errorMessage || !household || !values) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 sm:px-6 sm:pt-5">
         <p className="mb-3">
@@ -207,7 +162,7 @@ export function EditHouseholdPage() {
             href="/dashboard/households"
             className="text-sm font-medium text-blue-800 underline underline-offset-2"
           >
-            ← Back to households
+            &larr; Back to households
           </Link>
         </p>
         <div
@@ -224,24 +179,29 @@ export function EditHouseholdPage() {
     <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
       <p className="mb-3">
         <Link
-          href={`/dashboard/households/${householdId}`}
+          href={householdDetailHref(householdId)}
           className="text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
         >
-          ← Back to household
+          &larr; Back to household
         </Link>
       </p>
 
       <h1 className={sectionHeadingClassName}>Edit household</h1>
-      <p className="mb-6 max-w-xl text-sm leading-relaxed text-gray-600">
+      <p className="mb-2 max-w-xl text-sm leading-relaxed text-gray-600">
         Update address details and manage household members.
       </p>
+      {activeParishName ? (
+        <p className="mb-6 text-xs font-medium uppercase tracking-wide text-gray-500">
+          Editing household for {activeParishName}
+        </p>
+      ) : null}
 
       <div className={vineaSectionShellClassName}>
         <HouseholdForm
           values={values}
           onChange={setValues}
           onSubmit={handleSubmit}
-          onCancel={() => router.push(`/dashboard/households/${householdId}`)}
+          onCancel={() => router.push(householdDetailHref(householdId))}
           submitLabel="Save changes"
           saving={saving}
           message={message}
@@ -252,6 +212,7 @@ export function EditHouseholdPage() {
           onNewMemberChange={setNewMember}
           onAddMember={handleAddMember}
           addingMember={addingMember}
+          operationBusy={saving || addingMember}
           addMemberMessage={addMemberMessage}
           peopleOptions={availablePeopleOptions}
         />

@@ -43,4 +43,18 @@ describe('buildParishOnboardingReadiness', () => {
     expect(incomplete).toContain('daily-brief')
     expect(result.readyToComplete).toBe(false)
   })
+
+  it('keeps every setup checklist link inside the dashboard settings route', () => {
+    const result = buildParishOnboardingReadiness({
+      parish: completeParish,
+      staffUsers: [{ role: 'admin', active: true }],
+    })
+
+    expect(result.items.map((item) => item.href)).toEqual(
+      Array.from({ length: result.totalCount }, () => '/dashboard/settings')
+    )
+    expect(result.items.every((item) => item.href.startsWith('/dashboard'))).toBe(true)
+    expect(result.items.some((item) => item.href.includes('://'))).toBe(false)
+    expect(result.items.some((item) => item.href.toLowerCase().includes('javascript:'))).toBe(false)
+  })
 })

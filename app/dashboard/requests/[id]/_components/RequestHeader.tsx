@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Activity, Calendar, Clock, Mail, Phone, User } from 'lucide-react'
 import { FormattedDateTimeOrMissing, maybeMissingValue } from '@/lib/missingValue'
 import { sectionSubheadingClassName } from '@/lib/sectionHeader'
@@ -15,13 +15,21 @@ import {
 import { REQUEST_WAITING_ON_OPTIONS } from '@/lib/requestWaitingOn'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { requestDetailClientFailureMessage } from '@/lib/requestDetailClientMessages'
+import type {
+  RequestDetailParishionerDto,
+  RequestDetailRequestDto,
+  RequestFuneralDetailDto,
+  RequestOciaDetailDto,
+  RequestWeddingDetailDto,
+} from '@/lib/requestDetailDtos'
 
 type IntakeProps = {
-  parishioner: any
-  request: any
-  funeralDetail?: any | null
-  weddingDetail?: any | null
-  ociaDetail?: any | null
+  parishioner: RequestDetailParishionerDto | null
+  request: RequestDetailRequestDto
+  funeralDetail?: RequestFuneralDetailDto | null
+  weddingDetail?: RequestWeddingDetailDto | null
+  ociaDetail?: RequestOciaDetailDto | null
   /** When true, hide contact + intake + notes (used while staff edit intake in a separate form). */
   intakeDetailsHidden?: boolean
   /** Hide name / email / phone (shown separately in Contact Information card). */
@@ -255,10 +263,12 @@ export function RequestStatusSection({
   request,
   scheduleRow,
   onUpdateStatus,
+  updating = false,
 }: {
-  request: any
+  request: RequestDetailRequestDto
   scheduleRow: RequestScheduleRow
-  onUpdateStatus: (newStatus: string) => void
+  onUpdateStatus: (newStatus: string) => Promise<void> | void
+  updating?: boolean
 }) {
   const currentStatus = String(request?.status || '')
 
@@ -293,12 +303,14 @@ export function RequestStatusSection({
           className="flex w-full flex-col gap-1 rounded-lg border border-gray-200 bg-white p-1 sm:inline-flex sm:w-auto sm:flex-row sm:flex-wrap"
           role="group"
           aria-label="Set request status"
+          aria-busy={updating}
         >
           {REQUEST_STATUS_SEGMENTS.map(({ value, label }) => (
             <button
               key={value}
               type="button"
-              onClick={() => onUpdateStatus(value)}
+              onClick={() => void onUpdateStatus(value)}
+              disabled={updating}
               className={
                 currentStatus === value
                   ? 'inline-flex w-full items-center justify-center rounded-lg bg-brand-muted px-4 py-2 text-sm font-semibold text-brand-foreground shadow-sm ring-1 ring-brand/25 transition-all duration-150 active:scale-[0.98] sm:w-auto'
@@ -320,7 +332,7 @@ export function RequestWaitingOnSection({
   disabled,
   onSave,
 }: {
-  request: any
+  request: RequestDetailRequestDto
   disabled?: boolean
   onSave: (value: string | null) => Promise<void> | void
 }) {
@@ -328,29 +340,64 @@ export function RequestWaitingOnSection({
   const [value, setValue] = useState(stored)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const saveInFlightRef = useRef(false)
 
   useEffect(() => {
-    setValue(String(request?.waiting_on ?? '').trim())
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) setValue(String(request?.waiting_on ?? '').trim())
+    })
+    return () => {
+      cancelled = true
+    }
   }, [request?.waiting_on])
 
   const isComplete = String(request?.status ?? '').trim() === 'complete'
 
-  async function handleSave() {
-    const next = value.trim() === '' ? null : value.trim()
+  async function persistWaitingOn(
+    next: string | null,
+    successMessage: string,
+    failureMessage: string,
+  ) {
+    if (saveInFlightRef.current) return
+
+    saveInFlightRef.current = true
     setSaving(true)
     setMessage('')
     try {
       await onSave(next)
-      setMessage('Saved.')
-    } catch (e: any) {
-      setMessage(e?.message ? String(e.message) : 'Save failed.')
+      if (next === null) setValue('')
+      setMessage(successMessage)
+    } catch {
+      setMessage(failureMessage)
     } finally {
+      saveInFlightRef.current = false
       setSaving(false)
     }
   }
 
+  async function handleSave() {
+    const next = value.trim() === '' ? null : value.trim()
+    await persistWaitingOn(
+      next,
+      'Saved.',
+      requestDetailClientFailureMessage('saveWaitingOn'),
+    )
+  }
+
+  async function handleClear() {
+    await persistWaitingOn(
+      null,
+      'Cleared.',
+      requestDetailClientFailureMessage('clearWaitingOn'),
+    )
+  }
+
   return (
-    <div className="mt-6 space-y-4 border-t border-gray-100 pt-5 text-sm sm:text-base text-gray-800">
+    <div
+      className="mt-6 space-y-4 border-t border-gray-100 pt-5 text-sm sm:text-base text-gray-800"
+      aria-busy={saving}
+    >
       <LabelValueGrid>
         <LabelValueRow
           label={<FieldLabel icon={Clock}>Waiting for</FieldLabel>}
@@ -359,7 +406,7 @@ export function RequestWaitingOnSection({
               <select
                 className="w-full min-w-0 max-w-md rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-60"
                 value={value}
-                disabled={disabled || isComplete}
+                disabled={disabled || isComplete || saving}
                 onChange={(e) => setValue(e.target.value)}
                 aria-label="What this request is waiting for"
               >
@@ -390,19 +437,7 @@ export function RequestWaitingOnSection({
       <button
         type="button"
         disabled={disabled || isComplete || saving || !value}
-        onClick={async () => {
-          setSaving(true)
-          setMessage('')
-          try {
-            setValue('')
-            await onSave(null)
-            setMessage('Cleared.')
-          } catch (e: any) {
-            setMessage(e?.message ? String(e.message) : 'Clear failed.')
-          } finally {
-            setSaving(false)
-          }
-        }}
+        onClick={() => void handleClear()}
         className={`${secondaryButtonMd} justify-center text-sm`}
       >
         Clear waiting for

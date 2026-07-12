@@ -4,6 +4,7 @@ import { formatPersonDisplayName } from '@/lib/people'
 import { formatHouseholdRelationship } from '@/lib/households'
 import type { PeopleListResult } from '@/lib/server/loadPeopleList'
 import { primaryButtonMd } from '@/lib/buttonStyles'
+import { personDetailHref } from '@/lib/dashboardEntityNavigation'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 import { PeopleListFilters } from './PeopleListFilters'
@@ -16,7 +17,12 @@ function contactLine(email: string | null, phone: string | null) {
   return maybeMissingValue('No contact info')
 }
 
-export function PeopleListView({ people, errorMessage, searchQuery }: PeopleListResult) {
+export function PeopleListView({
+  people,
+  errorMessage,
+  searchQuery,
+  activeParishName,
+}: PeopleListResult) {
   return (
     <main className="mx-auto max-w-6xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -25,6 +31,14 @@ export function PeopleListView({ people, errorMessage, searchQuery }: PeopleList
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
             Parishioner profiles. Search by name or contact info, or add someone new.
           </p>
+          {activeParishName ? (
+            <p className="mt-2 inline-flex max-w-full rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm">
+              <span className="truncate">
+                People are scoped to{' '}
+                <span className="font-semibold text-gray-900">{activeParishName}</span>.
+              </span>
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
@@ -95,7 +109,7 @@ export function PeopleListView({ people, errorMessage, searchQuery }: PeopleList
             return (
               <li key={person.id}>
                 <Link
-                  href={`/dashboard/people/${person.id}`}
+                  href={personDetailHref(person.id)}
                   className="block rounded-2xl border border-gray-200/90 bg-white p-4 shadow-sm ring-1 ring-gray-900/[0.03] transition hover:border-gray-300 hover:shadow-md sm:p-5"
                 >
                   <p className="text-lg font-semibold text-gray-900 break-words">{name}</p>

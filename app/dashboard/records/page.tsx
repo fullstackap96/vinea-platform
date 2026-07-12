@@ -4,7 +4,11 @@ import { RecordsListView } from './RecordsListView'
 export default async function DashboardRecordsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string | string[]; type?: string | string[] }>
+  searchParams: Promise<{
+    q?: string | string[]
+    type?: string | string[]
+    continuity?: string | string[]
+  }>
 }) {
   const params = await searchParams
   const result = await loadSacramentalRecordsList(params)

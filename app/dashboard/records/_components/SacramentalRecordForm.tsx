@@ -71,11 +71,12 @@ export function SacramentalRecordForm({
   idPrefix?: string
 }) {
   function patch(partial: Partial<SacramentalRecordFormValues>) {
+    if (saving) return
     onChange({ ...values, ...partial })
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form method="post" onSubmit={onSubmit} className="space-y-5" aria-busy={saving}>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className={labelClass} htmlFor={`${idPrefix}-type`}>
@@ -86,6 +87,7 @@ export function SacramentalRecordForm({
             className={vineaInputFieldClassName}
             value={values.recordType}
             onChange={(e) => patch({ recordType: e.target.value })}
+            disabled={saving}
             required
           >
             {SACRAMENTAL_RECORD_TYPES.map((t) => (
@@ -106,6 +108,7 @@ export function SacramentalRecordForm({
             className={vineaInputFieldClassName}
             value={values.personName}
             onChange={(e) => patch({ personName: e.target.value })}
+            disabled={saving}
             placeholder="Full name as it appears in the register"
             required
             autoComplete="name"
@@ -122,6 +125,7 @@ export function SacramentalRecordForm({
             className={vineaInputFieldClassName}
             value={values.sacramentDate}
             onChange={(e) => patch({ sacramentDate: e.target.value })}
+            disabled={saving}
           />
         </div>
 
@@ -135,6 +139,7 @@ export function SacramentalRecordForm({
             className={vineaInputFieldClassName}
             value={values.minister}
             onChange={(e) => patch({ minister: e.target.value })}
+            disabled={saving}
             placeholder="Priest or deacon name"
             autoComplete="off"
           />
@@ -150,6 +155,7 @@ export function SacramentalRecordForm({
             className={vineaInputFieldClassName}
             value={values.place}
             onChange={(e) => patch({ place: e.target.value })}
+            disabled={saving}
             placeholder="Church, chapel, or cemetery"
             autoComplete="off"
           />
@@ -172,6 +178,7 @@ export function SacramentalRecordForm({
               className={vineaInputFieldClassName}
               value={values.book}
               onChange={(e) => patch({ book: e.target.value })}
+              disabled={saving}
             />
           </div>
           <div>
@@ -184,6 +191,7 @@ export function SacramentalRecordForm({
               className={vineaInputFieldClassName}
               value={values.page}
               onChange={(e) => patch({ page: e.target.value })}
+              disabled={saving}
             />
           </div>
           <div>
@@ -196,6 +204,7 @@ export function SacramentalRecordForm({
               className={vineaInputFieldClassName}
               value={values.line}
               onChange={(e) => patch({ line: e.target.value })}
+              disabled={saving}
             />
           </div>
         </div>
@@ -210,6 +219,7 @@ export function SacramentalRecordForm({
           className={`${vineaInputFieldClassName} min-h-[6rem] resize-y`}
           value={values.notes}
           onChange={(e) => patch({ notes: e.target.value })}
+          disabled={saving}
           placeholder="Additional register notes for staff"
         />
       </div>
@@ -220,7 +230,7 @@ export function SacramentalRecordForm({
           disabled={saving}
           className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
         >
-          {saving ? 'Saving…' : submitLabel}
+          {saving ? 'Saving...' : submitLabel}
         </button>
         {onCancel ? (
           <button

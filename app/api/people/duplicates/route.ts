@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
 import {
   combinePersonNotes,
   findPersonDuplicateCandidates,
@@ -7,7 +6,15 @@ import {
 } from '@/lib/personDuplicateReview'
 import { parsePersonRow } from '@/lib/people'
 import { writeAuditEvent } from '@/lib/server/auditLog'
+import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
+import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+  resolveActiveStaffParishContext,
+} from '@/lib/server/activeStaffParishContext'
+import { resolveStaffWriteParishContext } from '@/lib/server/staffWriteParishContext'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import type { PersonRow } from '@/lib/types/people'
 
@@ -23,7 +30,21 @@ const MERGE_FIELDS = [
   'notes',
 ] as const
 
+const PEOPLE_DUPLICATE_SELECT =
+  'id, parish_id, parishioner_id, first_name, middle_name, last_name, email, phone, date_of_birth, notes, created_at, updated_at' as const
+
 type MergeField = (typeof MERGE_FIELDS)[number]
+type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
+
+function peopleDuplicateErrorResponse(
+  action: string,
+  error: unknown,
+  message: string,
+  status = 500
+) {
+  logServerError(`[people-duplicates] ${action} failed`, error)
+  return NextResponse.json({ ok: false, error: message }, { status })
+}
 
 function text(value: unknown, max = 2000): string {
   return String(value ?? '').trim().slice(0, max)
@@ -41,7 +62,7 @@ function isMergeField(value: unknown): value is MergeField {
 async function loadPeople(admin: ReturnType<typeof createSupabaseServiceRoleClient>, parishId: string) {
   const { data, error } = await admin
     .from('people')
-    .select('*')
+    .select(PEOPLE_DUPLICATE_SELECT)
     .eq('parish_id', parishId)
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true })
@@ -51,10 +72,64 @@ async function loadPeople(admin: ReturnType<typeof createSupabaseServiceRoleClie
   return (data ?? []).map((row) => parsePersonRow(row as Record<string, unknown>))
 }
 
-async function primaryParishId(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
-  const { parishId, error } = await fetchPrimaryParishId(admin)
-  if (error) throw error
-  return parishId
+function activeParishCookie(request: NextRequest): string | null {
+  const nextCookie = (request as { cookies?: { get?: (name: string) => { value?: string } | undefined } })
+    .cookies
+    ?.get?.(ACTIVE_STAFF_PARISH_COOKIE)?.value
+  if (nextCookie) return nextCookie
+
+  const rawCookie = request.headers.get('cookie') ?? ''
+  const match = rawCookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${ACTIVE_STAFF_PARISH_COOKIE}=`))
+  return match ? decodeURIComponent(match.slice(ACTIVE_STAFF_PARISH_COOKIE.length + 1)) : null
+}
+
+async function duplicateReadParishId(
+  supabase: StaffSupabaseClient,
+  requestedParishId: string | null
+) {
+  const parishContext = await resolveActiveStaffParishContext(supabase, {
+    requestedParishId,
+  })
+  if (!parishContext.ok) {
+    return { ok: false as const, error: parishContext.error, requestedParishId }
+  }
+  if (requestedParishId && parishContext.activeParishId !== requestedParishId) {
+    return {
+      ok: false as const,
+      error: 'You are not authorized to review duplicate people for this parish.',
+      requestedParishId,
+    }
+  }
+  if (requestedParishId && parishContext.source !== 'membership') {
+    return {
+      ok: false as const,
+      error: 'You are not authorized to review duplicate people for this parish.',
+      requestedParishId,
+    }
+  }
+
+  return { ok: true as const, parishId: parishContext.activeParishId }
+}
+
+async function duplicateWriteParishId(
+  supabase: StaffSupabaseClient,
+  requestedParishId: string | null
+) {
+  const parishContext = await resolveStaffWriteParishContext(supabase, {
+    requestedParishId,
+    allowPrimaryParishFallback: !requestedParishId,
+    fallbackReason:
+      'People duplicate merge used legacy parish context because active parish selection was not available.',
+  })
+
+  if (!parishContext.ok) {
+    return { ok: false as const, error: parishContext.error, requestedParishId }
+  }
+
+  return { ok: true as const, parishId: parishContext.parishId }
 }
 
 async function loadLinkCounts(
@@ -140,28 +215,61 @@ export async function GET(request: NextRequest) {
   if (!staff.ok) return staff.response
 
   const admin = createSupabaseServiceRoleClient()
-  const parishId = await primaryParishId(admin)
+  const parishScope = await duplicateReadParishId(staff.supabase, activeParishCookie(request))
+  if (!parishScope.ok) {
+    const status = parishScope.error === 'Parish is not configured.' ? 404 : 403
+    return NextResponse.json({ ok: false, error: parishScope.error }, { status })
+  }
+
+  const parishId = parishScope.parishId
   if (!parishId) {
     return NextResponse.json({ ok: false, error: 'Parish is not configured.' }, { status: 404 })
   }
 
-  const people = await loadPeople(admin, parishId)
-  const candidates = findPersonDuplicateCandidates(people).slice(0, 50)
-  const personIds = Array.from(new Set(candidates.flatMap((candidate) => candidate.people.map((p) => p.id))))
-  const counts = await loadLinkCounts(admin, personIds)
+  try {
+    const people = await loadPeople(admin, parishId)
+    const candidates = findPersonDuplicateCandidates(people).slice(0, 50)
+    const personIds = Array.from(
+      new Set(candidates.flatMap((candidate) => candidate.people.map((p) => p.id)))
+    )
+    const counts = await loadLinkCounts(admin, personIds)
 
-  return NextResponse.json({
-    ok: true,
-    candidates: candidates.map((candidate) => serializeCandidate(candidate, counts)),
-  })
+    return NextResponse.json({
+      ok: true,
+      candidates: candidates.map((candidate) => serializeCandidate(candidate, counts)),
+    })
+  } catch (error: unknown) {
+    return peopleDuplicateErrorResponse(
+      'load',
+      error,
+      'Could not load duplicate review.'
+    )
+  }
 }
 
 export async function POST(request: NextRequest) {
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
   const staff = await requireStaffFromRequest(request)
   if (!staff.ok) return staff.response
 
-  const body = await request.json().catch(() => null as Record<string, unknown> | null)
-  if (!body || typeof body !== 'object') {
+  const parsedBody = await readBoundedJsonBody(request, 32 * 1024)
+  if (!parsedBody.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          parsedBody.reason === 'too_large'
+            ? 'Merge request is too large.'
+            : 'Invalid merge request.',
+      },
+      { status: parsedBody.reason === 'too_large' ? 413 : 400 }
+    )
+  }
+
+  const body = parsedBody.value as Record<string, unknown> | null
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return NextResponse.json({ ok: false, error: 'Invalid merge request.' }, { status: 400 })
   }
 
@@ -184,19 +292,25 @@ export async function POST(request: NextRequest) {
   )
 
   const admin = createSupabaseServiceRoleClient()
-  const parishId = await primaryParishId(admin)
+  const parishScope = await duplicateWriteParishId(staff.supabase, activeParishCookie(request))
+  if (!parishScope.ok) {
+    const status = parishScope.error === 'Parish is not configured.' ? 404 : 403
+    return NextResponse.json({ ok: false, error: parishScope.error }, { status })
+  }
+
+  const parishId = parishScope.parishId
   if (!parishId) {
     return NextResponse.json({ ok: false, error: 'Parish is not configured.' }, { status: 404 })
   }
 
   const { data: peopleRows, error: peopleError } = await admin
     .from('people')
-    .select('*')
+    .select(PEOPLE_DUPLICATE_SELECT)
     .eq('parish_id', parishId)
     .in('id', [canonicalPersonId, duplicatePersonId])
 
   if (peopleError) {
-    return NextResponse.json({ ok: false, error: peopleError.message }, { status: 500 })
+    return peopleDuplicateErrorResponse('merge_people_lookup', peopleError, 'Could not merge these people.')
   }
 
   const people = (peopleRows ?? []).map((row) => parsePersonRow(row as Record<string, unknown>))
@@ -213,15 +327,23 @@ export async function POST(request: NextRequest) {
 
   const transferParishionerId = !canonical.parishioner_id && duplicate.parishioner_id
   if (transferParishionerId) {
-    const { error } = await admin
+    const { data: clearedDuplicate, error } = await admin
       .from('people')
       .update({ parishioner_id: null })
       .eq('id', duplicatePersonId)
       .eq('parish_id', parishId)
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      .select('id')
+      .maybeSingle()
+    if (error || !clearedDuplicate?.id) {
+      return peopleDuplicateErrorResponse(
+        'merge_clear_duplicate_parishioner_id',
+        error ?? new Error('Duplicate parishioner link was not cleared.'),
+        'Could not merge these people.'
+      )
+    }
   }
 
-  const { error: updateCanonicalError } = await admin
+  const { data: updatedCanonical, error: updateCanonicalError } = await admin
     .from('people')
     .update({
       ...normalized.payload,
@@ -229,9 +351,33 @@ export async function POST(request: NextRequest) {
     })
     .eq('id', canonicalPersonId)
     .eq('parish_id', parishId)
+    .select('id')
+    .maybeSingle()
 
-  if (updateCanonicalError) {
-    return NextResponse.json({ ok: false, error: updateCanonicalError.message }, { status: 500 })
+  if (updateCanonicalError || !updatedCanonical?.id) {
+    if (transferParishionerId) {
+      const { data: restoredDuplicate, error: restoreError } = await admin
+        .from('people')
+        .update({ parishioner_id: duplicate.parishioner_id })
+        .eq('id', duplicatePersonId)
+        .eq('parish_id', parishId)
+        .select('id')
+        .maybeSingle()
+
+      if (restoreError || !restoredDuplicate?.id) {
+        return peopleDuplicateErrorResponse(
+          'merge_restore_duplicate_parishioner_id',
+          restoreError ?? new Error('Duplicate parishioner link was not restored.'),
+          'Could not complete this merge. The parishioner link may need administrator review before retrying.'
+        )
+      }
+    }
+
+    return peopleDuplicateErrorResponse(
+      'merge_update_canonical_person',
+      updateCanonicalError ?? new Error('Canonical person was not updated.'),
+      'Could not merge these people.'
+    )
   }
 
   const [requestsUpdate, recordsUpdate] = await Promise.all([
@@ -248,10 +394,18 @@ export async function POST(request: NextRequest) {
   ])
 
   if (requestsUpdate.error) {
-    return NextResponse.json({ ok: false, error: requestsUpdate.error.message }, { status: 500 })
+    return peopleDuplicateErrorResponse(
+      'merge_repoint_requests',
+      requestsUpdate.error,
+      'Could not merge these people.'
+    )
   }
   if (recordsUpdate.error) {
-    return NextResponse.json({ ok: false, error: recordsUpdate.error.message }, { status: 500 })
+    return peopleDuplicateErrorResponse(
+      'merge_repoint_records',
+      recordsUpdate.error,
+      'Could not merge these people.'
+    )
   }
 
   const { data: duplicateMemberships, error: membershipsError } = await admin
@@ -261,7 +415,11 @@ export async function POST(request: NextRequest) {
     .eq('person_id', duplicatePersonId)
 
   if (membershipsError) {
-    return NextResponse.json({ ok: false, error: membershipsError.message }, { status: 500 })
+    return peopleDuplicateErrorResponse(
+      'merge_load_duplicate_households',
+      membershipsError,
+      'Could not merge these people.'
+    )
   }
 
   let movedHouseholds = 0
@@ -289,38 +447,58 @@ export async function POST(request: NextRequest) {
     )
     const shouldBePrimary = Boolean(membership.is_primary_contact) && !primaryExistsBesidesDuplicate
 
-    const { error: deleteMembershipError } = await admin
+    if (!existingCanonical?.id) {
+      const { data: insertedMembership, error: insertMembershipError } = await admin
+        .from('household_members')
+        .insert({
+          parish_id: parishId,
+          household_id: householdId,
+          person_id: canonicalPersonId,
+          relationship: text(membership.relationship, 80) || 'member',
+          is_primary_contact: shouldBePrimary,
+        })
+        .select('id')
+        .maybeSingle()
+      if (insertMembershipError || !insertedMembership?.id) {
+        return peopleDuplicateErrorResponse(
+          'merge_insert_canonical_household_membership',
+          insertMembershipError ?? new Error('Canonical household membership was not created.'),
+          'Could not merge these people.'
+        )
+      }
+      movedHouseholds += 1
+    }
+
+    const { data: deletedMembership, error: deleteMembershipError } = await admin
       .from('household_members')
       .delete()
       .eq('id', membershipId)
       .eq('parish_id', parishId)
-    if (deleteMembershipError) {
-      return NextResponse.json({ ok: false, error: deleteMembershipError.message }, { status: 500 })
-    }
-
-    if (!existingCanonical?.id) {
-      const { error: insertMembershipError } = await admin.from('household_members').insert({
-        parish_id: parishId,
-        household_id: householdId,
-        person_id: canonicalPersonId,
-        relationship: text(membership.relationship, 80) || 'member',
-        is_primary_contact: shouldBePrimary,
-      })
-      if (insertMembershipError) {
-        return NextResponse.json({ ok: false, error: insertMembershipError.message }, { status: 500 })
-      }
-      movedHouseholds += 1
+      .select('id')
+      .maybeSingle()
+    if (deleteMembershipError || !deletedMembership?.id) {
+      return peopleDuplicateErrorResponse(
+        'merge_delete_duplicate_household_membership',
+        deleteMembershipError ?? new Error('Duplicate household membership was not deleted.'),
+        'Could not merge these people.'
+      )
     }
   }
 
-  const { error: deletePersonError } = await admin
+  const { data: deletedPerson, error: deletePersonError } = await admin
     .from('people')
     .delete()
     .eq('id', duplicatePersonId)
     .eq('parish_id', parishId)
+    .select('id')
+    .maybeSingle()
 
-  if (deletePersonError) {
-    return NextResponse.json({ ok: false, error: deletePersonError.message }, { status: 500 })
+  if (deletePersonError || !deletedPerson?.id) {
+    return peopleDuplicateErrorResponse(
+      'merge_delete_duplicate_person',
+      deletePersonError ?? new Error('Duplicate person was not deleted.'),
+      'Could not merge these people.'
+    )
   }
 
   await writeAuditEvent({
@@ -331,8 +509,6 @@ export async function POST(request: NextRequest) {
     targetId: canonicalPersonId,
     metadata: {
       duplicate_person_id: duplicatePersonId,
-      canonical_name_before: formatName(canonical),
-      duplicate_name: formatName(duplicate),
       moved_households: movedHouseholds,
       transferred_parishioner_id: Boolean(transferParishionerId),
     },
@@ -345,6 +521,8 @@ export async function POST(request: NextRequest) {
   })
 }
 
-function formatName(person: PersonRow) {
-  return [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' ')
+export const peopleDuplicatesRouteTestInternals = {
+  activeParishCookie,
+  duplicateReadParishId,
+  duplicateWriteParishId,
 }

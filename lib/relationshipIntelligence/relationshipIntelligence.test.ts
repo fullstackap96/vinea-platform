@@ -4,6 +4,12 @@ import { matchPeopleForRequest } from './matchPeopleForRequest'
 import { normalizeEmail, normalizePhone } from './normalizeContact'
 import { prefillRecordFormFromRequest } from './prefillRecordFromRequest'
 import { suggestRecordForRequest } from './suggestRecordForRequest'
+import {
+  recordDetailHrefForSuggestedAction,
+  recordPrefillHrefForRequest,
+  requestDetailHrefForSuggestedAction,
+  suggestedActionHref,
+} from './suggestedActionPresentation'
 import type { ParishionerContact, PersonCandidate } from './types'
 
 const people: PersonCandidate[] = [
@@ -142,5 +148,62 @@ describe('buildDashboardSuggestedActions', () => {
       recordIdsWithCertificate: new Set(),
     })
     expect(actions.length).toBeLessThanOrEqual(8)
+  })
+})
+
+describe('suggestedActionHref', () => {
+  it('builds safe record prefill links from request ids', () => {
+    expect(recordPrefillHrefForRequest('req/unsafe?next=https://example.test')).toBe(
+      '/dashboard/records/new?requestId=req%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test'
+    )
+    expect(recordPrefillHrefForRequest('   ')).toBe('/dashboard/records')
+    expect(recordPrefillHrefForRequest(null)).toBe('/dashboard/records')
+  })
+
+  it('builds safe suggested action detail links with list fallbacks for blank ids', () => {
+    expect(recordDetailHrefForSuggestedAction('record/unsafe?next=https://example.test')).toBe(
+      '/dashboard/records/record%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test'
+    )
+    expect(recordDetailHrefForSuggestedAction('   ')).toBe('/dashboard/records')
+    expect(recordDetailHrefForSuggestedAction(null)).toBe('/dashboard/records')
+
+    expect(requestDetailHrefForSuggestedAction('req/unsafe?next=https://example.test')).toBe(
+      '/dashboard/requests/req%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test'
+    )
+    expect(requestDetailHrefForSuggestedAction('   ')).toBe('/dashboard/requests')
+    expect(requestDetailHrefForSuggestedAction(null)).toBe('/dashboard/requests')
+  })
+
+  it('keeps suggested action links dashboard-internal and encoded', () => {
+    expect(
+      suggestedActionHref({
+        kind: 'record_creation',
+        requestId: 'req/unsafe?next=https://example.test',
+        requestType: 'baptism',
+        recordType: 'baptism',
+        label: 'Baptism request - create register entry',
+      })
+    ).toBe('/dashboard/records/new?requestId=req%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test')
+
+    expect(
+      suggestedActionHref({
+        kind: 'certificate',
+        recordId: 'record/unsafe?next=https://example.test',
+        personName: 'Lucia Smith',
+        label: 'Prepare baptism certificate',
+      })
+    ).toBe('/dashboard/records/record%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test')
+
+    expect(
+      suggestedActionHref({
+        kind: 'person_match',
+        personId: 'person-1',
+        personDisplayName: 'Maria Smith',
+        confidence: 'high',
+        reason: 'exact email match',
+        requestId: 'req/unsafe?next=https://example.test',
+        householdNames: [],
+      })
+    ).toBe('/dashboard/requests/req%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test')
   })
 })

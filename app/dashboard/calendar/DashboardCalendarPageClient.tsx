@@ -19,6 +19,7 @@ type Props = {
   items: ParishCareCalendarItem[]
   errorMessage?: string
   softWarnings?: string[]
+  activeParishName?: string | null
 }
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -101,6 +102,7 @@ export function DashboardCalendarPageClient({
   items,
   errorMessage = '',
   softWarnings = [],
+  activeParishName = null,
 }: Props) {
   const [filter, setFilter] = useState<FilterKey>('week')
   const visibleItems = useMemo(() => filterItems(items, filter), [items, filter])
@@ -120,6 +122,14 @@ export function DashboardCalendarPageClient({
             Follow-ups, funerals, weddings, baptisms, OCIA milestones, and Mass intentions in
             one calm operating view.
           </p>
+          {activeParishName ? (
+            <p className="mt-2 inline-flex max-w-full rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm">
+              <span className="truncate">
+                Parish care calendar is scoped to{' '}
+                <span className="font-semibold text-gray-900">{activeParishName}</span>.
+              </span>
+            </p>
+          ) : null}
         </div>
         <Link
           href="/dashboard"

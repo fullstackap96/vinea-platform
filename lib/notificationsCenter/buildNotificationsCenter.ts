@@ -12,6 +12,7 @@ import {
 import type { DashboardSuggestedAction } from '@/lib/relationshipIntelligence/types'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 import {
   NOTIFICATIONS_CENTER_MAX_VISIBLE,
   type NotificationCenterGroups,
@@ -64,6 +65,13 @@ function requestTypeLabel(request: NotificationsCenterRequest): string {
   return formatRequestType(requestTypeFromRow({ request_type: request.request_type }))
 }
 
+function requestHref(requestId: string) {
+  return safeDashboardHrefOrFallback(
+    `/dashboard/requests/${encodeURIComponent(requestId)}`,
+    '/dashboard/requests'
+  )
+}
+
 function buildRequestItem(
   request: NotificationsCenterRequest,
   group: Exclude<NotificationItemGroup, 'recommended'>,
@@ -86,7 +94,7 @@ function buildRequestItem(
       context: pastDue
         ? `${typeLabel} request · Past due ${pastDue}`
         : `${typeLabel} request · Follow-up is past due`,
-      href: `/dashboard/requests/${requestId}`,
+      href: requestHref(requestId),
     }
   }
 
@@ -97,7 +105,7 @@ function buildRequestItem(
       group,
       label: `Follow up today with ${name}`,
       context: `${typeLabel} request · Due today`,
-      href: `/dashboard/requests/${requestId}`,
+      href: requestHref(requestId),
     }
   }
 
@@ -114,7 +122,7 @@ function buildRequestItem(
     group,
     label: `New ${typeLabel} request needs review`,
     context: subject ? `${typeLabel} request · ${subject}` : `${typeLabel} request`,
-    href: `/dashboard/requests/${requestId}`,
+    href: requestHref(requestId),
   }
 }
 

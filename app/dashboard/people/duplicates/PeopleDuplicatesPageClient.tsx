@@ -1,11 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertCircle, CheckCircle2, GitMerge, RefreshCw } from 'lucide-react'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { formatPersonDateOfBirthDisplay, formatPersonDisplayName } from '@/lib/people'
+import { duplicateReviewClientErrorMessage } from '@/lib/duplicateReviewClientMessages'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
+import { VineaConfirmDialog } from '@/app/dashboard/_components/VineaConfirmDialog'
 import type { PersonDuplicateConfidence } from '@/lib/personDuplicateReview'
 import type { PersonRow } from '@/lib/types/people'
 
@@ -77,11 +79,18 @@ function totalLinks(person: DuplicatePerson) {
   return person.linkCounts.households + person.linkCounts.records + person.linkCounts.requests
 }
 
-export function PeopleDuplicatesPageClient() {
+export function PeopleDuplicatesPageClient({
+  activeParishName = null,
+}: {
+  activeParishName?: string | null
+}) {
   const [candidates, setCandidates] = useState<DuplicateCandidate[]>([])
   const [selectedCandidateId, setSelectedCandidateId] = useState('')
   const [canonicalPersonId, setCanonicalPersonId] = useState('')
   const [selectedFields, setSelectedFields] = useState<Record<string, string>>({})
+  const [mergeConfirmationOpen, setMergeConfirmationOpen] = useState(false)
+  const operationInFlightRef = useRef<'load' | 'merge' | null>(null)
+  const [reviewRequiresRefresh, setReviewRequiresRefresh] = useState(false)
   const [status, setStatus] = useState<StatusState>({
     kind: 'idle',
     message: 'Load possible duplicates to begin cleanup.',
@@ -92,36 +101,64 @@ export function PeopleDuplicatesPageClient() {
     [candidates, selectedCandidateId]
   )
 
-  async function loadCandidates() {
+  async function loadCandidatesCore(afterConfirmedMerge = false) {
     setStatus({ kind: 'loading', message: 'Looking for possible duplicate people...' })
-    const res = await fetch('/api/people/duplicates', { credentials: 'include' })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data?.ok) {
-      setStatus({ kind: 'error', message: data?.error ?? 'Could not load duplicate review.' })
-      return
-    }
+    try {
+      const res = await fetch('/api/people/duplicates', { credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        if (afterConfirmedMerge) setReviewRequiresRefresh(true)
+        setStatus({
+          kind: 'error',
+          message: afterConfirmedMerge
+            ? 'Profiles were merged, but duplicate review could not refresh. Refresh this page before merging again.'
+            : duplicateReviewClientErrorMessage('loadPeople', data?.error),
+        })
+        return
+      }
 
-    const nextCandidates = Array.isArray(data.candidates) ? data.candidates : []
-    setCandidates(nextCandidates)
-    const first = nextCandidates[0] as DuplicateCandidate | undefined
-    if (first) {
-      const preferred = totalLinks(first.people[0]) >= totalLinks(first.people[1])
-        ? first.people[0].id
-        : first.people[1].id
-      setSelectedCandidateId(first.id)
-      setCanonicalPersonId(preferred)
-      setSelectedFields(defaultSelections(first, preferred))
+      const nextCandidates = Array.isArray(data.candidates) ? data.candidates : []
+      setReviewRequiresRefresh(false)
+      setCandidates(nextCandidates)
+      const first = nextCandidates[0] as DuplicateCandidate | undefined
+      if (first) {
+        const preferred = totalLinks(first.people[0]) >= totalLinks(first.people[1])
+          ? first.people[0].id
+          : first.people[1].id
+        setSelectedCandidateId(first.id)
+        setCanonicalPersonId(preferred)
+        setSelectedFields(defaultSelections(first, preferred))
+        setStatus({
+          kind: 'success',
+          message: `${nextCandidates.length} possible duplicate pair${
+            nextCandidates.length === 1 ? '' : 's'
+          } found.`,
+        })
+      } else {
+        setSelectedCandidateId('')
+        setCanonicalPersonId('')
+        setSelectedFields({})
+        setStatus({ kind: 'success', message: 'No likely duplicate people found right now.' })
+      }
+    } catch (error: unknown) {
+      if (afterConfirmedMerge) setReviewRequiresRefresh(true)
       setStatus({
-        kind: 'success',
-        message: `${nextCandidates.length} possible duplicate pair${
-          nextCandidates.length === 1 ? '' : 's'
-        } found.`,
+        kind: 'error',
+        message: afterConfirmedMerge
+          ? 'Profiles were merged, but duplicate review could not refresh. Refresh this page before merging again.'
+          : duplicateReviewClientErrorMessage('loadPeople', error),
       })
-    } else {
-      setSelectedCandidateId('')
-      setCanonicalPersonId('')
-      setSelectedFields({})
-      setStatus({ kind: 'success', message: 'No likely duplicate people found right now.' })
+    }
+  }
+
+  async function loadCandidates() {
+    if (operationInFlightRef.current) return
+
+    operationInFlightRef.current = 'load'
+    try {
+      await loadCandidatesCore()
+    } finally {
+      operationInFlightRef.current = null
     }
   }
 
@@ -139,34 +176,66 @@ export function PeopleDuplicatesPageClient() {
     setSelectedFields(defaultSelections(candidate, personId))
   }
 
+  function requestMerge() {
+    if (
+      reviewRequiresRefresh ||
+      !selectedCandidate ||
+      !canonicalPersonId ||
+      status.kind === 'loading'
+    ) return
+    setMergeConfirmationOpen(true)
+  }
+
   async function mergeSelected() {
-    if (!selectedCandidate || !canonicalPersonId) return
+    if (
+      operationInFlightRef.current ||
+      reviewRequiresRefresh ||
+      !selectedCandidate ||
+      !canonicalPersonId
+    ) return
     const duplicate = selectedCandidate.people.find((person) => person.id !== canonicalPersonId)
     if (!duplicate) return
 
-    const confirmed = window.confirm(
-      `Merge ${formatPersonDisplayName(duplicate)} into the selected profile? This will move linked records and remove the duplicate profile.`
-    )
-    if (!confirmed) return
-
+    operationInFlightRef.current = 'merge'
+    setMergeConfirmationOpen(false)
     setStatus({ kind: 'loading', message: 'Merging duplicate profile...' })
-    const res = await fetch('/api/people/duplicates', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        canonicalPersonId,
-        duplicatePersonId: duplicate.id,
-        selectedFields,
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data?.ok) {
-      setStatus({ kind: 'error', message: data?.error ?? 'Could not merge these people.' })
-      return
+    try {
+      const res = await fetch('/api/people/duplicates', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          canonicalPersonId,
+          duplicatePersonId: duplicate.id,
+          selectedFields,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setStatus({ kind: 'error', message: duplicateReviewClientErrorMessage('mergePeople', data?.error) })
+        return
+      }
+      if (data?.ok !== true) {
+        setReviewRequiresRefresh(true)
+        setStatus({
+          kind: 'error',
+          message:
+            'Vinea could not confirm whether the profiles were merged. Refresh duplicate review before trying again.',
+        })
+        return
+      }
+      setStatus({ kind: 'success', message: 'Profiles merged. Refreshing duplicate review...' })
+      await loadCandidatesCore(true)
+    } catch {
+      setReviewRequiresRefresh(true)
+      setStatus({
+        kind: 'error',
+        message:
+          'Vinea could not confirm whether the profiles were merged. Refresh duplicate review before trying again.',
+      })
+    } finally {
+      operationInFlightRef.current = null
     }
-    setStatus({ kind: 'success', message: 'Profiles merged. Refreshing duplicate review...' })
-    await loadCandidates()
   }
 
   return (
@@ -189,8 +258,22 @@ export function PeopleDuplicatesPageClient() {
             Clean up imported people records without losing household links, requests, or
             sacramental records.
           </p>
+          {activeParishName ? (
+            <p className="mt-2 inline-flex max-w-full rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm">
+              <span className="truncate">
+                People duplicate review is scoped to{' '}
+                <span className="font-semibold text-gray-900">{activeParishName}</span>.
+              </span>
+            </p>
+          ) : null}
         </div>
-        <button type="button" onClick={loadCandidates} className={`${primaryButtonMd} gap-2`}>
+        <button
+          type="button"
+          onClick={loadCandidates}
+          disabled={status.kind === 'loading'}
+          aria-busy={status.kind === 'loading'}
+          className={`${primaryButtonMd} gap-2`}
+        >
           <RefreshCw className="h-4 w-4" aria-hidden />
           Find duplicates
         </button>
@@ -262,8 +345,10 @@ export function PeopleDuplicatesPageClient() {
                 </div>
                 <button
                   type="button"
-                  onClick={mergeSelected}
-                  disabled={!canonicalPersonId || status.kind === 'loading'}
+                  onClick={requestMerge}
+                  disabled={
+                    reviewRequiresRefresh || !canonicalPersonId || status.kind === 'loading'
+                  }
                   className={`${primaryButtonMd} gap-2`}
                 >
                   <GitMerge className="h-4 w-4" aria-hidden />
@@ -305,6 +390,24 @@ export function PeopleDuplicatesPageClient() {
           )}
         </section>
       </div>
+
+      <VineaConfirmDialog
+        open={mergeConfirmationOpen}
+        title="Merge these person profiles?"
+        description={
+          selectedCandidate && canonicalPersonId
+            ? `Vinea will keep ${formatPersonDisplayName(
+                selectedCandidate.people.find((person) => person.id === canonicalPersonId) ??
+                  selectedCandidate.people[0]
+              )}, move linked requests, records, and household memberships, then remove the duplicate profile.`
+            : ''
+        }
+        confirmLabel="Merge profiles"
+        busy={status.kind === 'loading'}
+        busyLabel="Merging..."
+        onCancel={() => setMergeConfirmationOpen(false)}
+        onConfirm={() => void mergeSelected()}
+      />
     </main>
   )
 }

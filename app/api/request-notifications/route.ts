@@ -5,7 +5,11 @@ import {
   buildRequestNotificationEmail,
   type RequestNotificationPayload,
 } from '@/lib/email/requestNotificationEmail'
-import { checkRateLimit, clientIpFromRequest } from '@/lib/server/simpleRateLimit'
+import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
+import { checkDurableRateLimit } from '@/lib/server/durableRateLimit'
+import { logServerError, logServerWarning } from '@/lib/server/safeErrorLogging'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
+import { durableRateLimitKeyFromRequest } from '@/lib/server/simpleRateLimit'
 import { verifyRequestNotificationPayload } from '@/lib/server/verifyRequestNotification'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
@@ -18,6 +22,7 @@ const ALLOWED_REQUEST_TYPES = new Set([
 ])
 
 const RATE_LIMIT = { limit: 10, windowMs: 60_000 }
+const MAX_BODY_BYTES = 32 * 1024
 
 function isValidEmail(value: string): boolean {
   const s = String(value || '').trim()
@@ -31,11 +36,29 @@ function normalizeOptionalText(value: unknown): string | undefined {
 }
 
 export async function POST(request: NextRequest) {
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
   try {
-    const rateLimit = checkRateLimit(
-      `request-notifications:${clientIpFromRequest(request)}`,
-      RATE_LIMIT
-    )
+    const admin = createSupabaseServiceRoleClient()
+    const rateLimit = await checkDurableRateLimit({
+      admin,
+      key: durableRateLimitKeyFromRequest(request, 'request-notifications'),
+      ...RATE_LIMIT,
+    }).catch((error: unknown) => {
+      logServerError('[request-notifications] rate limit check failed', error, {
+        route: '/api/request-notifications',
+      })
+      return null
+    })
+
+    if (!rateLimit) {
+      return NextResponse.json(
+        { ok: false, error: 'Notification could not be sent. Please try again later.' },
+        { status: 503 }
+      )
+    }
+
     if (!rateLimit.ok) {
       return NextResponse.json(
         { ok: false, error: 'Too many requests. Please try again later.' },
@@ -46,7 +69,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json().catch(() => null)
+    const parsedBody = await readBoundedJsonBody(request, MAX_BODY_BYTES)
+    if (!parsedBody.ok && parsedBody.reason === 'too_large') {
+      return NextResponse.json(
+        { ok: false, error: 'Notification request is too large.' },
+        { status: 413 },
+      )
+    }
+
+    const rawBody: unknown = parsedBody.ok ? parsedBody.value : null
+    const body =
+      rawBody && typeof rawBody === 'object'
+        ? (rawBody as Record<string, unknown>)
+        : null
     const requestId = String(body?.requestId ?? '').trim()
     const requestType = String(body?.requestType ?? '').trim().toLowerCase()
     const contactName = String(body?.contactName ?? '').trim()
@@ -86,12 +121,10 @@ export async function POST(request: NextRequest) {
     let to = String(process.env.REQUEST_NOTIFICATION_TO_EMAIL ?? '').trim()
     if (!to) {
       try {
-        const admin = createSupabaseServiceRoleClient()
         const { data: parish } = await admin
           .from('parishes')
           .select('default_notification_email')
-          .order('created_at', { ascending: true })
-          .limit(1)
+          .eq('id', verification.parishId)
           .maybeSingle()
         const fromDb = String(parish?.default_notification_email ?? '').trim()
         if (fromDb && isValidEmail(fromDb)) {
@@ -102,18 +135,21 @@ export async function POST(request: NextRequest) {
       }
     }
     if (!to) {
-      console.warn(
-        '[request-notifications] No notification inbox: set REQUEST_NOTIFICATION_TO_EMAIL or Parish settings → Default notification email.'
-      )
+      logServerWarning('[request-notifications] notification inbox missing', {
+        route: '/api/request-notifications',
+        hasEnvNotificationEmail: Boolean(process.env.REQUEST_NOTIFICATION_TO_EMAIL),
+      })
       return NextResponse.json({ ok: true, skipped: true })
     }
 
     const apiKey = process.env.RESEND_API_KEY
     const from = process.env.RESEND_FROM_EMAIL
     if (!apiKey || !from) {
-      console.warn(
-        '[request-notifications] RESEND_API_KEY/RESEND_FROM_EMAIL missing; cannot send notification.'
-      )
+      logServerWarning('[request-notifications] email provider configuration missing', {
+        route: '/api/request-notifications',
+        hasResendApiKey: Boolean(apiKey),
+        hasResendFromEmail: Boolean(from),
+      })
       return NextResponse.json(
         { ok: false, error: 'Server email not configured' },
         { status: 500 }
@@ -138,9 +174,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (!dashboardUrl) {
-      console.warn(
-        '[request-notifications] NEXT_PUBLIC_APP_URL not set; email will include a relative dashboard link.'
-      )
+      logServerWarning('[request-notifications] app URL configuration missing', {
+        route: '/api/request-notifications',
+        setting: 'NEXT_PUBLIC_APP_URL',
+      })
     }
 
     const resend = new Resend(apiKey)
@@ -152,14 +189,25 @@ export async function POST(request: NextRequest) {
       html,
     })
 
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    const providerMessageId = String(data?.id ?? '').trim()
+    if (error || !providerMessageId) {
+      logServerError('[request-notifications] resend send failed', error ?? new Error('Email provider did not return a message id.'), {
+        route: '/api/request-notifications',
+      })
+      return NextResponse.json(
+        { ok: false, error: 'Notification could not be sent. Please try again later.' },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ ok: true, id: data?.id || null })
+    return NextResponse.json({ ok: true, id: providerMessageId })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    console.error('[request-notifications] ERROR:', error)
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    logServerError('[request-notifications] unexpected failure', error, {
+      route: '/api/request-notifications',
+    })
+    return NextResponse.json(
+      { ok: false, error: 'Could not send notification.' },
+      { status: 500 }
+    )
   }
 }

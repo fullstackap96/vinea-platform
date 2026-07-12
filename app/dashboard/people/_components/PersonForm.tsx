@@ -59,11 +59,12 @@ export function PersonForm({
   idPrefix?: string
 }) {
   function patch(partial: Partial<PersonFormValues>) {
+    if (saving) return
     onChange({ ...values, ...partial })
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form method="post" onSubmit={onSubmit} className="space-y-5" aria-busy={saving}>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div>
           <label className={labelClass} htmlFor={`${idPrefix}-first-name`}>
@@ -74,6 +75,7 @@ export function PersonForm({
             className={vineaInputFieldClassName}
             value={values.firstName}
             onChange={(e) => patch({ firstName: e.target.value })}
+            disabled={saving}
             required
             autoComplete="given-name"
           />
@@ -87,6 +89,7 @@ export function PersonForm({
             className={vineaInputFieldClassName}
             value={values.middleName}
             onChange={(e) => patch({ middleName: e.target.value })}
+            disabled={saving}
             autoComplete="additional-name"
           />
         </div>
@@ -99,6 +102,7 @@ export function PersonForm({
             className={vineaInputFieldClassName}
             value={values.lastName}
             onChange={(e) => patch({ lastName: e.target.value })}
+            disabled={saving}
             required
             autoComplete="family-name"
           />
@@ -113,6 +117,7 @@ export function PersonForm({
             className={vineaInputFieldClassName}
             value={values.email}
             onChange={(e) => patch({ email: e.target.value })}
+            disabled={saving}
             autoComplete="email"
           />
         </div>
@@ -126,6 +131,7 @@ export function PersonForm({
             className={vineaInputFieldClassName}
             value={values.phone}
             onChange={(e) => patch({ phone: e.target.value })}
+            disabled={saving}
             autoComplete="tel"
           />
         </div>
@@ -139,6 +145,7 @@ export function PersonForm({
             className={vineaInputFieldClassName}
             value={values.dateOfBirth}
             onChange={(e) => patch({ dateOfBirth: e.target.value })}
+            disabled={saving}
           />
         </div>
         <div className="sm:col-span-2">
@@ -151,6 +158,7 @@ export function PersonForm({
             className={vineaInputFieldClassName}
             value={values.notes}
             onChange={(e) => patch({ notes: e.target.value })}
+            disabled={saving}
           />
         </div>
       </div>
@@ -167,7 +175,7 @@ export function PersonForm({
           disabled={saving}
           className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 disabled:opacity-60"
         >
-          {saving ? 'Saving…' : submitLabel}
+          {saving ? 'Saving...' : submitLabel}
         </button>
         {onCancel ? (
           <button

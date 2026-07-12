@@ -9,6 +9,7 @@ import {
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { MissingValue } from '@/lib/missingValue'
+import { requestDetailClientServerActionErrorMessage } from '@/lib/requestDetailClientMessages'
 
 export function NextFollowUpSection({
   requestId,
@@ -24,6 +25,12 @@ export function NextFollowUpSection({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const saveInFlightRef = useRef(false)
+
+  function releaseSave() {
+    saveInFlightRef.current = false
+    setSaving(false)
+  }
 
   const currentYmd = parseFollowUpCalendarDate(nextFollowUpDate)
 
@@ -34,45 +41,70 @@ export function NextFollowUpSection({
   }
 
   function cancelEdit() {
+    if (saveInFlightRef.current) return
     setEditing(false)
     setMessage('')
   }
 
   async function save() {
+    if (saveInFlightRef.current) return
+
+    saveInFlightRef.current = true
     setSaving(true)
     setMessage('')
     const nextDate = inputRef.current?.value ?? draftDate
-    const result = await updateRequestNextFollowUpDate({
-      requestId,
-      nextFollowUpDate: nextDate.trim() || null,
-    })
-    setSaving(false)
+
+    let result: Awaited<ReturnType<typeof updateRequestNextFollowUpDate>>
+    try {
+      result = await updateRequestNextFollowUpDate({
+        requestId,
+        nextFollowUpDate: nextDate.trim() || null,
+      })
+    } catch (error: unknown) {
+      setMessage(requestDetailClientServerActionErrorMessage('updateFollowUp', error))
+      releaseSave()
+      return
+    }
 
     if (!result.ok) {
-      setMessage(result.error)
+      setMessage(requestDetailClientServerActionErrorMessage('updateFollowUp', result.error))
+      releaseSave()
       return
     }
 
     setEditing(false)
+    releaseSave()
     onSaved()
   }
 
   async function clearDate() {
+    if (saveInFlightRef.current) return
+
+    saveInFlightRef.current = true
     setSaving(true)
     setMessage('')
-    const result = await updateRequestNextFollowUpDate({
-      requestId,
-      nextFollowUpDate: null,
-    })
-    setSaving(false)
+
+    let result: Awaited<ReturnType<typeof updateRequestNextFollowUpDate>>
+    try {
+      result = await updateRequestNextFollowUpDate({
+        requestId,
+        nextFollowUpDate: null,
+      })
+    } catch (error: unknown) {
+      setMessage(requestDetailClientServerActionErrorMessage('updateFollowUp', error))
+      releaseSave()
+      return
+    }
 
     if (!result.ok) {
-      setMessage(result.error)
+      setMessage(requestDetailClientServerActionErrorMessage('updateFollowUp', result.error))
+      releaseSave()
       return
     }
 
     setDraftDate('')
     setEditing(false)
+    releaseSave()
     onSaved()
   }
 
@@ -91,7 +123,7 @@ export function NextFollowUpSection({
       ) : null}
 
       {editing ? (
-        <div className="space-y-3">
+        <div className="space-y-3" aria-busy={saving}>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-800" htmlFor="next-follow-up-date">
               Follow-up date
@@ -102,6 +134,7 @@ export function NextFollowUpSection({
               className="w-full rounded border p-3"
               type="date"
               value={draftDate}
+              disabled={saving}
               onChange={(e) => setDraftDate(e.target.value)}
             />
           </div>

@@ -58,17 +58,12 @@ describe('buildParishIntakeQueue', () => {
       intentions: [
         {
           id: 'intention-1',
-          parish_id: 'parish-1',
           requester_name: 'Carlos Ruiz',
-          intention_text: 'For healing',
-          requested_date: '2026-06-20',
           assigned_mass_date: null,
           assigned_priest_name: null,
           stipend_received: false,
           is_fulfilled: false,
-          notes: null,
           created_at: '2026-06-19T10:00:00.000Z',
-          updated_at: '2026-06-19T10:00:00.000Z',
         },
       ],
     })
@@ -79,6 +74,43 @@ describe('buildParishIntakeQueue', () => {
       recommendedAction: 'Assign a Mass date',
     })
     expect(items[0]?.filters).toContain('ready_to_schedule')
+  })
+
+  it('keeps intake queue links dashboard-internal and encoded', () => {
+    const items = buildParishIntakeQueue({
+      now,
+      requests: [
+        {
+          id: 'funeral/unsafe?next=https://example.test',
+          request_type: 'funeral',
+          status: 'new',
+          created_at: '2026-06-17T12:00:00.000Z',
+          parishioner: { full_name: 'Maria Garcia', phone: '555-1000' },
+          funeral_detail: {
+            deceased_name: 'Jose Garcia',
+            funeral_home_or_location: 'Smith Funeral Home',
+          },
+        },
+      ],
+      intentions: [
+        {
+          id: 'intention/unsafe?next=https://example.test',
+          requester_name: 'Carlos Ruiz',
+          assigned_mass_date: null,
+          assigned_priest_name: null,
+          stipend_received: false,
+          is_fulfilled: false,
+          created_at: '2026-06-19T10:00:00.000Z',
+        },
+      ],
+    })
+
+    expect(items.map((item) => item.href)).toEqual([
+      '/dashboard/requests/funeral%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test#communication',
+      '/dashboard/intentions/intention%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test',
+    ])
+    expect(items.every((item) => item.href.startsWith('/dashboard'))).toBe(true)
+    expect(items.some((item) => item.href.includes('://example.test'))).toBe(false)
   })
 
   it('omits requests that have minimum intake triage complete', () => {

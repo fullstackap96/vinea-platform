@@ -1,13 +1,15 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertCircle, CheckCircle2, GitMerge, RefreshCw } from 'lucide-react'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { formatHouseholdAddressLine } from '@/lib/households'
+import { duplicateReviewClientErrorMessage } from '@/lib/duplicateReviewClientMessages'
 import type { HouseholdDuplicateConfidence } from '@/lib/householdDuplicateReview'
 import type { HouseholdRow } from '@/lib/types/households'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
+import { VineaConfirmDialog } from '@/app/dashboard/_components/VineaConfirmDialog'
 
 type MemberCounts = {
   members: number
@@ -69,11 +71,18 @@ function confidenceClass(confidence: HouseholdDuplicateConfidence) {
   return 'bg-slate-100 text-slate-800 border-slate-200'
 }
 
-export function HouseholdDuplicatesPageClient() {
+export function HouseholdDuplicatesPageClient({
+  activeParishName = null,
+}: {
+  activeParishName?: string | null
+}) {
   const [candidates, setCandidates] = useState<DuplicateCandidate[]>([])
   const [selectedCandidateId, setSelectedCandidateId] = useState('')
   const [canonicalHouseholdId, setCanonicalHouseholdId] = useState('')
   const [selectedFields, setSelectedFields] = useState<Record<string, string>>({})
+  const [mergeConfirmationOpen, setMergeConfirmationOpen] = useState(false)
+  const operationInFlightRef = useRef<'load' | 'merge' | null>(null)
+  const [reviewRequiresRefresh, setReviewRequiresRefresh] = useState(false)
   const [status, setStatus] = useState<StatusState>({
     kind: 'idle',
     message: 'Load possible duplicate households to begin cleanup.',
@@ -84,37 +93,65 @@ export function HouseholdDuplicatesPageClient() {
     [candidates, selectedCandidateId]
   )
 
-  async function loadCandidates() {
+  async function loadCandidatesCore(afterConfirmedMerge = false) {
     setStatus({ kind: 'loading', message: 'Looking for possible duplicate households...' })
-    const res = await fetch('/api/households/duplicates', { credentials: 'include' })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data?.ok) {
-      setStatus({ kind: 'error', message: data?.error ?? 'Could not load household review.' })
-      return
-    }
+    try {
+      const res = await fetch('/api/households/duplicates', { credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        if (afterConfirmedMerge) setReviewRequiresRefresh(true)
+        setStatus({
+          kind: 'error',
+          message: afterConfirmedMerge
+            ? 'Households were merged, but duplicate review could not refresh. Refresh this page before merging again.'
+            : duplicateReviewClientErrorMessage('loadHouseholds', data?.error),
+        })
+        return
+      }
 
-    const nextCandidates = Array.isArray(data.candidates) ? data.candidates : []
-    setCandidates(nextCandidates)
-    const first = nextCandidates[0] as DuplicateCandidate | undefined
-    if (first) {
-      const preferred =
-        first.households[0].memberCounts.members >= first.households[1].memberCounts.members
-          ? first.households[0].id
-          : first.households[1].id
-      setSelectedCandidateId(first.id)
-      setCanonicalHouseholdId(preferred)
-      setSelectedFields(defaultSelections(first, preferred))
+      const nextCandidates = Array.isArray(data.candidates) ? data.candidates : []
+      setReviewRequiresRefresh(false)
+      setCandidates(nextCandidates)
+      const first = nextCandidates[0] as DuplicateCandidate | undefined
+      if (first) {
+        const preferred =
+          first.households[0].memberCounts.members >= first.households[1].memberCounts.members
+            ? first.households[0].id
+            : first.households[1].id
+        setSelectedCandidateId(first.id)
+        setCanonicalHouseholdId(preferred)
+        setSelectedFields(defaultSelections(first, preferred))
+        setStatus({
+          kind: 'success',
+          message: `${nextCandidates.length} possible duplicate household pair${
+            nextCandidates.length === 1 ? '' : 's'
+          } found.`,
+        })
+      } else {
+        setSelectedCandidateId('')
+        setCanonicalHouseholdId('')
+        setSelectedFields({})
+        setStatus({ kind: 'success', message: 'No likely duplicate households found right now.' })
+      }
+    } catch (error: unknown) {
+      if (afterConfirmedMerge) setReviewRequiresRefresh(true)
       setStatus({
-        kind: 'success',
-        message: `${nextCandidates.length} possible duplicate household pair${
-          nextCandidates.length === 1 ? '' : 's'
-        } found.`,
+        kind: 'error',
+        message: afterConfirmedMerge
+          ? 'Households were merged, but duplicate review could not refresh. Refresh this page before merging again.'
+          : duplicateReviewClientErrorMessage('loadHouseholds', error),
       })
-    } else {
-      setSelectedCandidateId('')
-      setCanonicalHouseholdId('')
-      setSelectedFields({})
-      setStatus({ kind: 'success', message: 'No likely duplicate households found right now.' })
+    }
+  }
+
+  async function loadCandidates() {
+    if (operationInFlightRef.current) return
+
+    operationInFlightRef.current = 'load'
+    try {
+      await loadCandidatesCore()
+    } finally {
+      operationInFlightRef.current = null
     }
   }
 
@@ -133,36 +170,68 @@ export function HouseholdDuplicatesPageClient() {
     setSelectedFields(defaultSelections(candidate, householdId))
   }
 
+  function requestMerge() {
+    if (
+      reviewRequiresRefresh ||
+      !selectedCandidate ||
+      !canonicalHouseholdId ||
+      status.kind === 'loading'
+    ) return
+    setMergeConfirmationOpen(true)
+  }
+
   async function mergeSelected() {
-    if (!selectedCandidate || !canonicalHouseholdId) return
+    if (
+      operationInFlightRef.current ||
+      reviewRequiresRefresh ||
+      !selectedCandidate ||
+      !canonicalHouseholdId
+    ) return
     const duplicate = selectedCandidate.households.find(
       (household) => household.id !== canonicalHouseholdId
     )
     if (!duplicate) return
 
-    const confirmed = window.confirm(
-      `Merge ${duplicate.name} into the selected household? Members will be moved and the duplicate household will be removed.`
-    )
-    if (!confirmed) return
-
+    operationInFlightRef.current = 'merge'
+    setMergeConfirmationOpen(false)
     setStatus({ kind: 'loading', message: 'Merging duplicate household...' })
-    const res = await fetch('/api/households/duplicates', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        canonicalHouseholdId,
-        duplicateHouseholdId: duplicate.id,
-        selectedFields,
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data?.ok) {
-      setStatus({ kind: 'error', message: data?.error ?? 'Could not merge these households.' })
-      return
+    try {
+      const res = await fetch('/api/households/duplicates', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          canonicalHouseholdId,
+          duplicateHouseholdId: duplicate.id,
+          selectedFields,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setStatus({ kind: 'error', message: duplicateReviewClientErrorMessage('mergeHouseholds', data?.error) })
+        return
+      }
+      if (data?.ok !== true) {
+        setReviewRequiresRefresh(true)
+        setStatus({
+          kind: 'error',
+          message:
+            'Vinea could not confirm whether the households were merged. Refresh duplicate review before trying again.',
+        })
+        return
+      }
+      setStatus({ kind: 'success', message: 'Households merged. Refreshing duplicate review...' })
+      await loadCandidatesCore(true)
+    } catch {
+      setReviewRequiresRefresh(true)
+      setStatus({
+        kind: 'error',
+        message:
+          'Vinea could not confirm whether the households were merged. Refresh duplicate review before trying again.',
+      })
+    } finally {
+      operationInFlightRef.current = null
     }
-    setStatus({ kind: 'success', message: 'Households merged. Refreshing duplicate review...' })
-    await loadCandidates()
   }
 
   return (
@@ -184,8 +253,22 @@ export function HouseholdDuplicatesPageClient() {
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
             Clean up duplicate household records while preserving members and primary contacts.
           </p>
+          {activeParishName ? (
+            <p className="mt-2 inline-flex max-w-full rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm">
+              <span className="truncate">
+                Household duplicate review is scoped to{' '}
+                <span className="font-semibold text-gray-900">{activeParishName}</span>.
+              </span>
+            </p>
+          ) : null}
         </div>
-        <button type="button" onClick={loadCandidates} className={`${primaryButtonMd} gap-2`}>
+        <button
+          type="button"
+          onClick={loadCandidates}
+          disabled={status.kind === 'loading'}
+          aria-busy={status.kind === 'loading'}
+          className={`${primaryButtonMd} gap-2`}
+        >
           <RefreshCw className="h-4 w-4" aria-hidden />
           Find duplicates
         </button>
@@ -255,8 +338,10 @@ export function HouseholdDuplicatesPageClient() {
                 </div>
                 <button
                   type="button"
-                  onClick={mergeSelected}
-                  disabled={!canonicalHouseholdId || status.kind === 'loading'}
+                  onClick={requestMerge}
+                  disabled={
+                    reviewRequiresRefresh || !canonicalHouseholdId || status.kind === 'loading'
+                  }
                   className={`${primaryButtonMd} gap-2`}
                 >
                   <GitMerge className="h-4 w-4" aria-hidden />
@@ -298,6 +383,25 @@ export function HouseholdDuplicatesPageClient() {
           )}
         </section>
       </div>
+
+      <VineaConfirmDialog
+        open={mergeConfirmationOpen}
+        title="Merge these households?"
+        description={
+          selectedCandidate && canonicalHouseholdId
+            ? `Vinea will keep ${
+                selectedCandidate.households.find(
+                  (household) => household.id === canonicalHouseholdId
+                )?.name ?? selectedCandidate.households[0].name
+              }, move members and primary-contact relationships, then remove the duplicate household.`
+            : ''
+        }
+        confirmLabel="Merge households"
+        busy={status.kind === 'loading'}
+        busyLabel="Merging..."
+        onCancel={() => setMergeConfirmationOpen(false)}
+        onConfirm={() => void mergeSelected()}
+      />
     </main>
   )
 }

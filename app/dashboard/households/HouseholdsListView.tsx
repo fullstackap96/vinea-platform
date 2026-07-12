@@ -3,6 +3,7 @@ import { GitMerge, Plus } from 'lucide-react'
 import { formatHouseholdAddressLine } from '@/lib/households'
 import type { HouseholdsListResult } from '@/lib/server/loadHouseholdsList'
 import { primaryButtonMd } from '@/lib/buttonStyles'
+import { householdDetailHref } from '@/lib/dashboardEntityNavigation'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 import { HouseholdsListFilters } from './HouseholdsListFilters'
@@ -11,6 +12,7 @@ export function HouseholdsListView({
   households,
   errorMessage,
   searchQuery,
+  activeParishName,
 }: HouseholdsListResult) {
   return (
     <main className="mx-auto max-w-6xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
@@ -22,6 +24,11 @@ export function HouseholdsListView({
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
             Household directory with address and member roster.
           </p>
+          {activeParishName ? (
+            <p className="mt-2 text-sm font-medium text-gray-700">
+              Households are scoped to {activeParishName}.
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
@@ -83,7 +90,7 @@ export function HouseholdsListView({
             return (
               <li key={household.id}>
                 <Link
-                  href={`/dashboard/households/${household.id}`}
+                  href={householdDetailHref(household.id)}
                   className="block rounded-2xl border border-gray-200/90 bg-white p-4 shadow-sm ring-1 ring-gray-900/[0.03] transition hover:border-gray-300 hover:shadow-md sm:p-5"
                 >
                   <p className="text-lg font-semibold text-gray-900 break-words">{household.name}</p>

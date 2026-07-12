@@ -1,128 +1,42 @@
-'use client'
-
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { Pencil, FileText } from 'lucide-react'
+import { ClipboardList, Pencil, Search } from 'lucide-react'
+
 import {
   LabelValueGrid,
   LabelValueRow,
 } from '@/app/dashboard/requests/[id]/_components/LabelValueGrid'
-import { devDashboardConsoleError } from '@/lib/dashboardSupabaseError'
+import { secondaryButtonMd } from '@/lib/buttonStyles'
+import { personDetailHref, recordEditHref } from '@/lib/dashboardEntityNavigation'
+import { requestDetailHref } from '@/lib/dashboardRequestNavigation'
+import { maybeMissingValue } from '@/lib/missingValue'
+import { buildSacramentalRecordContinuityView } from '@/lib/sacramentalRecordContinuity'
+import { buildSacramentalRecordContinuityHandoff } from '@/lib/sacramentalRecordContinuityHandoff'
 import {
   formatSacramentDateDisplay,
   formatSacramentalRecordEventAction,
-  parseSacramentalRecordEventRow,
-  parseSacramentalRecordRow,
 } from '@/lib/sacramentalRecords'
-import { formatPersonDisplayName, parsePersonRow } from '@/lib/people'
-import { maybeMissingValue } from '@/lib/missingValue'
-import { secondaryButtonMd } from '@/lib/buttonStyles'
-import { supabase } from '@/lib/supabase'
-import type {
-  SacramentalRecordEventRow,
-  SacramentalRecordRow,
-} from '@/lib/types/sacramentalRecords'
+import type { SacramentalRecordDetailResult } from '@/lib/server/loadSacramentalRecordDetail'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 import { SacramentalRecordTypeBadge } from '../_components/SacramentalRecordTypeBadge'
+import { RecordContinuityCard } from './_components/RecordContinuityCard'
 import { RecordCertificateSuggestion } from './_components/RecordCertificateSuggestion'
+import { RecordCertificateDownloadButton } from './_components/RecordCertificateDownloadButton'
 
 function displayValue(value: string | null | undefined) {
   const s = String(value ?? '').trim()
   return s ? s : maybeMissingValue('Not set')
 }
 
-export function RecordDetailPage() {
-  const params = useParams()
-  const recordId = String(params?.id ?? '')
-
-  const [record, setRecord] = useState<SacramentalRecordRow | null>(null)
-  const [linkedPerson, setLinkedPerson] = useState<{ id: string; displayName: string } | null>(
-    null
-  )
-  const [events, setEvents] = useState<SacramentalRecordEventRow[]>([])
-  const [hasCertificateEvent, setHasCertificateEvent] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
-
-  useEffect(() => {
-    if (!recordId) return
-
-    async function load() {
-      setLoading(true)
-      setErrorMessage('')
-
-      const { data: row, error } = await supabase
-        .from('sacramental_records')
-        .select('*')
-        .eq('id', recordId)
-        .maybeSingle()
-
-      if (error) {
-        devDashboardConsoleError('sacramental_records detail', error)
-        setErrorMessage('Could not load this record.')
-        setLoading(false)
-        return
-      }
-      if (!row) {
-        setErrorMessage('Record not found.')
-        setLoading(false)
-        return
-      }
-
-      const parsed = parseSacramentalRecordRow(row as Record<string, unknown>)
-      setRecord(parsed)
-
-      if (parsed.person_id) {
-        const { data: personRow } = await supabase
-          .from('people')
-          .select('id, first_name, middle_name, last_name')
-          .eq('id', parsed.person_id)
-          .maybeSingle()
-
-        if (personRow) {
-          const person = parsePersonRow(personRow as Record<string, unknown>)
-          setLinkedPerson({
-            id: person.id,
-            displayName: formatPersonDisplayName(person),
-          })
-        } else {
-          setLinkedPerson(null)
-        }
-      } else {
-        setLinkedPerson(null)
-      }
-
-      const { data: eventRows } = await supabase
-        .from('sacramental_record_events')
-        .select('*')
-        .eq('sacramental_record_id', recordId)
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      const parsedEvents = (eventRows ?? []).map((e) =>
-        parseSacramentalRecordEventRow(e as Record<string, unknown>)
-      )
-      setEvents(parsedEvents)
-      setHasCertificateEvent(
-        parsedEvents.some(
-          (e) => String(e.action ?? '').trim().toLowerCase() === 'certificate_generated'
-        )
-      )
-      setLoading(false)
-    }
-
-    void load()
-  }, [recordId])
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center px-4" aria-busy="true">
-        <p className="text-sm font-medium text-gray-700">Loading record…</p>
-      </div>
-    )
-  }
-
+export function RecordDetailPage({
+  record,
+  linkedPerson,
+  events,
+  hasCertificateEvent,
+  certificateEventMetadataLoaded,
+  errorMessage,
+  warningMessage,
+  activeParishName,
+}: SacramentalRecordDetailResult) {
   if (errorMessage || !record) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 sm:px-6 sm:pt-5">
@@ -131,17 +45,22 @@ export function RecordDetailPage() {
             href="/dashboard/records"
             className="text-sm font-medium text-blue-800 underline underline-offset-2"
           >
-            ← Back to records
+            &larr; Back to records
           </Link>
         </p>
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950" role="alert">
+        <div
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950"
+          role="alert"
+        >
           {errorMessage || 'Record not found.'}
         </div>
       </main>
     )
   }
 
-  const registerRef = [record.book, record.page, record.line].filter(Boolean).join(' · ')
+  const registerRef = [record.book, record.page, record.line].filter(Boolean).join(' | ')
+  const continuity = buildSacramentalRecordContinuityView({ record, events })
+  const continuityHandoff = buildSacramentalRecordContinuityHandoff(record)
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
@@ -150,7 +69,7 @@ export function RecordDetailPage() {
           href="/dashboard/records"
           className="text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
         >
-          ← Back to records
+          &larr; Back to records
         </Link>
       </p>
 
@@ -158,24 +77,21 @@ export function RecordDetailPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <SacramentalRecordTypeBadge recordType={record.record_type} />
-            <h1 className="mt-3 text-2xl font-bold tracking-tight text-gray-900 break-words sm:text-3xl">
+            <h1 className="mt-3 break-words text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
               {record.person_name}
             </h1>
+            {activeParishName ? (
+              <p className="mt-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+                Showing record for {activeParishName}
+              </p>
+            ) : null}
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
             {record.record_type === 'baptism' ? (
-              <a
-                href={`/api/records/${record.id}/certificate`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${secondaryButtonMd} w-full justify-center gap-2 sm:w-auto`}
-              >
-                <FileText className="h-4 w-4 shrink-0" aria-hidden />
-                Generate certificate
-              </a>
+              <RecordCertificateDownloadButton recordId={record.id} showIcon />
             ) : null}
             <Link
-              href={`/dashboard/records/${record.id}/edit`}
+              href={recordEditHref(record.id)}
               className={`${secondaryButtonMd} w-full justify-center gap-2 sm:w-auto`}
             >
               <Pencil className="h-4 w-4 shrink-0" aria-hidden />
@@ -185,19 +101,88 @@ export function RecordDetailPage() {
         </div>
       </header>
 
-      <RecordCertificateSuggestion
-        recordId={record.id}
-        record_type={record.record_type}
-        person_name={record.person_name}
-        hasCertificateEvent={hasCertificateEvent}
-      />
+      {warningMessage ? (
+        <div
+          className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="status"
+        >
+          {warningMessage}
+        </div>
+      ) : null}
+
+      {certificateEventMetadataLoaded ? (
+        <RecordCertificateSuggestion
+          recordId={record.id}
+          record_type={record.record_type}
+          person_name={record.person_name}
+          hasCertificateEvent={hasCertificateEvent}
+        />
+      ) : null}
+
+      <RecordContinuityCard continuity={continuity} />
+
+      {continuityHandoff ? (
+        <section
+          className={`mb-6 border border-blue-200/80 bg-blue-50/50 ${vineaSectionShellClassName}`}
+          aria-labelledby="record-continuity-handoff-heading"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-900 ring-1 ring-blue-200">
+                <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+                Review handoff
+              </p>
+              <h2
+                id="record-continuity-handoff-heading"
+                className="text-lg font-semibold text-gray-950"
+              >
+                {continuityHandoff.title}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                {continuityHandoff.summary}
+              </p>
+            </div>
+
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+              <Link
+                href={continuityHandoff.searchHref}
+                className={`${secondaryButtonMd} w-full justify-center gap-2 sm:w-auto`}
+              >
+                <Search className="h-4 w-4 shrink-0" aria-hidden />
+                Search related requests
+              </Link>
+              <Link
+                href={continuityHandoff.reviewQueueHref}
+                className="text-sm font-medium text-blue-800 underline underline-offset-2"
+              >
+                View review queue
+              </Link>
+            </div>
+          </div>
+
+          <ul className="mt-4 space-y-1.5 text-sm leading-relaxed text-gray-700">
+            {continuityHandoff.staffGuidance.map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-700" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs leading-relaxed text-gray-600">
+            {continuityHandoff.boundaryNote}
+          </p>
+        </section>
+      ) : null}
 
       <div className={`mb-6 ${vineaSectionShellClassName}`}>
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Register details
         </h2>
         <LabelValueGrid>
-          <LabelValueRow label="Sacrament date" value={displayValue(formatSacramentDateDisplay(record.sacrament_date))} />
+          <LabelValueRow
+            label="Sacrament date"
+            value={displayValue(formatSacramentDateDisplay(record.sacrament_date))}
+          />
           <LabelValueRow label="Place" value={displayValue(record.place)} />
           <LabelValueRow label="Minister" value={displayValue(record.minister)} />
           <LabelValueRow label="Register ref." value={displayValue(registerRef || null)} />
@@ -211,10 +196,10 @@ export function RecordDetailPage() {
         </h2>
         {linkedPerson ? (
           <Link
-            href={`/dashboard/people/${linkedPerson.id}`}
+            href={personDetailHref(linkedPerson.id)}
             className="text-sm font-medium text-blue-800 underline underline-offset-2"
           >
-            {linkedPerson.displayName} — View profile →
+            {linkedPerson.displayName} - View profile &rarr;
           </Link>
         ) : (
           <p className="text-sm text-gray-700">Not linked to a person profile.</p>
@@ -227,7 +212,7 @@ export function RecordDetailPage() {
             Linked request
           </h2>
           <Link
-            href={`/dashboard/requests/${record.request_id}`}
+            href={requestDetailHref(record.request_id)}
             className="text-sm font-medium text-blue-800 underline underline-offset-2"
           >
             View original request
@@ -250,7 +235,7 @@ export function RecordDetailPage() {
                   {formatSacramentalRecordEventAction(event.action)}
                 </span>
                 {event.actor_email ? (
-                  <span className="text-gray-600"> · {event.actor_email}</span>
+                  <span className="text-gray-600"> | {event.actor_email}</span>
                 ) : null}
                 <span className="mt-0.5 block text-xs text-gray-500">
                   {new Date(event.created_at).toLocaleString()}

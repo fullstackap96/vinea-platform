@@ -1,16 +1,23 @@
 'use server'
 
-import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
 import { normalizePersonWrite } from '@/lib/people'
+import { ACTIVE_STAFF_PARISH_COOKIE } from '@/lib/server/activeStaffParishContext'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { resolveStaffWriteParishContext } from '@/lib/server/staffWriteParishContext'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import type { PersonWriteInput } from '@/lib/types/people'
+import { cookies } from 'next/headers'
 
 export type PersonMutationResult =
   | { ok: true; personId: string }
   | { ok: false; error: string }
 
 export type PersonUpdateResult = { ok: true } | { ok: false; error: string }
+
+function personActionError(action: string, error: unknown, safeMessage: string): { ok: false; error: string } {
+  logServerError(`[people-actions] ${action}`, error)
+  return { ok: false, error: safeMessage }
+}
 
 export async function createPerson(input: PersonWriteInput): Promise<PersonMutationResult> {
   const normalized = normalizePersonWrite(input)
@@ -28,24 +35,27 @@ export async function createPerson(input: PersonWriteInput): Promise<PersonMutat
     return { ok: false, error: 'Unauthorized' }
   }
 
-  const { parishId, error: parishErr } = await fetchPrimaryParishId(
-    createSupabaseServiceRoleClient()
-  )
-  if (parishErr || !parishId) {
-    return { ok: false, error: parishErr?.message ?? 'Parish not found.' }
+  const requestedParishId = (await cookies()).get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+  const parishContext = await resolveStaffWriteParishContext(supabase, {
+    requestedParishId,
+    allowPrimaryParishFallback: !requestedParishId,
+    fallbackReason: 'People creation used legacy parish context because active parish selection was not available.',
+  })
+  if (!parishContext.ok) {
+    return { ok: false, error: parishContext.error }
   }
 
   const { data, error } = await supabase
     .from('people')
     .insert({
-      parish_id: parishId,
+      parish_id: parishContext.parishId,
       ...normalized.payload,
     })
     .select('id')
     .single()
 
   if (error || !data?.id) {
-    return { ok: false, error: error?.message ?? 'Could not create person.' }
+    return personActionError('create failed', error ?? 'Missing inserted person id.', 'Could not create person.')
   }
 
   return { ok: true, personId: String(data.id) }
@@ -75,10 +85,30 @@ export async function updatePerson(
     return { ok: false, error: 'Unauthorized' }
   }
 
-  const { error } = await supabase.from('people').update(normalized.payload).eq('id', id)
+  const requestedParishId = (await cookies()).get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+  const parishContext = await resolveStaffWriteParishContext(supabase, {
+    requestedParishId,
+    allowPrimaryParishFallback: !requestedParishId,
+    fallbackReason: 'People update used legacy parish context because active parish selection was not available.',
+  })
+  if (!parishContext.ok) {
+    return { ok: false, error: parishContext.error }
+  }
+
+  const { data, error } = await supabase
+    .from('people')
+    .update(normalized.payload)
+    .eq('id', id)
+    .eq('parish_id', parishContext.parishId)
+    .select('id')
+    .maybeSingle()
 
   if (error) {
-    return { ok: false, error: error.message ?? 'Could not update person.' }
+    return personActionError('update failed', error, 'Could not update person.')
+  }
+
+  if (!data?.id) {
+    return { ok: false, error: 'Person not found for the selected parish.' }
   }
 
   return { ok: true }

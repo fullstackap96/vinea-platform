@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createMassIntention } from '../actions'
@@ -9,6 +9,8 @@ import {
   formValuesToWriteInput,
   type MassIntentionFormValues,
 } from '../_components/MassIntentionForm'
+import { massIntentionDetailHref } from '@/lib/dashboardEntityNavigation'
+import { coreRecordClientErrorMessage } from '@/lib/coreRecordClientMessages'
 import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
@@ -30,6 +32,12 @@ export function NewMassIntentionPage() {
   const [priestOptions, setPriestOptions] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const createInFlightRef = useRef(false)
+
+  function releaseCreate() {
+    createInFlightRef.current = false
+    setSaving(false)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -54,18 +62,28 @@ export function NewMassIntentionPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (createInFlightRef.current) return
+
+    createInFlightRef.current = true
     setSaving(true)
     setMessage('')
 
-    const result = await createMassIntention(formValuesToWriteInput(values))
-    setSaving(false)
-
-    if (!result.ok) {
-      setMessage(result.error)
+    let result: Awaited<ReturnType<typeof createMassIntention>>
+    try {
+      result = await createMassIntention(formValuesToWriteInput(values))
+    } catch (error: unknown) {
+      setMessage(coreRecordClientErrorMessage('createMassIntention', error))
+      releaseCreate()
       return
     }
 
-    router.push(`/dashboard/intentions/${result.intentionId}`)
+    if (!result.ok) {
+      setMessage(coreRecordClientErrorMessage('createMassIntention', result.error))
+      releaseCreate()
+      return
+    }
+
+    router.push(massIntentionDetailHref(result.intentionId))
   }
 
   return (

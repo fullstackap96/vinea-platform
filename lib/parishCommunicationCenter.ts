@@ -3,6 +3,7 @@ import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import { formatRequestType } from '@/lib/formatRequestType'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 
 export type ParishCommunicationFilter =
   | 'needs_reply'
@@ -134,6 +135,13 @@ function priorityRank(priority: ParishCommunicationPriority): number {
   return 2
 }
 
+function requestCommunicationHref(requestId: string) {
+  return safeDashboardHrefOrFallback(
+    `/dashboard/requests/${encodeURIComponent(requestId)}#communication-history`,
+    '/dashboard/requests'
+  )
+}
+
 export function buildParishCommunicationCenter(input: {
   requests: readonly ParishCommunicationRequest[]
   communications?: readonly ParishCommunicationEvent[]
@@ -208,7 +216,7 @@ export function buildParishCommunicationCenter(input: {
       nextFollowUpLabel: formatNextFollowUpDateCompact(request.next_follow_up_date) || 'No follow-up date',
       ownerLabel: ownerLabel(request),
       contactLine: contactLine(request),
-      href: `/dashboard/requests/${encodeURIComponent(requestId)}#communication-history`,
+      href: requestCommunicationHref(requestId),
       hasDraft,
       currentFollowUpDate: text(request.next_follow_up_date).slice(0, 10),
     })

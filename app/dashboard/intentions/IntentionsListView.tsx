@@ -7,6 +7,7 @@ import {
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import type { MassIntentionsListResult } from '@/lib/server/loadMassIntentionsList'
 import { primaryButtonMd } from '@/lib/buttonStyles'
+import { massIntentionDetailHref } from '@/lib/dashboardEntityNavigation'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 import { MassIntentionStatusBadge } from './_components/MassIntentionStatusBadge'
@@ -35,6 +36,7 @@ export function IntentionsListView({
   errorMessage,
   searchQuery,
   fulfilledFilter,
+  activeParishName,
 }: MassIntentionsListResult) {
   return (
     <main className="mx-auto max-w-6xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
@@ -46,6 +48,11 @@ export function IntentionsListView({
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
             Track intention requests, Mass assignments, stipends, and fulfillment.
           </p>
+          {activeParishName ? (
+            <p className="mt-2 text-sm font-medium text-gray-700">
+              Mass intentions are scoped to {activeParishName}.
+            </p>
+          ) : null}
         </div>
         <Link
           href="/dashboard/intentions/new"
@@ -93,7 +100,7 @@ export function IntentionsListView({
           {intentions.map((intention) => (
             <li key={intention.id}>
               <Link
-                href={`/dashboard/intentions/${intention.id}`}
+                href={massIntentionDetailHref(intention.id)}
                 className="block rounded-2xl border border-gray-200/90 bg-white p-4 shadow-sm ring-1 ring-gray-900/[0.03] transition hover:border-gray-300 hover:shadow-md sm:p-5"
               >
                 <div className="flex flex-wrap items-center gap-2">

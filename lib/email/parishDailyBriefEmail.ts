@@ -1,4 +1,5 @@
 import type { ParishOpsBrief } from '@/lib/parishOpsBrief'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -10,10 +11,10 @@ function escapeHtml(value: unknown): string {
 }
 
 function absoluteHref(appUrl: string, href: string): string {
-  const base = appUrl.replace(/\/+$/, '')
-  if (!href) return base
-  if (/^https?:\/\//i.test(href)) return href
-  return `${base}${href.startsWith('/') ? href : `/${href}`}`
+  const safeHref = safeDashboardHrefOrFallback(href, '/dashboard')
+  const base = String(appUrl ?? '').trim().replace(/\/+$/, '')
+  if (!/^https?:\/\//i.test(base)) return safeHref
+  return `${base}${safeHref}`
 }
 
 export function buildParishDailyBriefSubject(input: {

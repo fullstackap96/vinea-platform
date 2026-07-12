@@ -34,6 +34,7 @@ function subjectRequestTypeLabel(requestType: RequestType): string {
 function normalizeBaseUrl(raw: string | undefined | null): string | null {
   const s = String(raw ?? '').trim()
   if (!s) return null
+  if (!/^https?:\/\//i.test(s)) return null
   return s.replace(/\/+$/, '')
 }
 
@@ -77,7 +78,7 @@ export function buildRequestNotificationEmail(input: {
       ? `New Parish Registration Inquiry from ${safeName}`
       : `New ${subjectRequestTypeLabel(payload.requestType)} from ${safeName}`
 
-  const dashboardPath = `/dashboard/requests/${payload.requestId}`
+  const dashboardPath = requestDetailHref(payload.requestId)
   const base = normalizeBaseUrl(appBaseUrl)
   const dashboardUrl = base ? `${base}${dashboardPath}` : null
 
@@ -324,3 +325,4 @@ export function buildRequestNotificationEmail(input: {
   return { subject, text: lines.join('\n'), html, dashboardPath, dashboardUrl }
 }
 
+import { requestDetailHref } from '@/lib/dashboardRequestNavigation'

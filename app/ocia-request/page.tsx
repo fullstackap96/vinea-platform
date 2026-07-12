@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import {
   intakeInputClass,
   intakeLabelClass,
   intakeSectionHeadingClass,
   intakeStatusMessageClass,
+  intakeStatusMessageTone,
   intakeTextareaClass,
 } from '@/lib/intakeFormStyles'
 import { PublicIntakeShell } from '@/app/_components/PublicIntakeShell'
@@ -18,6 +19,11 @@ import {
   SEEKING_LABEL,
   SEEKING_VALUES,
 } from '@/lib/ociaIntakeOptions'
+import {
+  logPublicIntakeNotificationException,
+  logPublicIntakeNotificationFailure,
+} from '@/lib/publicIntakeNotificationClient'
+import { submitPublicIntake } from '@/lib/publicIntakeSubmissionClient'
 
 export default function OciaRequestPage() {
   const [fullName, setFullName] = useState('')
@@ -37,9 +43,18 @@ export default function OciaRequestPage() {
   const [notes, setNotes] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const submissionInFlightRef = useRef(false)
+
+  function finishSubmission() {
+    submissionInFlightRef.current = false
+    setLoading(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submissionInFlightRef.current) return
+
+    submissionInFlightRef.current = true
     setLoading(true)
     setMessage('')
 
@@ -47,35 +62,30 @@ export default function OciaRequestPage() {
     const hasAgeNote = Boolean(ageOrDobNote.trim())
     if (!hasDob && !hasAgeNote) {
       setMessage('Please provide either a date of birth or your age (in the text field).')
-      setLoading(false)
+      finishSubmission()
       return
     }
 
-    const intakeRes = await fetch('/api/intake', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requestType: 'ocia',
-        fullName,
-        email,
-        phone,
-        dateOfBirth,
-        ageOrDobNote,
-        sacramentalBackground,
-        seeking,
-        parishionerStatus,
-        preferredContactMethod,
-        availability,
-        notes,
-      }),
+    const intakeResult = await submitPublicIntake({
+      requestType: 'ocia',
+      fullName,
+      email,
+      phone,
+      dateOfBirth,
+      ageOrDobNote,
+      sacramentalBackground,
+      seeking,
+      parishionerStatus,
+      preferredContactMethod,
+      availability,
+      notes,
     })
-    const intakeData = await intakeRes.json().catch(() => ({}))
-    if (!intakeRes.ok || !intakeData?.ok) {
-      setMessage(String(intakeData?.error || 'Error saving request.'))
-      setLoading(false)
+    if (!intakeResult.ok) {
+      setMessage(intakeResult.error)
+      finishSubmission()
       return
     }
-    const requestId = String(intakeData.requestId)
+    const requestId = intakeResult.requestId
 
     try {
       const res = await fetch('/api/request-notifications', {
@@ -104,11 +114,10 @@ export default function OciaRequestPage() {
         }),
       })
       if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        console.warn('Request notification failed:', res.status, txt)
+        logPublicIntakeNotificationFailure(res.status)
       }
-    } catch (err) {
-      console.warn('Request notification error:', err)
+    } catch {
+      logPublicIntakeNotificationException()
     }
 
     setMessage('Request submitted successfully.')
@@ -123,19 +132,30 @@ export default function OciaRequestPage() {
     setPreferredContactMethod(CONTACT_METHOD_VALUES[0])
     setAvailability('')
     setNotes('')
-    setLoading(false)
+    finishSubmission()
   }
+
+  const statusTone = intakeStatusMessageTone(message)
 
   return (
     <PublicIntakeShell
       title="OCIA (RCIA) inquiry"
       description="Share your story and how we can walk with you toward full communion. A parish staff member will contact you."
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        method="post"
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        aria-label="OCIA inquiry"
+        aria-busy={loading}
+      >
         <h2 className={intakeSectionHeadingClass}>Your contact information</h2>
         <input
           className={intakeInputClass}
           placeholder="Your full name"
+          aria-label="Your full name"
+          name="contactName"
+          autoComplete="name"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           required
@@ -144,7 +164,10 @@ export default function OciaRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="Email"
+          aria-label="Email"
+          name="email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -153,6 +176,11 @@ export default function OciaRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="Phone"
+          aria-label="Phone"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
@@ -164,7 +192,10 @@ export default function OciaRequestPage() {
         <label className={intakeLabelClass}>Date of birth (optional if you share age below)</label>
         <input
           className={intakeInputClass}
+          aria-label="Date of birth"
+          name="dateOfBirth"
           type="date"
+          autoComplete="bday"
           value={dateOfBirth}
           onChange={(e) => setDateOfBirth(e.target.value)}
         />
@@ -173,6 +204,9 @@ export default function OciaRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="e.g. 34, or approximate age range"
+          aria-label="Age or date of birth"
+          name="ageOrDobNote"
+          autoComplete="off"
           value={ageOrDobNote}
           onChange={(e) => setAgeOrDobNote(e.target.value)}
         />
@@ -180,6 +214,8 @@ export default function OciaRequestPage() {
         <label className={intakeLabelClass}>Sacramental background</label>
         <select
           className={intakeInputClass}
+          aria-label="Sacramental background"
+          name="sacramentalBackground"
           value={sacramentalBackground}
           onChange={(e) => setSacramentalBackground(e.target.value)}
           required
@@ -194,6 +230,8 @@ export default function OciaRequestPage() {
         <label className={intakeLabelClass}>What are you seeking?</label>
         <select
           className={intakeInputClass}
+          aria-label="What are you seeking?"
+          name="seeking"
           value={seeking}
           onChange={(e) => setSeeking(e.target.value)}
           required
@@ -209,6 +247,9 @@ export default function OciaRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="e.g. Registered here, attend occasionally, new to the area"
+          aria-label="Parishioner status"
+          name="parishionerStatus"
+          autoComplete="off"
           value={parishionerStatus}
           onChange={(e) => setParishionerStatus(e.target.value)}
           required
@@ -217,6 +258,8 @@ export default function OciaRequestPage() {
         <label className={intakeLabelClass}>Preferred contact method</label>
         <select
           className={intakeInputClass}
+          aria-label="Preferred contact method"
+          name="preferredContactMethod"
           value={preferredContactMethod}
           onChange={(e) => setPreferredContactMethod(e.target.value)}
           required
@@ -232,6 +275,9 @@ export default function OciaRequestPage() {
         <textarea
           className={intakeTextareaClass}
           placeholder="e.g. weekday evenings, Sunday mornings after Mass"
+          aria-label="Availability for meetings or classes"
+          name="availability"
+          autoComplete="off"
           value={availability}
           onChange={(e) => setAvailability(e.target.value)}
         />
@@ -239,6 +285,9 @@ export default function OciaRequestPage() {
         <textarea
           className={intakeTextareaClass}
           placeholder="Notes or questions for parish staff"
+          aria-label="Notes or questions for parish staff"
+          name="notes"
+          autoComplete="off"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
@@ -251,8 +300,8 @@ export default function OciaRequestPage() {
       {message ? (
         <p
           className={intakeStatusMessageClass(message)}
-          role="status"
-          aria-live="polite"
+          role={statusTone === 'success' ? 'status' : 'alert'}
+          aria-live={statusTone === 'success' ? 'polite' : 'assertive'}
         >
           {message}
         </p>

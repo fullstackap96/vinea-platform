@@ -42,7 +42,10 @@ export type HouseholdMemberWithPerson = HouseholdMemberRow & {
   }
 }
 
-export type HouseholdListItem = HouseholdRow & {
+export type HouseholdListItem = Pick<
+  HouseholdRow,
+  'id' | 'name' | 'address' | 'city' | 'state' | 'postal_code'
+> & {
   memberCount: number
 }
 

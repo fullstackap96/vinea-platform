@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { updateRequestAssignment } from '../../actions'
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { maybeMissingValue } from '@/lib/missingValue'
+import { requestDetailClientServerActionErrorMessage } from '@/lib/requestDetailClientMessages'
 import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
 
 const assignSelectClassName = 'w-full rounded border border-gray-300 bg-white p-3 text-gray-900'
@@ -33,6 +34,12 @@ export function AssignmentSection({
   const [draftDeacon, setDraftDeacon] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const saveInFlightRef = useRef(false)
+
+  function releaseSave() {
+    saveInFlightRef.current = false
+    setSaving(false)
+  }
 
   function renderAssigneeDotLabel(value: unknown) {
     const label = assignmentDisplayLabel(value)
@@ -55,27 +62,40 @@ export function AssignmentSection({
   }
 
   function cancelEdit() {
+    if (saveInFlightRef.current) return
     setEditing(false)
     setMessage('')
   }
 
   async function save() {
+    if (saveInFlightRef.current) return
+
+    saveInFlightRef.current = true
     setSaving(true)
     setMessage('')
-    const result = await updateRequestAssignment({
-      requestId,
-      assignedStaffName: draftStaff,
-      assignedPriestName: draftPriest,
-      assignedDeaconName: draftDeacon,
-    })
-    setSaving(false)
+
+    let result: Awaited<ReturnType<typeof updateRequestAssignment>>
+    try {
+      result = await updateRequestAssignment({
+        requestId,
+        assignedStaffName: draftStaff,
+        assignedPriestName: draftPriest,
+        assignedDeaconName: draftDeacon,
+      })
+    } catch (error: unknown) {
+      setMessage(requestDetailClientServerActionErrorMessage('updateAssignment', error))
+      releaseSave()
+      return
+    }
 
     if (!result.ok) {
-      setMessage(result.error)
+      setMessage(requestDetailClientServerActionErrorMessage('updateAssignment', result.error))
+      releaseSave()
       return
     }
 
     setEditing(false)
+    releaseSave()
     onSaved()
   }
 
@@ -94,7 +114,7 @@ export function AssignmentSection({
       ) : null}
 
       {editing ? (
-        <div className="space-y-3">
+        <div className="space-y-3" aria-busy={saving}>
           <div>
             <label className="mb-1 block text-sm text-gray-500" htmlFor="assign-staff">
               Assigned to
@@ -103,6 +123,7 @@ export function AssignmentSection({
               id="assign-staff"
               className={assignSelectClassName}
               value={draftStaff}
+              disabled={saving}
               onChange={(e) => setDraftStaff(e.target.value)}
             >
               <option value="">Unassigned</option>
@@ -121,6 +142,7 @@ export function AssignmentSection({
               id="assign-priest"
               className={assignSelectClassName}
               value={draftPriest}
+              disabled={saving}
               onChange={(e) => setDraftPriest(e.target.value)}
             >
               <option value="">Unassigned</option>
@@ -141,6 +163,7 @@ export function AssignmentSection({
               type="text"
               autoComplete="name"
               value={draftDeacon}
+              disabled={saving}
               onChange={(e) => setDraftDeacon(e.target.value)}
               placeholder="Enter name or leave blank"
             />

@@ -1,14 +1,26 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
+import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
 import { checkDurableRateLimit } from '@/lib/server/durableRateLimit'
-import { clientIpFromRequest } from '@/lib/server/simpleRateLimit'
+import { durableRateLimitKeyFromRequest } from '@/lib/server/simpleRateLimit'
 import { writeAuditEvent } from '@/lib/server/auditLog'
 import { createRequestWorkflowStepsFromActiveTemplate } from '@/lib/server/requestWorkflowTemplates'
+import { extractPublicIntakeRouteSignalsForDryRun } from '@/lib/server/publicIntakeRouteSignalDryRun'
+import {
+  createSupabasePublicIntakeParishScopeDataSource,
+  resolvePublicIntakeParishScope,
+} from '@/lib/server/publicIntakeParishScope'
+import { resolvePublicIntakeRequestParishScopeForFutureRuntime } from '@/lib/server/publicIntakeRequestParishScopeAdapter'
+import { getPublicIntakeRoutingRuntimeGate } from '@/lib/server/publicIntakeRoutingRuntimeGate'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
+import { cleanupPartialPublicIntake } from '@/lib/server/publicIntakePartialCleanup'
 
 export const runtime = 'nodejs'
 
 const ALLOWED_TYPES = new Set(['baptism', 'funeral', 'wedding', 'ocia', 'join_parish'])
 const RATE_LIMIT = { limit: 8, windowMs: 60_000 }
+const MAX_BODY_BYTES = 64 * 1024
 
 function text(value: unknown, max = 2000): string {
   return String(value ?? '').trim().slice(0, max)
@@ -69,6 +81,8 @@ function checklistFor(body: Record<string, unknown>): Array<{ item_name: string 
 }
 
 async function primaryParishId(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
+  // Deliberate legacy fallback only: keep this isolated behind
+  // resolvePublicIntakeRequestParishScopeForFutureRuntime while runtime routing is disabled.
   const { data, error } = await admin
     .from('parishes')
     .select('id')
@@ -79,23 +93,14 @@ async function primaryParishId(admin: ReturnType<typeof createSupabaseServiceRol
   return data?.id ? String(data.id) : null
 }
 
-async function cleanupPartial(
-  admin: ReturnType<typeof createSupabaseServiceRoleClient>,
-  ids: { requestId?: string; parishionerId?: string }
-) {
-  if (ids.requestId) {
-    await admin.from('requests').delete().eq('id', ids.requestId)
-  }
-  if (ids.parishionerId) {
-    await admin.from('parishioners').delete().eq('id', ids.parishionerId)
-  }
-}
-
 export async function POST(request: NextRequest) {
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
   const admin = createSupabaseServiceRoleClient()
   const rateLimit = await checkDurableRateLimit({
     admin,
-    key: `public-intake:${clientIpFromRequest(request)}`,
+    key: durableRateLimitKeyFromRequest(request, 'public-intake'),
     ...RATE_LIMIT,
   }).catch(() => null)
   if (!rateLimit) {
@@ -111,8 +116,16 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const body = await request.json().catch(() => null as Record<string, unknown> | null)
-  if (!body || typeof body !== 'object') {
+  const parsedBody = await readBoundedJsonBody(request, MAX_BODY_BYTES)
+  if (!parsedBody.ok && parsedBody.reason === 'too_large') {
+    return NextResponse.json({ ok: false, error: 'Request is too large.' }, { status: 413 })
+  }
+
+  const body =
+    parsedBody.ok && parsedBody.value && typeof parsedBody.value === 'object'
+      ? (parsedBody.value as Record<string, unknown>)
+      : null
+  if (!body) {
     return NextResponse.json({ ok: false, error: 'Invalid request.' }, { status: 400 })
   }
 
@@ -150,7 +163,29 @@ export async function POST(request: NextRequest) {
   const ids: { requestId?: string; parishionerId?: string } = {}
 
   try {
-    const parishId = await primaryParishId(admin)
+    const gate = getPublicIntakeRoutingRuntimeGate()
+    const routeSignals = extractPublicIntakeRouteSignalsForDryRun({
+      gate,
+      requestUrl: request.url,
+      headers: request.headers,
+      body,
+    })
+    const scope = await resolvePublicIntakeRequestParishScopeForFutureRuntime({
+      gate,
+      routingInput: routeSignals.routingInput,
+      loadLegacyPrimaryParishId: () => primaryParishId(admin),
+      resolveRoutedParishScope: (input) =>
+        resolvePublicIntakeParishScope(
+          createSupabasePublicIntakeParishScopeDataSource(admin),
+          input
+        ),
+    })
+    if (!scope.ok) {
+      return NextResponse.json({ ok: false, error: scope.error }, { status: scope.status })
+    }
+
+    const parishId = scope.parishId
+
     const { data: parishioner, error: parishionerError } = await admin
       .from('parishioners')
       .insert({
@@ -179,66 +214,95 @@ export async function POST(request: NextRequest) {
     ids.requestId = String(requestRow.id)
 
     if (requestType === 'funeral') {
-      const { error } = await admin.from('funeral_request_details').insert({
-        request_id: ids.requestId,
-        deceased_name: text(body.deceasedName, 200),
-        family_relationship: optionalText(body.familyRelationship, 200),
-        date_of_death: optionalText(body.dateOfDeath, 50),
-        funeral_home_or_location: optionalText(body.funeralHome, 500),
-        funeral_director_contact: optionalText(body.funeralDirectorContact, 500),
-        service_location: optionalText(body.serviceLocation, 500),
-        visitation_details: optionalText(body.visitationDetails, 1000),
-        cemetery_or_committal: optionalText(body.cemeteryOrCommittal, 1000),
-        readings_music_notes: optionalText(body.readingsMusicNotes, 1000),
-        obituary_program_notes: optionalText(body.obituaryProgramNotes, 1000),
-        post_funeral_follow_up_date: optionalText(body.postFuneralFollowUpDate, 50),
-        preferred_service_notes: optionalText(body.preferredServiceNotes, 1000),
-      })
-      if (error) throw error
+      const { data: detail, error } = await admin
+        .from('funeral_request_details')
+        .insert({
+          request_id: ids.requestId,
+          deceased_name: text(body.deceasedName, 200),
+          family_relationship: optionalText(body.familyRelationship, 200),
+          date_of_death: optionalText(body.dateOfDeath, 50),
+          funeral_home_or_location: optionalText(body.funeralHome, 500),
+          funeral_director_contact: optionalText(body.funeralDirectorContact, 500),
+          service_location: optionalText(body.serviceLocation, 500),
+          visitation_details: optionalText(body.visitationDetails, 1000),
+          cemetery_or_committal: optionalText(body.cemeteryOrCommittal, 1000),
+          readings_music_notes: optionalText(body.readingsMusicNotes, 1000),
+          obituary_program_notes: optionalText(body.obituaryProgramNotes, 1000),
+          post_funeral_follow_up_date: optionalText(body.postFuneralFollowUpDate, 50),
+          preferred_service_notes: optionalText(body.preferredServiceNotes, 1000),
+        })
+        .select('request_id')
+        .maybeSingle()
+      if (error || detail?.request_id !== ids.requestId) {
+        throw error ?? new Error('Funeral request details were not created.')
+      }
     } else if (requestType === 'wedding') {
-      const { error } = await admin.from('wedding_request_details').insert({
-        request_id: ids.requestId,
-        partner_one_name: text(body.partnerOneName, 200),
-        partner_two_name: optionalText(body.partnerTwoName, 200),
-        proposed_wedding_date: optionalText(body.proposedWeddingDate, 50),
-        ceremony_notes: optionalText(body.ceremonyNotes, 1000),
-      })
-      if (error) throw error
+      const { data: detail, error } = await admin
+        .from('wedding_request_details')
+        .insert({
+          request_id: ids.requestId,
+          partner_one_name: text(body.partnerOneName, 200),
+          partner_two_name: optionalText(body.partnerTwoName, 200),
+          proposed_wedding_date: optionalText(body.proposedWeddingDate, 50),
+          ceremony_notes: optionalText(body.ceremonyNotes, 1000),
+        })
+        .select('request_id')
+        .maybeSingle()
+      if (error || detail?.request_id !== ids.requestId) {
+        throw error ?? new Error('Wedding request details were not created.')
+      }
     } else if (requestType === 'ocia') {
-      const { error } = await admin.from('ocia_request_details').insert({
-        request_id: ids.requestId,
-        date_of_birth: optionalText(body.dateOfBirth, 50),
-        age_or_dob_note: optionalText(body.ageOrDobNote, 200),
-        sacramental_background: text(body.sacramentalBackground, 200) || 'unknown',
-        seeking: text(body.seeking, 200) || 'unknown',
-        parishioner_status: text(body.parishionerStatus, 200) || 'unknown',
-        preferred_contact_method: text(body.preferredContactMethod, 80) || 'email',
-        availability: optionalText(body.availability, 1000),
-      })
-      if (error) throw error
+      const { data: detail, error } = await admin
+        .from('ocia_request_details')
+        .insert({
+          request_id: ids.requestId,
+          date_of_birth: optionalText(body.dateOfBirth, 50),
+          age_or_dob_note: optionalText(body.ageOrDobNote, 200),
+          sacramental_background: text(body.sacramentalBackground, 200) || 'unknown',
+          seeking: text(body.seeking, 200) || 'unknown',
+          parishioner_status: text(body.parishionerStatus, 200) || 'unknown',
+          preferred_contact_method: text(body.preferredContactMethod, 80) || 'email',
+          availability: optionalText(body.availability, 1000),
+        })
+        .select('request_id')
+        .maybeSingle()
+      if (error || detail?.request_id !== ids.requestId) {
+        throw error ?? new Error('OCIA request details were not created.')
+      }
     } else if (requestType === 'join_parish') {
-      const { error } = await admin.from('join_parish_request_details').insert({
-        request_id: ids.requestId,
-        moving_into_parish: optionalText(body.movingIntoParish, 50),
-        address: optionalText(body.address, 500),
-        household_members: optionalText(body.householdMembers, 1000),
-        baptized: optionalText(body.baptized, 50),
-        confirmed: optionalText(body.confirmed, 50),
-        first_communion: optionalText(body.firstCommunion, 50),
-        already_catholic: optionalText(body.alreadyCatholic, 50),
-        interested_in_ocia: optionalText(body.interestedInOcia, 50),
-        reason: optionalText(body.reason, 1000),
-        notes,
-      })
-      if (error) throw error
+      const { data: detail, error } = await admin
+        .from('join_parish_request_details')
+        .insert({
+          request_id: ids.requestId,
+          moving_into_parish: optionalText(body.movingIntoParish, 50),
+          address: optionalText(body.address, 500),
+          household_members: optionalText(body.householdMembers, 1000),
+          baptized: optionalText(body.baptized, 50),
+          confirmed: optionalText(body.confirmed, 50),
+          first_communion: optionalText(body.firstCommunion, 50),
+          already_catholic: optionalText(body.alreadyCatholic, 50),
+          interested_in_ocia: optionalText(body.interestedInOcia, 50),
+          reason: optionalText(body.reason, 1000),
+          notes,
+        })
+        .select('request_id')
+        .maybeSingle()
+      if (error || detail?.request_id !== ids.requestId) {
+        throw error ?? new Error('Join Parish request details were not created.')
+      }
     }
 
     const checklist = checklistFor({ ...body, requestType }).map((item) => ({
       request_id: ids.requestId,
       item_name: item.item_name,
     }))
-    const { error: checklistError } = await admin.from('checklist_items').insert(checklist)
-    if (checklistError) throw checklistError
+    const { data: insertedChecklist, error: checklistError } = await admin
+      .from('checklist_items')
+      .insert(checklist)
+      .select('id')
+    if (checklistError || (insertedChecklist?.length ?? 0) !== checklist.length) {
+      throw checklistError ?? new Error('The intake checklist was not created completely.')
+    }
 
     const workflowStepsCreated = await createRequestWorkflowStepsFromActiveTemplate({
       admin,
@@ -251,7 +315,7 @@ export async function POST(request: NextRequest) {
       action: 'public_intake.created',
       targetType: 'request',
       targetId: ids.requestId,
-      metadata: { requestType, fullName, workflowStepsCreated },
+      metadata: { requestType, workflowStepsCreated, ...scope.auditMetadata },
     })
 
     return NextResponse.json(
@@ -263,8 +327,16 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    await cleanupPartial(admin, ids)
-    const message = error instanceof Error ? error.message : 'Could not submit request.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    const cleanup = await cleanupPartialPublicIntake(admin, ids)
+    logServerError('[intake] public submission failed', error, {
+      route: '/api/intake',
+      requestType,
+      partialRequestCreated: Boolean(ids.requestId),
+      partialParishionerCreated: Boolean(ids.parishionerId),
+      partialCleanupComplete: cleanup.ok,
+      requestCleanupFailed: cleanup.requestCleanupFailed,
+      parishionerCleanupFailed: cleanup.parishionerCleanupFailed,
+    })
+    return NextResponse.json({ ok: false, error: 'Could not submit request.' }, { status: 500 })
   }
 }

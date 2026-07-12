@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { WorkflowSectionCard } from './WorkflowSectionCard'
 import { secondaryButtonMd } from '@/lib/buttonStyles'
 import { formatRequestType } from '@/lib/formatRequestType'
+import { recordPrefillHrefForRequest } from '@/lib/relationshipIntelligence/suggestedActionPresentation'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import { suggestRecordForRequest } from '@/lib/relationshipIntelligence/suggestRecordForRequest'
 
@@ -42,7 +43,7 @@ export function RequestRecordSuggestion({
       </p>
       <div className="mt-4">
         <Link
-          href={`/dashboard/records/new?requestId=${encodeURIComponent(requestId)}`}
+          href={recordPrefillHrefForRequest(requestId)}
           className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
         >
           Prefill new record

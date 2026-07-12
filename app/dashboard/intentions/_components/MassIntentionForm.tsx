@@ -67,13 +67,14 @@ export function MassIntentionForm({
   idPrefix?: string
 }) {
   function patch(partial: Partial<MassIntentionFormValues>) {
+    if (saving) return
     onChange({ ...values, ...partial })
   }
 
   const priestSelectValue = values.assignedPriestName
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form method="post" onSubmit={onSubmit} className="space-y-5" aria-busy={saving}>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className={labelClass} htmlFor={`${idPrefix}-requester`}>
@@ -84,6 +85,7 @@ export function MassIntentionForm({
             className={vineaInputFieldClassName}
             value={values.requesterName}
             onChange={(e) => patch({ requesterName: e.target.value })}
+            disabled={saving}
             required
             autoComplete="name"
           />
@@ -99,6 +101,7 @@ export function MassIntentionForm({
             className={vineaInputFieldClassName}
             value={values.intentionText}
             onChange={(e) => patch({ intentionText: e.target.value })}
+            disabled={saving}
             required
             placeholder="e.g. Repose of the soul of Helen Martinez"
           />
@@ -114,6 +117,7 @@ export function MassIntentionForm({
             className={vineaInputFieldClassName}
             value={values.requestedDate}
             onChange={(e) => patch({ requestedDate: e.target.value })}
+            disabled={saving}
           />
         </div>
 
@@ -127,6 +131,7 @@ export function MassIntentionForm({
             className={vineaInputFieldClassName}
             value={values.assignedMassDate}
             onChange={(e) => patch({ assignedMassDate: e.target.value })}
+            disabled={saving}
           />
         </div>
 
@@ -140,6 +145,7 @@ export function MassIntentionForm({
               className={vineaInputFieldClassName}
               value={priestSelectValue}
               onChange={(e) => patch({ assignedPriestName: e.target.value })}
+              disabled={saving}
             >
               <option value="">{assignmentDisplayLabel(null)}</option>
               {priestOptions.map((name) => (
@@ -154,6 +160,7 @@ export function MassIntentionForm({
               className={vineaInputFieldClassName}
               value={values.assignedPriestName}
               onChange={(e) => patch({ assignedPriestName: e.target.value })}
+              disabled={saving}
               placeholder="Priest name"
             />
           )}
@@ -165,6 +172,7 @@ export function MassIntentionForm({
             type="checkbox"
             checked={values.stipendReceived}
             onChange={(e) => patch({ stipendReceived: e.target.checked })}
+            disabled={saving}
             className="h-4 w-4 rounded border-gray-300"
           />
           <label className="text-sm font-medium text-gray-800" htmlFor={`${idPrefix}-stipend`}>
@@ -178,6 +186,7 @@ export function MassIntentionForm({
             type="checkbox"
             checked={values.isFulfilled}
             onChange={(e) => patch({ isFulfilled: e.target.checked })}
+            disabled={saving}
             className="h-4 w-4 rounded border-gray-300"
           />
           <label className="text-sm font-medium text-gray-800" htmlFor={`${idPrefix}-fulfilled`}>
@@ -195,6 +204,7 @@ export function MassIntentionForm({
             className={vineaInputFieldClassName}
             value={values.notes}
             onChange={(e) => patch({ notes: e.target.value })}
+            disabled={saving}
           />
         </div>
       </div>
@@ -211,7 +221,7 @@ export function MassIntentionForm({
           disabled={saving}
           className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 disabled:opacity-60"
         >
-          {saving ? 'Saving…' : submitLabel}
+          {saving ? 'Saving...' : submitLabel}
         </button>
         {onCancel ? (
           <button

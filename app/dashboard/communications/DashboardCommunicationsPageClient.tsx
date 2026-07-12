@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Mail, MessageSquareText, Phone } from 'lucide-react'
@@ -13,7 +13,7 @@ import { chipBase } from '@/lib/chipStyles'
 import { primaryButtonSm, secondaryButtonSm } from '@/lib/buttonStyles'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaEmptyStateClassName } from '@/lib/vineaUi'
-import { logCommunicationTouchpoint, updateCommunicationFollowUp } from './actions'
+import { dashboardQueueClientErrorMessage } from '@/lib/dashboardQueueClientMessages'
 
 type FilterKey = 'all' | ParishCommunicationFilter
 
@@ -21,6 +21,57 @@ type Props = {
   items: ParishCommunicationItem[]
   errorMessage?: string
   softWarnings?: string[]
+  activeParishName?: string | null
+}
+
+type CommunicationActionResult = { ok: true } | { ok: false; error: unknown }
+
+async function communicationRequest(
+  requestId: string,
+  method: 'POST' | 'PATCH',
+  body: Record<string, unknown>,
+): Promise<CommunicationActionResult> {
+  const response = await fetch(
+    `/api/requests/${encodeURIComponent(requestId)}/communications`,
+    {
+      method,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  )
+  const payload = (await response.json().catch(() => null)) as {
+    ok?: boolean
+    error?: unknown
+  } | null
+
+  return response.ok && payload?.ok === true
+    ? { ok: true }
+    : { ok: false, error: payload?.error }
+}
+
+async function logCommunicationTouchpoint(input: {
+  requestId: string
+  method: FormDataEntryValue | null
+  notes: FormDataEntryValue | null
+  nextFollowUpDate: FormDataEntryValue | null
+}) {
+  return communicationRequest(input.requestId, 'POST', {
+    method: input.method,
+    notes: input.notes,
+    nextFollowUpDate: input.nextFollowUpDate,
+    source: 'communications_center',
+  })
+}
+
+async function updateCommunicationFollowUp(input: {
+  requestId: string
+  nextFollowUpDate: FormDataEntryValue | null
+}) {
+  return communicationRequest(input.requestId, 'PATCH', {
+    nextFollowUpDate: input.nextFollowUpDate,
+    source: 'communications_center',
+  })
 }
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -56,12 +107,15 @@ export function DashboardCommunicationsPageClient({
   items,
   errorMessage = '',
   softWarnings = [],
+  activeParishName = null,
 }: Props) {
   const router = useRouter()
   const [filter, setFilter] = useState<FilterKey>('needs_reply')
   const [openItemId, setOpenItemId] = useState<string | null>(null)
   const [savingItemId, setSavingItemId] = useState<string | null>(null)
+  const mutationInFlightRef = useRef(false)
   const [messages, setMessages] = useState<Record<string, string>>({})
+  const mutationBusy = savingItemId !== null
   const visibleItems = useMemo(() => filterItems(items, filter), [items, filter])
   const needsReplyCount = items.filter((item) => item.filters.includes('needs_reply')).length
   const overdueCount = items.filter((item) => item.filters.includes('overdue_follow_up')).length
@@ -72,6 +126,9 @@ export function DashboardCommunicationsPageClient({
   }
 
   async function saveTouchpoint(item: ParishCommunicationItem, formData: FormData) {
+    if (mutationInFlightRef.current) return
+
+    mutationInFlightRef.current = true
     setSavingItemId(item.id)
     setItemMessage(item.id, '')
     try {
@@ -82,18 +139,30 @@ export function DashboardCommunicationsPageClient({
         nextFollowUpDate: formData.get('nextFollowUpDate'),
       })
       if (!result.ok) {
-        setItemMessage(item.id, `Could not save: ${result.error}`)
+        setItemMessage(
+          item.id,
+          dashboardQueueClientErrorMessage('communicationTouchpoint', result.error),
+        )
         return
       }
       setItemMessage(item.id, 'Communication saved.')
       setOpenItemId(null)
       router.refresh()
+    } catch {
+      setItemMessage(
+        item.id,
+        dashboardQueueClientErrorMessage('communicationTouchpoint', null),
+      )
     } finally {
+      mutationInFlightRef.current = false
       setSavingItemId(null)
     }
   }
 
   async function saveFollowUp(item: ParishCommunicationItem, formData: FormData) {
+    if (mutationInFlightRef.current) return
+
+    mutationInFlightRef.current = true
     setSavingItemId(item.id)
     setItemMessage(item.id, '')
     try {
@@ -102,12 +171,21 @@ export function DashboardCommunicationsPageClient({
         nextFollowUpDate: formData.get('nextFollowUpDate'),
       })
       if (!result.ok) {
-        setItemMessage(item.id, `Could not save: ${result.error}`)
+        setItemMessage(
+          item.id,
+          dashboardQueueClientErrorMessage('communicationFollowUp', result.error),
+        )
         return
       }
       setItemMessage(item.id, 'Follow-up date updated.')
       router.refresh()
+    } catch {
+      setItemMessage(
+        item.id,
+        dashboardQueueClientErrorMessage('communicationFollowUp', null),
+      )
     } finally {
+      mutationInFlightRef.current = false
       setSavingItemId(null)
     }
   }
@@ -126,6 +204,11 @@ export function DashboardCommunicationsPageClient({
             Calls, emails, voicemails, follow-ups, and communication context across active
             parish requests.
           </p>
+          {activeParishName ? (
+            <p className="mt-2 text-sm font-medium text-gray-700">
+              Communications are scoped to {activeParishName}.
+            </p>
+          ) : null}
         </div>
         <Link href="/dashboard/requests" className={`${secondaryButtonSm} gap-2`}>
           All requests
@@ -244,6 +327,7 @@ export function DashboardCommunicationsPageClient({
                         <button
                           type="button"
                           className={secondaryButtonSm}
+                          disabled={mutationBusy}
                           onClick={() => setOpenItemId((current) => (current === item.id ? null : item.id))}
                         >
                           Log touchpoint
@@ -259,6 +343,7 @@ export function DashboardCommunicationsPageClient({
                   {openItemId === item.id ? (
                     <form
                       className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3"
+                      aria-busy={mutationBusy}
                       action={(formData) => void saveTouchpoint(item, formData)}
                     >
                       <p className="text-sm font-semibold text-gray-950">Log communication</p>
@@ -268,6 +353,7 @@ export function DashboardCommunicationsPageClient({
                           <select
                             name="method"
                             defaultValue="phone"
+                            disabled={mutationBusy}
                             className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                           >
                             <option value="phone">Phone call</option>
@@ -281,6 +367,7 @@ export function DashboardCommunicationsPageClient({
                           <input
                             type="text"
                             name="notes"
+                            disabled={mutationBusy}
                             placeholder="Short note for the communication history"
                             className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                           />
@@ -290,27 +377,28 @@ export function DashboardCommunicationsPageClient({
                           <input
                             type="date"
                             name="nextFollowUpDate"
+                            disabled={mutationBusy}
                             defaultValue={item.currentFollowUpDate}
                             className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                           />
                         </label>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <button type="submit" className={primaryButtonSm} disabled={savingItemId === item.id}>
+                        <button type="submit" className={primaryButtonSm} disabled={mutationBusy}>
                           {savingItemId === item.id ? 'Saving...' : 'Save communication'}
                         </button>
                         <button
                           type="button"
                           className={secondaryButtonSm}
                           onClick={() => setOpenItemId(null)}
-                          disabled={savingItemId === item.id}
+                          disabled={mutationBusy}
                         >
                           Cancel
                         </button>
                         <button
                           type="button"
                           className={secondaryButtonSm}
-                          disabled={savingItemId === item.id}
+                          disabled={mutationBusy}
                           onClick={() => {
                             const formData = new FormData()
                             formData.set('nextFollowUpDate', item.currentFollowUpDate)

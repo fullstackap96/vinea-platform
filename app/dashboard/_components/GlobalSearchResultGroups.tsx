@@ -61,6 +61,7 @@ export function GlobalSearchResultGroups({
   totalCount,
   loading,
   errorMessage,
+  warningMessage,
   compact = false,
   onNavigate,
 }: {
@@ -69,6 +70,7 @@ export function GlobalSearchResultGroups({
   totalCount: number
   loading?: boolean
   errorMessage?: string
+  warningMessage?: string
   compact?: boolean
   onNavigate?: () => void
 }) {
@@ -92,14 +94,31 @@ export function GlobalSearchResultGroups({
 
   if (totalCount === 0) {
     return (
-      <p className="px-3 py-4 text-sm text-gray-700">
-        No results for &ldquo;{query}&rdquo;. Try a name, email, or household.
-      </p>
+      <div>
+        {warningMessage ? (
+          <p className="border-b border-amber-100 bg-amber-50 px-3 py-3 text-sm text-amber-950" role="status">
+            {warningMessage}
+          </p>
+        ) : null}
+        <p className="px-3 py-4 text-sm text-gray-700">
+          No results for &ldquo;{query}&rdquo;. Try a name, email, or household.
+        </p>
+      </div>
     )
   }
 
   return (
     <div className={compact ? 'py-1' : 'space-y-6'}>
+      {warningMessage ? (
+        <p
+          className={`rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 ${
+            compact ? 'mx-2 my-2' : ''
+          }`}
+          role="status"
+        >
+          {warningMessage}
+        </p>
+      ) : null}
       {GROUP_LABELS.map(({ key, label }) => {
         const items = results[key]
         if (items.length === 0) return null

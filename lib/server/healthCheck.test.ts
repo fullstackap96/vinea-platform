@@ -7,10 +7,56 @@ vi.mock('@/lib/supabaseServiceServer', () => ({
 }))
 
 import {
+  buildPublicHealthCheckResponse,
+  isAppOriginReady,
   REQUIRED_SCHEMA_READINESS_CHECKS,
   runSchemaReadinessChecks,
+  type HealthCheckResponse,
   type SchemaReadinessCheck,
 } from './healthCheck'
+
+describe('isAppOriginReady', () => {
+  it('accepts exact HTTPS deployment origins and local non-Vercel HTTP origins', () => {
+    expect(
+      isAppOriginReady({
+        NEXT_PUBLIC_APP_URL: 'https://app.vineaplatform.test/',
+      }),
+    ).toBe(true)
+    expect(
+      isAppOriginReady({
+        NEXT_PUBLIC_APP_URL: 'http://127.0.0.1:3000',
+      }),
+    ).toBe(true)
+  })
+
+  it('requires HTTPS for Vercel deployments', () => {
+    expect(
+      isAppOriginReady({
+        NEXT_PUBLIC_APP_URL: 'http://preview-vinea.vercel.app',
+        VERCEL: '1',
+      }),
+    ).toBe(false)
+    expect(
+      isAppOriginReady({
+        NEXT_PUBLIC_APP_URL: 'https://preview-vinea.vercel.app',
+        VERCEL: '1',
+      }),
+    ).toBe(true)
+  })
+
+  it.each([
+    undefined,
+    '',
+    'not-a-url',
+    'ftp://app.vineaplatform.test',
+    'https://user:password@app.vineaplatform.test',
+    'https://app.vineaplatform.test/dashboard',
+    'https://app.vineaplatform.test?query=value',
+    'https://app.vineaplatform.test/#fragment',
+  ])('rejects an unsafe app origin value: %s', (value) => {
+    expect(isAppOriginReady({ NEXT_PUBLIC_APP_URL: value })).toBe(false)
+  })
+})
 
 function adminFor(input: {
   selectErrors?: Record<string, { code?: string; message?: string } | null>
@@ -85,11 +131,115 @@ describe('runSchemaReadinessChecks', () => {
           label: 'public intake rate-limit function',
           functionName: 'check_public_intake_rate_limit',
           args: expect.objectContaining({
-            p_limit: 0,
+            p_key: '',
+            p_limit: 1,
+          }),
+          expectedExistingErrorCodes: ['P0001'],
+        }),
+      ])
+    )
+  })
+
+  it('checks the multi-parish membership foundation schema', () => {
+    expect(REQUIRED_SCHEMA_READINESS_CHECKS).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'select',
+          label: 'parish_memberships table',
+          table: 'parish_memberships',
+          columns: 'id',
+        }),
+        expect.objectContaining({
+          kind: 'rpc',
+          label: 'current staff parish scope function',
+          functionName: 'current_staff_parish_ids',
+        }),
+        expect.objectContaining({
+          kind: 'rpc',
+          label: 'parish authorization scope function',
+          functionName: 'is_authorized_for_parish',
+          args: expect.objectContaining({
+            p_parish_id: '00000000-0000-0000-0000-000000000000',
           }),
         }),
       ])
     )
+  })
+
+  it('checks promoted public intake parish routing schema', () => {
+    expect(REQUIRED_SCHEMA_READINESS_CHECKS).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'select',
+          label: 'public intake parish routing columns',
+          table: 'parishes',
+          columns: 'public_slug, public_display_name, public_intake_enabled',
+        }),
+        expect.objectContaining({
+          kind: 'select',
+          label: 'public intake domain routing table',
+          table: 'parish_public_intake_domains',
+          columns:
+            'id, parish_id, hostname, verified_at, verification_dns_name, verification_dns_value, verification_checked_at, verification_error, active',
+        }),
+        expect.objectContaining({
+          kind: 'select',
+          label: 'public intake token routing table',
+          table: 'parish_public_intake_tokens',
+          columns: 'id, parish_id, token_hash, request_type, expires_at, active',
+        }),
+      ])
+    )
+  })
+
+  it('returns safe labels for missing promoted public intake routing schema', async () => {
+    const missing = await runSchemaReadinessChecks(
+      adminFor({
+        selectErrors: {
+          parishes: {
+            code: '42703',
+            message: 'column parishes.public_slug does not exist',
+          },
+          parish_public_intake_domains: {
+            code: 'PGRST205',
+            message:
+              "Could not find the table 'public.parish_public_intake_domains' in the schema cache",
+          },
+          parish_public_intake_tokens: {
+            code: 'PGRST205',
+            message:
+              "Could not find the table 'public.parish_public_intake_tokens' in the schema cache",
+          },
+        },
+      }) as never,
+      [
+        {
+          kind: 'select',
+          label: 'public intake parish routing columns',
+          table: 'parishes',
+          columns: 'public_slug, public_display_name, public_intake_enabled',
+        },
+        {
+          kind: 'select',
+          label: 'public intake domain routing table',
+          table: 'parish_public_intake_domains',
+          columns:
+            'id, parish_id, hostname, verified_at, verification_dns_name, verification_dns_value, verification_checked_at, verification_error, active',
+        },
+        {
+          kind: 'select',
+          label: 'public intake token routing table',
+          table: 'parish_public_intake_tokens',
+          columns: 'id, parish_id, token_hash, request_type, expires_at, active',
+        },
+      ]
+    )
+
+    expect(missing).toEqual([
+      'public intake parish routing columns',
+      'public intake domain routing table',
+      'public intake token routing table',
+    ])
   })
 
   it('returns labels for missing tables, columns, and RPC functions', async () => {
@@ -123,20 +273,70 @@ describe('runSchemaReadinessChecks', () => {
     ])
   })
 
-  it('does not flag expected non-schema RPC errors from an existing function', async () => {
+  it('throws non-schema RPC errors unless the probe explicitly expects them', async () => {
+    await expect(
+      runSchemaReadinessChecks(
+        adminFor({
+          rpcErrors: {
+            create_request_workflow_steps_from_active_template: {
+              code: 'P0001',
+              message: 'Request not found.',
+            },
+          },
+        }) as never,
+        checks
+      )
+    ).rejects.toMatchObject({ code: 'P0001' })
+  })
+
+  it('accepts only an explicitly expected validation error for a non-mutating RPC probe', async () => {
     const missing = await runSchemaReadinessChecks(
       adminFor({
         rpcErrors: {
-          create_request_workflow_steps_from_active_template: {
+          check_public_intake_rate_limit: {
             code: 'P0001',
-            message: 'Request not found.',
+            message: 'Rate-limit key is required.',
           },
         },
       }) as never,
-      checks
+      [
+        {
+          kind: 'rpc',
+          label: 'public intake rate-limit function',
+          functionName: 'check_public_intake_rate_limit',
+          args: { p_key: '', p_limit: 1, p_window_seconds: 60 },
+          missingCodes: ['PGRST202'],
+          expectedExistingErrorCodes: ['P0001'],
+        },
+      ]
     )
 
     expect(missing).toEqual([])
+  })
+
+  it('throws unexpected RPC failures instead of treating them as schema-ready', async () => {
+    await expect(
+      runSchemaReadinessChecks(
+        adminFor({
+          rpcErrors: {
+            check_public_intake_rate_limit: {
+              code: '42501',
+              message: 'permission denied',
+            },
+          },
+        }) as never,
+        [
+          {
+            kind: 'rpc',
+            label: 'public intake rate-limit function',
+            functionName: 'check_public_intake_rate_limit',
+            args: { p_key: '', p_limit: 1, p_window_seconds: 60 },
+            missingCodes: ['PGRST202'],
+            expectedExistingErrorCodes: ['P0001'],
+          },
+        ]
+      )
+    ).rejects.toMatchObject({ code: '42501' })
   })
 
   it('throws unexpected select errors so health does not hide connectivity failures', async () => {
@@ -153,5 +353,61 @@ describe('runSchemaReadinessChecks', () => {
         checks
       )
     ).rejects.toMatchObject({ code: '42501' })
+  })
+})
+
+describe('buildPublicHealthCheckResponse', () => {
+  const unhealthy: HealthCheckResponse = {
+    ok: false,
+    checks: {
+      env: true,
+      supabase: true,
+      parishes: true,
+      schema: false,
+      resend: true,
+      googleOAuth: true,
+    },
+    error: 'schema',
+    missingSchema: ['request_documents table'],
+  }
+
+  it('keeps detailed failure labels available outside production', () => {
+    expect(
+      buildPublicHealthCheckResponse(unhealthy, {
+        includeFailureDetails: true,
+      })
+    ).toEqual(unhealthy)
+  })
+
+  it('redacts configuration and schema labels from public production failures', () => {
+    expect(
+      buildPublicHealthCheckResponse(unhealthy, {
+        includeFailureDetails: false,
+      })
+    ).toEqual({
+      ok: false,
+      checks: unhealthy.checks,
+      error: 'unhealthy',
+    })
+  })
+
+  it('preserves the successful health contract in production', () => {
+    const healthy: HealthCheckResponse = {
+      ok: true,
+      checks: {
+        env: true,
+        supabase: true,
+        parishes: true,
+        schema: true,
+        resend: true,
+        googleOAuth: true,
+      },
+    }
+
+    expect(
+      buildPublicHealthCheckResponse(healthy, {
+        includeFailureDetails: false,
+      })
+    ).toEqual(healthy)
   })
 })

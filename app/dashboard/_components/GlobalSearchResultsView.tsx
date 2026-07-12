@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { buildGlobalSearchRequestScopeCue } from '@/lib/globalSearch/requestScopeCue'
 import type { GlobalSearchGroupedResults } from '@/lib/globalSearch/types'
 import { vineaInputFieldClassName, vineaSectionShellClassName } from '@/lib/vineaUi'
 import { GlobalSearchResultGroups } from './GlobalSearchResultGroups'
@@ -8,12 +9,23 @@ export function GlobalSearchResultsView({
   results,
   totalCount,
   errorMessage,
+  warningMessage,
+  activeParishName,
 }: {
   query: string
   results: GlobalSearchGroupedResults
   totalCount: number
   errorMessage: string
+  warningMessage?: string
+  activeParishName?: string | null
 }) {
+  const hasSearched = query.trim().length >= 2
+  const requestScopeCue = buildGlobalSearchRequestScopeCue({
+    activeParishName,
+    hasSearched,
+    requestResultCount: results.requests.length,
+  })
+
   return (
     <main className="mx-auto max-w-6xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
       <header className="mb-6">
@@ -23,6 +35,14 @@ export function GlobalSearchResultsView({
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
           Find requests, people, households, and sacramental records across your parish.
         </p>
+        {activeParishName ? (
+          <p className="mt-2 inline-flex max-w-full rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm">
+            <span className="truncate">
+              Search is using selected parish context:{' '}
+              <span className="font-semibold text-gray-900">{activeParishName}</span>.
+            </span>
+          </p>
+        ) : null}
       </header>
 
       <div className={`mb-6 ${vineaSectionShellClassName}`}>
@@ -36,7 +56,7 @@ export function GlobalSearchResultsView({
               name="q"
               type="search"
               defaultValue={query}
-              placeholder="Search Vinea…"
+              placeholder="Search Vinea..."
               className={vineaInputFieldClassName}
               autoComplete="off"
               minLength={2}
@@ -60,12 +80,37 @@ export function GlobalSearchResultsView({
         </div>
       ) : null}
 
+      {!errorMessage && warningMessage ? (
+        <div
+          className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="status"
+        >
+          {warningMessage}
+        </div>
+      ) : null}
+
       {query.trim().length >= 2 && !errorMessage ? (
         <p className="mb-4 text-sm text-gray-600">
           {totalCount === 0
-            ? `No results for “${query}”.`
-            : `${totalCount} result${totalCount === 1 ? '' : 's'} for “${query}”.`}
+            ? `No results for "${query}".`
+            : `${totalCount} result${totalCount === 1 ? '' : 's'} for "${query}".`}
         </p>
+      ) : null}
+
+      {hasSearched && !errorMessage ? (
+        <section
+          className="mb-5 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm leading-relaxed text-blue-950"
+          aria-labelledby="global-search-request-scope-heading"
+        >
+          <h2 id="global-search-request-scope-heading" className="font-semibold">
+            {requestScopeCue.title}
+          </h2>
+          <p className="mt-1">{requestScopeCue.description}</p>
+          {results.requests.length === 0 ? (
+            <p className="mt-2 font-medium">{requestScopeCue.requestEmptyHint}</p>
+          ) : null}
+          <p className="mt-2 text-xs text-blue-900/80">{requestScopeCue.boundaryNote}</p>
+        </section>
       ) : null}
 
       <GlobalSearchResultGroups

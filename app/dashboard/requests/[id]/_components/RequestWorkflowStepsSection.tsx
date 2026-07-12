@@ -54,7 +54,7 @@ export function RequestWorkflowStepsSection({
 }: {
   steps: RequestWorkflowStep[]
   updatingStepId: string
-  onUpdateStatus: (stepId: string, status: RequestWorkflowStepStatus) => void
+  onUpdateStatus: (stepId: string, status: RequestWorkflowStepStatus) => Promise<void> | void
 }) {
   if (steps.length === 0) {
     return (
@@ -66,9 +66,10 @@ export function RequestWorkflowStepsSection({
   }
 
   const groups = groupRequestWorkflowSteps(steps)
+  const mutationBusy = Boolean(updatingStepId)
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" aria-busy={mutationBusy}>
       {groups.map((group) => (
         <section key={group.phase} className="rounded-xl border border-gray-200 bg-white p-4">
           <h4 className="text-sm font-semibold text-gray-900">{group.phase}</h4>
@@ -117,8 +118,8 @@ export function RequestWorkflowStepsSection({
                     {step.status !== 'complete' ? (
                       <button
                         type="button"
-                        onClick={() => onUpdateStatus(step.id, 'complete')}
-                        disabled={isUpdating}
+                        onClick={() => void onUpdateStatus(step.id, 'complete')}
+                        disabled={mutationBusy}
                         className={`${primaryButtonMd} justify-center`}
                       >
                         {isUpdating ? 'Saving...' : 'Mark complete'}
@@ -126,8 +127,8 @@ export function RequestWorkflowStepsSection({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => onUpdateStatus(step.id, 'not_started')}
-                        disabled={isUpdating}
+                        onClick={() => void onUpdateStatus(step.id, 'not_started')}
+                        disabled={mutationBusy}
                         className={`${secondaryButtonMd} justify-center`}
                       >
                         {isUpdating ? 'Saving...' : 'Reopen'}
@@ -136,8 +137,8 @@ export function RequestWorkflowStepsSection({
                     {step.status !== 'in_progress' && step.status !== 'complete' ? (
                       <button
                         type="button"
-                        onClick={() => onUpdateStatus(step.id, 'in_progress')}
-                        disabled={isUpdating}
+                        onClick={() => void onUpdateStatus(step.id, 'in_progress')}
+                        disabled={mutationBusy}
                         className={`${secondaryButtonMd} justify-center`}
                       >
                         Start
@@ -146,8 +147,8 @@ export function RequestWorkflowStepsSection({
                     {!step.required && step.status !== 'skipped' && step.status !== 'complete' ? (
                       <button
                         type="button"
-                        onClick={() => onUpdateStatus(step.id, 'skipped')}
-                        disabled={isUpdating}
+                        onClick={() => void onUpdateStatus(step.id, 'skipped')}
+                        disabled={mutationBusy}
                         className={`${secondaryButtonMd} justify-center`}
                       >
                         Skip optional

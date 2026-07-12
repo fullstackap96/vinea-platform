@@ -73,4 +73,23 @@ describe('buildParishCommunicationCenter', () => {
     expect(rows[0]?.filters).toContain('recent_contact')
     expect(rows[0]?.latestNote).toBe('Mother confirmed godparent paperwork is coming.')
   })
+
+  it('keeps communication review links dashboard-internal and encoded', () => {
+    const rows = buildParishCommunicationCenter({
+      now,
+      requests: [
+        {
+          id: 'request/unsafe?next=https://example.test',
+          status: 'new',
+          request_type: 'ocia',
+          parishioner: { full_name: 'Lucas Cruz', phone: '555-1000' },
+        },
+      ],
+    })
+
+    expect(rows[0]?.href).toBe(
+      '/dashboard/requests/request%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test#communication-history'
+    )
+    expect(rows[0]?.href).not.toContain('://example.test')
+  })
 })

@@ -1,5 +1,8 @@
 import 'server-only'
 
+import { createHash } from 'node:crypto'
+import { isIP } from 'node:net'
+
 type RateLimitEntry = {
   count: number
   windowStartedAt: number
@@ -40,13 +43,40 @@ export function checkRateLimit(
   return { ok: true }
 }
 
+function validFirstIp(value: string | null): string | null {
+  const candidate = value?.split(',')[0]?.trim()
+  if (!candidate || isIP(candidate) === 0) return null
+  return candidate.toLowerCase()
+}
+
 export function clientIpFromRequest(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) {
-    const first = forwarded.split(',')[0]?.trim()
-    if (first) return first
-  }
-  const realIp = request.headers.get('x-real-ip')?.trim()
+  const vercelForwardedIp = validFirstIp(request.headers.get('x-vercel-forwarded-for'))
+  if (vercelForwardedIp) return vercelForwardedIp
+
+  if (process.env.VERCEL === '1') return 'unknown'
+
+  const forwardedIp = validFirstIp(request.headers.get('x-forwarded-for'))
+  if (forwardedIp) return forwardedIp
+
+  const realIp = validFirstIp(request.headers.get('x-real-ip'))
   if (realIp) return realIp
+
   return 'unknown'
+}
+
+const RATE_LIMIT_NAMESPACE_PATTERN = /^[a-z0-9][a-z0-9-]{0,47}$/
+
+export function durableRateLimitKeyFromRequest(
+  request: Request,
+  namespace: string,
+): string {
+  if (!RATE_LIMIT_NAMESPACE_PATTERN.test(namespace)) {
+    throw new Error('Invalid durable rate-limit namespace.')
+  }
+
+  const digest = createHash('sha256')
+    .update(`vinea-public-rate-limit:v1\0${namespace}\0${clientIpFromRequest(request)}`)
+    .digest('base64url')
+
+  return `${namespace}:v1:${digest}`
 }

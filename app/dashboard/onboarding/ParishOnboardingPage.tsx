@@ -1,9 +1,20 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { CheckCircle2, Circle, ShieldCheck } from 'lucide-react'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
+import {
+  onboardingLoadErrorMessage,
+  onboardingSaveErrorMessage,
+} from '@/lib/onboardingClientMessages'
+import {
+  parseOnboardingSettingsResponse,
+  parseOnboardingStaffResponse,
+  type OnboardingParishReadModel,
+  type OnboardingStaffReadModel,
+} from '@/lib/onboardingReadModel'
+import { buildParishGoLiveReadiness } from '@/lib/parishGoLiveReadiness'
 import { buildParishOnboardingReadiness, type ParishReadinessResult } from '@/lib/parishOnboardingReadiness'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import {
@@ -11,18 +22,6 @@ import {
   vineaSectionShellClassName,
   vineaSpinnerClassName,
 } from '@/lib/vineaUi'
-
-type ParishPayload = {
-  id: string
-  name: string
-  default_notification_email?: string | null
-  daily_ops_brief_enabled?: boolean | null
-  daily_ops_brief_email?: string | null
-  onboarding_completed_at?: string | null
-  workflow_sla_rules?: unknown
-  staff_names?: string[]
-  priest_names?: string[]
-}
 
 const PILOT_ITEMS = [
   'First admin staff user is seeded',
@@ -32,10 +31,6 @@ const PILOT_ITEMS = [
   'Staff can see new requests in the dashboard',
   'Audit log shows settings and request activity',
 ]
-
-function messageFromUnknown(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback
-}
 
 function ReadinessRing({ readiness }: { readiness: ParishReadinessResult }) {
   return (
@@ -51,46 +46,84 @@ function ReadinessRing({ readiness }: { readiness: ParishReadinessResult }) {
 export function ParishOnboardingPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const completionInFlightRef = useRef(false)
+  const loadSequenceRef = useRef(0)
+  const loadAbortRef = useRef<AbortController | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [parish, setParish] = useState<ParishPayload | null>(null)
-  const [staffUsers, setStaffUsers] = useState<Array<{ role?: unknown; active?: unknown }>>([])
+  const [parish, setParish] = useState<OnboardingParishReadModel | null>(null)
+  const [activeParishName, setActiveParishName] = useState('')
+  const [staffUsers, setStaffUsers] = useState<OnboardingStaffReadModel[]>([])
 
   const readiness = useMemo(
     () => buildParishOnboardingReadiness({ parish, staffUsers }),
     [parish, staffUsers]
   )
+  const goLiveReadiness = useMemo(
+    () => buildParishGoLiveReadiness({ setupReadiness: readiness }),
+    [readiness]
+  )
 
   const load = useCallback(async () => {
+    const loadSequence = ++loadSequenceRef.current
+    loadAbortRef.current?.abort()
+    const controller = new AbortController()
+    loadAbortRef.current = controller
+    const isLatestLoad = () => loadSequence === loadSequenceRef.current
+
     setLoading(true)
     setError('')
+    setParish(null)
+    setStaffUsers([])
+    setActiveParishName('')
     try {
       const [settingsRes, staffRes] = await Promise.all([
-        fetch('/api/parish/settings', { credentials: 'include' }),
-        fetch('/api/parish/staff-users', { credentials: 'include' }),
+        fetch('/api/parish/settings', { credentials: 'include', signal: controller.signal }),
+        fetch('/api/parish/staff-users', { credentials: 'include', signal: controller.signal }),
       ])
       const settingsData = await settingsRes.json().catch(() => ({}))
       const staffData = await staffRes.json().catch(() => ({}))
+      if (!isLatestLoad()) return
 
       if (!settingsRes.ok || !settingsData?.ok) {
-        setError(String(settingsData?.error || 'Could not load parish setup.'))
+        setError(onboardingLoadErrorMessage(settingsData?.error))
         return
       }
-      setParish(settingsData.parish as ParishPayload)
-      setStaffUsers(staffRes.ok && staffData?.ok && Array.isArray(staffData.staff) ? staffData.staff : [])
+      if (!staffRes.ok || !staffData?.ok) {
+        setError(onboardingLoadErrorMessage(staffData?.error))
+        return
+      }
+      const nextParish = parseOnboardingSettingsResponse(settingsData)
+      const nextStaff = parseOnboardingStaffResponse(staffData)
+      if (!nextParish || !nextStaff) {
+        setError(onboardingLoadErrorMessage(null))
+        return
+      }
+      setParish(nextParish)
+      setActiveParishName(nextParish.name)
+      setStaffUsers(nextStaff)
     } catch (err) {
-      setError(messageFromUnknown(err, 'Could not load parish setup.'))
+      if (!isLatestLoad() || (err instanceof DOMException && err.name === 'AbortError')) return
+      setError(onboardingLoadErrorMessage(err))
     } finally {
-      setLoading(false)
+      if (isLatestLoad()) setLoading(false)
+      if (loadAbortRef.current === controller) loadAbortRef.current = null
     }
   }, [])
 
   useEffect(() => {
     void load()
+    return () => {
+      loadSequenceRef.current += 1
+      loadAbortRef.current?.abort()
+      loadAbortRef.current = null
+    }
   }, [load])
 
   async function markComplete() {
-    if (!parish || !readiness.readyToComplete) return
+    if (completionInFlightRef.current || !parish || !readiness.readyToComplete) return
+
+    completionInFlightRef.current = true
     setSaving(true)
     setMessage('')
     setError('')
@@ -112,16 +145,21 @@ export function ParishOnboardingPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok) {
-        setError(String(data?.error || 'Could not mark onboarding complete.'))
+        setError(onboardingSaveErrorMessage(data?.error))
         return
       }
       setMessage('Parish onboarding marked complete.')
       await load()
     } catch (err) {
-      setError(messageFromUnknown(err, 'Could not mark onboarding complete.'))
+      setError(onboardingSaveErrorMessage(err))
     } finally {
+      completionInFlightRef.current = false
       setSaving(false)
     }
+  }
+
+  function preventNavigationWhileSaving(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (saving) event.preventDefault()
   }
 
   return (
@@ -134,6 +172,11 @@ export function ParishOnboardingPage() {
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">
           Finish the essentials that make Vinea ready for daily parish operations.
         </p>
+        {activeParishName ? (
+          <p className="mt-3 inline-flex rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700">
+            Onboarding is scoped to {activeParishName}.
+          </p>
+        ) : null}
       </div>
 
       {loading ? (
@@ -151,7 +194,7 @@ export function ParishOnboardingPage() {
         </div>
       ) : (
         <div className="space-y-5">
-          <section className={vineaSectionShellClassName}>
+          <section className={vineaSectionShellClassName} aria-busy={saving}>
             <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
               <ReadinessRing readiness={readiness} />
               <div>
@@ -181,7 +224,13 @@ export function ParishOnboardingPage() {
                   >
                     {saving ? 'Saving...' : readiness.onboardingComplete ? 'Setup complete' : 'Mark setup complete'}
                   </button>
-                  <Link href="/dashboard/settings" className={`${secondaryButtonMd} justify-center`}>
+                  <Link
+                    href="/dashboard/settings"
+                    aria-disabled={saving}
+                    tabIndex={saving ? -1 : undefined}
+                    onClick={preventNavigationWhileSaving}
+                    className={`${secondaryButtonMd} justify-center ${saving ? 'pointer-events-none opacity-60' : ''}`}
+                  >
                     Open settings
                   </Link>
                 </div>
@@ -198,7 +247,10 @@ export function ParishOnboardingPage() {
                 <Link
                   key={item.key}
                   href={item.href}
-                  className="flex gap-3 px-4 py-4 hover:bg-gray-50"
+                  aria-disabled={saving}
+                  tabIndex={saving ? -1 : undefined}
+                  onClick={preventNavigationWhileSaving}
+                  className={`flex gap-3 px-4 py-4 hover:bg-gray-50 ${saving ? 'pointer-events-none opacity-60' : ''}`}
                 >
                   {item.complete ? (
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
@@ -211,6 +263,76 @@ export function ParishOnboardingPage() {
                   </div>
                 </Link>
               ))}
+            </div>
+          </section>
+
+          <section className={vineaSectionShellClassName}>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Go-live readiness
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-gray-950">
+                  {goLiveReadiness.headline}
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                  {goLiveReadiness.summary}
+                </p>
+              </div>
+              <span
+                className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+                  goLiveReadiness.status === 'ready_for_supervised_pilot'
+                    ? 'bg-emerald-100 text-emerald-900'
+                    : 'bg-amber-100 text-amber-950'
+                }`}
+              >
+                {goLiveReadiness.status === 'ready_for_supervised_pilot'
+                  ? 'Pilot checklist ready'
+                  : 'Setup first'}
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1.25fr]">
+              <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <h3 className="text-sm font-semibold text-gray-950">Next best steps</h3>
+                <ul className="mt-3 space-y-2 text-sm leading-relaxed text-gray-700">
+                  {goLiveReadiness.nextActions.map((action) => (
+                    <li key={action} className="flex gap-2">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-500" />
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <h3 className="text-sm font-semibold text-gray-950">Migration source prep</h3>
+                <div className="mt-3 space-y-3">
+                  {goLiveReadiness.migrationSources.map((source) => (
+                    <div key={source.source} className="rounded-lg bg-slate-50 px-3 py-3">
+                      <p className="text-sm font-semibold text-gray-950">{source.source}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-gray-700">
+                        {source.whatToGather}
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                        {source.caution}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-gray-200 bg-slate-50/80 p-4">
+              <h3 className="text-sm font-semibold text-gray-950">Before real parish use</h3>
+              <ul className="mt-3 grid gap-2 text-sm leading-relaxed text-gray-700 sm:grid-cols-2">
+                {goLiveReadiness.manualChecks.map((check) => (
+                  <li key={check} className="flex gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" aria-hidden />
+                    <span>{check}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </section>
 

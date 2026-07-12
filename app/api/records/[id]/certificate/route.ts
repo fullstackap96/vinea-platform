@@ -4,14 +4,66 @@ import {
   baptismCertificateFilename,
   buildBaptismCertificatePdf,
 } from '@/lib/server/baptismCertificatePdf'
+import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+  resolveActiveStaffParishContext,
+} from '@/lib/server/activeStaffParishContext'
+import { requireStaffFromRequest } from '@/lib/server/requireStaff'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 import { parseSacramentalRecordRow } from '@/lib/sacramentalRecords'
-import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
-import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
-export async function GET(
+const CERTIFICATE_RECORD_SELECT =
+  'id, parish_id, record_type, person_name, sacrament_date, place, minister, book, page, line' as const
+
+type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
+
+function selectedParishId(request: NextRequest): string | null {
+  return request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value?.trim() || null
+}
+
+async function resolveCertificateParishContext(
+  supabase: StaffSupabaseClient,
+  requestedParishId: string | null,
+) {
+  const context = await resolveActiveStaffParishContext(supabase, {
+    requestedParishId,
+  })
+  if (!context.ok) return context
+
+  if (
+    requestedParishId &&
+    (context.activeParishId !== requestedParishId || context.source !== 'membership')
+  ) {
+    return {
+      ok: false as const,
+      source: context.source,
+      error: 'Record not found.',
+      technicalDetail: 'Selected parish did not resolve through exact staff membership.',
+      requestedParishId,
+    }
+  }
+
+  return context
+}
+
+function certificateRouteErrorResponse(
+  action: string,
+  error: unknown,
+  safeMessage: string,
+  status = 500
+) {
+  logServerError(`[record-certificate] ${action} failed`, error)
+  return NextResponse.json({ ok: false, error: safeMessage }, { status })
+}
+
+export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
   try {
     const { id: recordId } = await context.params
     const id = String(recordId ?? '').trim()
@@ -19,24 +71,31 @@ export async function GET(
       return NextResponse.json({ ok: false, error: 'Missing record id.' }, { status: 400 })
     }
 
-    const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
+    const staff = await requireStaffFromRequest(request)
+    if (!staff.ok) return staff.response
 
-    if (userError || !user) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    const requestedParishId = selectedParishId(request)
+    const parishContext = await resolveCertificateParishContext(
+      staff.supabase,
+      requestedParishId,
+    )
+    if (!parishContext.ok) {
+      return NextResponse.json({ ok: false, error: 'Record not found.' }, { status: 404 })
     }
 
-    const { data: row, error: rowErr } = await supabase
+    const { data: row, error: rowErr } = await staff.supabase
       .from('sacramental_records')
-      .select('*')
+      .select(CERTIFICATE_RECORD_SELECT)
       .eq('id', id)
+      .eq('parish_id', parishContext.activeParishId)
       .maybeSingle()
 
     if (rowErr) {
-      return NextResponse.json({ ok: false, error: rowErr.message }, { status: 500 })
+      return certificateRouteErrorResponse(
+        'load sacramental record',
+        rowErr,
+        'Could not load sacramental record.'
+      )
     }
     if (!row) {
       return NextResponse.json({ ok: false, error: 'Record not found.' }, { status: 404 })
@@ -50,34 +109,12 @@ export async function GET(
       )
     }
 
-    let parishName: string | null = null
-    try {
-      const admin = createSupabaseServiceRoleClient()
-      const { data: parish } = await admin
-        .from('parishes')
-        .select('name')
-        .eq('id', record.parish_id)
-        .maybeSingle()
-      parishName = parish?.name ? String(parish.name).trim() : null
-    } catch {
-      parishName = null
-    }
-
-    const { error: eventErr } = await supabase.from('sacramental_record_events').insert({
-      parish_id: record.parish_id,
-      sacramental_record_id: record.id,
-      action: 'certificate_generated',
-      actor_id: user.id,
-      actor_email: user.email ?? null,
-      metadata: { template: 'baptism_v1' },
-    })
-
-    if (eventErr) {
-      return NextResponse.json(
-        { ok: false, error: eventErr.message || 'Could not log certificate generation.' },
-        { status: 500 }
-      )
-    }
+    const { data: parish } = await staff.supabase
+      .from('parishes')
+      .select('name')
+      .eq('id', parishContext.activeParishId)
+      .maybeSingle()
+    const parishName = parish?.name ? String(parish.name).trim() : null
 
     const pdfBytes = await buildBaptismCertificatePdf({
       personName: record.person_name,
@@ -90,6 +127,27 @@ export async function GET(
       parishName,
     })
 
+    const { data: certificateEvent, error: eventErr } = await staff.supabase
+      .from('sacramental_record_events')
+      .insert({
+        parish_id: parishContext.activeParishId,
+        sacramental_record_id: record.id,
+        action: 'certificate_generated',
+        actor_id: staff.user.id,
+        actor_email: staff.staff.email,
+        metadata: { template: 'baptism_v1' },
+      })
+      .select('id')
+      .maybeSingle()
+
+    if (eventErr || !certificateEvent?.id) {
+      return certificateRouteErrorResponse(
+        'log certificate generation',
+        eventErr ?? new Error('Certificate generation event was not recorded.'),
+        'Could not log certificate generation.'
+      )
+    }
+
     const filename = baptismCertificateFilename(record.person_name)
 
     return new NextResponse(Buffer.from(pdfBytes), {
@@ -100,8 +158,17 @@ export async function GET(
         'Cache-Control': 'no-store',
       },
     })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Server error'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+  } catch (error: unknown) {
+    return certificateRouteErrorResponse(
+      'unexpected certificate generation',
+      error,
+      'Could not generate certificate.'
+    )
   }
+}
+
+export const recordCertificateRouteTestInternals = {
+  CERTIFICATE_RECORD_SELECT,
+  resolveCertificateParishContext,
+  selectedParishId,
 }

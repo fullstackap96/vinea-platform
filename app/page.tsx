@@ -351,6 +351,61 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Trust and procurement */}
+        <section className="border-t border-gray-100 bg-gray-50 py-16 sm:py-20">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <h2 className={sectionHeadingClassName}>Built for responsible parish review</h2>
+            <p className={sectionIntroClass}>
+              Parishes should ask careful questions before adopting a new system. Vinea is
+              designed for authenticated staff workflows, separated family intake, and a
+              pilot-first review process so pastors, administrators, and business managers can
+              evaluate fit without trying to change every office process at once.
+            </p>
+            <div className="mt-10 grid gap-5 md:grid-cols-2">
+              {[
+                {
+                  question: 'Can we start small?',
+                  answer:
+                    'Yes. The recommended path is a focused pilot around one or two workflows, such as baptism, funeral, wedding, OCIA, Mass intentions, or records follow-up.',
+                },
+                {
+                  question: 'Does Vinea replace our current systems?',
+                  answer:
+                    'Not necessarily. Vinea is best positioned first as an operations layer for intake, ownership, follow-up, scheduling, records workflows, and visibility.',
+                },
+                {
+                  question: 'How does Vinea handle sensitive parish workflows?',
+                  answer:
+                    'Vinea is built around authenticated staff dashboards and separated public intake forms. Final privacy, retention, export, backup, and support commitments should be confirmed during procurement.',
+                },
+                {
+                  question: 'Is Vinea the official sacramental record system?',
+                  answer:
+                    'Vinea supports sacramental records and certificate workflows. Whether it serves as the canonical record of truth depends on parish and diocesan policy.',
+                },
+                {
+                  question: 'Does AI make decisions for staff?',
+                  answer:
+                    'No. AI-assisted summaries and drafts are staff-support tools. Parish staff remain responsible for review, judgment, and final communication.',
+                },
+                {
+                  question: 'What should a pastor or finance council review?',
+                  answer:
+                    'The practical review should cover pilot scope, staff owner, success criteria, pricing, contract term, data ownership, export/offboarding, incident response, backups, and support expectations.',
+                },
+              ].map((item) => (
+                <article
+                  key={item.question}
+                  className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm"
+                >
+                  <h3 className="text-base font-semibold text-gray-900">{item.question}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600">{item.answer}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* See the workflow */}
         <section id="workflow" className="border-t border-gray-100 bg-gray-50 py-16 sm:py-20 scroll-mt-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">

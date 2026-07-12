@@ -5,6 +5,7 @@ import { redactFamilyPortalDocuments } from '@/lib/familyPortalSafety'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import { normalizeRequestDocumentRow, type RequestDocument } from '@/lib/requestDocuments'
 import { normalizeRequestWorkflowStep, type RequestWorkflowStep } from '@/lib/requestWorkflowSteps'
+import { logServerWarning } from '@/lib/server/safeErrorLogging'
 
 type AdminClient = ReturnType<typeof createSupabaseServiceRoleClient>
 
@@ -51,6 +52,37 @@ export function hashFamilyPortalToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex')
 }
 
+async function recordFamilyPortalTokenUse(input: {
+  admin: AdminClient
+  tokenId: string
+  usedAt: string
+}): Promise<boolean> {
+  try {
+    const { data, error } = await input.admin
+      .from('request_portal_tokens')
+      .update({ last_used_at: input.usedAt })
+      .eq('id', input.tokenId)
+      .select('id')
+      .maybeSingle()
+
+    if (error || !data?.id) {
+      logServerWarning('[family-portal] usage state not recorded', {
+        route: '/family/request/[token]',
+        failureKind: error ? 'returned_error' : 'no_matching_row',
+      })
+      return false
+    }
+
+    return true
+  } catch {
+    logServerWarning('[family-portal] usage state not recorded', {
+      route: '/family/request/[token]',
+      failureKind: 'thrown_error',
+    })
+    return false
+  }
+}
+
 export async function createRequestPortalToken(input: {
   admin: AdminClient
   parishId: string
@@ -79,7 +111,19 @@ export async function createRequestPortalToken(input: {
     .single()
 
   if (error) throw error
-  return { rawToken, tokenId: String(data.id), expiresAt: String(data.expires_at) }
+
+  const tokenId = text(data?.id)
+  const persistedExpiresAt = text(data?.expires_at)
+  const persistedExpiryMs = Date.parse(persistedExpiresAt)
+  if (
+    !tokenId ||
+    !Number.isFinite(persistedExpiryMs) ||
+    persistedExpiryMs !== expiresAt.getTime()
+  ) {
+    throw new Error('Family portal token persistence could not be confirmed.')
+  }
+
+  return { rawToken, tokenId, expiresAt: persistedExpiresAt }
 }
 
 export async function loadFamilyPortalByToken(
@@ -165,10 +209,11 @@ export async function loadFamilyPortalByToken(
     documents = redactFamilyPortalDocuments(normalizedDocuments, familyStepIds)
   }
 
-  await admin
-    .from('request_portal_tokens')
-    .update({ last_used_at: now })
-    .eq('id', tokenRow.id)
+  await recordFamilyPortalTokenUse({
+    admin,
+    tokenId: String(tokenRow.id),
+    usedAt: now,
+  })
 
   return {
     parish: { id: String(parish.id), name: text(parish.name) || 'Your parish' },
@@ -186,4 +231,8 @@ export async function loadFamilyPortalByToken(
     familySteps,
     documents,
   }
+}
+
+export const requestPortalTokenTestInternals = {
+  recordFamilyPortalTokenUse,
 }

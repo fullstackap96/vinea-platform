@@ -1,14 +1,23 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { loadFamilyPortalByToken } from '@/lib/server/requestPortalTokens'
 import {
+  isRequestDocumentsTableMissing,
   REQUEST_DOCUMENT_MAX_FILE_BYTES,
   REQUEST_DOCUMENTS_BUCKET,
+  REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
   safeRequestDocumentFilename,
 } from '@/lib/requestDocuments'
 import { writeAuditEvent } from '@/lib/server/auditLog'
+import { checkDurableRateLimit } from '@/lib/server/durableRateLimit'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { cleanupFailedRequestDocumentUpload } from '@/lib/server/requestDocumentUploadCleanup'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
+import { durableRateLimitKeyFromRequest } from '@/lib/server/simpleRateLimit'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 export const runtime = 'nodejs'
+
+const RATE_LIMIT = { limit: 20, windowMs: 15 * 60_000 }
 
 type RouteParams = { params: Promise<{ token: string }> }
 
@@ -17,9 +26,43 @@ function text(value: unknown): string {
 }
 
 export async function POST(request: NextRequest, context: RouteParams) {
-  const { token } = await context.params
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
+  let hasPortalToken = false
   try {
+    const { token } = await context.params
+    hasPortalToken = Boolean(token)
     const admin = createSupabaseServiceRoleClient()
+    const rateLimit = await checkDurableRateLimit({
+      admin,
+      key: durableRateLimitKeyFromRequest(request, 'family-document-upload'),
+      ...RATE_LIMIT,
+    }).catch((error: unknown) => {
+      logServerError('[family-portal-documents] rate limit check failed', error, {
+        route: '/api/family/request-portal/[token]/documents',
+        hasPortalToken,
+      })
+      return null
+    })
+
+    if (!rateLimit) {
+      return NextResponse.json(
+        { ok: false, error: 'Could not upload document. Please try again later.' },
+        { status: 503 }
+      )
+    }
+
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'Too many upload attempts. Please try again later.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+        }
+      )
+    }
+
     const portal = await loadFamilyPortalByToken(admin, token)
     if (!portal) {
       return NextResponse.json(
@@ -58,12 +101,18 @@ export async function POST(request: NextRequest, context: RouteParams) {
     ].join('/')
     const contentType = text(file.type) || 'application/octet-stream'
     const buffer = Buffer.from(await file.arrayBuffer())
-    const { error: uploadError } = await admin.storage
+    const { data: uploaded, error: uploadError } = await admin.storage
       .from(REQUEST_DOCUMENTS_BUCKET)
       .upload(storagePath, buffer, { contentType, upsert: false })
 
-    if (uploadError) {
-      return NextResponse.json({ ok: false, error: uploadError.message }, { status: 500 })
+    if (uploadError || uploaded?.path !== storagePath) {
+      logServerError('[family-portal-documents] upload storage failed', uploadError, {
+        route: '/api/family/request-portal/[token]/documents',
+        hasPortalToken: Boolean(token),
+        hasWorkflowStepId: Boolean(workflowStepId),
+        fileSizeBytes: file.size,
+      })
+      return NextResponse.json({ ok: false, error: 'Could not upload document.' }, { status: 500 })
     }
 
     const { data: inserted, error: insertError } = await admin
@@ -85,9 +134,36 @@ export async function POST(request: NextRequest, context: RouteParams) {
       .select('id')
       .single()
 
-    if (insertError) {
-      await admin.storage.from(REQUEST_DOCUMENTS_BUCKET).remove([storagePath])
-      return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
+    if (insertError || !inserted?.id) {
+      const cleanup = await cleanupFailedRequestDocumentUpload({
+        storage: admin.storage,
+        bucket: REQUEST_DOCUMENTS_BUCKET,
+        storagePath,
+        source: 'family_portal',
+      })
+      if (isRequestDocumentsTableMissing(insertError)) {
+        return NextResponse.json(
+          { ok: false, error: REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE },
+          { status: 503 }
+        )
+      }
+      logServerError('[family-portal-documents] upload insert failed', insertError, {
+        route: '/api/family/request-portal/[token]/documents',
+        hasPortalToken: Boolean(token),
+        hasWorkflowStepId: Boolean(workflowStepId),
+        fileSizeBytes: file.size,
+        storageCleanupAttempted: true,
+        storageCleanupComplete: cleanup.ok,
+      })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: cleanup.ok
+            ? 'Could not upload document.'
+            : 'We could not complete this upload. Please contact the parish office before trying again.',
+        },
+        { status: 500 },
+      )
     }
 
     await writeAuditEvent({
@@ -99,14 +175,25 @@ export async function POST(request: NextRequest, context: RouteParams) {
       metadata: {
         requestId: portal.request.id,
         workflowStepId: step.id,
-        filename: originalFilename,
-        summary: `Family uploaded ${step.title}`,
+        documentType: step.title,
+        fileSizeBytes: file.size,
+        uploadSource: 'family_portal',
+        summary: 'Family uploaded a requested document.',
       },
     })
 
     return NextResponse.json({ ok: true })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not upload document.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    if (isRequestDocumentsTableMissing(error as { code?: string; message?: string } | null)) {
+      return NextResponse.json(
+        { ok: false, error: REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE },
+        { status: 503 }
+      )
+    }
+    logServerError('[family-portal-documents] upload failed', error, {
+      route: '/api/family/request-portal/[token]/documents',
+      hasPortalToken,
+    })
+    return NextResponse.json({ ok: false, error: 'Could not upload document.' }, { status: 500 })
   }
 }

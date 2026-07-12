@@ -90,4 +90,23 @@ describe('evaluateCommunicationCommitment', () => {
     expect(queue.rows.map((row) => row.requestId)).toEqual(['stale'])
     expect(queue.summary.stale).toBe(1)
   })
+
+  it('keeps commitment detail links dashboard-internal and encoded', () => {
+    const result = evaluateCommunicationCommitment({
+      request: {
+        id: 'request/unsafe?next=https://example.test',
+        status: 'in_progress',
+        request_type: 'funeral',
+        next_follow_up_date: '2026-06-15',
+        last_contacted_at: '2026-06-10T12:00:00.000Z',
+        parishioner: { full_name: 'Maria Santos' },
+      },
+      now,
+    })
+
+    expect(result?.detailHref).toBe(
+      '/dashboard/requests/request%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test#send-email'
+    )
+    expect(result?.detailHref).not.toContain('://example.test')
+  })
 })

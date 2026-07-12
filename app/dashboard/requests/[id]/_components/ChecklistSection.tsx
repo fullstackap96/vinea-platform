@@ -1,16 +1,21 @@
 import React from 'react'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { MissingValue } from '@/lib/missingValue'
+import type { RequestChecklistItemDto } from '@/lib/requestDetailDtos'
 
 export function ChecklistSection({
   checklistItems,
   onToggleChecklistItem,
+  updatingItemId,
 }: {
-  checklistItems: any[]
-  onToggleChecklistItem: (itemId: string, currentValue: boolean) => void
+  checklistItems: RequestChecklistItemDto[]
+  onToggleChecklistItem: (itemId: string, currentValue: boolean) => Promise<void> | void
+  updatingItemId: string
 }) {
+  const mutationBusy = Boolean(updatingItemId)
+
   return (
-    <div>
+    <div aria-busy={mutationBusy}>
       <div className="divide-y divide-gray-100">
         {checklistItems.map((item) => (
           <div
@@ -30,10 +35,15 @@ export function ChecklistSection({
 
             <button
               type="button"
-              onClick={() => onToggleChecklistItem(item.id, item.is_complete)}
+              onClick={() => void onToggleChecklistItem(item.id, item.is_complete)}
+              disabled={mutationBusy}
               className={`${primaryButtonMd} w-full shrink-0 justify-center sm:w-auto`}
             >
-              {item.is_complete ? 'Mark Incomplete' : 'Mark Complete'}
+              {updatingItemId === item.id
+                ? 'Saving...'
+                : item.is_complete
+                  ? 'Mark Incomplete'
+                  : 'Mark Complete'}
             </button>
           </div>
         ))}

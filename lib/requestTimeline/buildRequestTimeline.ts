@@ -35,8 +35,8 @@ export type BuildRequestTimelineInput = {
     waiting_on_changed_at?: string | null
   } | null
   scheduleRow: RequestScheduleRow
-  communications: BuildRequestTimelineCommunication[]
-  requestNotes: BuildRequestTimelineNote[]
+  communications: readonly BuildRequestTimelineCommunication[]
+  requestNotes: readonly BuildRequestTimelineNote[]
   sacramentalRecord: BuildRequestTimelineSacramentalRecord | null
 }
 

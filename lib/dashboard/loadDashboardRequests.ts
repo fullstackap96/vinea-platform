@@ -1,16 +1,36 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { fetchDashboardRequestParishionerScope } from '@/lib/dashboardParishRequestScope'
+import {
+  fetchDashboardRequestParishionerScope,
+  type DashboardRequestParishionerScopeOptions,
+} from '@/lib/dashboardParishRequestScope'
 import {
   formatDashboardTechnicalError,
   logDashboardQueryError,
   userMessageForDashboardQueryError,
 } from '@/lib/dashboardSupabaseError'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
+import {
+  parseDashboardWorkHubRequests,
+  type DashboardWorkHubRequest,
+} from '@/lib/dashboardWorkHubDtos'
+
+const FUNERAL_DASHBOARD_FIELDS =
+  'request_id, deceased_name, family_relationship, date_of_death, funeral_home_or_location, funeral_director_contact, service_location, visitation_details, cemetery_or_committal, readings_music_notes, obituary_program_notes, post_funeral_follow_up_date, preferred_service_notes, confirmed_service_at'
+const WEDDING_DASHBOARD_FIELDS =
+  'request_id, partner_one_name, partner_two_name, proposed_wedding_date, ceremony_notes, confirmed_ceremony_at'
+const OCIA_DASHBOARD_FIELDS =
+  'request_id, date_of_birth, age_or_dob_note, sacramental_background, seeking, parishioner_status, preferred_contact_method, availability, confirmed_session_at'
+
+const DETAIL_FIELDS_BY_TYPE = {
+  funeral: FUNERAL_DASHBOARD_FIELDS,
+  wedding: WEDDING_DASHBOARD_FIELDS,
+  ocia: OCIA_DASHBOARD_FIELDS,
+} as const
 
 export type LoadDashboardRequestsResult =
   | {
       ok: true
-      requests: unknown[]
+      requests: DashboardWorkHubRequest[]
       softWarnings: string[]
     }
   | {
@@ -24,12 +44,13 @@ export type LoadDashboardRequestsResult =
  * Loads parish-scoped requests with parishioner, checklist, and type detail joins.
  */
 export async function loadDashboardRequests(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  options: DashboardRequestParishionerScopeOptions = {}
 ): Promise<LoadDashboardRequestsResult> {
   const softWarnings: string[] = []
 
   try {
-    const parishScope = await fetchDashboardRequestParishionerScope(supabase)
+    const parishScope = await fetchDashboardRequestParishionerScope(supabase, options)
     if (!parishScope.ok) {
       return {
         ok: false,
@@ -174,13 +195,17 @@ export async function loadDashboardRequests(
       const ids = withDetails.filter((r) => r.request_type === type).map((r) => String(r.id))
       const byId = new Map<string, Record<string, unknown>>()
       if (ids.length > 0) {
-        const { data, error } = await supabase.from(table).select('*').in('request_id', ids)
+        const { data, error } = await supabase
+          .from(table)
+          .select(DETAIL_FIELDS_BY_TYPE[type])
+          .in('request_id', ids)
         if (error) {
           logDashboardQueryError(`${table} (for dashboard)`, error)
           softWarnings.push(userMessageForDashboardQueryError(`${type} request details`, error))
         }
-        for (const row of data || []) {
-          byId.set(String(row.request_id), row as Record<string, unknown>)
+        for (const raw of data || []) {
+          const row = raw as unknown as Record<string, unknown>
+          byId.set(String(row.request_id), row)
         }
       }
       withDetails = withDetails.map((r) => {
@@ -197,7 +222,19 @@ export async function loadDashboardRequests(
       })
     }
 
-    return { ok: true, requests: withDetails, softWarnings }
+    const requests = parseDashboardWorkHubRequests(withDetails)
+    if (!requests) {
+      const invalidPayload = new Error('Dashboard request rows did not match the Work Hub DTO')
+      logDashboardQueryError('requests (dashboard DTO)', invalidPayload)
+      return {
+        ok: false,
+        fetchFailed: true,
+        userMessage: 'Requests could not be loaded.',
+        technicalDetail: formatDashboardTechnicalError(invalidPayload),
+      }
+    }
+
+    return { ok: true, requests, softWarnings }
   } catch (unexpected) {
     logDashboardQueryError('dashboard load (unexpected)', unexpected)
     return {
@@ -207,4 +244,10 @@ export async function loadDashboardRequests(
       technicalDetail: formatDashboardTechnicalError(unexpected),
     }
   }
+}
+
+export const dashboardRequestLoaderTestInternals = {
+  FUNERAL_DASHBOARD_FIELDS,
+  WEDDING_DASHBOARD_FIELDS,
+  OCIA_DASHBOARD_FIELDS,
 }

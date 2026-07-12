@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
+import { logServerError } from '@/lib/server/safeErrorLogging'
 
 type AuditMetadata = Record<string, unknown>
 
@@ -11,10 +12,10 @@ export async function writeAuditEvent(input: {
   targetType: string
   targetId?: string | null
   metadata?: AuditMetadata
-}) {
+}): Promise<boolean> {
   try {
     const admin = createSupabaseServiceRoleClient()
-    await admin.from('audit_events').insert({
+    const result = await admin.from('audit_events').insert({
       parish_id: input.parishId || null,
       actor_email: input.actorEmail || null,
       action: input.action,
@@ -22,7 +23,17 @@ export async function writeAuditEvent(input: {
       target_id: input.targetId || null,
       metadata: input.metadata ?? {},
     })
+    if (result?.error) throw result.error
+    return true
   } catch (error) {
-    console.error('[audit] Could not write audit event:', error)
+    logServerError('[audit] write failed', error, {
+      action: input.action,
+      targetType: input.targetType,
+      hasParishId: Boolean(input.parishId),
+      hasActorEmail: Boolean(input.actorEmail),
+      hasTargetId: Boolean(input.targetId),
+      hasMetadata: Boolean(input.metadata && Object.keys(input.metadata).length > 0),
+    })
+    return false
   }
 }

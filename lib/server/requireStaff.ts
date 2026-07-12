@@ -15,16 +15,15 @@ export type StaffAuthorizationResult =
   | { ok: true; email: string; role: 'admin' | 'staff'; source: 'env' | 'database' | 'development' }
   | { ok: false; error: string }
 
-async function loadPrimaryParishId(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
+async function hasAnyParish(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
   const { data, error } = await admin
     .from('parishes')
     .select('id')
-    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
   if (error) throw error
-  return data?.id ? String(data.id) : null
+  return Boolean(data?.id)
 }
 
 function isMissingStaffUsersTable(error: { code?: string; message?: string } | null): boolean {
@@ -45,24 +44,13 @@ export async function authorizeStaffUser(user: User | null | undefined): Promise
   }
 
   const admin = createSupabaseServiceRoleClient()
-  let parishId: string | null = null
-  try {
-    parishId = await loadPrimaryParishId(admin)
-  } catch {
-    return { ok: false, error: 'Could not verify parish access.' }
-  }
-  if (!parishId) {
-    return { ok: false, error: 'Parish is not configured.' }
-  }
 
   const { data, error } = await admin
     .from('staff_users')
-    .select('id, role')
-    .eq('parish_id', parishId)
+    .select('id, role, parish_id')
     .eq('active', true)
     .ilike('email', email)
-    .limit(1)
-    .maybeSingle()
+    .limit(50)
 
   if (error) {
     if (staffAccessNotConfiguredAllowsDev() && isMissingStaffUsersTable(error)) {
@@ -70,10 +58,20 @@ export async function authorizeStaffUser(user: User | null | undefined): Promise
     }
     return { ok: false, error: 'Could not verify staff access.' }
   }
-  if (data?.id) {
-    const role = data.role === 'admin' ? 'admin' : 'staff'
+  if (data?.length) {
+    const role = data.some((row) => row.role === 'admin') ? 'admin' : 'staff'
     return { ok: true, email, role, source: 'database' }
   }
+
+  try {
+    const parishExists = await hasAnyParish(admin)
+    if (!parishExists) {
+      return { ok: false, error: 'Parish is not configured.' }
+    }
+  } catch {
+    return { ok: false, error: 'Could not verify parish access.' }
+  }
+
   if (staffAccessNotConfiguredAllowsDev()) {
     return { ok: true, email, role: 'admin', source: 'development' }
   }

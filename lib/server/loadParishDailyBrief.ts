@@ -21,12 +21,53 @@ export type LoadedParishDailyBrief = {
 
 type SupabaseLike = SupabaseClient
 
+export const PARISH_DAILY_BRIEF_PARISHIONER_SELECT = 'id, full_name, email' as const
+export const PARISH_DAILY_BRIEF_REQUEST_SELECT =
+  'id, request_type, status, child_name, created_at, parishioner_id, confirmed_baptism_date, last_contacted_at, assigned_staff_name, assigned_priest_name, assigned_deacon_name, next_follow_up_date, waiting_on, waiting_on_changed_at' as const
+export const PARISH_DAILY_BRIEF_FUNERAL_SELECT =
+  'request_id, deceased_name, confirmed_service_at' as const
+export const PARISH_DAILY_BRIEF_WEDDING_SELECT =
+  'request_id, partner_one_name, partner_two_name, confirmed_ceremony_at' as const
+export const PARISH_DAILY_BRIEF_OCIA_SELECT =
+  'request_id, confirmed_session_at' as const
+
 function text(value: unknown): string {
   return String(value ?? '').trim()
 }
 
 function isValidEmail(value: string): boolean {
   return value.includes('@') && !/\s/.test(value)
+}
+
+async function loadDailyBriefDetailRows(
+  supabase: SupabaseLike,
+  type: 'funeral' | 'wedding' | 'ocia',
+  requestIds: string[]
+): Promise<Record<string, unknown>[]> {
+  if (type === 'funeral') {
+    const { data, error } = await supabase
+      .from('funeral_request_details')
+      .select(PARISH_DAILY_BRIEF_FUNERAL_SELECT)
+      .in('request_id', requestIds)
+    if (error) throw error
+    return (data ?? []) as Record<string, unknown>[]
+  }
+
+  if (type === 'wedding') {
+    const { data, error } = await supabase
+      .from('wedding_request_details')
+      .select(PARISH_DAILY_BRIEF_WEDDING_SELECT)
+      .in('request_id', requestIds)
+    if (error) throw error
+    return (data ?? []) as Record<string, unknown>[]
+  }
+
+  const { data, error } = await supabase
+    .from('ocia_request_details')
+    .select(PARISH_DAILY_BRIEF_OCIA_SELECT)
+    .in('request_id', requestIds)
+  if (error) throw error
+  return (data ?? []) as Record<string, unknown>[]
 }
 
 export function resolveDailyBriefRecipient(parish: ParishDailyBriefSettings): string {
@@ -37,8 +78,9 @@ export function resolveDailyBriefRecipient(parish: ParishDailyBriefSettings): st
   return ''
 }
 
-export async function loadPrimaryParishDailyBrief(
+export async function loadParishDailyBriefByParishId(
   supabase: SupabaseLike,
+  parishId: string,
   options?: { now?: Date }
 ): Promise<LoadedParishDailyBrief | null> {
   const { data: parish, error: parishErr } = await supabase
@@ -46,8 +88,7 @@ export async function loadPrimaryParishDailyBrief(
     .select(
       'id, name, default_notification_email, daily_ops_brief_enabled, daily_ops_brief_email, daily_ops_brief_last_sent_on'
     )
-    .order('created_at', { ascending: true })
-    .limit(1)
+    .eq('id', parishId)
     .maybeSingle()
 
   if (parishErr) throw parishErr
@@ -109,7 +150,7 @@ async function loadRequestsForParish(
 ): Promise<Record<string, unknown>[]> {
   const { data: parishioners, error: parishionerErr } = await supabase
     .from('parishioners')
-    .select('id, full_name, email, phone, parish_id')
+    .select(PARISH_DAILY_BRIEF_PARISHIONER_SELECT)
     .eq('parish_id', parishId)
 
   if (parishionerErr) throw parishionerErr
@@ -120,9 +161,7 @@ async function loadRequestsForParish(
 
   const { data: requestRowsRaw, error: requestErr } = await supabase
     .from('requests')
-    .select(
-      'id, request_type, status, child_name, preferred_dates, notes, reply_draft, created_at, parishioner_id, person_id, confirmed_baptism_date, last_contacted_at, assigned_staff_name, assigned_priest_name, assigned_deacon_name, next_follow_up_date, waiting_on, waiting_on_changed_at'
-    )
+    .select(PARISH_DAILY_BRIEF_REQUEST_SELECT)
     .in('parishioner_id', parishionerIds)
     .order('created_at', { ascending: false })
 
@@ -164,20 +203,19 @@ async function loadRequestsForParish(
     }
   }) as Record<string, unknown>[]
 
-  for (const [type, table, detailKey] of [
-    ['funeral', 'funeral_request_details', 'funeral_detail'],
-    ['wedding', 'wedding_request_details', 'wedding_detail'],
-    ['ocia', 'ocia_request_details', 'ocia_detail'],
+  for (const [type, detailKey] of [
+    ['funeral', 'funeral_detail'],
+    ['wedding', 'wedding_detail'],
+    ['ocia', 'ocia_detail'],
   ] as const) {
     const ids = withDetails
       .filter((row) => row.request_type === type)
       .map((row) => String(row.id))
     const byId = new Map<string, Record<string, unknown>>()
     if (ids.length > 0) {
-      const { data, error } = await supabase.from(table).select('*').in('request_id', ids)
-      if (error) throw error
-      for (const row of data ?? []) {
-        byId.set(String(row.request_id), row as Record<string, unknown>)
+      const rows = await loadDailyBriefDetailRows(supabase, type, ids)
+      for (const row of rows) {
+        byId.set(String(row.request_id), row)
       }
     }
     withDetails = withDetails.map((row) => ({

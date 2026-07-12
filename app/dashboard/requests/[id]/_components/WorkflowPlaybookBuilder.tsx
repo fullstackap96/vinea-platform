@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { BookOpenCheck } from 'lucide-react'
 import { applyWorkflowPlaybookChecklist } from '../../actions'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { chipBase } from '@/lib/chipStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { requestDetailClientServerActionErrorMessage } from '@/lib/requestDetailClientMessages'
 import {
   buildWorkflowPlaybookSuggestion,
   type ChecklistLikeItem,
@@ -24,18 +25,32 @@ export function WorkflowPlaybookBuilder({
 }) {
   const [applying, setApplying] = useState(false)
   const [message, setMessage] = useState('')
+  const applyInFlightRef = useRef(false)
   const suggestion = buildWorkflowPlaybookSuggestion({ requestType, checklistItems })
 
   if (!suggestion) return null
 
   async function applyPlaybook() {
+    if (applyInFlightRef.current) return
+
+    applyInFlightRef.current = true
     setApplying(true)
     setMessage('')
-    const result = await applyWorkflowPlaybookChecklist({ requestId })
-    setApplying(false)
+
+    let result: Awaited<ReturnType<typeof applyWorkflowPlaybookChecklist>>
+    try {
+      result = await applyWorkflowPlaybookChecklist({ requestId })
+    } catch (error: unknown) {
+      setMessage(requestDetailClientServerActionErrorMessage('applyPlaybook', error))
+      applyInFlightRef.current = false
+      setApplying(false)
+      return
+    }
 
     if (!result.ok) {
-      setMessage(result.error)
+      setMessage(requestDetailClientServerActionErrorMessage('applyPlaybook', result.error))
+      applyInFlightRef.current = false
+      setApplying(false)
       return
     }
 
@@ -44,6 +59,8 @@ export function WorkflowPlaybookBuilder({
         ? 'This playbook is already fully represented in the checklist.'
         : `Added ${result.addedCount} playbook ${result.addedCount === 1 ? 'item' : 'items'} to the checklist.`
     )
+    applyInFlightRef.current = false
+    setApplying(false)
     onApplied()
   }
 
@@ -51,6 +68,7 @@ export function WorkflowPlaybookBuilder({
     <section
       className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4 sm:p-5"
       aria-labelledby="workflow-playbook-builder-heading"
+      aria-busy={applying}
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 gap-3">

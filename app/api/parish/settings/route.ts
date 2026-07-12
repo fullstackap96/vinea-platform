@@ -5,8 +5,21 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import { directoryFromJsonColumn } from '@/lib/parishDirectory'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 import { writeAuditEvent } from '@/lib/server/auditLog'
+import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+  resolveActiveStaffParishContext,
+} from '@/lib/server/activeStaffParishContext'
+import { resolveStaffWriteParishContext } from '@/lib/server/staffWriteParishContext'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 
 const REQUEST_TYPES = ['funeral', 'wedding', 'baptism', 'ocia'] as const
+type AdminClient = ReturnType<typeof createSupabaseServiceRoleClient>
+type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
+
+const MAX_BODY_BYTES = 128 * 1024
+
 const DEFAULT_SLA_RULES = {
   firstContactDays: {
     funeral: 1,
@@ -28,8 +41,14 @@ function isValidEmail(value: string): boolean {
   return s.includes('@') && !/\s/.test(s)
 }
 
-function messageFromError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Server error'
+function parishSettingsErrorResponse(
+  action: string,
+  error: unknown,
+  safeMessage: string,
+  status = 500
+) {
+  logServerError(`[parish-settings] ${action} failed`, error)
+  return NextResponse.json({ ok: false, error: safeMessage }, { status })
 }
 
 function boundedDays(value: unknown, fallback: number): number {
@@ -68,18 +87,57 @@ function normalizeSlaRules(value: unknown) {
   return { firstContactDays, ownerAssignmentDays }
 }
 
-async function loadPrimaryParishWithGoogle(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
+function activeParishCookie(request: NextRequest): string | null {
+  return request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+}
+
+async function resolveParishSettingsReadParishId(
+  supabase: StaffSupabaseClient,
+  requestedParishId: string | null
+) {
+  const context = await resolveActiveStaffParishContext(supabase, {
+    requestedParishId,
+  })
+
+  if (!context.ok) return context
+  if (requestedParishId && context.activeParishId !== requestedParishId) {
+    return {
+      ok: false as const,
+      source: context.source,
+      error: 'You are not authorized to read parish settings for this parish.',
+      technicalDetail:
+        context.ignoredRequestedParishReason ??
+        'Requested parish did not resolve to the active staff parish.',
+      requestedParishId,
+    }
+  }
+  if (requestedParishId && context.source !== 'membership') {
+    return {
+      ok: false as const,
+      source: context.source,
+      error: 'You are not authorized to read parish settings for this parish.',
+      technicalDetail: 'Active parish cookie requires membership-backed parish authorization.',
+      requestedParishId,
+    }
+  }
+
+  return context
+}
+
+async function loadParishSettingsWithGoogle(admin: AdminClient, parishId: string) {
   const { data: parish, error: parishErr } = await admin
     .from('parishes')
     .select(
       'id, name, default_notification_email, staff_directory, priest_directory, daily_ops_brief_enabled, daily_ops_brief_email, daily_ops_brief_last_sent_on, daily_ops_brief_last_error, onboarding_completed_at, workflow_sla_rules, created_at'
     )
-    .order('created_at', { ascending: true })
-    .limit(1)
+    .eq('id', parishId)
     .maybeSingle()
 
   if (parishErr || !parish?.id) {
-    return { parish: null as null, google: null as null, error: parishErr?.message ?? 'No parish row' }
+    if (parishErr) {
+      logServerError('[parish-settings] load parish row failed', parishErr)
+    }
+    return { parish: null as null, google: null as null, error: 'Parish not found.' }
   }
 
   const { data: row, error: rowErr } = await admin
@@ -121,7 +179,19 @@ export async function GET(request: NextRequest) {
     if (!staffAuth.ok) return staffAuth.response
 
     const admin = createSupabaseServiceRoleClient()
-    const { parish, google, error } = await loadPrimaryParishWithGoogle(admin)
+    const requestedParishId = activeParishCookie(request)
+    const parishContext = await resolveParishSettingsReadParishId(
+      staffAuth.supabase,
+      requestedParishId
+    )
+    if (!parishContext.ok) {
+      return NextResponse.json({ ok: false, error: parishContext.error }, { status: 403 })
+    }
+
+    const { parish, google, error } = await loadParishSettingsWithGoogle(
+      admin,
+      parishContext.activeParishId
+    )
 
     if (!parish) {
       return NextResponse.json({ ok: false, error: error || 'Parish not found' }, { status: 404 })
@@ -149,22 +219,36 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     )
   } catch (e: unknown) {
-    return NextResponse.json(
-      { ok: false, error: messageFromError(e) },
-      { status: 500 }
-    )
+    return parishSettingsErrorResponse('load settings', e, 'Could not load parish settings.')
   }
 }
 
 export async function PATCH(request: NextRequest) {
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
   try {
     assertParishSettingsEnv()
 
     const staffAuth = await requireStaffFromRequest(request)
     if (!staffAuth.ok) return staffAuth.response
 
-    const body = await request.json().catch(() => null as Record<string, unknown> | null)
-    if (!body || typeof body !== 'object') {
+    const parsedBody = await readBoundedJsonBody(request, MAX_BODY_BYTES)
+    if (!parsedBody.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            parsedBody.reason === 'too_large'
+              ? 'Parish settings update is too large.'
+              : 'Invalid JSON body',
+        },
+        { status: parsedBody.reason === 'too_large' ? 413 : 400 }
+      )
+    }
+
+    const body = parsedBody.value as Record<string, unknown> | null
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
     }
 
@@ -210,18 +294,18 @@ export async function PATCH(request: NextRequest) {
     const onboardingComplete = Boolean(body.onboarding_complete)
 
     const admin = createSupabaseServiceRoleClient()
-    const { data: parish, error: parishErr } = await admin
-      .from('parishes')
-      .select('id')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-
-    if (parishErr || !parish?.id) {
-      return NextResponse.json({ ok: false, error: 'Parish not found' }, { status: 404 })
+    const requestedParishId = activeParishCookie(request)
+    const parishContext = await resolveStaffWriteParishContext(staffAuth.supabase, {
+      requestedParishId,
+      allowPrimaryParishFallback: !requestedParishId,
+      fallbackReason: 'Parish settings API legacy compatibility path.',
+    })
+    if (!parishContext.ok) {
+      return NextResponse.json({ ok: false, error: parishContext.error }, { status: 403 })
     }
+    const parishId = parishContext.parishId
 
-    const { error: updateErr } = await admin
+    const { data: updatedParish, error: updateErr } = await admin
       .from('parishes')
       .update({
         name,
@@ -234,18 +318,30 @@ export async function PATCH(request: NextRequest) {
         onboarding_completed_at: onboardingComplete ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', parish.id)
+      .eq('id', parishId)
+      .select('id')
+      .maybeSingle()
 
     if (updateErr) {
-      return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 })
+      return parishSettingsErrorResponse(
+        'update settings',
+        updateErr,
+        'Could not update parish settings.'
+      )
+    }
+    if (!updatedParish?.id) {
+      return NextResponse.json(
+        { ok: false, error: 'Could not update parish settings.' },
+        { status: 404 },
+      )
     }
 
     await writeAuditEvent({
-      parishId: String(parish.id),
+      parishId,
       actorEmail: staffAuth.staff.email,
       action: 'parish_settings.updated',
       targetType: 'parish',
-      targetId: String(parish.id),
+      targetId: parishId,
       metadata: {
         dailyBriefEnabled,
         onboardingComplete,
@@ -256,9 +352,12 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (e: unknown) {
-    return NextResponse.json(
-      { ok: false, error: messageFromError(e) },
-      { status: 500 }
-    )
+    return parishSettingsErrorResponse('update settings', e, 'Could not update parish settings.')
   }
+}
+
+export const parishSettingsRouteTestInternals = {
+  activeParishCookie,
+  loadParishSettingsWithGoogle,
+  resolveParishSettingsReadParishId,
 }

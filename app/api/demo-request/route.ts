@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { Resend } from 'resend'
 import { buildDemoRequestEmail } from '@/lib/email/demoRequestEmail'
+import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
+import { checkDurableRateLimit } from '@/lib/server/durableRateLimit'
+import { logServerError, logServerWarning } from '@/lib/server/safeErrorLogging'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
+import { durableRateLimitKeyFromRequest } from '@/lib/server/simpleRateLimit'
+import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
+
+const RATE_LIMIT = { limit: 5, windowMs: 15 * 60_000 }
+const MAX_BODY_BYTES = 32 * 1024
 
 function isValidEmail(value: string): boolean {
   const s = String(value || '').trim()
@@ -19,14 +28,62 @@ function normalizeOptionalText(value: unknown): string | undefined {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json().catch(() => null as any)
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
 
-    const name = normalizeRequiredText(body?.name)
-    const parishName = normalizeRequiredText(body?.parishName)
-    const email = normalizeRequiredText(body?.email)
-    const roleTitle = normalizeOptionalText(body?.roleTitle)
-    const message = normalizeOptionalText(body?.message)
+  try {
+    const admin = createSupabaseServiceRoleClient()
+    const rateLimit = await checkDurableRateLimit({
+      admin,
+      key: durableRateLimitKeyFromRequest(request, 'demo-request'),
+      ...RATE_LIMIT,
+    }).catch((error: unknown) => {
+      logServerError('[demo-request] rate limit check failed', error, {
+        route: '/api/demo-request',
+      })
+      return null
+    })
+
+    if (!rateLimit) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Demo requests are temporarily unavailable. Please email us directly.',
+        },
+        { status: 503 }
+      )
+    }
+
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Too many demo requests. Please try again later.',
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+        }
+      )
+    }
+
+    const parsedBody = await readBoundedJsonBody(request, MAX_BODY_BYTES)
+    if (!parsedBody.ok && parsedBody.reason === 'too_large') {
+      return NextResponse.json(
+        { ok: false, error: 'Demo request is too large.' },
+        { status: 413 },
+      )
+    }
+
+    const body = parsedBody.ok ? parsedBody.value : null
+
+    const bodyRecord = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+    const name = normalizeRequiredText(bodyRecord.name)
+    const parishName = normalizeRequiredText(bodyRecord.parishName)
+    const email = normalizeRequiredText(bodyRecord.email)
+    const roleTitle = normalizeOptionalText(bodyRecord.roleTitle)
+    const message = normalizeOptionalText(bodyRecord.message)
 
     if (!name) {
       return NextResponse.json({ ok: false, error: 'Please enter your name.' }, { status: 400 })
@@ -46,9 +103,10 @@ export async function POST(request: NextRequest) {
 
     const to = String(process.env.DEMO_REQUEST_TO_EMAIL ?? '').trim()
     if (!to) {
-      console.warn(
-        '[demo-request] DEMO_REQUEST_TO_EMAIL is not set; demo requests disabled.'
-      )
+      logServerWarning('[demo-request] configuration missing', {
+        route: '/api/demo-request',
+        setting: 'DEMO_REQUEST_TO_EMAIL',
+      })
       return NextResponse.json(
         {
           ok: false,
@@ -62,9 +120,11 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.RESEND_API_KEY
     const from = process.env.RESEND_FROM_EMAIL
     if (!apiKey || !from) {
-      console.warn(
-        '[demo-request] RESEND_API_KEY/RESEND_FROM_EMAIL missing; cannot send demo request.'
-      )
+      logServerWarning('[demo-request] email provider configuration missing', {
+        route: '/api/demo-request',
+        hasResendApiKey: Boolean(apiKey),
+        hasResendFromEmail: Boolean(from),
+      })
       return NextResponse.json(
         { ok: false, error: 'Demo requests are temporarily unavailable. Please email us directly.' },
         { status: 500 }
@@ -85,13 +145,27 @@ export async function POST(request: NextRequest) {
       html,
     })
 
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    const providerMessageId = String(data?.id ?? '').trim()
+    if (error || !providerMessageId) {
+      logServerError('[demo-request] resend send failed', error, {
+        route: '/api/demo-request',
+        missingProviderMessageId: !providerMessageId,
+      })
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Demo requests are temporarily unavailable. Please email us directly.',
+        },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ ok: true, id: data?.id || null })
-  } catch (error: any) {
-    console.error('[demo-request] ERROR:', error)
+    return NextResponse.json({ ok: true, id: providerMessageId })
+  } catch (error: unknown) {
+    logServerError('[demo-request] unexpected failure', error, {
+      route: '/api/demo-request',
+    })
     return NextResponse.json(
       { ok: false, error: 'Demo requests are temporarily unavailable. Please email us directly.' },
       { status: 500 }

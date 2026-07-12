@@ -6,6 +6,19 @@ export type DashboardRequestParishScopeResult =
   | { ok: true; parishionerIds: string[] }
   | { ok: false; userMessage: string; technicalDetail: string | null }
 
+export type DashboardRequestParishionerScopeOptions = {
+  /**
+   * Server-validated active parish id from the dashboard parish switcher.
+   * When omitted, the V1 membership-primary / primary_parish_id fallback path is used.
+   */
+  activeParishId?: string | null
+}
+
+function normalizeParishId(value: unknown): string | null {
+  const parishId = String(value ?? '').trim()
+  return parishId || null
+}
+
 /**
  * Primary parish id via `primary_parish_id()` (same ordering as `/api/parish/settings`).
  * `parishId` is null when no parish row exists or `error` is set.
@@ -22,11 +35,39 @@ export async function fetchPrimaryParishId(supabase: SupabaseClient): Promise<{
   if (data == null) {
     return { parishId: null, error: null }
   }
-  const parishId = String(data).trim()
+  const parishId = normalizeParishId(data)
   if (!parishId) {
     return { parishId: null, error: null }
   }
   return { parishId, error: null }
+}
+
+/**
+ * Read-only staff-aware parish id for dashboard request loading.
+ *
+ * This prefers the multi-parish membership foundation when present, but keeps
+ * the V1 `primary_parish_id()` fallback so existing single-parish staff access
+ * continues to work during the tenancy migration.
+ */
+export async function fetchStaffScopedPrimaryParishId(
+  supabase: SupabaseClient
+): Promise<{
+  parishId: string | null
+  error: PostgrestError | null
+  source: 'membership' | 'primary_parish_fallback'
+}> {
+  const { data, error } = await supabase.rpc('current_staff_primary_parish_id')
+  const membershipParishId = String(data ?? '').trim()
+
+  if (!error && membershipParishId) {
+    return { parishId: membershipParishId, error: null, source: 'membership' }
+  }
+
+  const fallback = await fetchPrimaryParishId(supabase)
+  return {
+    ...fallback,
+    source: 'primary_parish_fallback',
+  }
 }
 
 /** `parishioners.id` values for rows belonging to this parish (`parishioners.parish_id`). */
@@ -56,9 +97,17 @@ export async function fetchParishionerIdsForParish(
  * Never returns ids when parish lookup fails — callers must not load unfiltered requests.
  */
 export async function fetchDashboardRequestParishionerScope(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  options: DashboardRequestParishionerScopeOptions = {}
 ): Promise<DashboardRequestParishScopeResult> {
-  const { parishId, error: parishLookupError } = await fetchPrimaryParishId(supabase)
+  let parishId = normalizeParishId(options.activeParishId)
+  let parishLookupError: PostgrestError | null = null
+
+  if (!parishId) {
+    const resolved = await fetchStaffScopedPrimaryParishId(supabase)
+    parishId = resolved.parishId
+    parishLookupError = resolved.error
+  }
 
   if (parishLookupError) {
     return {

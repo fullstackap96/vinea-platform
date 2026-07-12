@@ -27,17 +27,12 @@ describe('buildParishCareCalendarItems', () => {
       intentions: [
         {
           id: 'intention-1',
-          parish_id: 'parish-1',
           requester_name: 'Ana Lopez',
           intention_text: 'For healing',
           requested_date: null,
           assigned_mass_date: '2026-06-21',
           assigned_priest_name: 'Fr. Thomas',
-          stipend_received: true,
           is_fulfilled: false,
-          notes: null,
-          created_at: '2026-06-01T12:00:00.000Z',
-          updated_at: '2026-06-01T12:00:00.000Z',
         },
       ],
     })
@@ -52,6 +47,39 @@ describe('buildParishCareCalendarItems', () => {
       actionLabel: 'Call today',
       ownerLabel: 'Maria',
     })
+  })
+
+  it('keeps care calendar links dashboard-internal and encoded', () => {
+    const items = buildParishCareCalendarItems({
+      now,
+      requests: [
+        {
+          id: 'request/unsafe?next=https://example.test',
+          request_type: 'funeral',
+          status: 'in_progress',
+          next_follow_up_date: '2026-06-18',
+          parishioner: { full_name: 'Garcia Family' },
+        },
+      ],
+      intentions: [
+        {
+          id: 'intention/unsafe?next=https://example.test',
+          requester_name: 'Ana Lopez',
+          intention_text: 'For healing',
+          requested_date: '2026-06-21',
+          assigned_mass_date: null,
+          assigned_priest_name: 'Fr. Thomas',
+          is_fulfilled: false,
+        },
+      ],
+    })
+
+    expect(items.map((item) => item.href)).toEqual([
+      '/dashboard/requests/request%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test#next-follow-up',
+      '/dashboard/intentions/intention%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test',
+    ])
+    expect(items.every((item) => item.href.startsWith('/dashboard'))).toBe(true)
+    expect(items.some((item) => item.href.includes('://example.test'))).toBe(false)
   })
 })
 

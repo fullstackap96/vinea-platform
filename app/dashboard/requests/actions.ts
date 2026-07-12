@@ -1,7 +1,13 @@
 'use server'
 
-import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
 import { parseParishionerFullName } from '@/lib/people'
+import { ACTIVE_STAFF_PARISH_COOKIE } from '@/lib/server/activeStaffParishContext'
+import {
+  loadStaffScopedRequestDetailAccess,
+  type RequestDetailAccess,
+} from '@/lib/server/requestDetailAccess'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { resolveRequestAuditParishId } from '@/lib/server/requestAuditParish'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import type {
@@ -13,6 +19,7 @@ import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import { normalizeRequestWaitingOn } from '@/lib/requestWaitingOn'
 import { buildWorkflowPlaybookSuggestion } from '@/lib/workflowPlaybooks'
 import { writeAuditEvent } from '@/lib/server/auditLog'
+import { cookies } from 'next/headers'
 
 export type UpdateRequestAssignmentResult =
   | { ok: true }
@@ -38,6 +45,11 @@ export type ApplyWorkflowPlaybookResult =
   | { ok: true; addedCount: number; skippedCount: number }
   | { ok: false; error: string }
 
+function requestActionError(action: string, error: unknown, safeMessage: string): { ok: false; error: string } {
+  logServerError(`[request-actions] ${action}`, error)
+  return { ok: false, error: safeMessage }
+}
+
 function normalizeOptionalName(value: unknown): string | null {
   const s = String(value ?? '').trim()
   return s.length > 0 ? s : null
@@ -50,14 +62,22 @@ async function auditRequestAction(input: {
   metadata?: Record<string, unknown>
 }) {
   const admin = createSupabaseServiceRoleClient()
-  const { parishId } = await fetchPrimaryParishId(admin)
+  const auditParish = await resolveRequestAuditParishId(admin, input.requestId)
+  const metadata = auditParish.ok
+    ? input.metadata
+    : {
+        ...(input.metadata ?? {}),
+        auditParishResolutionError: auditParish.error,
+        auditParishResolutionDetail: auditParish.technicalDetail,
+      }
+
   await writeAuditEvent({
-    parishId,
+    parishId: auditParish.ok ? auditParish.parishId : null,
     actorEmail: input.actorEmail || null,
     action: input.action,
     targetType: 'request',
     targetId: input.requestId,
-    metadata: input.metadata,
+    metadata,
   })
 }
 
@@ -90,24 +110,35 @@ export async function updateRequestStatus(input: {
 
   if (userError || !user) return { ok: false, error: 'Unauthorized' }
 
+  const access = await loadRequestActionAccess(supabase, requestId)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from('requests')
     .select('status')
-    .eq('id', requestId)
+    .eq('id', access.requestId)
     .single()
 
   if (existingError || !existing) {
-    return { ok: false, error: existingError?.message ?? 'Request not found.' }
+    return existingError
+      ? requestActionError('status load failed', existingError, 'Request not found.')
+      : { ok: false, error: 'Request not found.' }
   }
 
   if (status === 'complete') {
     const { data: workflowSteps, error: workflowError } = await supabase
       .from('request_workflow_steps')
       .select('id, title, required, status')
-      .eq('request_id', requestId)
+      .eq('request_id', access.requestId)
 
     if (workflowError) {
-      return { ok: false, error: workflowError.message }
+      return requestActionError(
+        'status workflow prerequisite load failed',
+        workflowError,
+        'Could not check required workflow steps.'
+      )
     }
 
     const steps = workflowSteps ?? []
@@ -126,12 +157,16 @@ export async function updateRequestStatus(input: {
       const { data: checklistItems, error: checklistError } = await supabase
         .from('checklist_items')
         .select('id')
-        .eq('request_id', requestId)
+        .eq('request_id', access.requestId)
         .eq('is_complete', false)
         .limit(1)
 
       if (checklistError) {
-        return { ok: false, error: checklistError.message }
+        return requestActionError(
+          'status checklist prerequisite load failed',
+          checklistError,
+          'Could not check required checklist items.'
+        )
       }
       if ((checklistItems ?? []).length > 0) {
         return { ok: false, error: 'Complete checklist items before marking complete.' }
@@ -139,12 +174,21 @@ export async function updateRequestStatus(input: {
     }
   }
 
-  const { error } = await supabase.from('requests').update({ status }).eq('id', requestId)
+  const { data: updatedRequest, error } = await supabase
+    .from('requests')
+    .update({ status })
+    .eq('id', access.requestId)
+    .select('id')
+    .maybeSingle()
 
-  if (error) return { ok: false, error: error.message }
+  if (error || !updatedRequest?.id) {
+    return error
+      ? requestActionError('status update failed', error, 'Could not update request status.')
+      : { ok: false, error: 'Request not found.' }
+  }
 
   await auditRequestAction({
-    requestId,
+    requestId: access.requestId,
     actorEmail: user.email,
     action: 'request.status.updated',
     metadata: { from: existing.status, to: status },
@@ -173,18 +217,25 @@ export async function updateRequestWorkflowStepStatus(input: {
 
   if (userError || !user) return { ok: false, error: 'Unauthorized' }
 
+  const access = await loadRequestActionAccess(supabase, requestId)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from('request_workflow_steps')
     .select('id, title, status')
     .eq('id', stepId)
-    .eq('request_id', requestId)
+    .eq('request_id', access.requestId)
     .single()
 
   if (existingError || !existing) {
-    return { ok: false, error: existingError?.message ?? 'Workflow step not found.' }
+    return existingError
+      ? requestActionError('workflow step load failed', existingError, 'Workflow step not found.')
+      : { ok: false, error: 'Workflow step not found.' }
   }
 
-  const { error } = await supabase
+  const { data: updatedStep, error } = await supabase
     .from('request_workflow_steps')
     .update({
       status,
@@ -192,12 +243,22 @@ export async function updateRequestWorkflowStepStatus(input: {
       completed_by: status === 'complete' ? user.id : null,
     })
     .eq('id', stepId)
-    .eq('request_id', requestId)
+    .eq('request_id', access.requestId)
+    .select('id')
+    .maybeSingle()
 
-  if (error) return { ok: false, error: error.message }
+  if (error || !updatedStep?.id) {
+    return error
+      ? requestActionError(
+          'workflow step update failed',
+          error,
+          'Could not update workflow step.'
+        )
+      : { ok: false, error: 'Workflow step not found.' }
+  }
 
   await auditRequestAction({
-    requestId,
+    requestId: access.requestId,
     actorEmail: user.email,
     action: 'request.workflow_step.updated',
     metadata: {
@@ -232,23 +293,32 @@ export async function updateRequestAssignment(input: {
     return { ok: false, error: 'Unauthorized' }
   }
 
+  const access = await loadRequestActionAccess(supabase, requestId)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
+
   const payload: RequestAssignmentUpdate = {
     assigned_staff_name: normalizeOptionalName(input.assignedStaffName),
     assigned_priest_name: normalizeOptionalName(input.assignedPriestName),
     assigned_deacon_name: normalizeOptionalName(input.assignedDeaconName),
   }
 
-  const { error } = await supabase
+  const { data: updatedRequest, error } = await supabase
     .from('requests')
     .update(payload)
-    .eq('id', requestId)
+    .eq('id', access.requestId)
+    .select('id')
+    .maybeSingle()
 
-  if (error) {
-    return { ok: false, error: error.message }
+  if (error || !updatedRequest?.id) {
+    return error
+      ? requestActionError('assignment update failed', error, 'Could not update assignment.')
+      : { ok: false, error: 'Request not found.' }
   }
 
   await auditRequestAction({
-    requestId,
+    requestId: access.requestId,
     actorEmail: user.email,
     action: 'request.assignment.updated',
     metadata: {
@@ -292,19 +362,32 @@ export async function updateRequestNextFollowUpDate(input: {
     return { ok: false, error: 'Unauthorized' }
   }
 
+  const access = await loadRequestActionAccess(supabase, requestId)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
+
   const payload: RequestNextFollowUpUpdate = { next_follow_up_date }
 
-  const { error } = await supabase
+  const { data: updatedRequest, error } = await supabase
     .from('requests')
     .update(payload)
-    .eq('id', requestId)
+    .eq('id', access.requestId)
+    .select('id')
+    .maybeSingle()
 
-  if (error) {
-    return { ok: false, error: error.message }
+  if (error || !updatedRequest?.id) {
+    return error
+      ? requestActionError(
+          'follow-up update failed',
+          error,
+          'Could not update follow-up date.'
+        )
+      : { ok: false, error: 'Request not found.' }
   }
 
   await auditRequestAction({
-    requestId,
+    requestId: access.requestId,
     actorEmail: user.email,
     action: 'request.follow_up.updated',
     metadata: { to: next_follow_up_date },
@@ -338,14 +421,23 @@ export async function updateRequestWaitingOn(input: {
     return { ok: false, error: 'Unauthorized' }
   }
 
+  const access = await loadRequestActionAccess(supabase, requestId)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from('requests')
     .select('waiting_on, waiting_on_changed_at')
-    .eq('id', requestId)
+    .eq('id', access.requestId)
     .single()
 
   if (existingError) {
-    return { ok: false, error: existingError.message }
+    return requestActionError(
+      'waiting-on load failed',
+      existingError,
+      'Could not load waiting-for status.'
+    )
   }
 
   const existingWaitingOn = normalizeRequestWaitingOn(existing?.waiting_on)
@@ -360,14 +452,25 @@ export async function updateRequestWaitingOn(input: {
     payload.waiting_on_changed_at = waiting_on ? new Date().toISOString() : null
   }
 
-  const { error } = await supabase.from('requests').update(payload).eq('id', requestId)
+  const { data: updatedRequest, error } = await supabase
+    .from('requests')
+    .update(payload)
+    .eq('id', access.requestId)
+    .select('id')
+    .maybeSingle()
 
-  if (error) {
-    return { ok: false, error: error.message }
+  if (error || !updatedRequest?.id) {
+    return error
+      ? requestActionError(
+          'waiting-on update failed',
+          error,
+          'Could not update waiting-for status.'
+        )
+      : { ok: false, error: 'Request not found.' }
   }
 
   await auditRequestAction({
-    requestId,
+    requestId: access.requestId,
     actorEmail: user.email,
     action: 'request.waiting_on.updated',
     metadata: { from: existingWaitingOn, to: waiting_on },
@@ -394,24 +497,35 @@ export async function applyWorkflowPlaybookChecklist(input: {
     return { ok: false, error: 'Unauthorized' }
   }
 
+  const access = await loadRequestActionAccess(supabase, requestId)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
+
   const { data: request, error: requestError } = await supabase
     .from('requests')
     .select('id, request_type')
-    .eq('id', requestId)
+    .eq('id', access.requestId)
     .single()
 
   if (requestError || !request) {
-    return { ok: false, error: requestError?.message ?? 'Request not found.' }
+    return requestError
+      ? requestActionError('playbook request load failed', requestError, 'Request not found.')
+      : { ok: false, error: 'Request not found.' }
   }
 
   const requestType = requestTypeFromRow(request as { request_type?: unknown })
   const { data: existingChecklist, error: checklistError } = await supabase
     .from('checklist_items')
     .select('item_name')
-    .eq('request_id', requestId)
+    .eq('request_id', access.requestId)
 
   if (checklistError) {
-    return { ok: false, error: checklistError.message }
+    return requestActionError(
+      'playbook checklist load failed',
+      checklistError,
+      'Could not load checklist items.'
+    )
   }
 
   const suggestion = buildWorkflowPlaybookSuggestion({
@@ -432,20 +546,27 @@ export async function applyWorkflowPlaybookChecklist(input: {
   }
 
   const admin = createSupabaseServiceRoleClient()
-  const { error: insertError } = await admin.from('checklist_items').insert(
-    suggestion.missingItems.map((item) => ({
-      request_id: requestId,
-      item_name: item.itemName,
-      is_complete: false,
-    }))
-  )
+  const { data: insertedItems, error: insertError } = await admin
+    .from('checklist_items')
+    .insert(
+      suggestion.missingItems.map((item) => ({
+        request_id: access.requestId,
+        item_name: item.itemName,
+        is_complete: false,
+      }))
+    )
+    .select('id')
 
-  if (insertError) {
-    return { ok: false, error: insertError.message }
+  if (insertError || insertedItems?.length !== suggestion.missingItems.length) {
+    return requestActionError(
+      'playbook checklist insert failed',
+      insertError ?? new Error('Not all playbook checklist items were inserted.'),
+      'Could not add playbook checklist items.'
+    )
   }
 
   await auditRequestAction({
-    requestId,
+    requestId: access.requestId,
     actorEmail: user.email,
     action: 'request.playbook.applied',
     metadata: {
@@ -486,20 +607,36 @@ export async function addRequestNote(input: {
     return { ok: false, error: 'Unauthorized' }
   }
 
-  const { error } = await supabase.from('request_notes').insert({
-    request_id: requestId,
-    body,
-  })
+  const access = await loadRequestActionAccess(supabase, requestId)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
 
-  if (error) {
-    return { ok: false, error: error.message }
+  const { data: insertedNote, error } = await supabase
+    .from('request_notes')
+    .insert({
+      request_id: access.requestId,
+      body,
+    })
+    .select('id')
+    .maybeSingle()
+
+  if (error || !insertedNote?.id) {
+    return requestActionError(
+      'note insert failed',
+      error ?? new Error('Request note was not inserted.'),
+      'Could not add note.'
+    )
   }
 
   await auditRequestAction({
-    requestId,
+    requestId: access.requestId,
     actorEmail: user.email,
     action: 'request.note.created',
-    metadata: { summary: body.slice(0, 120) },
+    metadata: {
+      source: 'staff_request_detail',
+      noteLength: body.length,
+    },
   })
 
   return { ok: true }
@@ -578,14 +715,22 @@ export async function saveRequestIntakeDetails(
   }
   const actorEmail = user.email ?? null
 
+  const access = await loadRequestActionAccess(supabase, requestId)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
+  const verifiedRequestId = access.requestId
+
   const { data: reqRow, error: reqErr } = await supabase
     .from('requests')
     .select('parishioner_id, request_type')
-    .eq('id', requestId)
+    .eq('id', access.requestId)
     .single()
 
   if (reqErr || !reqRow?.parishioner_id) {
-    return { ok: false, error: reqErr?.message ?? 'Request not found.' }
+    return reqErr
+      ? requestActionError('intake request load failed', reqErr, 'Request not found.')
+      : { ok: false, error: 'Request not found.' }
   }
 
   const resolvedParishionerId = String(reqRow.parishioner_id).trim()
@@ -597,14 +742,41 @@ export async function saveRequestIntakeDetails(
   }
 
   const effectiveRequestType = requestTypeFromRow(reqRow as { request_type?: unknown })
+  if (
+    effectiveRequestType === 'funeral' &&
+    (!input.funeral || !input.funeral.deceasedName.trim())
+  ) {
+    return { ok: false, error: 'Deceased name is required.' }
+  }
+  if (
+    effectiveRequestType === 'wedding' &&
+    (!input.wedding || !input.wedding.partnerOneName.trim())
+  ) {
+    return { ok: false, error: 'Partner name is required.' }
+  }
+  if (
+    effectiveRequestType === 'ocia' &&
+    (!input.ocia ||
+      !String(input.ocia.sacramentalBackground ?? '').trim() ||
+      !String(input.ocia.seeking ?? '').trim() ||
+      !String(input.ocia.parishionerStatus ?? '').trim() ||
+      !String(input.ocia.preferredContactMethod ?? '').trim())
+  ) {
+    return {
+      ok: false,
+      error: 'OCIA background, seeking, parishioner status, and contact method are required.',
+    }
+  }
+
   async function auditIntakeUpdate() {
     await auditRequestAction({
-      requestId,
+      requestId: verifiedRequestId,
       actorEmail,
       action: 'request.intake.updated',
       metadata: {
         requestType: effectiveRequestType,
-        contactFullName: fullName,
+        contactUpdated: true,
+        requestDetailsUpdated: true,
       },
     })
   }
@@ -621,10 +793,15 @@ export async function saveRequestIntakeDetails(
       phone,
     })
     .eq('id', resolvedParishionerId)
+    .eq('parish_id', access.parishId)
     .select('id')
 
   if (pErr) {
-    return { ok: false, error: pErr.message }
+    return requestActionError(
+      'intake contact update failed',
+      pErr,
+      'Could not save contact information.'
+    )
   }
   if (!updatedParishioners?.length) {
     return {
@@ -635,26 +812,53 @@ export async function saveRequestIntakeDetails(
   }
 
   if (effectiveRequestType === 'baptism') {
-    const { error: rErr } = await supabase
+    const { data: updatedRequest, error: rErr } = await supabase
       .from('requests')
       .update({
         notes,
         child_name: input.baptism?.childName ?? null,
         preferred_dates: input.baptism?.preferredDates ?? null,
       })
-      .eq('id', requestId)
+      .eq('id', access.requestId)
+      .select('id')
+      .maybeSingle()
 
-    if (rErr) {
-      return { ok: false, error: rErr.message }
+    if (rErr || !updatedRequest?.id) {
+      return rErr
+        ? requestActionError(
+            'baptism intake update failed',
+            rErr,
+            'Contact information was saved, but baptism details were not. Refresh and try again.'
+          )
+        : {
+            ok: false,
+            error:
+              'Contact information was saved, but baptism details were not. Refresh and try again.',
+          }
     }
     await auditIntakeUpdate()
     return { ok: true }
   }
 
-  const { error: rNotesErr } = await supabase.from('requests').update({ notes }).eq('id', requestId)
+  const { data: updatedRequestNotes, error: rNotesErr } = await supabase
+    .from('requests')
+    .update({ notes })
+    .eq('id', access.requestId)
+    .select('id')
+    .maybeSingle()
 
-  if (rNotesErr) {
-    return { ok: false, error: rNotesErr.message }
+  if (rNotesErr || !updatedRequestNotes?.id) {
+    return rNotesErr
+      ? requestActionError(
+          'intake notes update failed',
+          rNotesErr,
+          'Contact information was saved, but intake notes were not. Refresh and try again.'
+        )
+      : {
+          ok: false,
+          error:
+            'Contact information was saved, but intake notes were not. Refresh and try again.',
+        }
   }
 
   if (effectiveRequestType === 'funeral') {
@@ -665,31 +869,45 @@ export async function saveRequestIntakeDetails(
     const { data: existing } = await supabase
       .from('funeral_request_details')
       .select('confirmed_service_at')
-      .eq('request_id', requestId)
+      .eq('request_id', access.requestId)
       .maybeSingle()
 
-    const { error: fErr } = await supabase.from('funeral_request_details').upsert(
-      {
-        request_id: requestId,
-        deceased_name: f.deceasedName.trim(),
-        family_relationship: f.familyRelationship?.trim() || null,
-        date_of_death: f.dateOfDeath || null,
-        funeral_home_or_location: f.funeralHome?.trim() || null,
-        funeral_director_contact: f.funeralDirectorContact?.trim() || null,
-        service_location: f.serviceLocation?.trim() || null,
-        visitation_details: f.visitationDetails?.trim() || null,
-        cemetery_or_committal: f.cemeteryOrCommittal?.trim() || null,
-        readings_music_notes: f.readingsMusicNotes?.trim() || null,
-        obituary_program_notes: f.obituaryProgramNotes?.trim() || null,
-        post_funeral_follow_up_date: f.postFuneralFollowUpDate || null,
-        preferred_service_notes: f.preferredServiceNotes?.trim() || null,
-        confirmed_service_at: existing?.confirmed_service_at ?? null,
-      },
-      { onConflict: 'request_id' }
-    )
+    const { data: savedFuneral, error: fErr } = await supabase
+      .from('funeral_request_details')
+      .upsert(
+        {
+          request_id: access.requestId,
+          deceased_name: f.deceasedName.trim(),
+          family_relationship: f.familyRelationship?.trim() || null,
+          date_of_death: f.dateOfDeath || null,
+          funeral_home_or_location: f.funeralHome?.trim() || null,
+          funeral_director_contact: f.funeralDirectorContact?.trim() || null,
+          service_location: f.serviceLocation?.trim() || null,
+          visitation_details: f.visitationDetails?.trim() || null,
+          cemetery_or_committal: f.cemeteryOrCommittal?.trim() || null,
+          readings_music_notes: f.readingsMusicNotes?.trim() || null,
+          obituary_program_notes: f.obituaryProgramNotes?.trim() || null,
+          post_funeral_follow_up_date: f.postFuneralFollowUpDate || null,
+          preferred_service_notes: f.preferredServiceNotes?.trim() || null,
+          confirmed_service_at: existing?.confirmed_service_at ?? null,
+        },
+        { onConflict: 'request_id' }
+      )
+      .select('request_id')
+      .maybeSingle()
 
-    if (fErr) {
-      return { ok: false, error: fErr.message }
+    if (fErr || !savedFuneral?.request_id) {
+      return fErr
+        ? requestActionError(
+            'funeral intake details update failed',
+            fErr,
+            'Contact information and intake notes were saved, but funeral details were not. Refresh and try again.'
+          )
+        : {
+            ok: false,
+            error:
+              'Contact information and intake notes were saved, but funeral details were not. Refresh and try again.',
+          }
     }
     await auditIntakeUpdate()
     return { ok: true }
@@ -703,23 +921,37 @@ export async function saveRequestIntakeDetails(
     const { data: existing } = await supabase
       .from('wedding_request_details')
       .select('confirmed_ceremony_at')
-      .eq('request_id', requestId)
+      .eq('request_id', access.requestId)
       .maybeSingle()
 
-    const { error: wErr } = await supabase.from('wedding_request_details').upsert(
-      {
-        request_id: requestId,
-        partner_one_name: w.partnerOneName.trim(),
-        partner_two_name: w.partnerTwoName?.trim() || null,
-        proposed_wedding_date: w.proposedWeddingDate || null,
-        ceremony_notes: w.ceremonyNotes?.trim() || null,
-        confirmed_ceremony_at: existing?.confirmed_ceremony_at ?? null,
-      },
-      { onConflict: 'request_id' }
-    )
+    const { data: savedWedding, error: wErr } = await supabase
+      .from('wedding_request_details')
+      .upsert(
+        {
+          request_id: access.requestId,
+          partner_one_name: w.partnerOneName.trim(),
+          partner_two_name: w.partnerTwoName?.trim() || null,
+          proposed_wedding_date: w.proposedWeddingDate || null,
+          ceremony_notes: w.ceremonyNotes?.trim() || null,
+          confirmed_ceremony_at: existing?.confirmed_ceremony_at ?? null,
+        },
+        { onConflict: 'request_id' }
+      )
+      .select('request_id')
+      .maybeSingle()
 
-    if (wErr) {
-      return { ok: false, error: wErr.message }
+    if (wErr || !savedWedding?.request_id) {
+      return wErr
+        ? requestActionError(
+            'wedding intake details update failed',
+            wErr,
+            'Contact information and intake notes were saved, but wedding details were not. Refresh and try again.'
+          )
+        : {
+            ok: false,
+            error:
+              'Contact information and intake notes were saved, but wedding details were not. Refresh and try again.',
+          }
     }
     await auditIntakeUpdate()
     return { ok: true }
@@ -740,26 +972,40 @@ export async function saveRequestIntakeDetails(
     const { data: existingOcia } = await supabase
       .from('ocia_request_details')
       .select('confirmed_session_at')
-      .eq('request_id', requestId)
+      .eq('request_id', access.requestId)
       .maybeSingle()
 
-    const { error: oErr } = await supabase.from('ocia_request_details').upsert(
-      {
-        request_id: requestId,
-        date_of_birth: o.dateOfBirth || null,
-        age_or_dob_note: o.ageOrDobNote?.trim() || null,
-        sacramental_background: o.sacramentalBackground.trim(),
-        seeking: o.seeking.trim(),
-        parishioner_status: o.parishionerStatus.trim(),
-        preferred_contact_method: o.preferredContactMethod.trim(),
-        availability: o.availability?.trim() || null,
-        confirmed_session_at: existingOcia?.confirmed_session_at ?? null,
-      },
-      { onConflict: 'request_id' }
-    )
+    const { data: savedOcia, error: oErr } = await supabase
+      .from('ocia_request_details')
+      .upsert(
+        {
+          request_id: access.requestId,
+          date_of_birth: o.dateOfBirth || null,
+          age_or_dob_note: o.ageOrDobNote?.trim() || null,
+          sacramental_background: o.sacramentalBackground.trim(),
+          seeking: o.seeking.trim(),
+          parishioner_status: o.parishionerStatus.trim(),
+          preferred_contact_method: o.preferredContactMethod.trim(),
+          availability: o.availability?.trim() || null,
+          confirmed_session_at: existingOcia?.confirmed_session_at ?? null,
+        },
+        { onConflict: 'request_id' }
+      )
+      .select('request_id')
+      .maybeSingle()
 
-    if (oErr) {
-      return { ok: false, error: oErr.message }
+    if (oErr || !savedOcia?.request_id) {
+      return oErr
+        ? requestActionError(
+            'ocia intake details update failed',
+            oErr,
+            'Contact information and intake notes were saved, but OCIA details were not. Refresh and try again.'
+          )
+        : {
+            ok: false,
+            error:
+              'Contact information and intake notes were saved, but OCIA details were not. Refresh and try again.',
+          }
     }
     await auditIntakeUpdate()
     return { ok: true }
@@ -776,14 +1022,35 @@ function isUniqueViolation(error: { code?: string } | null | undefined): boolean
   return error?.code === '23505'
 }
 
+async function loadRequestActionAccess(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  requestId: string
+): Promise<RequestDetailAccess | null> {
+  const admin = createSupabaseServiceRoleClient()
+  const activeParishId = (await cookies()).get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+
+  try {
+    return await loadStaffScopedRequestDetailAccess(admin, requestId, {
+      staffSupabase: supabase,
+      activeParishId,
+      allowPrimaryParishFallback: !activeParishId,
+    })
+  } catch (error) {
+    logServerError('request action active parish access failed', error)
+    return null
+  }
+}
+
 async function findPersonIdByParishionerId(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  parishionerId: string
+  parishionerId: string,
+  parishId: string
 ): Promise<string | null> {
   const { data } = await supabase
     .from('people')
     .select('id')
     .eq('parishioner_id', parishionerId)
+    .eq('parish_id', parishId)
     .maybeSingle()
 
   return data?.id ? String(data.id) : null
@@ -801,7 +1068,11 @@ async function linkRequestToPersonId(
     .select('id')
 
   if (error) {
-    return { ok: false, error: error.message }
+    return requestActionError(
+      'request person link update failed',
+      error,
+      'Could not link request to person. Refresh and try again.'
+    )
   }
   if (!data?.length) {
     return { ok: false, error: 'Could not link request to person. Refresh and try again.' }
@@ -828,14 +1099,21 @@ export async function linkRequestToExistingPerson(
     return { ok: false, error: 'Unauthorized' }
   }
 
+  const access = await loadRequestActionAccess(supabase, id)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
+
   const { data: reqRow, error: reqErr } = await supabase
     .from('requests')
     .select('person_id, parishioner_id')
-    .eq('id', id)
+    .eq('id', access.requestId)
     .single()
 
   if (reqErr || !reqRow) {
-    return { ok: false, error: reqErr?.message ?? 'Request not found.' }
+    return reqErr
+      ? requestActionError('existing person link request load failed', reqErr, 'Request not found.')
+      : { ok: false, error: 'Request not found.' }
   }
 
   const existingPersonId =
@@ -850,7 +1128,7 @@ export async function linkRequestToExistingPerson(
     return { ok: false, error: 'This request has no intake contact to link.' }
   }
 
-  const personId = await findPersonIdByParishionerId(supabase, parishionerId)
+  const personId = await findPersonIdByParishionerId(supabase, parishionerId, access.parishId)
   if (!personId) {
     return {
       ok: false,
@@ -858,13 +1136,13 @@ export async function linkRequestToExistingPerson(
     }
   }
 
-  const linked = await linkRequestToPersonId(supabase, id, personId)
+  const linked = await linkRequestToPersonId(supabase, access.requestId, personId)
   if (!linked.ok) {
     return linked
   }
 
   await auditRequestAction({
-    requestId: id,
+    requestId: access.requestId,
     actorEmail: user.email,
     action: 'request.person.linked',
     metadata: { personId, mode: 'existing' },
@@ -892,14 +1170,21 @@ export async function createPersonFromRequestParishioner(
     return { ok: false, error: 'Unauthorized' }
   }
 
+  const access = await loadRequestActionAccess(supabase, id)
+  if (!access) {
+    return { ok: false, error: 'Request not found.' }
+  }
+
   const { data: reqRow, error: reqErr } = await supabase
     .from('requests')
     .select('person_id, parishioner_id')
-    .eq('id', id)
+    .eq('id', access.requestId)
     .single()
 
   if (reqErr || !reqRow) {
-    return { ok: false, error: reqErr?.message ?? 'Request not found.' }
+    return reqErr
+      ? requestActionError('create person request load failed', reqErr, 'Request not found.')
+      : { ok: false, error: 'Request not found.' }
   }
 
   const existingPersonId =
@@ -914,14 +1199,18 @@ export async function createPersonFromRequestParishioner(
     return { ok: false, error: 'This request has no intake contact to link.' }
   }
 
-  const existingByParishioner = await findPersonIdByParishionerId(supabase, parishionerId)
+  const existingByParishioner = await findPersonIdByParishionerId(
+    supabase,
+    parishionerId,
+    access.parishId
+  )
   if (existingByParishioner) {
-    const linked = await linkRequestToPersonId(supabase, id, existingByParishioner)
+    const linked = await linkRequestToPersonId(supabase, access.requestId, existingByParishioner)
     if (!linked.ok) {
       return linked
     }
     await auditRequestAction({
-      requestId: id,
+      requestId: access.requestId,
       actorEmail: user.email,
       action: 'request.person.linked',
       metadata: { personId: existingByParishioner, mode: 'existing' },
@@ -933,17 +1222,17 @@ export async function createPersonFromRequestParishioner(
     .from('parishioners')
     .select('full_name, email, phone')
     .eq('id', parishionerId)
+    .eq('parish_id', access.parishId)
     .single()
 
   if (parishionerErr || !parishioner) {
-    return { ok: false, error: parishionerErr?.message ?? 'Intake contact not found.' }
-  }
-
-  const { parishId, error: parishErr } = await fetchPrimaryParishId(
-    createSupabaseServiceRoleClient()
-  )
-  if (parishErr || !parishId) {
-    return { ok: false, error: parishErr?.message ?? 'Parish not found.' }
+    return parishionerErr
+      ? requestActionError(
+          'create person parishioner load failed',
+          parishionerErr,
+          'Intake contact not found.'
+        )
+      : { ok: false, error: 'Intake contact not found.' }
   }
 
   const { firstName, middleName, lastName } = parseParishionerFullName(parishioner.full_name)
@@ -953,7 +1242,7 @@ export async function createPersonFromRequestParishioner(
   const { data: created, error: insertErr } = await supabase
     .from('people')
     .insert({
-      parish_id: parishId,
+      parish_id: access.parishId,
       parishioner_id: parishionerId,
       first_name: firstName,
       middle_name: middleName,
@@ -968,12 +1257,20 @@ export async function createPersonFromRequestParishioner(
 
   if (insertErr) {
     if (isUniqueViolation(insertErr)) {
-      personId = await findPersonIdByParishionerId(supabase, parishionerId)
+      personId = await findPersonIdByParishionerId(supabase, parishionerId, access.parishId)
       if (!personId) {
-        return { ok: false, error: insertErr.message }
+        return requestActionError(
+          'create person unique recovery failed',
+          insertErr,
+          'Could not create person profile.'
+        )
       }
     } else {
-      return { ok: false, error: insertErr.message }
+      return requestActionError(
+        'create person profile failed',
+        insertErr,
+        'Could not create person profile.'
+      )
     }
   }
 
@@ -981,13 +1278,13 @@ export async function createPersonFromRequestParishioner(
     return { ok: false, error: 'Could not create person profile.' }
   }
 
-  const linked = await linkRequestToPersonId(supabase, id, personId)
+  const linked = await linkRequestToPersonId(supabase, access.requestId, personId)
   if (!linked.ok) {
     return linked
   }
 
   await auditRequestAction({
-    requestId: id,
+    requestId: access.requestId,
     actorEmail: user.email,
     action: 'request.person.linked',
     metadata: { personId, mode: 'created' },

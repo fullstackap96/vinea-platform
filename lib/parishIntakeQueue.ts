@@ -3,6 +3,7 @@ import { formatRequestType } from '@/lib/formatRequestType'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import type { MassIntentionRow } from '@/lib/types/massIntentions'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 
 export type ParishIntakeQueueFilter =
   | 'needs_review'
@@ -29,6 +30,17 @@ export type ParishIntakeQueueRequest = Parameters<typeof evaluateIntakeTriage>[0
     partner_two_name?: unknown
   } | null
 }
+
+export type ParishIntakeQueueMassIntention = Pick<
+  MassIntentionRow,
+  | 'id'
+  | 'requester_name'
+  | 'assigned_mass_date'
+  | 'assigned_priest_name'
+  | 'stipend_received'
+  | 'is_fulfilled'
+  | 'created_at'
+>
 
 export type ParishIntakeQueueItem = {
   id: string
@@ -86,7 +98,14 @@ function hasOwner(request: ParishIntakeQueueRequest): boolean {
 
 function requestHref(request: ParishIntakeQueueRequest, sectionId: string): string {
   const id = encodeURIComponent(text(request.id))
-  return `/dashboard/requests/${id}#${sectionId}`
+  return safeDashboardHrefOrFallback(`/dashboard/requests/${id}#${sectionId}`, '/dashboard/requests')
+}
+
+function massIntentionHref(id: string): string {
+  return safeDashboardHrefOrFallback(
+    `/dashboard/intentions/${encodeURIComponent(id)}`,
+    '/dashboard/intentions'
+  )
 }
 
 function requestPriority(
@@ -160,7 +179,7 @@ function buildRequestItem(
 }
 
 function buildMassIntentionItem(
-  intention: MassIntentionRow,
+  intention: ParishIntakeQueueMassIntention,
   now: Date
 ): ParishIntakeQueueItem | null {
   if (intention.is_fulfilled) return null
@@ -188,7 +207,7 @@ function buildMassIntentionItem(
       : 'Assign a Mass date',
     suggestedOwner: 'Parish office staff',
     missingDetails,
-    href: `/dashboard/intentions/${encodeURIComponent(intention.id)}`,
+    href: massIntentionHref(intention.id),
     createdAt: intention.created_at,
     ageLabel: ageLabel(intention.created_at, now),
     currentOwner: '',
@@ -201,7 +220,7 @@ function buildMassIntentionItem(
 
 export function buildParishIntakeQueue(input: {
   requests?: readonly ParishIntakeQueueRequest[]
-  intentions?: readonly MassIntentionRow[]
+  intentions?: readonly ParishIntakeQueueMassIntention[]
   now?: Date
 }): ParishIntakeQueueItem[] {
   const now = input.now ?? new Date()

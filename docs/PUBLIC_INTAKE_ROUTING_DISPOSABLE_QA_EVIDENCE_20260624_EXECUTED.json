@@ -1,0 +1,247 @@
+{
+  "status": "completed_and_cleaned",
+  "startedAt": "2026-06-24T21:22:47.638Z",
+  "completedAt": "2026-06-24T21:22:48.869Z",
+  "projectRef": "kikqtorplsswepqitjys",
+  "host": "db.kikqtorplsswepqitjys.supabase.co",
+  "currentDatabase": "postgres",
+  "currentUser": "postgres",
+  "foundation": {
+    "applied": true,
+    "reason": "Applied minimal disposable foundation because public.parishes was missing"
+  },
+  "baseline": {
+    "identityCapturedAt": "2026-06-24T21:21:42.386Z",
+    "columns": {
+      "name": "parishes routing columns",
+      "rowCount": 0,
+      "rows": []
+    },
+    "tables": {
+      "name": "routing tables",
+      "rowCount": 0,
+      "rows": []
+    },
+    "indexes": {
+      "name": "routing indexes",
+      "rowCount": 0,
+      "rows": []
+    }
+  },
+  "forward": {
+    "apply": {
+      "name": "apply forward candidate",
+      "rowCount": 0,
+      "rows": []
+    },
+    "columns": {
+      "name": "parishes routing columns",
+      "rowCount": 3,
+      "rows": [
+        {
+          "column_name": "public_display_name",
+          "data_type": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "public_intake_enabled",
+          "data_type": "boolean",
+          "is_nullable": "NO",
+          "column_default": "false"
+        },
+        {
+          "column_name": "public_slug",
+          "data_type": "text",
+          "is_nullable": "YES",
+          "column_default": null
+        }
+      ]
+    },
+    "tables": {
+      "name": "routing tables",
+      "rowCount": 2,
+      "rows": [
+        {
+          "tablename": "parish_public_intake_domains"
+        },
+        {
+          "tablename": "parish_public_intake_tokens"
+        }
+      ]
+    },
+    "indexes": {
+      "name": "routing indexes",
+      "rowCount": 3,
+      "rows": [
+        {
+          "indexname": "parish_public_intake_domains_hostname_lower_unique"
+        },
+        {
+          "indexname": "parish_public_intake_tokens_token_hash_unique"
+        },
+        {
+          "indexname": "parishes_public_slug_lower_unique"
+        }
+      ]
+    },
+    "rowsecurity": {
+      "name": "routing rowsecurity",
+      "rowCount": 2,
+      "rows": [
+        {
+          "tablename": "parish_public_intake_domains",
+          "rowsecurity": true
+        },
+        {
+          "tablename": "parish_public_intake_tokens",
+          "rowsecurity": true
+        }
+      ]
+    },
+    "policies": {
+      "name": "routing policies",
+      "rowCount": 4,
+      "rows": [
+        {
+          "policyname": "parish_public_intake_domains_staff_select",
+          "tablename": "parish_public_intake_domains",
+          "roles": [
+            "authenticated"
+          ],
+          "cmd": "SELECT",
+          "qual": "is_authorized_for_parish(parish_id)",
+          "with_check": null
+        },
+        {
+          "policyname": "parish_public_intake_domains_staff_write",
+          "tablename": "parish_public_intake_domains",
+          "roles": [
+            "authenticated"
+          ],
+          "cmd": "ALL",
+          "qual": "is_authorized_for_parish(parish_id)",
+          "with_check": "is_authorized_for_parish(parish_id)"
+        },
+        {
+          "policyname": "parish_public_intake_tokens_staff_select",
+          "tablename": "parish_public_intake_tokens",
+          "roles": [
+            "authenticated"
+          ],
+          "cmd": "SELECT",
+          "qual": "is_authorized_for_parish(parish_id)",
+          "with_check": null
+        },
+        {
+          "policyname": "parish_public_intake_tokens_staff_write",
+          "tablename": "parish_public_intake_tokens",
+          "roles": [
+            "authenticated"
+          ],
+          "cmd": "ALL",
+          "qual": "is_authorized_for_parish(parish_id)",
+          "with_check": "is_authorized_for_parish(parish_id)"
+        }
+      ]
+    }
+  },
+  "validation": {
+    "dataCases": [
+      {
+        "name": "Insert slug st-ann-routing-qa",
+        "passed": true
+      },
+      {
+        "name": "Insert uppercase slug St-Ann-Routing-QA fails",
+        "passed": true,
+        "message": "new row for relation \"parishes\" violates check constraint \"parishes_public_slug_format_check\""
+      },
+      {
+        "name": "Insert slug with spaces fails",
+        "passed": true,
+        "message": "new row for relation \"parishes\" violates check constraint \"parishes_public_slug_format_check\""
+      },
+      {
+        "name": "Insert duplicate slug with different case fails",
+        "passed": true,
+        "message": "new row for relation \"parishes\" violates check constraint \"parishes_public_slug_format_check\""
+      },
+      {
+        "name": "Insert verified lowercase hostname",
+        "passed": true
+      },
+      {
+        "name": "Insert uppercase hostname fails",
+        "passed": true,
+        "message": "new row for relation \"parish_public_intake_domains\" violates check constraint \"parish_public_intake_domains_hostname_format_check\""
+      },
+      {
+        "name": "Insert duplicate hostname with different case fails",
+        "passed": true,
+        "message": "new row for relation \"parish_public_intake_domains\" violates check constraint \"parish_public_intake_domains_hostname_format_check\""
+      },
+      {
+        "name": "Insert token hash for Baptism",
+        "passed": true
+      },
+      {
+        "name": "Insert duplicate token hash fails",
+        "passed": true,
+        "message": "duplicate key value violates unique constraint \"parish_public_intake_tokens_token_hash_unique\""
+      },
+      {
+        "name": "Insert invalid token request type fails",
+        "passed": true,
+        "message": "new row for relation \"parish_public_intake_tokens\" violates check constraint \"parish_public_intake_tokens_request_type_check\""
+      },
+      {
+        "name": "Confirm raw token value is not stored",
+        "passed": true
+      }
+    ]
+  },
+  "rollback": {
+    "apply": {
+      "name": "apply rollback draft",
+      "rowCount": 0,
+      "rows": []
+    },
+    "columns": {
+      "name": "parishes routing columns",
+      "rowCount": 0,
+      "rows": []
+    },
+    "tables": {
+      "name": "routing tables",
+      "rowCount": 0,
+      "rows": []
+    },
+    "indexes": {
+      "name": "routing indexes",
+      "rowCount": 0,
+      "rows": []
+    }
+  },
+  "healthObservations": {
+    "baseline": "Not run: no disposable app instance connected to this database.",
+    "postForward": "Not run: no disposable app instance connected to this database.",
+    "postRollback": "Not run: no disposable app instance connected to this database."
+  },
+  "publicIntakeRegression": {
+    "status": "Not run",
+    "reason": "No disposable app instance was connected to this database. Database-only forward, validation, rollback, and cleanup checks were completed."
+  },
+  "automatedChecks": {
+    "focused": "npm.cmd test -- lib/server/publicIntakeRoutingExecutedEvidence.test.ts lib/server/publicIntakeRoutingBlockedEvidence.test.ts lib/server/publicIntakeRoutingDisposableExecutionPacket.test.ts lib/server/publicIntakeParishScope.test.ts lib/server/publicIntakeRoutingPromotionReadinessChecklist.test.ts lib/server/publicIntakeRoutingEvidenceTemplate.test.ts lib/server/publicIntakeRoutingHealthReadiness.test.ts lib/server/publicIntakeParishRoutingQaValidation.test.ts lib/server/publicIntakeParishRoutingStrategy.test.ts lib/server/multiParishRemainingPathsInventory.test.ts passed: 10 test files, 45 tests.",
+    "full": "npm.cmd test -- --reporter=dot passed: 97 test files, 374 tests.",
+    "build": "npm.cmd run build passed on Next.js 16.2.2.",
+    "lint": "npm.cmd run lint passed with 58 existing warnings and 0 errors.",
+    "dependencyRestore": "npm.cmd ci was run after the temporary Postgres client install changed local node_modules; package.json and package-lock.json remained unchanged."
+  },
+  "cleanup": {
+    "disposableFoundationDropped": true,
+    "remainingRelevantTables": [],
+    "cleanedAt": "2026-06-24T21:23:40.583Z"
+  }
+}

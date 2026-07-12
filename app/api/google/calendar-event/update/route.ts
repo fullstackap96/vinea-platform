@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { buildCalendarEventFromRequest } from '@/lib/calendarEventFromRequest'
+import {
+  buildCalendarEventFromRequest,
+  CALENDAR_EVENT_PARISHIONER_SELECT,
+  CALENDAR_EVENT_REQUEST_SELECT,
+} from '@/lib/calendarEventFromRequest'
 import {
   googleCalendarNotConnectedUserMessage,
-  serializeGoogleCalendarErrorForLogs,
   userFacingGoogleCalendarErrorMessage,
 } from '@/lib/googleCalendarUserErrors'
 import {
@@ -14,24 +17,100 @@ import {
   requireGoogleOAuthClientEnv,
   resolveUsableParishGoogleCalendar,
 } from '@/lib/parishGoogleCalendarServer'
-import { createSupabaseRouteHandlerClient } from '@/lib/supabase/routeHandlerClient'
+import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
+import { writeAuditEvent } from '@/lib/server/auditLog'
+import { requireStaffFromRequest } from '@/lib/server/requireStaff'
+import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+  resolveActiveStaffParishContext,
+} from '@/lib/server/activeStaffParishContext'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
+
+type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
+const MAX_BODY_BYTES = 16 * 1024
+
+function logGoogleCalendarUpdateEventError(error: unknown, parishId: string | null) {
+  logServerError('[google-calendar-update-event] unexpected failure', error, {
+    route: '/api/google/calendar-event/update',
+    hasParishId: Boolean(parishId),
+  })
+}
+
+function activeParishCookie(request: NextRequest): string | null {
+  return request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+}
+
+async function resolveGoogleCalendarUpdateParishContext(
+  supabase: StaffSupabaseClient,
+  requestedParishId: string | null
+) {
+  const context = await resolveActiveStaffParishContext(supabase, {
+    requestedParishId,
+  })
+
+  if (!context.ok) return context
+  if (requestedParishId && context.activeParishId !== requestedParishId) {
+    return {
+      ok: false as const,
+      source: context.source,
+      error: 'You are not authorized to update Google Calendar events for this parish.',
+      technicalDetail:
+        context.ignoredRequestedParishReason ??
+        'Requested parish did not resolve to the active staff parish.',
+      requestedParishId,
+    }
+  }
+  if (requestedParishId && context.source !== 'membership') {
+    return {
+      ok: false as const,
+      source: context.source,
+      error: 'You are not authorized to update Google Calendar events for this parish.',
+      technicalDetail: 'Active parish cookie requires membership-backed parish authorization.',
+      requestedParishId,
+    }
+  }
+
+  return context
+}
+
+function parishionerMatchesParish(
+  parishionerRow: { parish_id?: unknown } | null | undefined,
+  parishId: string
+): boolean {
+  return String(parishionerRow?.parish_id ?? '').trim() === parishId
+}
+
+function requestCalendarMatchesSelectedIntegration(
+  requestRow: { google_calendar_id?: unknown } | null | undefined,
+  selectedCalendarId: string
+): boolean {
+  const storedCalendarId = String(requestRow?.google_calendar_id ?? '').trim()
+  return !storedCalendarId || storedCalendarId === selectedCalendarId
+}
 
 export async function POST(request: NextRequest) {
-  const response = NextResponse.json({ ok: false })
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
   let parishId: string | null = null
 
   try {
-    const supabase = createSupabaseRouteHandlerClient(request, response)
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
+    const staff = await requireStaffFromRequest(request)
+    if (!staff.ok) return staff.response
+    const supabase = staff.supabase
 
-    if (userError || !user) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    const parsedBody = await readBoundedJsonBody(request, MAX_BODY_BYTES)
+    if (!parsedBody.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid Google Calendar request.' },
+        { status: parsedBody.reason === 'too_large' ? 413 : 400 },
+      )
     }
-
-    const body = await request.json()
+    const body =
+      parsedBody.value && typeof parsedBody.value === 'object'
+        ? (parsedBody.value as Record<string, unknown>)
+        : {}
     const requestId = String(body?.requestId || '').trim()
     if (!requestId) {
       return NextResponse.json({ ok: false, error: 'Missing requestId' }, { status: 400 })
@@ -45,19 +124,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const integration = await loadParishGoogleCalendarIntegration()
-    const usable = resolveUsableParishGoogleCalendar(integration)
-    if (!usable.ok) {
+    const requestedParishId = activeParishCookie(request)
+    const parishContext = await resolveGoogleCalendarUpdateParishContext(
+      supabase,
+      requestedParishId
+    )
+    if (!parishContext.ok) {
       return NextResponse.json(
-        { ok: false, error: googleCalendarNotConnectedUserMessage() },
-        { status: 503 }
+        { ok: false, error: parishContext.error },
+        { status: 403 }
       )
     }
-    parishId = usable.parishId
+    parishId = parishContext.activeParishId
 
     const { data: reqRow, error: reqErr } = await supabase
       .from('requests')
-      .select('*')
+      .select(CALENDAR_EVENT_REQUEST_SELECT)
       .eq('id', requestId)
       .single()
 
@@ -73,13 +155,39 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const calendarId = String(reqRow.google_calendar_id || usable.calendarId)
-
     const { data: parishionerRow } = await supabase
       .from('parishioners')
-      .select('*')
+      .select(CALENDAR_EVENT_PARISHIONER_SELECT)
       .eq('id', reqRow.parishioner_id)
       .single()
+
+    if (!parishionerMatchesParish(parishionerRow, parishContext.activeParishId)) {
+      return NextResponse.json({ ok: false, error: 'Request not found' }, { status: 404 })
+    }
+
+    const integration = await loadParishGoogleCalendarIntegration(
+      parishContext.activeParishId
+    )
+    const usable = resolveUsableParishGoogleCalendar(integration)
+    if (!usable.ok || usable.parishId !== parishContext.activeParishId) {
+      return NextResponse.json(
+        { ok: false, error: googleCalendarNotConnectedUserMessage() },
+        { status: 503 }
+      )
+    }
+
+    if (!requestCalendarMatchesSelectedIntegration(reqRow, usable.calendarId)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'This request is linked to a different parish calendar. Recreate the Google Calendar event for the selected parish.',
+        },
+        { status: 409 }
+      )
+    }
+
+    const calendarId = usable.calendarId
 
     const built = await buildCalendarEventFromRequest(supabase, reqRow, parishionerRow)
     if (!built.ok) {
@@ -126,15 +234,17 @@ export async function POST(request: NextRequest) {
 
     const htmlLink = patchRes.data.htmlLink || null
 
-    const { error: updateErr } = await supabase
+    const { data: updatedRequest, error: updateErr } = await supabase
       .from('requests')
       .update({
         google_calendar_id: calendarId,
         google_calendar_event_html_link: htmlLink ?? reqRow.google_calendar_event_html_link,
       })
       .eq('id', requestId)
+      .select('id')
+      .maybeSingle()
 
-    if (updateErr) {
+    if (updateErr || !updatedRequest?.id) {
       return NextResponse.json(
         {
           ok: false,
@@ -144,17 +254,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    await writeAuditEvent({
+      parishId: parishContext.activeParishId,
+      actorEmail: staff.staff.email,
+      action: 'request.schedule.updated',
+      targetType: 'request',
+      targetId: requestId,
+      metadata: {
+        source: 'staff_request_detail',
+        scheduleKind: 'google_calendar_event',
+        operation: 'updated',
+      },
+    })
+
     return NextResponse.json({ ok: true, eventId, htmlLink })
   } catch (error: unknown) {
-    console.error(
-      'GOOGLE CALENDAR UPDATE EVENT ERROR (technical):',
-      serializeGoogleCalendarErrorForLogs(error),
-      error
-    )
+    logGoogleCalendarUpdateEventError(error, parishId)
     await handleGoogleCalendarOAuthFailureIfNeeded(parishId, error)
     return NextResponse.json(
       { ok: false, error: userFacingGoogleCalendarErrorMessage(error) },
       { status: 500 }
     )
   }
+}
+
+export const googleCalendarUpdateRouteTestInternals = {
+  activeParishCookie,
+  parishionerMatchesParish,
+  requestCalendarMatchesSelectedIntegration,
+  resolveGoogleCalendarUpdateParishContext,
 }

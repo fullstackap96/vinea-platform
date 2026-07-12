@@ -6,6 +6,7 @@ import {
 import { requestWaitingOnLabel } from '@/lib/requestWaitingOn'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const STALE_COMMUNICATION_DAYS = 7
@@ -32,7 +33,12 @@ export type CommunicationCommitmentRequest = {
   communication_notes?: unknown
   parishioner?: { full_name?: unknown; email?: unknown; phone?: unknown } | null
   funeral_detail?: { deceased_name?: unknown } | null
-  wedding_detail?: { partner_one_name?: unknown; partner_two_name?: unknown } | null
+  wedding_detail?: {
+    partner_one_name?: unknown
+    partner_two_name?: unknown
+    confirmed_ceremony_at?: unknown
+    proposed_wedding_date?: unknown
+  } | null
 }
 
 export type CommunicationCommitmentEvent = {
@@ -146,6 +152,13 @@ function statusSort(status: CommunicationCommitmentStatus): number {
   }
 }
 
+function requestDetailHref(requestId: string, anchor: string) {
+  return safeDashboardHrefOrFallback(
+    `/dashboard/requests/${encodeURIComponent(requestId)}#${anchor}`,
+    '/dashboard/requests'
+  )
+}
+
 export function evaluateCommunicationCommitment(input: {
   request: CommunicationCommitmentRequest
   communications?: readonly CommunicationCommitmentEvent[]
@@ -241,7 +254,7 @@ export function evaluateCommunicationCommitment(input: {
     reason,
     suggestedAction,
     latestContext: `${latestContext}${noteContext}`,
-    detailHref: `/dashboard/requests/${encodeURIComponent(requestId)}#${anchor}`,
+    detailHref: requestDetailHref(requestId, anchor),
     sortScore,
     daysSinceContact,
   }

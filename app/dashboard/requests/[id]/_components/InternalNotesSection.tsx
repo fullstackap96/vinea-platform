@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { addRequestNote } from '../../actions'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { sectionSubheadingClassName } from '@/lib/sectionHeader'
+import { requestDetailClientServerActionErrorMessage } from '@/lib/requestDetailClientMessages'
 
 function formatNoteTimestamp(iso: string | null | undefined) {
   if (!iso) return '—'
@@ -32,29 +33,48 @@ export function InternalNotesSection({
   const [draft, setDraft] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const addInFlightRef = useRef(false)
+
+  function releaseAdd() {
+    addInFlightRef.current = false
+    setSaving(false)
+  }
 
   async function handleAdd() {
+    if (addInFlightRef.current) return
+
+    addInFlightRef.current = true
     setSaving(true)
     setMessage('')
-    const result = await addRequestNote({ requestId, body: draft })
-    setSaving(false)
+
+    let result: Awaited<ReturnType<typeof addRequestNote>>
+    try {
+      result = await addRequestNote({ requestId, body: draft })
+    } catch (error: unknown) {
+      setMessage(requestDetailClientServerActionErrorMessage('addInternalNote', error))
+      releaseAdd()
+      return
+    }
 
     if (!result.ok) {
-      setMessage(result.error)
+      setMessage(requestDetailClientServerActionErrorMessage('addInternalNote', result.error))
+      releaseAdd()
       return
     }
 
     setDraft('')
+    releaseAdd()
     onAdded()
   }
 
   return (
     <div>
-      <div className="space-y-3">
+      <div className="space-y-3" aria-busy={saving}>
         <textarea
           className="w-full min-h-[120px] rounded border p-3"
           placeholder="Add an internal note…"
           value={draft}
+          disabled={saving}
           onChange={(e) => setDraft(e.target.value)}
           rows={4}
         />

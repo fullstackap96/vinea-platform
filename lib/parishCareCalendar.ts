@@ -5,6 +5,7 @@ import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 import type { CarePlan } from '@/lib/carePlans'
 import type { MassIntentionRow } from '@/lib/types/massIntentions'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 
 export type ParishCareCalendarKind =
   | 'follow_up'
@@ -41,6 +42,17 @@ export type ParishCareCalendarRequest = {
     confirmed_session_at?: unknown
   } | null
 }
+
+export type ParishCareCalendarMassIntention = Pick<
+  MassIntentionRow,
+  | 'id'
+  | 'requester_name'
+  | 'intention_text'
+  | 'requested_date'
+  | 'assigned_mass_date'
+  | 'assigned_priest_name'
+  | 'is_fulfilled'
+>
 
 export type ParishCareCalendarItem = {
   id: string
@@ -137,8 +149,18 @@ function requestTitle(request: ParishCareCalendarRequest): string {
   })
 }
 
-function requestHref(request: ParishCareCalendarRequest): string {
-  return `/dashboard/requests/${encodeURIComponent(text(request.id))}`
+function requestHref(request: ParishCareCalendarRequest, anchor = ''): string {
+  return safeDashboardHrefOrFallback(
+    `/dashboard/requests/${encodeURIComponent(text(request.id))}${anchor}`,
+    '/dashboard/requests'
+  )
+}
+
+function intentionHref(id: string): string {
+  return safeDashboardHrefOrFallback(
+    `/dashboard/intentions/${encodeURIComponent(id)}`,
+    '/dashboard/intentions'
+  )
 }
 
 function priorityForDate(date: string, now: Date, status: unknown): ParishCareCalendarPriority {
@@ -198,13 +220,13 @@ function followUpItem(
     statusLabel: text(request.waiting_on)
       ? `Waiting on ${text(request.waiting_on)}`
       : text(request.status) || 'Open',
-    href: `${requestHref(request)}#next-follow-up`,
+    href: requestHref(request, '#next-follow-up'),
     actionLabel: overdue ? 'Call today' : 'Follow up',
   }
 }
 
 function massIntentionItem(
-  intention: MassIntentionRow,
+  intention: ParishCareCalendarMassIntention,
   now: Date
 ): ParishCareCalendarItem | null {
   const rawDate = intention.assigned_mass_date || intention.requested_date
@@ -221,14 +243,14 @@ function massIntentionItem(
     timeLabel: intention.assigned_mass_date ? 'Assigned Mass' : 'Requested date',
     ownerLabel: assignmentDisplayLabel(intention.assigned_priest_name),
     statusLabel: intention.is_fulfilled ? 'Fulfilled' : 'Not fulfilled',
-    href: `/dashboard/intentions/${encodeURIComponent(intention.id)}`,
+    href: intentionHref(intention.id),
     actionLabel: intention.is_fulfilled ? 'Review' : 'Confirm',
   }
 }
 
 export function buildParishCareCalendarItems(input: {
   requests?: readonly ParishCareCalendarRequest[]
-  intentions?: readonly MassIntentionRow[]
+  intentions?: readonly ParishCareCalendarMassIntention[]
   now?: Date
 }): ParishCareCalendarItem[] {
   const now = input.now ?? new Date()

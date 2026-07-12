@@ -14,10 +14,11 @@ export const PARISH_OPERATIONS_DESCRIPTOR = 'Parish Operations'
 export const SITE_DOCUMENT_TITLE = PRODUCT_NAME
 
 /** Default meta description (search / sharing). */
-export const SITE_DOCUMENT_DESCRIPTION = 'All your parish operations in one platform.'
+export const SITE_DOCUMENT_DESCRIPTION =
+  'Manage Catholic parish requests, follow-up, records, certificates, scheduling, people, households, and Mass intentions in one simple system.'
 
 /** Open Graph / Twitter card image (1200×630). */
 export const SITE_OG_IMAGE_PATH = '/og-image.png'
 
 export const SITE_OG_IMAGE_ALT =
-  'Vinea Platform — All your parish operations in one platform.'
+  'Vinea Platform - Better Parish Operations. Better Parishioner Care.'

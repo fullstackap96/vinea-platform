@@ -1,21 +1,68 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+  resolveActiveStaffParishContext,
+} from '@/lib/server/activeStaffParishContext'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
+import { resolveStaffWriteParishContext } from '@/lib/server/staffWriteParishContext'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import { writeAuditEvent } from '@/lib/server/auditLog'
+import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
 import { normalizeWorkflowTemplateStepPatch } from '@/lib/workflowTemplateSettings'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 
 type AdminClient = ReturnType<typeof createSupabaseServiceRoleClient>
+type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
 
-async function primaryParishId(admin: AdminClient) {
-  const { data, error } = await admin
-    .from('parishes')
-    .select('id')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+const MAX_BODY_BYTES = 64 * 1024
 
-  if (error) throw error
-  return data?.id ? String(data.id) : null
+function activeParishCookie(request: NextRequest): string | null {
+  return request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+}
+
+function logWorkflowTemplateError(
+  action: 'load' | 'read-current-step' | 'read-template' | 'update-step',
+  error: unknown,
+  extra: Record<string, string | number | boolean | null | undefined> = {}
+) {
+  logServerError(`[workflow-templates] ${action} failed`, error, {
+    route: '/api/parish/workflow-templates',
+    ...extra,
+  })
+}
+
+async function resolveWorkflowTemplateReadParishId(
+  supabase: StaffSupabaseClient,
+  requestedParishId: string | null
+) {
+  const context = await resolveActiveStaffParishContext(supabase, {
+    requestedParishId,
+  })
+
+  if (!context.ok) return context
+  if (requestedParishId && context.activeParishId !== requestedParishId) {
+    return {
+      ok: false as const,
+      source: context.source,
+      error: 'You are not authorized to read workflow templates for this parish.',
+      technicalDetail:
+        context.ignoredRequestedParishReason ??
+        'Requested parish did not resolve to the active staff parish.',
+      requestedParishId,
+    }
+  }
+  if (requestedParishId && context.source !== 'membership') {
+    return {
+      ok: false as const,
+      source: context.source,
+      error: 'You are not authorized to read workflow templates for this parish.',
+      technicalDetail: 'Active parish cookie requires membership-backed parish authorization.',
+      requestedParishId,
+    }
+  }
+
+  return context
 }
 
 async function loadActiveTemplates(admin: AdminClient, parishId: string) {
@@ -54,25 +101,55 @@ export async function GET(request: NextRequest) {
 
   try {
     const admin = createSupabaseServiceRoleClient()
-    const parishId = await primaryParishId(admin)
-    if (!parishId) {
-      return NextResponse.json({ ok: false, error: 'Parish is not configured.' }, { status: 404 })
+    const requestedParishId = activeParishCookie(request)
+    const parishContext = await resolveWorkflowTemplateReadParishId(
+      staff.supabase,
+      requestedParishId
+    )
+    if (!parishContext.ok) {
+      return NextResponse.json({ ok: false, error: parishContext.error }, { status: 403 })
     }
 
-    const templates = await loadActiveTemplates(admin, parishId)
-    return NextResponse.json({ ok: true, templates })
+    const templates = await loadActiveTemplates(admin, parishContext.activeParishId)
+    return NextResponse.json({
+      ok: true,
+      activeParishId: parishContext.activeParishId,
+      templates,
+    })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not load workflow templates.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    logWorkflowTemplateError('load', error, {
+      hasActiveParishCookie: Boolean(activeParishCookie(request)),
+    })
+    return NextResponse.json(
+      { ok: false, error: 'Could not load workflow templates.' },
+      { status: 500 }
+    )
   }
 }
 
 export async function PATCH(request: NextRequest) {
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
   const staff = await requireStaffFromRequest(request)
   if (!staff.ok) return staff.response
 
-  const body = await request.json().catch(() => null as Record<string, unknown> | null)
-  if (!body || typeof body !== 'object') {
+  const parsedBody = await readBoundedJsonBody(request, MAX_BODY_BYTES)
+  if (!parsedBody.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          parsedBody.reason === 'too_large'
+            ? 'Workflow step update is too large.'
+            : 'Invalid JSON body.',
+      },
+      { status: parsedBody.reason === 'too_large' ? 413 : 400 }
+    )
+  }
+
+  const body = parsedBody.value as Record<string, unknown> | null
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body.' }, { status: 400 })
   }
 
@@ -88,10 +165,16 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const admin = createSupabaseServiceRoleClient()
-    const parishId = await primaryParishId(admin)
-    if (!parishId) {
-      return NextResponse.json({ ok: false, error: 'Parish is not configured.' }, { status: 404 })
+    const requestedParishId = activeParishCookie(request)
+    const parishContext = await resolveStaffWriteParishContext(staff.supabase, {
+      requestedParishId,
+      allowPrimaryParishFallback: !requestedParishId,
+      fallbackReason: 'Workflow template settings API legacy compatibility path.',
+    })
+    if (!parishContext.ok) {
+      return NextResponse.json({ ok: false, error: parishContext.error }, { status: 403 })
     }
+    const parishId = parishContext.parishId
 
     const { data: current, error: currentError } = await admin
       .from('workflow_template_steps')
@@ -102,7 +185,14 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle()
 
     if (currentError) {
-      return NextResponse.json({ ok: false, error: currentError.message }, { status: 500 })
+      logWorkflowTemplateError('read-current-step', currentError, {
+        hasActiveParishCookie: Boolean(requestedParishId),
+        hasStepId: Boolean(stepId),
+      })
+      return NextResponse.json(
+        { ok: false, error: 'Could not update workflow step.' },
+        { status: 500 }
+      )
     }
     if (!current) {
       return NextResponse.json({ ok: false, error: 'Workflow step not found.' }, { status: 404 })
@@ -116,7 +206,14 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle()
 
     if (templateError) {
-      return NextResponse.json({ ok: false, error: templateError.message }, { status: 500 })
+      logWorkflowTemplateError('read-template', templateError, {
+        hasActiveParishCookie: Boolean(requestedParishId),
+        hasStepId: Boolean(stepId),
+      })
+      return NextResponse.json(
+        { ok: false, error: 'Could not update workflow step.' },
+        { status: 500 }
+      )
     }
     if (!template) {
       return NextResponse.json({ ok: false, error: 'Workflow template not found.' }, { status: 404 })
@@ -135,7 +232,14 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (updateError) {
-      return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 })
+      logWorkflowTemplateError('update-step', updateError, {
+        hasActiveParishCookie: Boolean(requestedParishId),
+        hasStepId: Boolean(stepId),
+      })
+      return NextResponse.json(
+        { ok: false, error: 'Could not update workflow step.' },
+        { status: 500 }
+      )
     }
 
     await writeAuditEvent({
@@ -161,7 +265,18 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ ok: true, step: updated })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not update workflow step.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    logWorkflowTemplateError('update-step', error, {
+      hasActiveParishCookie: Boolean(activeParishCookie(request)),
+      hasStepId: Boolean(stepId),
+    })
+    return NextResponse.json(
+      { ok: false, error: 'Could not update workflow step.' },
+      { status: 500 }
+    )
   }
+}
+
+export const workflowTemplateSettingsRouteTestInternals = {
+  activeParishCookie,
+  resolveWorkflowTemplateReadParishId,
 }

@@ -54,6 +54,58 @@ describe('buildCareTimeline', () => {
     expect(events[0]?.label).toBe('Phone call touchpoint')
     expect(events[0]?.detail).toBe('Called family after service.')
   })
+
+  it('encodes staff-facing timeline links and falls back for blank ids', () => {
+    const events = buildCareTimeline({
+      requests: [
+        {
+          id: 'request with/slash?query',
+          request_type: 'funeral',
+          status: 'in_progress',
+          created_at: '2026-06-01T12:00:00.000Z',
+          next_follow_up_date: '2026-06-02',
+        },
+      ],
+      records: [
+        {
+          id: 'record with/slash?query',
+          record_type: 'baptism',
+          created_at: '2026-06-03T12:00:00.000Z',
+        },
+      ],
+      communications: [
+        {
+          id: 'comm-blank-request',
+          requestId: '   ',
+          requestLabel: 'Funeral',
+          contacted_at: '2026-06-04T12:00:00.000Z',
+          method: 'phone',
+        },
+      ],
+      households: [
+        {
+          householdId: 'household with/slash?query',
+          householdName: 'Santos Household',
+          relationship: 'member',
+          isPrimaryContact: false,
+        },
+      ],
+    })
+
+    expect(events.find((event) => event.kind === 'request')?.href).toBe(
+      '/dashboard/requests/request%20with%2Fslash%3Fquery'
+    )
+    expect(events.find((event) => event.kind === 'follow_up')?.href).toBe(
+      '/dashboard/requests/request%20with%2Fslash%3Fquery#next-follow-up'
+    )
+    expect(events.find((event) => event.kind === 'record')?.href).toBe(
+      '/dashboard/records/record%20with%2Fslash%3Fquery'
+    )
+    expect(events.find((event) => event.kind === 'communication')?.href).toBe('/dashboard/requests')
+    expect(events.find((event) => event.kind === 'household')?.href).toBe(
+      '/dashboard/households/household%20with%2Fslash%3Fquery'
+    )
+  })
 })
 
 describe('buildPersonCareTimeline', () => {
@@ -169,6 +221,18 @@ describe('buildHouseholdCareTimeline', () => {
       tone: 'warning',
     })
     expect(timeline.nextAction.href).toBe('/dashboard/households/household-1/edit')
+  })
+
+  it('encodes household edit next-action links', () => {
+    const timeline = buildHouseholdCareTimeline({
+      householdId: 'household with/slash?query',
+      memberCount: 0,
+      primaryContactCount: 0,
+    })
+
+    expect(timeline.nextAction.href).toBe(
+      '/dashboard/households/household%20with%2Fslash%3Fquery/edit'
+    )
   })
 
   it('keeps urgent request care ahead of household cleanup', () => {

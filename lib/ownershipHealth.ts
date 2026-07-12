@@ -10,6 +10,7 @@ import {
   type StaffCommandCenterRequest,
   type StaffCommandCenterRow,
 } from '@/lib/staffCommandCenter'
+import { safeDashboardHref } from '@/lib/safeDashboardHref'
 
 export type OwnershipHealthTone = 'urgent' | 'warning' | 'steady'
 
@@ -99,7 +100,7 @@ export function buildOwnershipHealth(
       detail: first
         ? `${requestTypeLabel(first)} for ${requestTitle(first)} needs an owner before routine work.`
         : 'Urgent requests need clear ownership before routine work.',
-      href: first?.detailHref,
+      href: safeDashboardHref(first?.detailHref),
       actionLabel: 'Assign owner',
     })
   } else if (unassignedOpen > 0) {
@@ -109,7 +110,7 @@ export function buildOwnershipHealth(
       tone: 'warning',
       title: `Assign ${plural(unassignedOpen, 'open request')}`,
       detail: 'Unassigned requests are the most likely to get lost during a busy parish day.',
-      href: first?.detailHref,
+      href: safeDashboardHref(first?.detailHref),
       actionLabel: first ? 'Review assignment' : undefined,
     })
   }
@@ -132,7 +133,7 @@ export function buildOwnershipHealth(
       tone: row.workflow.urgency === 'overdue' ? 'urgent' : 'warning',
       title: `${row.ownerLabel} has urgent follow-up`,
       detail: `${requestTypeLabel(row)} for ${requestTitle(row)}: ${row.workflow.nextStepTitle}.`,
-      href: row.detailHref,
+      href: safeDashboardHref(row.detailHref),
       actionLabel: row.workflow.recommendedActionLabel,
     })
   }

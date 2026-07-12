@@ -65,5 +65,6 @@ export type GlobalSearchLoadResult = {
   sanitizedQuery: string | null
   raw: GlobalSearchRawData
   errorMessage: string
+  warningMessage: string
   totalCount: number
 }

@@ -1,0 +1,1576 @@
+# Production Release Readiness Local Evidence - Completed
+
+Current decision state: `LOCAL RELEASE READINESS EVIDENCE COMPLETED; PRODUCTION-SENSITIVE FEATURES REMAIN NO-GO`
+
+Date captured: 2026-07-07
+
+Related checklist: `docs/PRODUCTION_RELEASE_READINESS_LOCAL_VERIFICATION_20260706.md`
+
+Related validator: `docs/PRODUCTION_RELEASE_READINESS_LOCAL_EVIDENCE_VALIDATOR_20260706.md`
+
+Related sanitized example: `docs/PRODUCTION_RELEASE_READINESS_LOCAL_EVIDENCE_VALIDATED_EXAMPLE_20260706.md`
+
+## Purpose
+
+This file captures a label-only record of the local release-readiness checks run during the 2026-07-07 Codex production-readiness session.
+
+This file was refreshed later in the same session after dashboard error redaction and related safe-logging hardening. It was refreshed again on 2026-07-08 after completed-evidence checker safety-boundary alignment, release environment cleanup-guide evidence support, and the Windows command adapter correction. The refreshed one-command local release runner returned `LOCAL_RELEASE_READINESS_PASSED`.
+
+This evidence is not a release approval, deployment record, production smoke record, production RLS approval, production export approval, production monitoring approval, public trust-center approval, or customer-facing claim.
+
+## 2026-07-11 Full Local Release Readiness Refresh
+
+This refresh supersedes earlier local command counts for the current worktree. It was captured after membership-aware proxy authorization, authenticated shared-QA proxy smoke, login/native-form fallback hardening, and the membership-aware RLS engineering/QA technical approval record.
+
+- Initial current-shell decision: `REFUSED_SENSITIVE_RUNTIME_FLAGS`.
+- Initial residue category: AI summary non-production QA runtime and acknowledgement variables.
+- Raw values or secrets printed: `NO`; variable names and safe classifications only.
+- Cleanup scope: child release-runner process only.
+- User or machine environment changed: `NO`.
+- Repository environment files changed: `NO`.
+- Process-clean environment decision: `RELEASE_READINESS_ENVIRONMENT_ACCEPTED`.
+- RLS evidence: `RLS_PRODUCTION_EVIDENCE_READY_FOR_FINAL_HUMAN_REVIEW`; 34 of 34 artifacts present; findings `0`; production approved `NO`.
+- Monitoring evidence: `PRODUCTION_MONITORING_EVIDENCE_READY_FOR_RUNTIME_APPROVAL_REVIEW`; 20 of 20 artifacts present; runtime implemented `NO`; findings `0`.
+- Production gates: `BOUNDARIES_READY_FOR_REVIEW`; 15 of 15 artifacts present; all gates locked; findings `0`.
+- CSP evidence: `CSP_REPORT_ONLY_EVIDENCE_READY_FOR_REVIEW`; production CSP approved `NO`; findings `0`.
+- Trust claims: `PUBLIC_CLAIMS_BOUNDARIES_READY_FOR_REVIEW`; public claims approved `NO`; findings `0`.
+- Release handoff: `RELEASE_HANDOFF_READY_FOR_REVIEW`; 141 of 141 artifacts present; 16 CI commands; 15 locked gates; 20 human-review boundaries; findings `0`.
+- TypeScript production/source scope: `PASS`.
+- TypeScript all-file scope: `PASS`.
+- ESLint quiet mode: `PASS`.
+- Full Vitest: `PASS`; 806 test files and 3,429 tests.
+- Next.js production build: `PASS`; Next.js `16.2.10`.
+- Final runner decision: `LOCAL_RELEASE_READINESS_PASSED`.
+- Repository secret scan, captured in the same work session: 2,133 text files; 26 binary files skipped; findings `0`.
+- Live npm advisory audit, captured in the same work session: 575 dependencies; vulnerabilities `0` at every severity.
+- Production accessed, migrations applied, operational RLS changed, records mutated, exports run, AI called, storage accessed, signed URLs created, communications sent, certificates generated, Google Calendar touched, or public claims made: `NO`.
+- Production-sensitive features or public claims approved by this evidence: `NO`.
+
+Remaining hard gates are human/operational: immutable production-intended Git commit, named product/security/rollback/monitoring/support/evidence owners, exact production-safe fixtures and target labels, approved rollout window, pre/post production smoke, and explicit production approval.
+
+## Evidence Header
+
+- Evidence file name: `docs/PRODUCTION_RELEASE_READINESS_LOCAL_EVIDENCE_20260707_COMPLETED.md`
+- Evidence captured by: Codex local repository reviewer label
+- Evidence captured at: 2026-07-07 local verification session label
+- Repository branch label: `main`
+- Commit label or short SHA: `f5ee00b`
+- Worktree status label: Dirty worktree with ongoing Vinea development changes
+- Review purpose: Local production-readiness engineering review
+- Related approval packet, if any: None; production-sensitive approvals remain separate
+- Production-sensitive feature under review, if any: Repository release-readiness checks only
+
+## Environment Identity
+
+- Environment type: `LOCAL_REPOSITORY_ONLY`
+- Production access used: `NO`
+- Production flags enabled: `NO`
+- Migrations applied: `NO`
+- Operational RLS changed: `NO`
+- Records mutated: `NO`
+- External services called: `NO`
+- Browser/manual QA included in this evidence: `NO`
+
+## Command Results
+
+| Order | Command | Status | Sanitized notes |
+|---:|---|---|---|
+| 1 | `npm run check:release-env` | `PASS` | Returned `RELEASE_READINESS_ENVIRONMENT_ACCEPTED` after clearing non-production QA runtime flags from the command process only; production-sensitive runtime flags disabled for the release check. |
+| 2 | `npm run check:rls-production-evidence` | `PASS` | Returned `RLS_PRODUCTION_EVIDENCE_READY_FOR_FINAL_HUMAN_REVIEW`; production RLS rollout, migrations, and operational RLS changes remained false; findings count `0`. |
+| 3 | `npm run check:production-monitoring-evidence` | `PASS` | Returned `PRODUCTION_MONITORING_EVIDENCE_READY_FOR_RUNTIME_APPROVAL_REVIEW`; runtime monitoring, external sends, production smoke, and public trust claims remained false; findings count `0`. |
+| 4 | `npm run check:production-gates` | `PASS` | Returned `BOUNDARIES_READY_FOR_REVIEW`; artifact count `14`; linked artifact count `14`; existing artifact count `14`; findings count `0`; sensitive approvals remained false. |
+| 5 | `npm run check:csp-report-only` | `PASS` | Returned `CSP_REPORT_ONLY_EVIDENCE_READY_FOR_REVIEW`; report-only runtime, production CSP, enforcing CSP, and public trust claims remained false; findings count `0`. |
+| 6 | `npm run check:trust-center-claims` | `PASS` | Returned `PUBLIC_CLAIMS_BOUNDARIES_READY_FOR_REVIEW`; public trust-center publishing and public claims remained false; findings count `0`. |
+| 7 | `npm run check:release-handoff` | `PASS` | Returned `RELEASE_HANDOFF_READY_FOR_REVIEW`; artifact count `28`; locked gate count `14`; human review boundary count `17`; findings count `0`. |
+| 8 | `npm run typecheck` | `PASS` | Production/source TypeScript check completed successfully. |
+| 9 | `npm run typecheck:all` | `PASS` | All-file TypeScript check completed successfully. |
+| 10 | `npm run lint -- --quiet` | `PASS` | Quiet lint completed successfully. |
+| 11 | `npm test` | `PASS` | Full Vitest completed successfully: 544 test files, 2,172 tests. |
+| 12 | `npm run build` | `PASS` | Next.js production build completed successfully with Next.js `16.2.2`. |
+
+## One-Command Runner Result
+
+- Command label: `npm run check:release-local`
+- Decision label: `LOCAL_RELEASE_READINESS_PASSED`
+- Command count: `12`
+- Production-sensitive features approved: `NO`
+- Public trust claims approved: `NO`
+- Raw output or secrets captured: `NO`
+- Latest full local release checklist rerun after material changes: `YES`
+- Latest full local release checklist captured at: 2026-07-08 local verification session label
+- Sandbox note: an earlier sandboxed attempt reached `npm test` and failed with a local child-process filesystem permission error before evidence capture. The command was rerun through the approved non-production local verification path and passed. The sandbox-only failure did not access production, did not mutate records, and is not treated as release evidence.
+
+## Required Sanitized Outputs
+
+### Release Environment Guard
+
+- Decision label: `RELEASE_READINESS_ENVIRONMENT_ACCEPTED`
+- Production-sensitive runtime flags enabled: `NO`
+- QA/prototype ACK or ENV residue configured: `NO`
+- If refused, variable names only: Not applicable
+- Raw values captured: `NO`
+
+Schema refresh note: on 2026-07-08 the release evidence schema was strengthened to record QA/prototype `_ACK` and `_ENV` residue separately. A clean child-process `check:release-env` run returned `RELEASE_READINESS_ENVIRONMENT_ACCEPTED` after clearing lingering AI summary QA runtime and ACK values for that process only. The full July 7 local release evidence remains historical evidence; the current superseding local release runner refresh is recorded below and should be rerun after later material changes.
+
+### Optional Release Environment Cleanup Guide Evidence
+
+- Release environment cleanup guide decision: `RELEASE_ENV_CLEANUP_GUIDE_READY`
+- Cleanup performed for full release runner: `process_scope`
+- Cleanup guide mutated environment automatically: `NO`
+- Cleanup guide secret values printed: `NO`
+- Variables reported by name only: `YES`
+- Raw values captured in cleanup evidence: `NO`
+- Cleanup evidence note: lingering AI summary QA/prototype variables were cleared only from the release-runner command process before the full local checklist was rerun. No user-scope or machine-scope environment values were changed by this evidence.
+
+### 2026-07-08 Full Local Release Runner Refresh - Cleanup-Guide Evidence And Windows Adapter
+
+This full release-runner refresh supersedes the earlier 2026-07-08 focused gate-count recheck and the earlier 25-artifact handoff package. It was captured after the release cleanup-guide evidence fields were added and after the Windows command adapter was corrected to launch child npm commands through `cmd.exe /d /c npm.cmd ...` with `shell: false`.
+
+- `npm.cmd run check:release-env-cleanup-guide`: `PASS`; decision `RELEASE_ENV_CLEANUP_GUIDE_READY`; variables reported by name only `YES`; mutates environment `NO`; secret values printed `NO`.
+- `npm.cmd run check:release-local`: `PASS`; decision `LOCAL_RELEASE_READINESS_PASSED`; command count `12`; production-sensitive features approved `NO`; public trust claims approved `NO`.
+- `npm.cmd run check:production-gates`: `PASS`; decision `BOUNDARIES_READY_FOR_REVIEW`; artifact count `14`; linked artifact count `14`; existing artifact count `14`; findings count `0`.
+- `npm.cmd run check:release-handoff`: `PASS`; decision `RELEASE_HANDOFF_READY_FOR_REVIEW`; release-handoff artifact count `28`; existing artifact count `28`; locked gate count `14`; human review boundary count `17`; findings count `0`.
+- Full Vitest completed successfully: 544 test files, 2,172 tests.
+- `npm.cmd run build`: `PASS`; Next.js production build completed successfully with Next.js `16.2.2`.
+- Production approval granted by this full refresh: `NO`
+- Raw output or secrets captured: `NO`
+- Fresh full local release checklist still required before any future release handoff after later material changes: `YES`
+
+## 2026-07-09 Fresh Full Local Release Readiness Refresh
+
+This addendum records a fresh execution of the complete 12-command local release-readiness runner after the proxy-auth handoff bundle was added.
+
+- Initial `npm.cmd run check:release-env` decision: `REFUSED_SENSITIVE_RUNTIME_FLAGS`
+- Initial residue category: `AI summary non-production QA runtime and acknowledgement variables`
+- Initial residue variable count: `8`
+- Secret or raw environment values printed: `NO`
+- Cleanup guide decision: `RELEASE_ENV_CLEANUP_GUIDE_READY`
+- Cleanup performed for full release runner: `process_scope`
+- Windows user-scope environment changed: `NO`
+- Repository environment file changed: `NO`
+- Sanitized runner environment decision: `RELEASE_READINESS_ENVIRONMENT_ACCEPTED`
+- RLS evidence decision: `RLS_PRODUCTION_EVIDENCE_READY_FOR_FINAL_HUMAN_REVIEW`; artifact count `34`; existing artifact count `34`; findings count `0`; production RLS approved `NO`.
+- Production monitoring evidence decision: `PRODUCTION_MONITORING_EVIDENCE_READY_FOR_RUNTIME_APPROVAL_REVIEW`; artifact count `20`; existing artifact count `20`; findings count `0`; runtime monitoring implemented `NO`.
+- Production gate decision: `BOUNDARIES_READY_FOR_REVIEW`; artifact count `15`; existing artifact count `15`; findings count `0`.
+- CSP evidence decision: `CSP_REPORT_ONLY_EVIDENCE_READY_FOR_REVIEW`; artifact count `8`; existing artifact count `8`; findings count `0`; production CSP approved `NO`.
+- Trust-center decision: `PUBLIC_CLAIMS_BOUNDARIES_READY_FOR_REVIEW`; trust area count `11`; findings count `0`; public claims approved `NO`.
+- Release handoff decision: `RELEASE_HANDOFF_READY_FOR_REVIEW`; release-handoff artifact count `33`; existing artifact count `33`; locked gate count `15`; human review boundary count `20`; findings count `0`.
+- `npm run typecheck`: `PASS`
+- `npm run typecheck:all`: `PASS`
+- `npm run lint -- --quiet`: `PASS`
+- Full Vitest completed successfully: `632` test files, `2,480` tests.
+- Next.js production build: `PASS` with Next.js `16.2.2`.
+- Full runner decision: `LOCAL_RELEASE_READINESS_PASSED`
+- Production-sensitive features approved by this refresh: `NO`
+- Public trust claims approved by this refresh: `NO`
+- Production accessed, migrations applied, operational RLS changed, records mutated, exports run, AI called, storage accessed, signed URLs created, communications sent, certificates generated, or Google Calendar data touched: `NO`
+
+## 2026-07-09 Dependency Security Remediation Recheck
+
+- Initial production dependency audit: `7` findings, including `2` high-severity findings.
+- Initial complete dependency audit: `6` additional development-tool findings, including `1` critical and `1` high-severity finding.
+- Patched baseline: Next.js `16.2.10`; Resend `6.17.2`; Vitest `3.2.6`; PostCSS `8.5.10`; `ws` `8.21.0`; `qs` `6.15.3`.
+- Complete dependency audit after remediation: `0` known vulnerabilities.
+- Production-only dependency audit after remediation: `0` known vulnerabilities.
+- Post-remediation full runner decision: `LOCAL_RELEASE_READINESS_PASSED`.
+- Post-remediation full Vitest result: `632` test files, `2,480` tests passed.
+- Post-remediation Next.js production build: `PASS` with Next.js `16.2.10`.
+- Production-sensitive features approved by this remediation: `NO`.
+- Public trust claims approved by this remediation: `NO`.
+
+## 2026-07-09 CI Dependency Security Gate Addendum
+
+- Required CI dependency command: `npm run check:dependency-security`.
+- CI dependency audit placement: after `npm ci` and before `npm test`.
+- Complete dependency audit at gate introduction: `0` known vulnerabilities.
+- Release handoff artifact count after dependency baseline linkage: `34`.
+- Release handoff CI command count after audit gate: `15`.
+- Release handoff local command count remains: `12`.
+- Release handoff findings count: `0`.
+- Production-sensitive features approved by this CI gate: `NO`.
+- Public trust claims approved by this CI gate: `NO`.
+
+## 2026-07-09 Repository Secret Scanning Gate Addendum
+
+- Repository secret scan decision: `REPOSITORY_SECRET_SCAN_PASSED`.
+- Scanner value policy: `file-path-rule-id-and-line-only`.
+- Matched secret values printed: `NO`.
+- Text files scanned at evidence capture: `1749`.
+- Binary files safely skipped at evidence capture: `26`.
+- Finding file count: `0`.
+- Release handoff artifact count after scanner bundle linkage: `37`.
+- Release handoff CI command count after scanner gate: `16`.
+- Production-sensitive features approved by this scanner gate: `NO`.
+- Public trust claims approved by this scanner gate: `NO`.
+
+### 2026-07-08 Full Local Release Runner Refresh - Offline Font Boundary And Nested Vitest Loader
+
+This full release-runner refresh supersedes the earlier 2026-07-08 runner refresh for current code. It was captured after the root layout stopped importing `next/font/google`, after system font variables were defined locally, after the Vitest config became ESM-safe, and after the release runner started invoking nested Vitest with the ESM-safe config loader while preserving the documented `npm test` checklist label.
+
+- `npm.cmd run check:release-local`: `PASS`; decision `LOCAL_RELEASE_READINESS_PASSED`; command count `12`; production-sensitive features approved `NO`; public trust claims approved `NO`.
+- `npm run check:release-env`: `PASS`; decision `RELEASE_READINESS_ENVIRONMENT_ACCEPTED`; production-sensitive runtime flags enabled `NO`; raw values captured `NO`.
+- `npm run check:rls-production-evidence`: `PASS`; decision `RLS_PRODUCTION_EVIDENCE_READY_FOR_FINAL_HUMAN_REVIEW`; ready for production rollout `NO`; migrations applied `NO`; operational RLS changed `NO`; findings count `0`.
+- `npm run check:production-monitoring-evidence`: `PASS`; decision `PRODUCTION_MONITORING_EVIDENCE_READY_FOR_RUNTIME_APPROVAL_REVIEW`; production monitoring enabled `NO`; external monitoring send enabled `NO`; findings count `0`.
+- `npm run check:production-gates`: `PASS`; decision `BOUNDARIES_READY_FOR_REVIEW`; artifact count `14`; linked artifact count `14`; existing artifact count `14`; findings count `0`.
+- `npm run check:csp-report-only`: `PASS`; decision `CSP_REPORT_ONLY_EVIDENCE_READY_FOR_REVIEW`; report-only runtime approved `NO`; production CSP approved `NO`; findings count `0`.
+- `npm run check:trust-center-claims`: `PASS`; decision `PUBLIC_CLAIMS_BOUNDARIES_READY_FOR_REVIEW`; public trust-center publishing approved `NO`; public claims approved `NO`; findings count `0`.
+- `npm run check:release-handoff`: `PASS`; decision `RELEASE_HANDOFF_READY_FOR_REVIEW`; release-handoff artifact count `29`; existing artifact count `29`; locked gate count `14`; human review boundary count `17`; findings count `0`.
+- `npm run typecheck`: `PASS`; production/source TypeScript check completed successfully.
+- `npm run typecheck:all`: `PASS`; all-file TypeScript check completed successfully.
+- `npm run lint -- --quiet`: `PASS`; quiet lint completed successfully.
+- Full Vitest completed successfully: 571 test files, 2,275 tests.
+- `npm run build`: `PASS`; Next.js production build completed successfully with Next.js `16.2.2`; build no longer required a Google Fonts network fetch.
+- Production approval granted by this offline font boundary refresh: `NO`
+- Raw output or secrets captured: `NO`
+- Fresh full local release checklist still required before any future release handoff after later material changes: `YES`
+
+### 2026-07-08 Focused Gate Count Recheck
+
+This focused recheck was added after the production-sensitive boundary expanded to include the AI reply audit-write and safe-response production boundary. It was superseded by the 2026-07-08 full local release checklist rerun above after the completed-evidence checker safety-boundary alignment.
+
+- `npm.cmd run check:production-gates`: `PASS`; decision `BOUNDARIES_READY_FOR_REVIEW`; artifact count `14`; findings count `0`; production-sensitive features approved `NO`; public trust claims approved `NO`.
+- `npm.cmd run check:release-handoff`: `PASS`; decision `RELEASE_HANDOFF_READY_FOR_REVIEW`; artifact count `28`; locked gate count `14`; Human review boundary count: `17`; findings count `0`; production-sensitive features approved `NO`; public trust claims approved `NO`.
+- Raw output or secrets captured: `NO`
+- Production approval granted by this focused recheck: `NO`
+- Fresh full local release checklist still required before any future release handoff after later material changes: `YES`
+
+### RLS Production Evidence Check
+
+- Decision label: `RLS_PRODUCTION_EVIDENCE_READY_FOR_FINAL_HUMAN_REVIEW`
+- RLS production evidence decision: `RLS_PRODUCTION_EVIDENCE_READY_FOR_FINAL_HUMAN_REVIEW`
+- Ready for production rollout: `NO`
+- RLS production rollout approved: `NO`
+- Production RLS approved: `NO`
+- Migrations applied: `NO`
+- Operational RLS changed: `NO`
+- Findings count: `0`
+- Raw labels or secrets captured: `NO`
+
+### Production Monitoring Evidence Check
+
+- Decision label: `PRODUCTION_MONITORING_EVIDENCE_READY_FOR_RUNTIME_APPROVAL_REVIEW`
+- Production monitoring enabled: `NO`
+- Production smoke approved: `NO`
+- Public trust claims approved: `NO`
+- External monitoring send enabled: `NO`
+- Runtime monitoring implemented: `NO`
+- Findings count: `0`
+- Raw labels or secrets captured: `NO`
+
+### Production Gate Boundary Check
+
+- Decision label: `BOUNDARIES_READY_FOR_REVIEW`
+- Production-sensitive features approved: `NO`
+- Public trust claims approved: `NO`
+- Artifact count: `14`
+- Linked artifact count: `14`
+- Existing artifact count: `14`
+- Findings count: `0`
+- Raw labels or secrets captured: `NO`
+
+### CSP Report-Only Evidence Check
+
+- Decision label: `CSP_REPORT_ONLY_EVIDENCE_READY_FOR_REVIEW`
+- CSP report-only evidence decision: `CSP_REPORT_ONLY_EVIDENCE_READY_FOR_REVIEW`
+- Report-only runtime approved: `NO`
+- Production CSP approved: `NO`
+- Enforcing CSP approved: `NO`
+- Public trust claims approved: `NO`
+- Findings count: `0`
+- Raw labels or secrets captured: `NO`
+
+### Trust Center Public Claims Boundary Check
+
+- Decision label: `PUBLIC_CLAIMS_BOUNDARIES_READY_FOR_REVIEW`
+- Public trust-center publishing approved: `NO`
+- Public claims approved: `NO`
+- Findings count: `0`
+- Raw labels or secrets captured: `NO`
+
+### Release Handoff Consistency Check
+
+- Decision label: `RELEASE_HANDOFF_READY_FOR_REVIEW`
+- Production-sensitive features approved: `NO`
+- Public trust claims approved: `NO`
+- Artifact count: `28`
+- Locked gate count: `14`
+- Human review boundary count: `17`
+- Findings count: `0`
+- Raw labels or secrets captured: `NO`
+
+## Forbidden Evidence Content Confirmation
+
+This completed evidence intentionally excludes database URLs, service-role keys, anon keys, API keys, bearer tokens, JWTs, OAuth tokens, refresh tokens, plaintext family portal tokens, signed URL values, storage paths, original filenames, private document contents, raw export contents, raw audit metadata, raw provider payloads, raw production record IDs, staff passwords, and parishioner private contact details.
+
+## Safety Boundary Confirmation
+
+- This evidence did not deploy code.
+- This evidence did not enable production flags.
+- This evidence did not add production flags.
+- This evidence did not access production.
+- This evidence did not apply migrations.
+- This evidence did not change operational RLS.
+- This evidence did not mutate records.
+- This evidence did not touch Google Calendar data.
+- This evidence did not run exports.
+- This evidence did not call AI.
+- This evidence did not access storage.
+- This evidence did not create signed URLs.
+- This evidence did not send communications.
+- This evidence did not generate certificates.
+- This evidence did not make public trust-center claims.
+
+## Manual Follow-Up Still Required
+
+Passing the local checklist does not replace product-owner approval, security/data owner approval, production-safe smoke fixtures, production rollout window approval, rollback owner assignment, monitoring owner assignment, support owner assignment, production-specific smoke evidence, customer communication review, or public trust-center approval.
+
+## Local Evidence Validator Result
+
+The completed label-only evidence shape was validated through `validateReleaseReadinessLocalEvidence(...)` in `lib/server/releaseReadinessLocalEvidenceCompletedEvidence.test.ts`.
+
+| Field | Value |
+|---|---:|
+| `decision` | `READY_FOR_HUMAN_RELEASE_REVIEW` |
+| `readyForHumanReleaseReview` | `true` |
+| `productionApprovalGranted` | `false` |
+| `findings.length` | `0` |
+
+## Final Local Evidence Decision
+
+- Local checklist result: `PASS`
+- Local release-readiness runner decision: `LOCAL_RELEASE_READINESS_PASSED`
+- Ready to request human review: `YES`
+- Production approval granted by this evidence: `NO`
+- Local evidence validator decision: `READY_FOR_HUMAN_RELEASE_REVIEW`
+- Local evidence validator findings count: `0`
+- Remaining blockers: Production-sensitive gates remain subject to separate approval packets, owner sign-offs, production-safe smoke fixtures, rollback planning, monitoring/support ownership, and public trust-center review.
+- Next safe action: Use this evidence as engineering input for human release review or continue safe non-production readiness work.
+
+## 2026-07-08 Proxy Auth Release Handoff Artifact Bundle Addendum
+
+This focused addendum was added after the release handoff map was expanded to include the Next.js proxy staff-auth approval packet, current compatibility boundary, runtime preflight plan, and non-production QA evidence template.
+
+- `npm.cmd run check:release-handoff`: `PASS`; decision `RELEASE_HANDOFF_READY_FOR_REVIEW`; release-handoff artifact count `33`; existing artifact count `33`; locked gate count `15`; human review boundary count `20`; findings count `0`; production-sensitive features approved `NO`; public trust claims approved `NO`.
+- Next.js proxy staff auth artifact bundle linked: `YES`
+- Proxy auth runtime behavior changed by this addendum: `NO`
+- Production dashboard auth changes approved by this addendum: `NO`
+- Raw output or secrets captured: `NO`
+- Fresh full local release checklist still required before any future release handoff after later material changes: `YES`
+
+## 2026-07-09 Supported Node LTS Baseline Addendum
+
+This label-only addendum records the supported runtime baseline after CI and local version guidance moved away from the end-of-life Node.js 20 release line. It does not deploy code or approve any production-sensitive runtime gate.
+
+- Previous CI runtime line: `Node.js 20 EOL`.
+- Supported CI runtime line: `Node.js 24 LTS`.
+- Package engine: `>=24.0.0 <25`.
+- Local version guidance: `.nvmrc` value `24`.
+- Release handoff artifact count after Node baseline linkage: `39`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by this runtime baseline: `NO`.
+- Public trust claims approved by this runtime baseline: `NO`.
+
+## 2026-07-09 Non-Secret Environment Configuration Contract Addendum
+
+This label-only addendum records the committed environment-name contract. Real credentials remain outside source control and all production-sensitive runtime gates remain governed by their separate approval packets.
+
+- Committed environment example: `.env.example`.
+- Filled credential values in committed example: `NO`.
+- Production-sensitive runtime gate assignments in committed example: `NO`.
+- Release handoff artifact count after environment baseline linkage: `41`.
+- Release handoff CI command count remains: `16`.
+- Production environment configured by this contract: `NO`.
+- Production-sensitive features approved by this contract: `NO`.
+- Public trust claims approved by this contract: `NO`.
+
+## 2026-07-09 Immutable CI Action Provenance Addendum
+
+This label-only addendum records that the read-only CI workflow now uses immutable official action commits rather than mutable major-version tags. No deployment capability or production credential was added.
+
+- GitHub Actions references pinned to full commit SHAs: `YES`.
+- Mutable major-version action references remaining: `0`.
+- CI workflow permissions remain: `contents: read`.
+- Release handoff artifact count after CI provenance linkage: `42`.
+- Release handoff CI command count remains: `16`.
+- Deployment capability added by this baseline: `NO`.
+- Production-sensitive features approved by this baseline: `NO`.
+- Public trust claims approved by this baseline: `NO`.
+
+## 2026-07-09 Dependency Update Maintenance Addendum
+
+This label-only addendum records the repository-owned dependency update cadence. Dependabot may propose review pull requests, but it cannot merge, deploy, apply migrations, or approve production-sensitive behavior.
+
+- npm version updates checked weekly: `YES`.
+- GitHub Actions updates checked weekly: `YES`.
+- Automatic merge configured: `NO`.
+- Private registry credentials configured: `NO`.
+- Release handoff artifact count after dependency maintenance linkage: `44`.
+- Release handoff CI command count remains: `16`.
+- Deployment capability added by dependency maintenance: `NO`.
+- Production-sensitive features approved by dependency maintenance: `NO`.
+- Public trust claims approved by dependency maintenance: `NO`.
+
+## 2026-07-09 Public Health Response Safety Addendum
+
+This label-only addendum records the public health response boundary. Existing healthy deployment checks remain available, while production failure details are generic and responses are explicitly uncacheable.
+
+- Healthy production `checks.schema` contract preserved: `YES`.
+- Production unhealthy error label: `unhealthy`.
+- Missing schema labels exposed in production failures: `NO`.
+- Required environment variable names exposed in production failures: `NO`.
+- Health response cache policy: `no-store, max-age=0`.
+- Health rate-limit readiness probe mutates durable buckets: `NO`.
+- Expected validation-only RPC error code: `P0001`.
+- Unexpected RPC errors treated as healthy: `NO`.
+- Release handoff artifact count after health safety linkage: `45`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by health safety: `NO`.
+- Public trust claims approved by health safety: `NO`.
+
+## 2026-07-09 Demo Request Durable Rate Limit Addendum
+
+This label-only addendum records durable abuse protection for the public demo-request email route. It does not record a production send or expose a submitted address, provider payload, key, or database value.
+
+- Durable demo-request rate limiting enabled: `YES`.
+- Demo-request limit: `5 attempts per 15 minutes per client IP`.
+- Rate limit runs before request body parsing and email delivery: `YES`.
+- Limiter failure behavior: `fail-closed 503`.
+- Limit exceeded behavior: `429 with Retry-After`.
+- Email sent after limiter denial or failure: `NO`.
+- Release handoff artifact count after demo rate-limit linkage: `46`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by demo rate limiting: `NO`.
+- Public trust claims approved by demo rate limiting: `NO`.
+
+## 2026-07-09 Request Notifications Durable Rate Limit Addendum
+
+This label-only addendum records durable abuse protection for the public request-notification email route. Existing stored-request/contact verification and selected-parish recipient selection remain required after the limiter.
+
+- Durable request-notification rate limiting enabled: `YES`.
+- Request-notification limit: `10 attempts per minute per client IP`.
+- Rate limit runs before body parsing, identity verification, and email delivery: `YES`.
+- Request identity verification preserved after rate limiting: `YES`.
+- Verified-parish recipient selection preserved: `YES`.
+- Email sent after notification limiter denial or failure: `NO`.
+- Release handoff artifact count after notification rate-limit linkage: `47`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by notification rate limiting: `NO`.
+- Public trust claims approved by notification rate limiting: `NO`.
+
+## 2026-07-09 Family Portal Document Upload Durable Rate Limit Addendum
+
+This label-only addendum records durable abuse protection for family document uploads. It does not contain a raw portal token, request identifier, storage path, filename, signed URL, or private document content.
+
+- Durable family upload rate limiting enabled: `YES`.
+- Family upload limit: `20 attempts per 15 minutes per client IP`.
+- Portal token material included in rate-limit key: `NO`.
+- Rate limit runs before portal lookup, form parsing, storage, metadata, and audit writes: `YES`.
+- Storage accessed after family upload limiter denial or failure: `NO`.
+- Document metadata or audit event written after limiter denial or failure: `NO`.
+- Release handoff artifact count after family upload rate-limit linkage: `48`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by family upload rate limiting: `NO`.
+- Public trust claims approved by family upload rate limiting: `NO`.
+
+## 2026-07-09 Public JSON Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for Vinea's anonymous public intake, demo-request, and request-notification POST routes. It does not record or expose a submitted body, contact detail, request identifier, routing token, provider payload, or credential.
+
+- Public JSON body size boundary implemented: `YES`.
+- Public intake JSON limit: `64 KiB`.
+- Demo-request JSON limit: `32 KiB`.
+- Request-notification JSON limit: `32 KiB`.
+- Actual streamed bytes checked when `Content-Length` is absent or misleading: `YES`.
+- Direct `request.json()` calls remaining in the three protected routes: `0`.
+- Durable rate limiting runs before bounded body parsing: `YES`.
+- Downstream database, verification, audit, or email work after oversized rejection: `NO`.
+- Release handoff artifact count after public JSON boundary linkage: `49`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by the public JSON boundary: `NO`.
+- Public trust claims approved by the public JSON boundary: `NO`.
+- Focused public JSON boundary verification: `12 test files / 59 tests passed`.
+- Full Vitest regression suite after the boundary: `643 test files / 2,529 tests passed`.
+- Production/source TypeScript, all-file TypeScript, and quiet lint: `PASS`.
+- Repository secret scan after the boundary: `1,771 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Next.js production build after the boundary: `PASS` with Next.js `16.2.10`.
+
+## 2026-07-09 Staff Email Send Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for the authenticated staff email-send route. It does not record a recipient, subject, message body, provider payload, provider identifier, staff identity, or credential.
+
+- Staff email send body size boundary implemented: `YES`.
+- Staff email JSON limit: `128 KiB`.
+- Staff authorization runs before bounded body parsing: `YES`.
+- Malformed JSON response: `generic 400`.
+- Oversized JSON response: `generic 413`.
+- Email provider constructed or called after malformed/oversized rejection: `NO`.
+- Direct `request.json()` calls remaining in the staff email route: `0`.
+- Release handoff artifact count after staff email boundary linkage: `50`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by the staff email boundary: `NO`.
+- Public trust claims approved by the staff email boundary: `NO`.
+- Focused staff email and release evidence verification: `7 test files / 25 tests passed`.
+- Full Vitest regression suite after the staff email boundary: `643 test files / 2,533 tests passed`.
+- All-file TypeScript and quiet lint after the staff email boundary: `PASS`.
+- Next.js production build after the staff email boundary: `PASS` with Next.js `16.2.10`.
+
+## 2026-07-09 Google Calendar Event Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for the staff-only Google Calendar event create, update, and delete routes. It does not record a calendar id, event id, request id, parish id, staff identity, OAuth value, provider payload, or credential.
+
+- Google Calendar event body size boundary implemented: `YES`.
+- Google Calendar event JSON limit: `16 KiB`.
+- Staff authentication runs before bounded body parsing: `YES`.
+- Active-parish, request-ownership, and selected-calendar checks preserved: `YES`.
+- Malformed JSON response: `generic 400`.
+- Oversized JSON response: `generic 413`.
+- Google Calendar event created, updated, or deleted during verification: `NO`.
+- Release handoff artifact count after Google Calendar body boundary linkage: `51`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by the Google Calendar body boundary: `NO`.
+- Public trust claims approved by the Google Calendar body boundary: `NO`.
+
+## 2026-07-09 AI Route Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for the authenticated AI summary and reply routes. It does not record a staff identity, parish/request id, prompt, output, source content, provider payload, token count, model response, or credential.
+
+- AI route body size boundary implemented: `YES`.
+- AI route JSON limit: `256 KiB`.
+- Staff authentication runs before bounded AI body parsing: `YES`.
+- Existing AI safety-chain gates preserved before OpenAI: `YES`.
+- Malformed JSON response: `generic 400`.
+- Oversized JSON response: `generic 413`.
+- OpenAI called during boundary verification: `NO`.
+- Release handoff artifact count after AI body boundary linkage: `52`.
+- Release handoff CI command count remains: `16`.
+- Production AI flags enabled or approved by the body boundary: `NO`.
+- Public trust claims approved by the AI body boundary: `NO`.
+- Focused AI and release evidence verification: `13 test files / 66 tests passed`.
+- Full Vitest regression suite after the AI body boundary: `645 test files / 2,540 tests passed`.
+- All-file TypeScript and quiet lint after the AI body boundary: `PASS`.
+- Repository secret scan after the AI body boundary: `1,776 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Next.js production build after the AI body boundary: `PASS` with Next.js `16.2.10`.
+
+## 2026-07-09 Request Communication Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for staff communication logging. It does not record a request id, parish id, staff identity, contact detail, communication note, timestamp, or private request content.
+
+- Request communication body size boundary implemented: `YES`.
+- Request communication JSON limit: `64 KiB`.
+- Staff authentication runs before bounded communication body parsing: `YES`.
+- Active-parish request ownership runs before communication writes: `YES`.
+- Malformed JSON response remains: `generic invalid communication log`.
+- Oversized JSON response: `generic 413`.
+- Communication row or request summary written after rejected body: `NO`.
+- Release handoff artifact count after request communication boundary linkage: `53`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by the request communication boundary: `NO`.
+- Public trust claims approved by the request communication boundary: `NO`.
+- Focused request communication and release evidence verification: `8 test files / 28 tests passed`.
+- Full Vitest regression suite after the request communication boundary: `645 test files / 2,541 tests passed`.
+- All-file TypeScript and quiet lint after the request communication boundary: `PASS`.
+- Next.js production build after the request communication boundary: `PASS` with Next.js `16.2.10`.
+
+## 2026-07-09 Request Text Mutation Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for staff notes, saved AI summary text, and reply draft persistence. It does not record a request id, parish id, staff identity, staff note, summary, draft, prompt, output, or private request content.
+
+- Request text mutation body size boundary implemented: `YES`.
+- Request text mutation JSON limit: `256 KiB`.
+- Staff authentication runs before bounded request text parsing: `YES`.
+- Active-parish request ownership runs before request text updates: `YES`.
+- Malformed JSON response remains: `generic route-specific invalid update`.
+- Oversized JSON response: `generic 413`.
+- Staff notes, saved AI summary, or reply draft updated after rejected body: `NO`.
+- Release handoff artifact count after request text boundary linkage: `54`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by the request text boundary: `NO`.
+- Public trust claims approved by the request text boundary: `NO`.
+
+## 2026-07-09 Request Schedule Mutation Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for suggested and confirmed request scheduling routes. It does not record a request id, parish id, staff identity, date value, request detail, or private calendar content.
+
+- Request schedule mutation body size boundary implemented: `YES`.
+- Request schedule mutation JSON limit: `32 KiB`.
+- Staff authentication runs before bounded schedule parsing: `YES`.
+- Active-parish ownership and request-type checks remain before schedule writes: `YES`.
+- Malformed JSON response remains: `generic route-specific invalid update`.
+- Oversized JSON response: `generic 413`.
+- Suggested or confirmed date updated after rejected body: `NO`.
+- Release handoff artifact count after request schedule boundary linkage: `55`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by the request schedule boundary: `NO`.
+- Public trust claims approved by the request schedule boundary: `NO`.
+
+## 2026-07-09 Request Pastoral Detail Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for Funeral and Wedding request-detail saves. It does not record a request id, parish id, staff identity, Funeral/Wedding detail, date, pastoral note, or private family content.
+
+- Request pastoral detail body size boundary implemented: `YES`.
+- Request pastoral detail JSON limit: `128 KiB`.
+- Staff authentication runs before bounded pastoral detail parsing: `YES`.
+- Active-parish ownership and request-type checks remain before detail upserts: `YES`.
+- Malformed JSON response remains: `generic route-specific invalid detail`.
+- Oversized JSON response: `generic 413`.
+- Funeral or Wedding detail read/upsert after rejected body: `NO`.
+- Release handoff artifact count after pastoral detail boundary linkage: `56`.
+- Release handoff CI command count remains: `16`.
+- Production-sensitive features approved by the pastoral detail boundary: `NO`.
+- Public trust claims approved by the pastoral detail boundary: `NO`.
+- Focused pastoral-detail and release-evidence verification: `10 test files / 32 tests passed`.
+- Full Vitest regression suite after the pastoral detail boundary: `648 test files / 2,554 tests passed`.
+- All-file TypeScript and quiet lint after the pastoral detail boundary: `PASS`.
+- Repository secret scan after the pastoral detail boundary: `1,783 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after the pastoral detail boundary: `56 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after the pastoral detail boundary: `258 required phrases / 0 findings`.
+- Next.js production build after the pastoral detail boundary: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-09 Request Workflow Metadata Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for staff checklist-item and request-document review updates. It does not record a request id, parish id, staff identity, checklist label, document metadata, reviewer note, filename, storage path, signed URL, or credential.
+
+- Request workflow metadata body size boundary implemented: `YES`.
+- Request workflow metadata JSON limit: `32 KiB`.
+- Staff authentication runs before bounded workflow metadata parsing: `YES`.
+- Active-parish ownership remains before checklist/document reads and writes: `YES`.
+- Malformed JSON response remains: `generic route-specific invalid update`.
+- Oversized JSON response: `generic 413`.
+- Checklist/document read, update, audit, or storage work after rejected body: `NO`.
+- Release handoff artifact count after workflow metadata boundary linkage: `57`.
+- Production-sensitive features approved by the workflow metadata boundary: `NO`.
+- Public trust claims approved by the workflow metadata boundary: `NO`.
+- Focused workflow metadata and release-evidence verification: `10 test files / 36 tests passed`.
+- Full Vitest regression suite after the workflow metadata boundary: `649 test files / 2,557 tests passed`.
+- All-file TypeScript and quiet lint after the workflow metadata boundary: `PASS`.
+- Repository secret scan after the workflow metadata boundary: `1,785 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after the workflow metadata boundary: `57 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after the workflow metadata boundary: `269 required phrases / 0 findings`.
+- Next.js production build after the workflow metadata boundary: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-09 Parish Administration Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for authenticated parish settings, workflow-template step, and staff-access mutations. It does not record a parish id, staff identity/email, directory value, workflow content, row id, audit payload, or credential.
+
+- Parish administration body size boundary implemented: `YES`.
+- Parish settings JSON limit: `128 KiB`.
+- Workflow-template step JSON limit: `64 KiB`.
+- Staff-access command JSON limit: `16 KiB`.
+- Staff authentication runs before bounded parish administration parsing: `YES`.
+- Active-parish write scope remains before administration reads and writes: `YES`.
+- Parish-admin authorization remains before staff-access writes: `YES`.
+- Malformed JSON response remains: `generic route-specific invalid update`.
+- Oversized JSON response: `generic 413`.
+- Parish/workflow/staff read, mutation, or audit work after rejected body: `NO`.
+- Release handoff artifact count after parish administration boundary linkage: `58`.
+- Production-sensitive features approved by the parish administration boundary: `NO`.
+- Public trust claims approved by the parish administration boundary: `NO`.
+- Focused parish administration and release-evidence verification: `13 test files / 59 tests passed`.
+- Full Vitest regression suite after the parish administration boundary: `650 test files / 2,562 tests passed`.
+- All-file TypeScript and quiet lint after the parish administration boundary: `PASS`.
+- Repository secret scan after the parish administration boundary: `1,787 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after the parish administration boundary: `58 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after the parish administration boundary: `283 required phrases / 0 findings`.
+- Next.js production build after the parish administration boundary: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-09 Audit Events Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for authenticated audit-event POST requests. It does not record a staff identity, parish/request id, action, target, audit metadata, private request content, or credential.
+
+- Audit events body size boundary implemented: `YES`.
+- Audit event JSON limit: `64 KiB`.
+- Staff authentication runs before bounded audit-event parsing: `YES`.
+- Required target validation remains before audit work: `YES`.
+- Active-parish/request ownership and non-request admin checks remain: `YES`.
+- Malformed JSON response remains: `generic invalid request`.
+- Oversized JSON response: `generic 413`.
+- Request/parish resolution or audit write after rejected body: `NO`.
+- Release handoff artifact count after audit-event boundary linkage: `59`.
+- Production-sensitive features approved by the audit-event boundary: `NO`.
+- Public trust claims approved by the audit-event boundary: `NO`.
+- Focused audit route and release-evidence verification: `9 test files / 37 tests passed`.
+- Full Vitest regression suite after the audit-event boundary: `651 test files / 2,565 tests passed`.
+- All-file TypeScript and quiet lint after the audit-event boundary: `PASS`.
+- Repository secret scan after the audit-event boundary: `1,789 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after the audit-event boundary: `59 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after the audit-event boundary: `295 required phrases / 0 findings`.
+- Next.js production build after the audit-event boundary: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-09 Public Intake Routing Admin Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for authenticated public-intake routing domain/token administration. It does not record a staff identity, parish/domain/token id, raw token, token hash, DNS value, audit payload, or credential.
+
+- Public intake routing admin body size boundary implemented: `YES`.
+- Public intake routing admin JSON limit: `32 KiB`.
+- Staff authentication runs before bounded routing-admin parsing: `YES`.
+- Active-parish write scope remains before domain/token work: `YES`.
+- One-time token/hash-only persistence behavior remains unchanged: `YES`.
+- Domain DNS verification behavior remains unchanged: `YES`.
+- Malformed JSON response remains: `generic invalid JSON body`.
+- Oversized JSON response: `generic 413`.
+- Parish scope, token, DNS, row, or audit work after rejected body: `NO`.
+- Runtime public intake routing enabled or approved by this boundary: `NO`.
+- Release handoff artifact count after routing-admin boundary linkage: `60`.
+- Production-sensitive features approved by the routing-admin boundary: `NO`.
+- Public trust claims approved by the routing-admin boundary: `NO`.
+- Focused routing-admin and release-evidence verification: `10 test files / 50 tests passed`.
+- Full Vitest regression suite after the routing-admin boundary: `652 test files / 2,569 tests passed`.
+- All-file TypeScript and quiet lint after the routing-admin boundary: `PASS`.
+- Repository secret scan after the routing-admin boundary: `1,791 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after the routing-admin boundary: `60 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after the routing-admin boundary: `309 required phrases / 0 findings`.
+- Next.js production build after the routing-admin boundary: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-09 Duplicate Merge Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for authenticated People and Household duplicate merges. It does not record a staff identity, parish/person/household id, selected field value, private contact data, audit payload, or credential.
+
+- Duplicate merge body size boundary implemented: `YES`.
+- Duplicate merge JSON limit: `32 KiB`.
+- Staff authentication runs before bounded duplicate-merge parsing: `YES`.
+- Active-parish write scope remains before People/Household work: `YES`.
+- Valid merge selection and mutation behavior remains unchanged: `YES`.
+- Malformed JSON response remains: `generic invalid merge request`.
+- Oversized JSON response: `generic 413`.
+- Entity read, update, repoint, delete, or audit work after rejected body: `NO`.
+- Release handoff artifact count after duplicate-merge boundary linkage: `61`.
+- Production-sensitive features approved by the duplicate-merge boundary: `NO`.
+- Public trust claims approved by the duplicate-merge boundary: `NO`.
+- Focused duplicate-merge and release-evidence verification: `12 test files / 52 tests passed`.
+- Full Vitest regression suite after the duplicate-merge boundary: `653 test files / 2,572 tests passed`.
+- All-file TypeScript and quiet lint after the duplicate-merge boundary: `PASS`.
+- Repository secret scan after the duplicate-merge boundary: `1,793 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after the duplicate-merge boundary: `61 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after the duplicate-merge boundary: `321 required phrases / 0 findings`.
+- Next.js production build after the duplicate-merge boundary: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-09 Imports Body Size Boundary Addendum
+
+This label-only addendum records bounded JSON parsing for authenticated import preview and commit requests. It does not record a staff identity, parish id, filename, spreadsheet row/cell, private contact data, audit payload, or credential.
+
+- Imports body size boundary implemented: `YES`.
+- Import JSON limit: `4 MiB`.
+- Import maximum rows per request remains: `1,000`.
+- Import normalized maximum per cell remains: `2,000 characters`.
+- Staff authentication runs before bounded import parsing: `YES`.
+- Preview active-parish read scope remains: `YES`.
+- Committed import active-parish write scope remains: `YES`.
+- Malformed JSON response remains: `generic invalid import request`.
+- Oversized JSON response: `generic 413 with split-batch guidance`.
+- Import preview, row, batch, or audit work after rejected body: `NO`.
+- Direct request.json calls remaining in API route handlers: `0`.
+- Release handoff artifact count after import boundary linkage: `62`.
+- Production-sensitive features approved by the import boundary: `NO`.
+- Public trust claims approved by the import boundary: `NO`.
+- Focused import and release-evidence verification: `9 test files / 35 tests passed`.
+- Full Vitest regression suite after the import boundary: `654 test files / 2,575 tests passed`.
+- All-file TypeScript and quiet lint after the import boundary: `PASS`.
+- Repository secret scan after the import boundary: `1,795 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after the import boundary: `62 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after the import boundary: `336 required phrases / 0 findings`.
+- Next.js production build after the import boundary: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-09 Duplicate And Import Client Safe Messages Addendum
+
+This label-only addendum records curated staff-visible errors for duplicate review and imports. It does not record an API response body, provider/database error, row value, private contact data, identifier, or credential.
+
+- Duplicate/import client safe messages implemented: `YES`.
+- People duplicate raw API error rendering remains: `NO`.
+- Household duplicate raw API error rendering remains: `NO`.
+- Import preview/commit raw API error rendering remains: `NO`.
+- Approved validation and parish-scope guidance preserved: `YES`.
+- Unexpected backend text replaced by action-specific fallbacks: `YES`.
+- Merge/import runtime behavior changed by client redaction: `NO`.
+- Release handoff artifact count after client redaction linkage: `63`.
+- Production-sensitive features approved by client redaction: `NO`.
+- Public trust claims approved by client redaction: `NO`.
+- Focused client-redaction and release-evidence verification: `11 test files / 33 tests passed`.
+- Full Vitest regression suite after client redaction: `657 test files / 2,582 tests passed`.
+- All-file TypeScript and quiet lint after client redaction: `PASS`.
+- Repository secret scan after client redaction: `1,801 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after client redaction: `63 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after client redaction: `347 required phrases / 0 findings`.
+- Next.js production build after client redaction: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-10 Request-Bound Staff Email Authorization Addendum
+
+This label-only addendum records the staff email authorization boundary. It does not record a staff identity, parish/request/parishioner id, email address, subject, message body, provider payload, or credential.
+
+- Request-bound email authorization implemented: `YES`.
+- Staff authentication and bounded parsing remain before request authorization: `YES`.
+- Selected active-parish membership and same-parish request ownership required: `YES`.
+- Browser-supplied recipient used for delivery: `NO`.
+- Stored request/parishioner recipient used for delivery: `YES`.
+- Provider constructed or called after forged/cross-parish denial: `NO`.
+- Daily Work Hub direct browser post-send database writes remain: `NO`.
+- Both staff callers use active-parish communication logging after delivery: `YES`.
+- Release handoff artifact count after request-bound email linkage: `64`.
+- Production-sensitive features approved by request-bound email authorization: `NO`.
+- Public trust claims approved by request-bound email authorization: `NO`.
+- Focused request-bound email authorization and release-handoff verification: `7 test files / 30 tests passed`.
+- All-file TypeScript after request-bound email authorization: `PASS`.
+- Full Vitest regression suite after request-bound email authorization: `659 test files / 2,593 tests passed`.
+- Quiet lint after request-bound email authorization: `PASS`.
+- Repository secret scan after request-bound email authorization: `1,805 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after request-bound email authorization: `64 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after request-bound email authorization: `359 required phrases / 0 findings`.
+- Next.js production build after request-bound email authorization: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+- Real email sent during verification: `NO`.
+
+## 2026-07-10 Sacramental Record Client Safe Messages Addendum
+
+This label-only addendum records client-side staff message redaction. It does not record register content, request/person/parish identifiers, private contacts, raw action errors, token material, or credentials.
+
+- Sacramental Record client safe messages implemented: `YES`.
+- New Record raw action error rendering remains: `NO`.
+- Edit Record raw action error rendering remains: `NO`.
+- Approved validation and selected-parish guidance preserved: `YES`.
+- Expired staff session receives plain sign-in guidance: `YES`.
+- Unexpected technical or private text uses action-specific fallbacks: `YES`.
+- Record runtime behavior changed by client redaction: `NO`.
+- Release handoff artifact count after Sacramental Record client linkage: `65`.
+- Production-sensitive features approved by Sacramental Record client redaction: `NO`.
+- Public trust claims approved by Sacramental Record client redaction: `NO`.
+- Focused Sacramental Record client, action, and prefill verification: `4 test files / 9 tests passed`.
+- Expanded Sacramental Record client and release-evidence verification: `9 test files / 24 tests passed`.
+- Full Vitest regression suite after Sacramental Record client redaction: `661 test files / 2,601 tests passed`.
+- All-file TypeScript and quiet lint after client redaction: `PASS`.
+- Repository secret scan after Sacramental Record client redaction: `1,809 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after Sacramental Record client redaction: `65 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after Sacramental Record client redaction: `370 required phrases / 0 findings`.
+- Next.js production build after Sacramental Record client redaction: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+- Sacramental records created, updated, or linked during verification: `NO`.
+
+## 2026-07-10 Core Record Client Safe Messages Addendum
+
+This label-only addendum records client-side staff message redaction. It does not record People, Household, household-member, or Mass Intention content; parish/entity identifiers; private contacts; raw action errors; credential material; or secrets.
+
+- Core record client safe messages implemented: `YES`.
+- People raw action error rendering remains: `NO`.
+- Household and member raw action error rendering remains: `NO`.
+- Mass Intention raw action error rendering remains: `NO`.
+- Core record approved validation and selected-parish guidance preserved: `YES`.
+- Core record expired staff session receives plain sign-in guidance: `YES`.
+- Core record unexpected technical or private text uses action-specific fallbacks: `YES`.
+- Core record runtime behavior changed by client redaction: `NO`.
+- Release handoff artifact count after Core Record client linkage: `66`.
+- Production-sensitive features approved by Core Record client redaction: `NO`.
+- Public trust claims approved by Core Record client redaction: `NO`.
+- Focused Core Record client, action, and release-evidence verification: `10 test files / 43 tests passed`.
+- Full Vitest regression suite after Core Record client redaction: `663 test files / 2,609 tests passed`.
+- All-file TypeScript and quiet lint after Core Record client redaction: `PASS`.
+- Repository secret scan after Core Record client redaction: `1,813 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after Core Record client redaction: `66 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after Core Record client redaction: `382 required phrases / 0 findings`.
+- Next.js production build after Core Record client redaction: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+- People, Households, household members, or Mass Intentions created or changed during verification: `NO`.
+
+## 2026-07-10 Request Detail Server Action Client Safe Messages Addendum
+
+This label-only addendum records client-side staff message redaction. It does not record request, workflow, note, checklist, parishioner, or People content; parish/entity identifiers; private contacts; dynamic workflow titles; raw action errors; credential material; or secrets.
+
+- Request Detail Server Action client safe messages implemented: `YES`.
+- Request Detail raw Server Action error rendering remains: `NO`.
+- Request Detail dynamic workflow-step title exposure remains: `NO`.
+- Request Detail approved validation, prerequisite, and selected-parish guidance preserved: `YES`.
+- Request Detail expired staff session receives plain sign-in guidance: `YES`.
+- Request Detail unexpected technical or private action text uses safe fallbacks: `YES`.
+- Request Detail runtime behavior changed by client redaction: `NO`.
+- Release handoff artifact count after Request Detail Server Action client linkage: `67`.
+- Production-sensitive features approved by Request Detail Server Action client redaction: `NO`.
+- Public trust claims approved by Request Detail Server Action client redaction: `NO`.
+- Request Detail records mutated during client-message verification: `NO`.
+- Focused Request Detail client, action, and release-evidence verification: `10 test files / 32 tests passed`.
+- Full Vitest regression suite after Request Detail Server Action client redaction: `664 test files / 2,616 tests passed`.
+- All-file TypeScript and quiet lint after Request Detail Server Action client redaction: `PASS`.
+- Repository secret scan after Request Detail Server Action client redaction: `1,815 text files / 26 binaries skipped / 0 findings`; matched values printed `NO`.
+- Release handoff after Request Detail Server Action client redaction: `67 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after Request Detail Server Action client redaction: `394 required phrases / 0 findings`.
+- Next.js production build after Request Detail Server Action client redaction: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-10 Dashboard Queue Client Defense In Depth Addendum
+
+This label-only addendum records client-side queue message redaction and count-only batch summaries. It does not record request, communication, Intake, Mass Intention, or follow-up content; parish/entity identifiers; private contacts; raw action errors; credential material; or secrets.
+
+- Dashboard queue client defense in depth implemented: `YES`.
+- Communications and Intake raw action error rendering remains: `NO`.
+- Daily Work Hub raw row action error rendering remains: `NO`.
+- Daily Work Hub batch summaries expose request identifiers: `NO`.
+- Failed Daily Work Hub batch items remain selected for individual review: `YES`.
+- Dashboard queue approved validation and session guidance preserved: `YES`.
+- Dashboard queue write behavior changed by client defense: `NO`.
+- Release handoff artifact count after Dashboard Queue client defense linkage: `68`.
+- Production-sensitive features approved by Dashboard Queue client defense: `NO`.
+- Public trust claims approved by Dashboard Queue client defense: `NO`.
+- Dashboard queue records mutated during client-defense verification: `NO`.
+- Focused Dashboard Queue client and release-evidence verification: `10 test files / 29 tests passed`.
+- Full Vitest regression suite after Dashboard Queue client defense: `665 test files / 2,624 tests passed`.
+- All-file TypeScript and quiet lint after Dashboard Queue client defense: `PASS`.
+- Repository secret scan after Dashboard Queue client defense: `1,817 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff after Dashboard Queue client defense: `68 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after Dashboard Queue client defense: `406 required phrases / 0 findings`.
+- Next.js production build after Dashboard Queue client defense: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-10 Dashboard Shell Client Safe Messages Addendum
+
+This label-only addendum records client-side dashboard-shell message redaction. It does not record staff/parish/request identifiers, private contacts, search queries/results, notification content, raw action/loader errors, credential material, or secrets.
+
+- Dashboard shell client safe messages implemented: `YES`.
+- Initial parish switcher raw error rendering remains: `NO`.
+- Parish switch action raw error rendering remains: `NO`.
+- Global Search raw error/warning rendering remains: `NO`.
+- Notifications Center raw error rendering remains: `NO`.
+- Approved parish selection and sign-in guidance preserved: `YES`.
+- Dashboard shell server/query/navigation behavior changed by client redaction: `NO`.
+- Release handoff artifact count after Dashboard Shell client linkage: `69`.
+- Production-sensitive features approved by Dashboard Shell client redaction: `NO`.
+- Public trust claims approved by Dashboard Shell client redaction: `NO`.
+- Dashboard shell records mutated during client-message verification: `NO`.
+- Integrated Dashboard Shell, Calendar link, and release-evidence verification: `11 test files / 30 tests passed`.
+- Full Vitest regression suite after Dashboard Shell client redaction: `669 test files / 2,635 tests passed`.
+- All-file TypeScript and quiet lint after Dashboard Shell client redaction: `PASS`.
+- Repository secret scan after Dashboard Shell client redaction: `1,825 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff after Dashboard Shell client redaction: `70 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after Dashboard Shell client redaction: `430 required phrases / 0 findings`.
+- Next.js production build after Dashboard Shell client redaction: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-10 Google Calendar External Link Safety Addendum
+
+This label-only addendum records external event-link validation. It does not record parish/request/event identifiers, event titles/times, Calendar URLs, provider payloads, OAuth material, private contacts, credential material, or secrets.
+
+- Google Calendar external link safety implemented: `YES`.
+- Saved event links require credential-free HTTPS Google hosts: `YES`.
+- Conflict event links require credential-free HTTPS Google hosts: `YES`.
+- Non-HTTPS, credential-bearing, alternate-port, or unapproved-host links rendered: `NO`.
+- Raw eventLink used as an anchor href: `NO`.
+- Raw conflict htmlLink used as an anchor href: `NO`.
+- Google event mutation behavior changed by link validation: `NO`.
+- Release handoff artifact count after Google Calendar link linkage: `70`.
+- Production-sensitive features approved by Google Calendar link safety: `NO`.
+- Public trust claims approved by Google Calendar link safety: `NO`.
+- Google Calendar data mutated during link-safety verification: `NO`.
+- Integrated Dashboard Shell, Calendar link, and release-evidence verification: `11 test files / 30 tests passed`.
+- Full Vitest regression suite after Google Calendar link safety: `669 test files / 2,635 tests passed`.
+- All-file TypeScript and quiet lint after Google Calendar link safety: `PASS`.
+- Repository secret scan after Google Calendar link safety: `1,825 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff after Google Calendar link safety: `70 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after Google Calendar link safety: `430 required phrases / 0 findings`.
+- Next.js production build after Google Calendar link safety: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-10 App Router Error Recovery Addendum
+
+This label-only addendum records generic retryable UI for unexpected page and root-layout render failures. It does not record exception messages, error digests, stack traces, object dumps, staff/parish/request identifiers, private contacts, credential material, or secrets.
+
+- App Router error recovery implemented: `YES`.
+- Unexpected page failures receive generic recovery UI: `YES`.
+- Unexpected root-layout failures receive complete generic recovery HTML: `YES`.
+- Next.js 16 unstable retry contract used: `YES`.
+- Exception messages or error digests rendered: `NO`.
+- Stack traces, object dumps, or client console errors emitted: `NO`.
+- External monitoring provider called during recovery verification: `NO`.
+- Release handoff artifact count after App Router recovery linkage: `71`.
+- Production-sensitive features approved by App Router recovery: `NO`.
+- Public trust claims approved by App Router recovery: `NO`.
+- Records mutated during App Router recovery verification: `NO`.
+- Focused App Router recovery and release-evidence verification: `6 test files / 18 tests passed`.
+- Full Vitest regression suite after App Router recovery: `670 test files / 2,639 tests passed`.
+- All-file TypeScript and quiet lint after App Router recovery: `PASS`.
+- Repository secret scan after App Router recovery: `1,830 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff after App Router recovery: `71 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after App Router recovery: `442 required phrases / 0 findings`.
+- Next.js production build after App Router recovery: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-10 App Router Not-Found Boundary Addendum
+
+This label-only addendum records the safe root missing-page experience. It does not record requested paths, query strings, cookies, headers, route parameters, identifiers, private contacts, exception details, credential material, or secrets.
+
+- App Router not-found boundary implemented: `YES`.
+- Stale or unmatched routes receive generic missing-page UI: `YES`.
+- Missing-page navigation uses fixed internal links only: `YES`.
+- Requested path or query rendered or logged: `NO`.
+- Cookies, headers, route parameters, or identifiers inspected: `NO`.
+- Database, external provider, monitoring, or storage called: `NO`.
+- Experimental globalNotFound flag enabled: `NO`.
+- Release handoff artifact count after App Router not-found linkage: `72`.
+- Production-sensitive features approved by App Router not-found boundary: `NO`.
+- Public trust claims approved by App Router not-found boundary: `NO`.
+- Records mutated during App Router not-found verification: `NO`.
+- Focused App Router resilience and release-evidence verification: `7 test files / 21 tests passed`.
+- Full Vitest regression suite after App Router not-found boundary: `671 test files / 2,642 tests passed`.
+- All-file TypeScript and quiet lint after App Router not-found boundary: `PASS`.
+- Repository secret scan after App Router not-found boundary: `1,833 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff after App Router not-found boundary: `72 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after App Router not-found boundary: `454 required phrases / 0 findings`.
+- Next.js production build after App Router not-found boundary: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-10 Dashboard Segment Loading Boundary Addendum
+
+This label-only addendum records the static dashboard page/nested-route loading fallback. It does not record staff/parish/request identifiers, parish names, route state, private contacts, database results, credential material, or secrets.
+
+- Dashboard segment loading boundary implemented: `YES`.
+- Dashboard page and nested-route fallback provided: `YES`.
+- Existing authorized dashboard layout remains outside fallback: `YES`.
+- Loading status and static skeleton are accessible: `YES`.
+- Data or runtime state fetched by loading fallback: `NO`.
+- Active parish name or request state rendered by loading fallback: `NO`.
+- Client effects, state, or animation used by loading fallback: `NO`.
+- Release handoff artifact count after dashboard loading linkage: `73`.
+- Production-sensitive features approved by dashboard loading boundary: `NO`.
+- Public trust claims approved by dashboard loading boundary: `NO`.
+- Records mutated during dashboard loading verification: `NO`.
+- Focused App Router resilience/loading and release-evidence verification: `8 test files / 24 tests passed`.
+- Full Vitest regression suite after dashboard loading boundary: `672 test files / 2,645 tests passed`.
+- All-file TypeScript and quiet lint after dashboard loading boundary: `PASS`.
+- Repository secret scan after dashboard loading boundary: `1,836 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff after dashboard loading boundary: `73 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after dashboard loading boundary: `466 required phrases / 0 findings`.
+- Next.js production build after dashboard loading boundary: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-10 Dashboard Segment Error Recovery Addendum
+
+This label-only addendum records child dashboard recovery while preserving the existing authorized shell. It does not record exception messages, error digests, stack traces, route state, staff/parish/request identifiers, private contacts, credential material, or secrets.
+
+- Dashboard segment error recovery implemented: `YES`.
+- Child dashboard failures receive generic recovery UI: `YES`.
+- Existing authorized dashboard layout remains mounted: `YES`.
+- Next.js 16 unstable retry contract used by dashboard boundary: `YES`.
+- Dashboard return navigation is fixed to /dashboard: `YES`.
+- Exception messages, digests, or route state consumed or rendered: `NO`.
+- External monitoring provider called during dashboard recovery verification: `NO`.
+- Release handoff artifact count after dashboard recovery linkage: `74`.
+- Production-sensitive features approved by dashboard recovery: `NO`.
+- Public trust claims approved by dashboard recovery: `NO`.
+- Records mutated during dashboard recovery verification: `NO`.
+- Focused App Router/dashboard resilience and release-evidence verification: `9 test files / 27 tests passed`.
+- Full Vitest regression suite after dashboard recovery: `673 test files / 2,648 tests passed`.
+- All-file TypeScript and quiet lint after dashboard recovery: `PASS`.
+- Repository secret scan after dashboard recovery: `1,839 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff after dashboard recovery: `74 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence after dashboard recovery: `478 required phrases / 0 findings`.
+- Next.js production build after dashboard recovery: `PASS` with Next.js `16.2.10` and `53` static pages generated.
+
+## 2026-07-10 Daily Work Hub Active-Parish Request Mutation APIs Addendum
+
+This label-only addendum records the server-owned Daily Work Hub mark-as-contacted and care-touchpoint authorization boundary. It contains no pastoral communication note, raw audit metadata, request/parish/staff identifier, private contact, provider payload, credential material, or secret.
+
+- Daily Work Hub active-parish request mutation APIs implemented: `YES`.
+- Mark-as-contacted direct browser Supabase mutations remain: `NO`.
+- Care-touchpoint direct browser Supabase mutations remain: `NO`.
+- Staff authentication, active-parish membership, and request ownership before writes: `VERIFIED`.
+- Forged or cross-parish writes rejected before mutation: `VERIFIED`.
+- Care touchpoint input bounded and validated before ownership-scoped writes: `VERIFIED`.
+- Partial-success stages returned without raw database details: `VERIFIED`.
+- Pastoral communication note body included in audit metadata: `NO`.
+- Communications sent during Daily Work Hub API verification: `NO`.
+- Google Calendar called during Daily Work Hub API verification: `NO`.
+- Production accessed during Daily Work Hub API verification: `NO`.
+- Migration or operational RLS changed by Daily Work Hub API hardening: `NO`.
+- Release handoff artifact count after Daily Work Hub API linkage: `75`.
+- Production-sensitive features approved by Daily Work Hub API hardening: `NO`.
+- Public trust claims approved by Daily Work Hub API hardening: `NO`.
+
+Verification summary:
+
+- Focused route/client/release suite: `5 test files / 21 tests passed`.
+- Full Vitest regression suite: `674 test files / 2,658 tests passed`.
+- All-file TypeScript and quiet lint: `PASS`.
+- Repository secret scan: `1,843 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `75 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Production gate checker: `15 artifacts / 0 findings`; production-sensitive features approved: `NO`.
+- Completed local evidence: `494 required phrases / 0 findings`.
+- Next.js production build: `PASS` with Next.js `16.2.10`, both new dynamic request routes, and `53` static pages generated.
+- `git diff --check`: `PASS`.
+
+## 2026-07-10 Reports Server Aggregate Summary Addendum
+
+This label-only addendum records the server-owned Reports summary boundary without recording request, staff, parish, parishioner, schedule, or report row values; private contacts; pastoral details; notes; documents; tokens; raw audit metadata; credentials; or secrets.
+
+- Staff-authenticated Reports summary endpoint implemented: `YES`.
+- Exact selected-parish membership validated before report reads: `YES`.
+- Forged or cross-parish selection rejected before the report loader runs: `YES`.
+- Authenticated staff read client used by report loader: `YES`.
+- Service-role client used by Reports summary endpoint: `NO`.
+- Raw request or schedule-detail source rows returned to browser: `NO`.
+- Parishioner contacts, notes, reply drafts, checklist rows, pastoral detail fields, documents, storage data, signed URLs, token material, or raw audit metadata returned: `NO`.
+- Browser Supabase or raw dashboard request-loader reads remain in Reports: `NO`.
+- Technical error detail rendered by Reports: `NO`.
+- Records mutated during Reports aggregate verification: `NO`.
+- Production accessed during Reports aggregate verification: `NO`.
+- Communication, Google Calendar, storage, export, or AI provider called: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused Reports aggregate suite: `5 files / 19 tests passed`.
+- Expanded Reports and release-evidence suite: `8 files / 28 tests passed`.
+- Full Vitest regression suite: `680 test files / 2,682 tests passed`.
+- All-file TypeScript and quiet lint: `PASS`.
+- Repository secret scan: `1,858 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `79 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Next.js production build: `PASS` with Next.js `16.2.10`, the dynamic Reports summary route, and `55` static pages generated.
+- `git diff --check`: `PASS`.
+
+## 2026-07-10 Daily Work Hub Server Aggregate Signals Addendum
+
+This label-only addendum records the server-owned aggregate signal boundary without recording people, household, sacramental-record, certificate-event, staff, parish, or request row values; private contacts; notes; event or audit metadata; identifiers; credentials; or secrets.
+
+- Staff-authenticated daily operating signal endpoint implemented: `YES`.
+- Exact selected-parish membership validated before signal reads: `YES`.
+- Forged or cross-parish selection rejected before the loader runs: `YES`.
+- Authenticated read client used by signal loader: `YES`.
+- Service-role client used by aggregate signal endpoint: `NO`.
+- Raw people, household, sacramental-record, or certificate-event rows returned to browser: `NO`.
+- Notes, staff identities, event metadata, audit metadata, documents, storage paths, signed URLs, or token material returned: `NO`.
+- Certificate-ready cues shown when certificate history cannot be verified: `NO`.
+- Browser signal-table reads remain in Daily Work Hub: `NO`.
+- Records mutated during aggregate signal verification: `NO`.
+- Production accessed during aggregate signal verification: `NO`.
+- Communication, Google Calendar, storage, export, or AI provider called: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused aggregate/release-evidence suite: `7 test files / 24 tests passed`.
+- Full Vitest regression suite: `678 test files / 2,674 tests passed`.
+- All-file TypeScript and quiet lint: `PASS`.
+- Repository secret scan: `1,853 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `78 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Next.js production build: `PASS` with Next.js `16.2.10`, the dynamic aggregate route, and `54` static pages generated.
+- `git diff --check`: `PASS`.
+
+## 2026-07-10 Daily Work Hub Reply Draft Active-Parish Route Addendum
+
+This label-only addendum records the secured draft-persistence caller change without recording generated draft text, prompt material, request identifiers, parish identifiers, staff identity, contact details, provider payloads, credentials, or secrets.
+
+- Daily Work Hub reply-draft scoped persistence implemented: `YES`.
+- Daily Work Hub direct browser reply-draft updates remain: `NO`.
+- Existing request reply-draft route used: `YES`.
+- OpenAI called during reply-draft persistence verification: `NO`.
+- Communications sent during reply-draft persistence verification: `NO`.
+- Production accessed during reply-draft persistence verification: `NO`.
+- Production-sensitive features approved by reply-draft persistence: `NO`.
+
+## 2026-07-10 Daily Work Hub Operational Detail Projection Addendum
+
+This label-only addendum records the narrowed operational detail projections without recording row values, request identifiers, parish identifiers, sacramental details, pastoral notes, private contacts, credentials, or secrets.
+
+- Explicit funeral, wedding, and OCIA detail projections implemented: `YES`.
+- Wildcard operational detail projections remain: `NO`.
+- Operational detail queries remain request-id scoped: `YES`.
+- Records mutated during operational detail projection verification: `NO`.
+- Production accessed during operational detail projection verification: `NO`.
+- Production-sensitive features approved by operational detail projection: `NO`.
+- Public trust claims approved by operational detail projection: `NO`.
+
+Focused verification completed: `3 test files / 17 tests passed`.
+
+Combined verification after the Daily Work Hub active-parish mutation, reply-draft persistence, and explicit operational detail projection slices:
+
+- Full Vitest regression suite: `675 test files / 2,662 tests passed`.
+- All-file TypeScript and quiet lint: `PASS`.
+- Repository secret scan: `1,846 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `77 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Next.js production build: `PASS` with Next.js `16.2.10`, all secured Daily Work Hub routes, and `53` static pages generated.
+- Browser Supabase insert, update, upsert, or database delete calls remaining in `app/**/*.tsx`: `NO`.
+- Production accessed during combined verification: `NO`.
+- Communications sent during combined verification: `NO`.
+- Google Calendar called during combined verification: `NO`.
+- Migration or operational RLS changed during combined verification: `NO`.
+- `git diff --check`: `PASS`.
+
+## 2026-07-10 Daily Work Hub Server Read Model Addendum
+
+This label-only addendum records the server-owned Daily Work Hub read boundary without recording request, parishioner, checklist, funeral, wedding, OCIA, person, household, sacramental-record, certificate-event, staff, or parish row values; private contacts; pastoral text; notes; drafts; identifiers; credentials; or secrets.
+
+- Staff-authenticated Daily Work Hub read-model endpoint implemented: `YES`.
+- Exact selected-parish membership validated before queue reads: `YES`.
+- Forged or cross-parish selection rejected before the loader runs: `YES`.
+- Authenticated staff read client used: `YES`.
+- Service-role client used by Work Hub endpoint: `NO`.
+- Browser operational table reads remain in Daily Work Hub: `NO`.
+- Browser Supabase import remains in Daily Work Hub: `NO`.
+- Database technical detail rendered by Daily Work Hub: `NO`.
+- Funeral, wedding, or OCIA wildcard detail projections remain: `NO`.
+- Relationship-intelligence parishioner, people, sacramental-record, baptism, and certificate-event reads explicitly selected-parish scoped: `YES`.
+- Household membership candidates limited to active-parish person IDs: `YES`.
+- Notifications Center passes validated active parish to relationship intelligence: `YES`.
+- Records mutated during Work Hub read-model verification: `NO`.
+- Production accessed during Work Hub read-model verification: `NO`.
+- Communication, Google Calendar, storage, export, or AI provider called: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused Work Hub/shared-surface suite: `9 files / 29 tests passed`.
+- Full Vitest regression suite: `683 test files / 2,693 tests passed`.
+- All-file TypeScript and quiet lint: `PASS`.
+- Repository secret scan: `1,863 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `80 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Next.js production build: `PASS` with Next.js `16.2.10`, the dynamic Work Hub route, and `56` static pages generated.
+- `git diff --check`: `PASS`.
+
+## 2026-07-10 Daily Work Hub Single-Response Composition Addendum
+
+This label-only addendum records the Work Hub response composition without recording request, parishioner, staff, parish, operational-detail, sacramental-record, certificate-event, audit, or provider row values; private contacts; pastoral text; identifiers; credentials; or secrets.
+
+- Queue, suggested actions, and operating signals returned by one authenticated Work Hub response: `YES`.
+- Independent queue and signal reads start concurrently after route scope validation: `YES`.
+- Second Daily Work Hub browser request to the dedicated signal endpoint remains: `NO`.
+- Dedicated daily operating signal endpoint remains implemented and independently tested: `YES`.
+- Missing, non-object, or array-shaped signal payload accepted by the browser: `NO`.
+- Authentication, active-parish membership, generic denial, or read-client boundary weakened: `NO`.
+- Records mutated during single-response verification: `NO`.
+- Production accessed during single-response verification: `NO`.
+- Communication, Google Calendar, storage, export, or AI provider called: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Composition-focused suite: `7 files / 26 tests passed`.
+- Final focused Work Hub suite: `7 files / 23 tests passed`.
+- Full Vitest regression suite: `683 test files / 2,694 tests passed`.
+- All-file TypeScript and quiet lint: `PASS`.
+- Repository secret scan after this evidence addendum: `1,865 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `81 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Dashboard Shell Server Context And Exact-Parish Admin Addendum
+
+This label-only addendum records the shell and Audit Events authorization boundary without recording staff email, staff roster rows, parish ids, audit event rows or metadata, request ids, database details, credentials, or secrets.
+
+- Dashboard shell identity server-rendered before hydration: `YES`.
+- Dashboard shell selected-parish admin capability server-rendered: `YES`.
+- Browser `getUser` call remains in dashboard shell: `NO`.
+- Browser auth-state subscription remains in dashboard shell: `NO`.
+- Browser Staff Access roster request remains in dashboard shell: `NO`.
+- Existing browser logout action remains: `YES`.
+- Full Audit Events read requires exact selected-parish admin status: `YES`.
+- Parish-level Audit Events write requires exact selected-parish admin status: `YES`.
+- Admin status in another parish accepted for selected-parish full read or parish-level write: `NO`.
+- Request-target audit parish attribution changed: `NO`.
+- Production accessed: `NO`.
+- Migration or operational RLS changed: `NO`.
+- External provider called: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused shell, Staff Access, and Audit Events suite: `7 files / 41 tests passed`.
+- Expanded exact-parish authorization suite: `5 files / 25 tests passed`.
+- Full Vitest regression suite: `687 test files / 2,711 tests passed`.
+- All-file TypeScript and quiet lint: `PASS`.
+- Repository secret scan after this addendum: `1,872 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `82 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Export Exact Selected-Parish Role Boundary Addendum
+
+This label-only addendum records export authorization behavior without recording staff email, parish ids, membership rows, export rows, CSV contents, audit metadata values, credentials, or secrets.
+
+- Exact selected-parish membership role loaded before export permission evaluation: `YES`.
+- Account-wide admin role used as selected-parish export authority: `NO`.
+- Selected-parish admin maps to `parish_admin`: `YES`.
+- Selected-parish staff maps to `parish_secretary`: `YES`.
+- Missing, unsupported, or failed selected-parish role lookup denied generically: `YES`.
+- Safe denial audit written before privileged export query or delivery: `YES`.
+- Selected-parish role denial appears in forged/cross-parish reviewer classification: `YES`.
+- Production export flags enabled: `NO`.
+- Export delivered during verification: `NO`.
+- Production accessed: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Record mutated: `NO`.
+- External provider called: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused role, route, reviewer, and source-contract suite: `5 files / 37 tests passed`.
+- Full Vitest regression suite: `689 test files / 2,725 tests passed`.
+- All-file TypeScript and quiet lint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan after this addendum: `1,876 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `83 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Communications Center Active-Parish Mutation API Addendum
+
+This label-only addendum records the Communications Center request-write boundary without recording staff email, parish ids, request ids, communication notes, follow-up dates, audit rows, private contact details, credentials, or secrets.
+
+- Staff authentication runs before bounded request parsing: `YES`.
+- Selected active-parish membership and same-parish request ownership precede writes: `YES`.
+- Primary-parish compatibility fallback allowed when an active parish cookie exists: `NO`.
+- Forged or cross-parish request targets deny generically before writes: `YES`.
+- Communications Center note and follow-up validation preserved: `YES`.
+- Server-owned contact timestamp used for Communications Center writes: `YES`.
+- Communication-first partial-success guidance preserved: `YES`.
+- Route audit metadata contains communication note text or raw follow-up dates: `NO`.
+- Obsolete Communications Center mutation Server Action remains: `NO`.
+- Duplicate Request Detail `request.communication.logged` browser audit remains: `NO`.
+- Real communication sent during verification: `NO`.
+- Production accessed: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Google Calendar or another external provider called: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused Communications Center/request communication suite: `6 files / 26 tests passed`.
+- Corrected source-boundary suite: `3 files / 16 tests passed`.
+- Full Vitest regression suite: `690 test files / 2,733 tests passed`.
+- TypeScript and quiet lint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan: `1,877 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `84 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Intake Queue Active-Parish Triage API Addendum
+
+This label-only addendum records request and Mass Intention quick-triage authorization without recording staff email, parish ids, request/intention ids, staff names, communication notes, dates, audit rows, private contact details, credentials, or secrets.
+
+- Staff authentication precedes bounded body parsing: `YES`.
+- Request triage requires selected-parish membership and same-parish request ownership: `YES`.
+- Mass Intention triage constrains the update by target id and selected parish id: `YES`.
+- Primary-parish compatibility fallback allowed when an active parish cookie exists: `NO`.
+- Forged or cross-parish targets deny generically before writes: `YES`.
+- Request first-contact partial-success guidance preserved: `YES`.
+- Audit metadata contains staff names, communication notes, or dates: `NO`.
+- Obsolete Intake Queue mutation Server Action remains: `NO`.
+- Direct browser Supabase triage mutation added: `NO`.
+- Real communication sent during verification: `NO`.
+- Production accessed: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Google Calendar or another external provider called: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused Intake Queue API/client suite: `4 files / 17 tests passed`.
+- Full Vitest regression suite: `692 test files / 2,744 tests passed`.
+- TypeScript and quiet lint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan: `1,881 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `85 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Sacramental Record Create Relationship Integrity Addendum
+
+This label-only addendum records request/person relationship validation at Sacramental Record creation without recording parish ids, request ids, person ids, register contents, parishioner details, staff identities, credentials, or secrets.
+
+- Staff authentication and selected-parish write authorization precede relationship checks: `YES`.
+- Optional request ownership is derived through the stored parishioner relationship: `YES`.
+- Optional linked person must belong to the selected parish: `YES`.
+- Duplicate request-to-record creation is rejected before insert: `YES`.
+- Database unique constraint remains the final concurrent-write safeguard: `YES`.
+- Forged, stale, missing, or cross-parish links stop before record insertion: `YES`.
+- Unexpected relationship lookup details exposed to the browser: `NO`.
+- Automatic linking or existing-record mutation added: `NO`.
+- Certificate generation added: `NO`.
+- Canonical, sacramental, pastoral, or eligibility decision added: `NO`.
+- Production accessed: `NO`.
+- Migration or operational RLS changed: `NO`.
+- External provider called: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused relationship/action/client-message suite: `3 files / 17 tests passed`.
+- Focused integrity plus release-review guards: `5 files / 23 tests passed`.
+- Full Vitest regression suite: `693 test files / 2,751 tests passed`.
+- Standard and all-file TypeScript checks: `PASS`.
+- Quiet lint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan: `1,884 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `86 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Production gate check: `15 locked gates / 0 findings`.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Core Record Action Active-Parish Fallback Boundary Addendum
+
+This label-only addendum records fallback authorization behavior without recording parish ids, entity ids, record contents, staff identities, credentials, or secrets.
+
+- People selected-parish writes disable legacy primary fallback: `YES`.
+- Household selected-parish writes disable legacy primary fallback: `YES`.
+- Mass Intention selected-parish writes disable legacy primary fallback: `YES`.
+- Sacramental Record selected-parish writes disable legacy primary fallback: `YES`.
+- Cookie-less legacy single-parish compatibility remains explicit: `YES`.
+- Unconditional primary fallback remains in the four core action modules: `NO`.
+- Existing validation, selected-parish row constraints, and staff review preserved: `YES`.
+- Production accessed: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Existing records mutated during verification: `NO`.
+- Communication sent or external provider called: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused core action fallback suite: `5 files / 34 tests passed`.
+- Focused fallback plus release-evidence suite: `8 files / 43 tests passed`.
+- Full Vitest regression suite: `694 test files / 2,755 tests passed`.
+- Standard and all-file TypeScript checks: `PASS`.
+- Quiet lint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan: `1,886 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `87 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Production gate check: `15 locked gates / 0 findings`.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Request Note Audit Metadata Privacy Boundary Addendum
+
+This label-only addendum records audit metadata shape without recording note text, note prefixes, request ids, parish ids, staff identities, audit rows, credentials, or secrets.
+
+- Internal note still saves to the protected note record: `YES`.
+- `request.note.created` audit event remains: `YES`.
+- Audit metadata contains a stable source label and character count only: `YES`.
+- Audit metadata contains note words, prefixes, summaries, or raw body values: `NO`.
+- Audit Log title remains `Internal note added`: `YES`.
+- Existing note or audit rows mutated during verification: `NO`.
+- Production accessed: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Communication sent or external provider called: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused request note audit privacy suite: `3 files / 7 tests passed`.
+- Focused privacy plus release-evidence suite: `6 files / 16 tests passed`.
+- Full Vitest regression suite: `695 test files / 2,756 tests passed`.
+- Standard and all-file TypeScript checks: `PASS`.
+- Quiet lint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan: `1,888 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `88 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Production gate check: `15 locked gates / 0 findings`.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Request Content Audit Event Ownership Boundary Addendum
+
+This label-only addendum records request audit ownership and metadata shape without recording generated text, prompts, subjects, bodies, recipient addresses, request ids, parish ids, staff identities, provider payloads, audit rows, credentials, or secrets.
+
+- AI-summary-save audit event is owned by its authenticated scoped save route: `YES`.
+- Reply-draft-save audit event is owned by its authenticated scoped save route: `YES`.
+- Successful-email audit event is owned by its authenticated request-bound send route: `YES`.
+- Generic Audit Events API rejects browser-authored copies of all three actions: `YES`.
+- Server attribution uses the authorized request parish/request and authenticated staff identity: `YES`.
+- Audit metadata contains fixed source labels, lengths, and review markers only: `YES`.
+- Audit metadata contains generated text, prompts, subjects, bodies, recipient addresses, or provider payloads: `NO`.
+- Request Detail browser still submits duplicate copies of these audit events: `NO`.
+- Existing scoped save, provider delivery, and communication-log behavior preserved: `YES`.
+- Production accessed: `NO`.
+- Real email, OpenAI, or Google Calendar call made: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused request content audit ownership suite: `6 files / 40 tests passed`.
+- Focused ownership plus release-evidence suite: `9 files / 49 tests passed`.
+- Full Vitest regression suite: `696 test files / 2,761 tests passed`.
+- Standard and all-file TypeScript checks: `PASS`.
+- Quiet lint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan: `1,891 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `89 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Production gate check: `15 locked gates / 0 findings`.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Request Mutation Audit Event Ownership Boundary Addendum
+
+This label-only addendum records mutation audit ownership without recording staff-note bodies, checklist labels, suggested dates, Funeral or Wedding details, names, schedule values, request ids, parish ids, staff identities, database rows, credentials, or secrets.
+
+- Checklist update audit is owned by its authenticated scoped mutation route: `YES`.
+- Staff-note-save audit is owned by its authenticated scoped mutation route: `YES`.
+- Suggested-date-save audit is owned by its authenticated scoped mutation route: `YES`.
+- Funeral/Wedding detail-save audits are owned by authenticated scoped mutation routes: `YES`.
+- Generic Audit Events API rejects browser-authored copies of all protected actions: `YES`.
+- Server attribution uses the authorized request parish/request and authenticated staff identity: `YES`.
+- Audit metadata contains fixed labels, owned item id, booleans, counts, request type, and review markers only: `YES`.
+- Audit metadata contains note bodies, checklist labels, proposed dates, pastoral detail values, or names: `NO`.
+- Request Detail browser still submits duplicate copies of these audit events: `NO`.
+- Validation, request-type checks, confirmed-date preservation, UI refreshes, and safe errors preserved: `YES`.
+- Schedule and Google Calendar audit behavior changed in this slice: `NO`.
+- Production accessed: `NO`.
+- Record mutated during verification: `NO`.
+- Email, OpenAI, Google Calendar, export, storage, or signed URL call made: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused request mutation audit ownership suite: `7 files / 35 tests passed`.
+- Focused mutation ownership plus release-evidence suite: `10 files / 44 tests passed`.
+- Full Vitest regression suite: `696 test files / 2,762 tests passed`.
+- Standard and all-file TypeScript checks: `PASS`.
+- Quiet lint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan: `1,892 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `90 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Production gate check: `15 locked gates / 0 findings`.
+- `git diff --check`: `PASS`; existing line-ending warnings only.
+
+## 2026-07-10 Request Schedule Audit Event Ownership Boundary Addendum
+
+This label-only addendum records schedule audit ownership without recording dates, times, time zones, schedule notes, provider ids, calendar ids, links, conflict data, OAuth material, request ids, parish ids, staff identities, database rows, credentials, or secrets.
+
+- Confirmed Baptism schedule audit is owned by its authenticated scoped route: `YES`.
+- Confirmed Funeral schedule audit is owned by its authenticated scoped route: `YES`.
+- Confirmed Wedding schedule audit is owned by its authenticated scoped route: `YES`.
+- Confirmed OCIA schedule audit is owned by its authenticated scoped route: `YES`.
+- Google Calendar create/update/delete activity is owned by its selected-parish route after successful provider/database completion: `YES`.
+- Request Detail browser request-history POST remains: `NO`.
+- Generic Audit Events API accepts request-target POST writes: `NO`.
+- Audit metadata contains fixed source, schedule-kind, and operation labels only: `YES`.
+- Audit metadata contains dates, times, provider ids, calendar ids, links, conflict data, or OAuth material: `NO`.
+- Existing authentication, request ownership, selected-parish integration checks, conflicts, and partial-success guidance preserved: `YES`.
+- Production accessed: `NO`.
+- Record mutated during verification: `NO`.
+- Google Calendar, email, OpenAI, export, storage, or signed URL call made: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Focused request schedule audit ownership suite: `9 files / 57 tests passed`.
+- Focused schedule ownership plus release-evidence suite: `12 files / 66 tests passed`.
+- Full Vitest regression suite: `696 test files / 2,763 tests passed`.
+- Standard and all-file TypeScript checks: `PASS`.
+- Quiet lint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan: `1,893 text files / 26 binaries skipped / 0 findings`; matched values printed: `NO`.
+- Release handoff: `91 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Production gate check: `15 locked gates / 0 findings`.
+- `git diff --check`: `PASS`; existing line-ending warnings only.

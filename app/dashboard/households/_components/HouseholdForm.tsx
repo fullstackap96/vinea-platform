@@ -81,6 +81,7 @@ export function HouseholdForm({
   onNewMemberChange,
   onAddMember,
   addingMember,
+  operationBusy = saving || Boolean(addingMember),
   addMemberMessage,
   peopleOptions,
 }: {
@@ -98,17 +99,19 @@ export function HouseholdForm({
   onNewMemberChange?: (next: NewMemberDraft) => void
   onAddMember?: () => void
   addingMember?: boolean
+  operationBusy?: boolean
   addMemberMessage?: string
   peopleOptions?: { id: string; label: string }[]
 }) {
   function patch(partial: Partial<HouseholdFormValues>) {
+    if (operationBusy) return
     onChange({ ...values, ...partial })
   }
 
   const showMembers = members != null && onMemberChange != null
 
   return (
-    <form onSubmit={onSubmit} className="space-y-8">
+    <form method="post" onSubmit={onSubmit} className="space-y-8" aria-busy={operationBusy}>
       <div className="space-y-5">
         <div>
           <label className={labelClass} htmlFor={`${idPrefix}-name`}>
@@ -119,6 +122,7 @@ export function HouseholdForm({
             className={vineaInputFieldClassName}
             value={values.name}
             onChange={(e) => patch({ name: e.target.value })}
+            disabled={operationBusy}
             required
             placeholder="e.g. Martinez Family"
           />
@@ -132,6 +136,7 @@ export function HouseholdForm({
             className={vineaInputFieldClassName}
             value={values.address}
             onChange={(e) => patch({ address: e.target.value })}
+            disabled={operationBusy}
             autoComplete="street-address"
           />
         </div>
@@ -145,6 +150,7 @@ export function HouseholdForm({
               className={vineaInputFieldClassName}
               value={values.city}
               onChange={(e) => patch({ city: e.target.value })}
+              disabled={operationBusy}
               autoComplete="address-level2"
             />
           </div>
@@ -157,6 +163,7 @@ export function HouseholdForm({
               className={vineaInputFieldClassName}
               value={values.state}
               onChange={(e) => patch({ state: e.target.value })}
+              disabled={operationBusy}
               autoComplete="address-level1"
             />
           </div>
@@ -169,6 +176,7 @@ export function HouseholdForm({
               className={vineaInputFieldClassName}
               value={values.postalCode}
               onChange={(e) => patch({ postalCode: e.target.value })}
+              disabled={operationBusy}
               autoComplete="postal-code"
             />
           </div>
@@ -183,6 +191,7 @@ export function HouseholdForm({
             className={vineaInputFieldClassName}
             value={values.notes}
             onChange={(e) => patch({ notes: e.target.value })}
+            disabled={operationBusy}
           />
         </div>
       </div>
@@ -215,6 +224,7 @@ export function HouseholdForm({
                         id={`${idPrefix}-rel-${member.memberId}`}
                         className={vineaInputFieldClassName}
                         value={member.relationship}
+                        disabled={operationBusy}
                         onChange={(e) =>
                           onMemberChange(member.memberId, { relationship: e.target.value })
                         }
@@ -231,6 +241,7 @@ export function HouseholdForm({
                         <input
                           type="checkbox"
                           checked={member.isPrimaryContact}
+                          disabled={operationBusy}
                           onChange={(e) =>
                             onMemberChange(member.memberId, {
                               isPrimaryContact: e.target.checked,
@@ -259,6 +270,7 @@ export function HouseholdForm({
                     id={`${idPrefix}-new-person`}
                     className={vineaInputFieldClassName}
                     value={newMember.personId}
+                    disabled={operationBusy}
                     onChange={(e) =>
                       onNewMemberChange({ ...newMember, personId: e.target.value })
                     }
@@ -279,6 +291,7 @@ export function HouseholdForm({
                     id={`${idPrefix}-new-rel`}
                     className={vineaInputFieldClassName}
                     value={newMember.relationship}
+                    disabled={operationBusy}
                     onChange={(e) =>
                       onNewMemberChange({ ...newMember, relationship: e.target.value })
                     }
@@ -295,6 +308,7 @@ export function HouseholdForm({
                     <input
                       type="checkbox"
                       checked={newMember.isPrimaryContact}
+                      disabled={operationBusy}
                       onChange={(e) =>
                         onNewMemberChange({
                           ...newMember,
@@ -310,10 +324,10 @@ export function HouseholdForm({
               <button
                 type="button"
                 onClick={onAddMember}
-                disabled={addingMember}
+                disabled={operationBusy}
                 className={`${primaryButtonMd} mt-4`}
               >
-                {addingMember ? 'Adding…' : 'Add to household'}
+                {addingMember ? 'Adding...' : 'Add to household'}
               </button>
               <InlineFormMessage message={addMemberMessage ?? ''} className="!mt-2" />
             </div>
@@ -330,16 +344,16 @@ export function HouseholdForm({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="submit"
-          disabled={saving}
+          disabled={operationBusy}
           className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 disabled:opacity-60"
         >
-          {saving ? 'Saving…' : submitLabel}
+          {saving ? 'Saving...' : submitLabel}
         </button>
         {onCancel ? (
           <button
             type="button"
             onClick={onCancel}
-            disabled={saving}
+            disabled={operationBusy}
             className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm hover:bg-slate-50 disabled:opacity-60"
           >
             Cancel

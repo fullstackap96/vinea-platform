@@ -24,7 +24,10 @@ export type PersonWriteInput = {
   parishionerId?: unknown
 }
 
-export type PersonListItem = PersonRow & {
+export type PersonListItem = Pick<
+  PersonRow,
+  'id' | 'first_name' | 'middle_name' | 'last_name' | 'email' | 'phone'
+> & {
   primaryHouseholdName: string | null
   primaryHouseholdRelationship: string | null
 }

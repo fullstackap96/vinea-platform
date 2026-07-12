@@ -1,0 +1,199 @@
+{
+  "evidenceRecordId": "EXPORT_AUDIT_REVIEWER_API_LIVE_NONPRODUCTION_SMOKE_20260701",
+  "environment": "local non-production app backed by shared QA Supabase",
+  "appTargetLabel": "localhost non-production",
+  "configuredAppUrlLabel": "NON_PRODUCTION_APP_URL local target, value not printed",
+  "productionTouched": false,
+  "productionFlagsEnabled": false,
+  "dashboardUiAdded": false,
+  "migrationsApplied": false,
+  "operationalRlsChanged": false,
+  "googleCalendarTouched": false,
+  "recordsMutated": false,
+  "storageAccessed": false,
+  "signedUrlsCreated": false,
+  "rawExportsExposed": false,
+  "secretsPrinted": false,
+  "startedAt": "2026-07-01T15:44:42.409Z",
+  "reviewerFlagsUsed": [
+    "VINEA_EXPORT_AUDIT_REVIEWER_PROTOTYPE",
+    "VINEA_EXPORT_AUDIT_REVIEWER_PROTOTYPE_ACK",
+    "VINEA_EXPORT_AUDIT_REVIEWER_PROTOTYPE_ENV"
+  ],
+  "fixtureDiscovery": {
+    "safeStaffFixture": "Existing non-production QA staff environment values, not printed",
+    "safeStaffMembershipsFound": 3,
+    "safeActiveParishFixture": "Derived active parish with display name",
+    "approvedAuditEventsFound": 10,
+    "downloadedRequestListFixture": "Prior non-production export drill event: export.request_list_basic.downloaded",
+    "deniedRequestListFixture": "Prior non-production export drill event: export.request_list_basic.denied",
+    "downloadedDocumentManifestFixture": "Prior non-production export drill event: export.request_document_manifest.downloaded",
+    "deniedDocumentManifestFixture": "Prior non-production export drill event: export.request_document_manifest.denied",
+    "crossParishDeniedFixture": "forged_unauthorized_active_parish_cookie",
+    "familyOrUnauthenticatedDenialMethod": "unauthenticated_direct_route_access",
+    "rollbackOwner": "Codex local QA operator"
+  },
+  "flagOffBaseline": {
+    "health": {
+      "status": 200,
+      "schemaTrue": true
+    },
+    "reviewerRoute": {
+      "status": 404,
+      "json": {
+        "ok": false,
+        "error": "export_audit_reviewer_unavailable",
+        "productionExports": null,
+        "scopeSource": null,
+        "selectedFilter": null,
+        "rowCount": null,
+        "availableFilterCount": null,
+        "severityCountBuckets": null
+      },
+      "contentTypeJson": true,
+      "forbiddenMarkers": []
+    }
+  },
+  "flagOn": {
+    "health": {
+      "status": 200,
+      "schemaTrue": true
+    },
+    "unauthenticated": {
+      "status": 401,
+      "json": {
+        "ok": false,
+        "error": "Unauthorized",
+        "productionExports": null,
+        "scopeSource": null,
+        "selectedFilter": null,
+        "rowCount": null,
+        "availableFilterCount": null,
+        "severityCountBuckets": null
+      },
+      "contentTypeJson": true,
+      "forbiddenMarkers": []
+    },
+    "savedFilters": {
+      "all": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "error": null,
+          "productionExports": "NO_GO",
+          "scopeSource": "membership",
+          "selectedFilter": null,
+          "rowCount": 10,
+          "availableFilterCount": 10,
+          "severityCountBuckets": 4
+        },
+        "contentTypeJson": true,
+        "forbiddenMarkers": []
+      },
+      "exports_downloaded_recent": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "error": null,
+          "productionExports": "NO_GO",
+          "scopeSource": "membership",
+          "selectedFilter": "exports_downloaded_recent",
+          "rowCount": 7,
+          "availableFilterCount": 10,
+          "severityCountBuckets": 4
+        },
+        "contentTypeJson": true,
+        "forbiddenMarkers": []
+      },
+      "exports_denied_recent": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "error": null,
+          "productionExports": "NO_GO",
+          "scopeSource": "membership",
+          "selectedFilter": "exports_denied_recent",
+          "rowCount": 3,
+          "availableFilterCount": 10,
+          "severityCountBuckets": 4
+        },
+        "contentTypeJson": true,
+        "forbiddenMarkers": []
+      },
+      "document_manifest_safety_review": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "error": null,
+          "productionExports": "NO_GO",
+          "scopeSource": "membership",
+          "selectedFilter": "document_manifest_safety_review",
+          "rowCount": 6,
+          "availableFilterCount": 10,
+          "severityCountBuckets": 4
+        },
+        "contentTypeJson": true,
+        "forbiddenMarkers": []
+      },
+      "request_list_basic_safety_review": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "error": null,
+          "productionExports": "NO_GO",
+          "scopeSource": "membership",
+          "selectedFilter": "request_list_basic_safety_review",
+          "rowCount": 4,
+          "availableFilterCount": 10,
+          "severityCountBuckets": 4
+        },
+        "contentTypeJson": true,
+        "forbiddenMarkers": []
+      }
+    },
+    "forgedActiveParish": {
+      "status": 403,
+      "json": {
+        "ok": false,
+        "error": "Export audit reviewer is unavailable.",
+        "productionExports": null,
+        "scopeSource": null,
+        "selectedFilter": null,
+        "rowCount": null,
+        "availableFilterCount": null,
+        "severityCountBuckets": null
+      },
+      "contentTypeJson": true,
+      "forbiddenMarkers": []
+    },
+    "noNewExportDeliveryAuditEvents": true,
+    "newExportDeliveryAuditEventCount": 0,
+    "responseForbiddenMarkers": [],
+    "allResponsesJson": true
+  },
+  "rollback": {
+    "health": {
+      "status": 200,
+      "schemaTrue": true
+    },
+    "reviewerRoute": {
+      "status": 404,
+      "json": {
+        "ok": false,
+        "error": "export_audit_reviewer_unavailable",
+        "productionExports": null,
+        "scopeSource": null,
+        "selectedFilter": null,
+        "rowCount": null,
+        "availableFilterCount": null,
+        "severityCountBuckets": null
+      },
+      "contentTypeJson": true,
+      "forbiddenMarkers": []
+    },
+    "flagsDisabled": true
+  },
+  "completedAt": "2026-07-01T15:44:59.718Z",
+  "finalOutcome": "pass",
+  "productionExportsRemainNoGo": true
+}

@@ -15,6 +15,18 @@ export type MassIntentionRow = {
   updated_at: string
 }
 
+export type MassIntentionListItem = Pick<
+  MassIntentionRow,
+  | 'id'
+  | 'requester_name'
+  | 'intention_text'
+  | 'requested_date'
+  | 'assigned_mass_date'
+  | 'assigned_priest_name'
+  | 'stipend_received'
+  | 'is_fulfilled'
+>
+
 export type MassIntentionWriteInput = {
   requesterName: unknown
   intentionText: unknown

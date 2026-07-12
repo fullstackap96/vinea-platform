@@ -1,3 +1,5 @@
+import { safeDashboardHrefOrFallback } from './safeDashboardHref'
+
 export type ParishOnboardingPayload = {
   name?: unknown
   default_notification_email?: unknown
@@ -57,6 +59,10 @@ function hasSlaTargets(value: unknown): boolean {
   })
 }
 
+function settingsHref() {
+  return safeDashboardHrefOrFallback('/dashboard/settings', '/dashboard/settings')
+}
+
 export function buildParishOnboardingReadiness(input: {
   parish: ParishOnboardingPayload | null | undefined
   staffUsers: readonly ParishStaffAccessPayload[]
@@ -74,49 +80,49 @@ export function buildParishOnboardingReadiness(input: {
       label: 'Parish profile',
       detail: 'Parish name is set.',
       complete: Boolean(text(parish.name)),
-      href: '/dashboard/settings',
+      href: settingsHref(),
     },
     {
       key: 'notification',
       label: 'Notification inbox',
       detail: 'A parish inbox is available for new request notifications.',
       complete: hasValidEmail(parish.default_notification_email),
-      href: '/dashboard/settings',
+      href: settingsHref(),
     },
     {
       key: 'admin',
       label: 'Admin access',
       detail: 'At least one active admin can manage parish setup.',
       complete: activeAdmins.length > 0,
-      href: '/dashboard/settings',
+      href: settingsHref(),
     },
     {
       key: 'staff',
       label: 'Staff access',
       detail: 'At least one staff account can use the dashboard.',
       complete: activeStaff.length > 0,
-      href: '/dashboard/settings',
+      href: settingsHref(),
     },
     {
       key: 'directory',
       label: 'Priest and staff lists',
       detail: 'Assignment picklists have at least one priest or staff display name.',
       complete: arrayCount(parish.staff_names) > 0 || arrayCount(parish.priest_names) > 0,
-      href: '/dashboard/settings',
+      href: settingsHref(),
     },
     {
       key: 'targets',
       label: 'Response targets',
       detail: 'Funeral, wedding, baptism, and OCIA response targets are configured.',
       complete: hasSlaTargets(parish.workflow_sla_rules),
-      href: '/dashboard/settings',
+      href: settingsHref(),
     },
     {
       key: 'daily-brief',
       label: 'Daily brief',
       detail: 'The daily parish operations brief is enabled and has a recipient.',
       complete: dailyBriefReady,
-      href: '/dashboard/settings',
+      href: settingsHref(),
     },
   ]
 

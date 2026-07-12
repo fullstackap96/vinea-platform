@@ -1,23 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createSacramentalRecord } from '../actions'
+import { createSacramentalRecord, loadSacramentalRecordRequestPrefill } from '../actions'
 import {
   SacramentalRecordForm,
   formValuesToWriteInput,
   type SacramentalRecordFormValues,
 } from '../_components/SacramentalRecordForm'
-import { devDashboardConsoleError } from '@/lib/dashboardSupabaseError'
-import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
-import {
-  prefillRecordFormFromRequest,
-  requestPersonIdFromSource,
-  type RequestPrefillSource,
-} from '@/lib/relationshipIntelligence/prefillRecordFromRequest'
+import { recordDetailHref } from '@/lib/dashboardEntityNavigation'
+import { requestDetailHref } from '@/lib/dashboardRequestNavigation'
+import { sacramentalRecordClientErrorMessage } from '@/lib/sacramentalRecordClientMessages'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
-import { supabase } from '@/lib/supabase'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 
 const initialValues: SacramentalRecordFormValues = {
@@ -44,6 +39,12 @@ export function NewSacramentalRecordPage() {
   const [prefillLoading, setPrefillLoading] = useState(Boolean(requestIdParam))
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const createInFlightRef = useRef(false)
+
+  function releaseCreate() {
+    createInFlightRef.current = false
+    setSaving(false)
+  }
 
   useEffect(() => {
     if (!requestIdParam) return
@@ -55,105 +56,19 @@ export function NewSacramentalRecordPage() {
       setPrefillNotice('')
       setMessage('')
 
-      const { data: requestRow, error: requestError } = await supabase
-        .from('requests')
-        .select('*')
-        .eq('id', requestIdParam)
-        .maybeSingle()
+      const result = await loadSacramentalRecordRequestPrefill(requestIdParam)
 
       if (cancelled) return
 
-      if (requestError || !requestRow) {
-        devDashboardConsoleError('records/new prefill request', requestError)
+      if (!result.ok) {
+        setMessage(sacramentalRecordClientErrorMessage('loadPrefill', result.error))
         setPrefillLoading(false)
-        setMessage('Could not load the request for prefill.')
         return
       }
 
-      const requestType = requestTypeFromRow(requestRow as { request_type?: unknown })
-      let funeralDetail: RequestPrefillSource['funeralDetail'] = null
-      let weddingDetail: RequestPrefillSource['weddingDetail'] = null
-      let ociaDetail: RequestPrefillSource['ociaDetail'] = null
-
-      if (requestType === 'funeral') {
-        const { data } = await supabase
-          .from('funeral_request_details')
-          .select('deceased_name, confirmed_service_at')
-          .eq('request_id', requestIdParam)
-          .maybeSingle()
-        funeralDetail = data as RequestPrefillSource['funeralDetail']
-      } else if (requestType === 'wedding') {
-        const { data } = await supabase
-          .from('wedding_request_details')
-          .select('partner_one_name, partner_two_name, confirmed_ceremony_at')
-          .eq('request_id', requestIdParam)
-          .maybeSingle()
-        weddingDetail = data as RequestPrefillSource['weddingDetail']
-      } else if (requestType === 'ocia') {
-        const { data } = await supabase
-          .from('ocia_request_details')
-          .select('confirmed_session_at')
-          .eq('request_id', requestIdParam)
-          .maybeSingle()
-        ociaDetail = data as RequestPrefillSource['ociaDetail']
-      }
-
-      if (cancelled) return
-
-      let parishioner: RequestPrefillSource['parishioner'] = null
-      const parishionerId = (requestRow as { parishioner_id?: unknown }).parishioner_id
-      if (parishionerId != null) {
-        const { data: parishionerRow } = await supabase
-          .from('parishioners')
-          .select('full_name')
-          .eq('id', String(parishionerId))
-          .maybeSingle()
-        parishioner = parishionerRow as RequestPrefillSource['parishioner']
-      }
-
-      const source: RequestPrefillSource = {
-        id: requestIdParam,
-        request_type: (requestRow as { request_type?: unknown }).request_type,
-        status: (requestRow as { status?: unknown }).status,
-        child_name: (requestRow as { child_name?: unknown }).child_name,
-        confirmed_baptism_date: (requestRow as { confirmed_baptism_date?: unknown })
-          .confirmed_baptism_date,
-        notes: (requestRow as { notes?: unknown }).notes,
-        person_id: (requestRow as { person_id?: unknown }).person_id,
-        assigned_priest_name: (requestRow as { assigned_priest_name?: unknown })
-          .assigned_priest_name,
-        parishioner,
-        funeralDetail,
-        weddingDetail,
-        ociaDetail,
-      }
-
-      const prefilled = prefillRecordFormFromRequest(source)
-      if (!prefilled) {
-        setPrefillLoading(false)
-        setMessage(
-          'This request cannot be prefilled (must be complete baptism, wedding, funeral, or OCIA).'
-        )
-        return
-      }
-
-      const { data: existingRecord } = await supabase
-        .from('sacramental_records')
-        .select('id')
-        .eq('request_id', requestIdParam)
-        .maybeSingle()
-
-      if (cancelled) return
-
-      if (existingRecord?.id) {
-        setPrefillLoading(false)
-        setMessage('A sacramental record already exists for this request.')
-        return
-      }
-
-      setValues(prefilled)
-      setPrefillRequestId(requestIdParam)
-      setPrefillPersonId(requestPersonIdFromSource(source))
+      setValues(result.values)
+      setPrefillRequestId(result.requestId)
+      setPrefillPersonId(result.personId)
       setPrefillNotice(
         'Fields prefilled from the completed request. Review and click Save record when ready — nothing is saved until then.'
       )
@@ -168,6 +83,9 @@ export function NewSacramentalRecordPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (createInFlightRef.current) return
+
+    createInFlightRef.current = true
     setSaving(true)
     setMessage('')
 
@@ -179,15 +97,22 @@ export function NewSacramentalRecordPage() {
       writeInput.personId = prefillPersonId
     }
 
-    const result = await createSacramentalRecord(writeInput)
-    setSaving(false)
-
-    if (!result.ok) {
-      setMessage(result.error)
+    let result: Awaited<ReturnType<typeof createSacramentalRecord>>
+    try {
+      result = await createSacramentalRecord(writeInput)
+    } catch (error: unknown) {
+      setMessage(sacramentalRecordClientErrorMessage('createRecord', error))
+      releaseCreate()
       return
     }
 
-    router.push(`/dashboard/records/${result.recordId}`)
+    if (!result.ok) {
+      setMessage(sacramentalRecordClientErrorMessage('createRecord', result.error))
+      releaseCreate()
+      return
+    }
+
+    router.push(recordDetailHref(result.recordId))
   }
 
   return (
@@ -222,7 +147,7 @@ export function NewSacramentalRecordPage() {
           {prefillRequestId ? (
             <p className="mt-2">
               <Link
-                href={`/dashboard/requests/${prefillRequestId}`}
+                href={requestDetailHref(prefillRequestId)}
                 className="font-medium underline underline-offset-2"
               >
                 View source request

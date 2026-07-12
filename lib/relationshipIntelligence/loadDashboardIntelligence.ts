@@ -1,3 +1,5 @@
+import 'server-only'
+
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { parsePersonRow } from '@/lib/people'
 import { buildDashboardSuggestedActions } from './buildDashboardSuggestedActions'
@@ -7,9 +9,11 @@ import type { DashboardSuggestedAction, ParishionerContact, PersonCandidate } fr
 
 export async function loadDashboardSuggestedActions(
   supabase: SupabaseClient,
-  requests: readonly unknown[]
+  requests: readonly unknown[],
+  activeParishId: string,
 ): Promise<DashboardSuggestedAction[]> {
-  if (!requests.length) return []
+  const parishId = activeParishId.trim()
+  if (!requests.length || !parishId) return []
 
   const parishionerIds = [
     ...new Set(
@@ -31,32 +35,35 @@ export async function loadDashboardSuggestedActions(
     { data: peopleRows },
     { data: recordsByRequest },
     { data: baptismRows },
-    { data: memberRows },
     { data: certEvents },
   ] = await Promise.all([
     parishionerIds.length > 0
       ? supabase
           .from('parishioners')
           .select('id, full_name, email, phone')
+          .eq('parish_id', parishId)
           .in('id', parishionerIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     supabase
       .from('people')
-      .select('id, parishioner_id, first_name, middle_name, last_name, email, phone'),
+      .select('id, parishioner_id, first_name, middle_name, last_name, email, phone')
+      .eq('parish_id', parishId),
     requestIds.length > 0
       ? supabase
           .from('sacramental_records')
           .select('id, request_id, record_type, person_name')
+          .eq('parish_id', parishId)
           .in('request_id', requestIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     supabase
       .from('sacramental_records')
       .select('id, record_type, person_name')
+      .eq('parish_id', parishId)
       .eq('record_type', 'baptism'),
-    supabase.from('household_members').select('person_id, household_id, households(name)'),
     supabase
       .from('sacramental_record_events')
       .select('sacramental_record_id, action')
+      .eq('parish_id', parishId)
       .eq('action', 'certificate_generated'),
   ])
 
@@ -85,6 +92,14 @@ export async function loadDashboardSuggestedActions(
       phone: parsed.phone,
     }
   })
+
+  const personIds = people.map((person) => person.id).filter(Boolean)
+  const { data: memberRows } = personIds.length
+    ? await supabase
+        .from('household_members')
+        .select('person_id, household_id, households(name)')
+        .in('person_id', personIds)
+    : { data: [] as Record<string, unknown>[] }
 
   const householdRows: HouseholdMembershipRow[] = []
   for (const raw of memberRows ?? []) {

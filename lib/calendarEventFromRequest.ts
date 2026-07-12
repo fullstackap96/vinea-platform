@@ -1,6 +1,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
 
+export const CALENDAR_EVENT_REQUEST_SELECT =
+  'id, request_type, parishioner_id, confirmed_baptism_date, child_name, preferred_dates, notes, staff_notes, google_calendar_event_id, google_calendar_id, google_calendar_event_html_link' as const
+
+export const CALENDAR_EVENT_PARISHIONER_SELECT =
+  'id, parish_id, full_name, email, phone' as const
+
+const FUNERAL_CALENDAR_DETAIL_SELECT =
+  'confirmed_service_at, deceased_name, family_relationship, date_of_death, funeral_home_or_location, funeral_director_contact, service_location, visitation_details, cemetery_or_committal, readings_music_notes, obituary_program_notes, post_funeral_follow_up_date, preferred_service_notes' as const
+
+const WEDDING_CALENDAR_DETAIL_SELECT =
+  'confirmed_ceremony_at, partner_one_name, partner_two_name, proposed_wedding_date, ceremony_notes' as const
+
+const OCIA_CALENDAR_DETAIL_SELECT =
+  'confirmed_session_at, date_of_birth, age_or_dob_note, sacramental_background, seeking, parishioner_status, preferred_contact_method, availability' as const
+
 function toIso(value: unknown) {
   if (!value) return null
   const d = new Date(String(value))
@@ -67,7 +82,7 @@ export async function buildCalendarEventFromRequest(
   if (requestType === 'funeral') {
     const { data: fd, error: fdErr } = await supabase
       .from('funeral_request_details')
-      .select('*')
+      .select(FUNERAL_CALENDAR_DETAIL_SELECT)
       .eq('request_id', reqRow.id as string)
       .maybeSingle()
 
@@ -130,7 +145,7 @@ export async function buildCalendarEventFromRequest(
   if (requestType === 'wedding') {
     const { data: wd, error: wdErr } = await supabase
       .from('wedding_request_details')
-      .select('*')
+      .select(WEDDING_CALENDAR_DETAIL_SELECT)
       .eq('request_id', reqRow.id as string)
       .maybeSingle()
 
@@ -180,7 +195,7 @@ export async function buildCalendarEventFromRequest(
   if (requestType === 'ocia') {
     const { data: od, error: odErr } = await supabase
       .from('ocia_request_details')
-      .select('*')
+      .select(OCIA_CALENDAR_DETAIL_SELECT)
       .eq('request_id', reqRow.id as string)
       .maybeSingle()
 

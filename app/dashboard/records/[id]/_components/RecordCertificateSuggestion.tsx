@@ -1,8 +1,8 @@
 'use client'
 
 import { suggestCertificateForRecord } from '@/lib/relationshipIntelligence/suggestCertificateForRecord'
-import { secondaryButtonMd } from '@/lib/buttonStyles'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
+import { RecordCertificateDownloadButton } from './RecordCertificateDownloadButton'
 
 type Props = {
   recordId: string
@@ -37,14 +37,7 @@ export function RecordCertificateSuggestion({
       <p className="text-sm leading-relaxed text-amber-950/90">
         No baptism certificate has been generated for this register entry yet.
       </p>
-      <a
-        href={`/api/records/${recordId}/certificate`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${secondaryButtonMd} mt-4 inline-flex justify-center`}
-      >
-        Generate certificate
-      </a>
+      <RecordCertificateDownloadButton recordId={recordId} className="mt-4" />
     </div>
   )
 }

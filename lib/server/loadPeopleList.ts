@@ -1,8 +1,13 @@
 import 'server-only'
 
-import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
+import { cookies } from 'next/headers'
+
 import { userMessageForDashboardQueryError } from '@/lib/dashboardSupabaseError'
-import { parsePersonRow, sanitizePeopleSearchQuery } from '@/lib/people'
+import { sanitizePeopleSearchQuery } from '@/lib/people'
+import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+  resolveActiveStaffParishContext,
+} from '@/lib/server/activeStaffParishContext'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { PersonListItem } from '@/lib/types/people'
 
@@ -10,6 +15,28 @@ export type PeopleListResult = {
   people: PersonListItem[]
   errorMessage: string
   searchQuery: string
+  activeParishName: string | null
+}
+
+export const PEOPLE_LIST_SELECT =
+  'id, first_name, middle_name, last_name, email, phone' as const
+
+function nullableString(value: unknown): string | null {
+  const normalized = String(value ?? '').trim()
+  return normalized ? normalized : null
+}
+
+function parsePersonListItem(raw: Record<string, unknown>): PersonListItem {
+  return {
+    id: String(raw.id ?? ''),
+    first_name: String(raw.first_name ?? '').trim(),
+    middle_name: nullableString(raw.middle_name),
+    last_name: String(raw.last_name ?? '').trim(),
+    email: nullableString(raw.email),
+    phone: nullableString(raw.phone),
+    primaryHouseholdName: null,
+    primaryHouseholdRelationship: null,
+  }
 }
 
 function parseListSearchParams(input: {
@@ -31,21 +58,30 @@ export async function loadPeopleList(searchParams: {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    return { people: [], errorMessage: 'Unauthorized', searchQuery }
+    return { people: [], errorMessage: 'Unauthorized', searchQuery, activeParishName: null }
   }
 
-  const { parishId, error: parishErr } = await fetchPrimaryParishId(supabase)
-  if (parishErr) {
+  const cookieStore = await cookies()
+  const requestedParishId = cookieStore.get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+  const parishContext = await resolveActiveStaffParishContext(supabase, { requestedParishId })
+  if (!parishContext.ok) {
     return {
       people: [],
-      errorMessage: userMessageForDashboardQueryError('parish directory', parishErr),
+      errorMessage: parishContext.error,
       searchQuery,
+      activeParishName: null,
     }
   }
 
+  const parishId = parishContext.activeParishId
+  const activeParishName =
+    parishContext.parishes.find((parish) => parish.id === parishContext.activeParishId)?.name ??
+    parishContext.activeParish.name ??
+    null
+
   let query = supabase
     .from('people')
-    .select('*')
+    .select(PEOPLE_LIST_SELECT)
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true })
 
@@ -73,10 +109,11 @@ export async function loadPeopleList(searchParams: {
       people: [],
       errorMessage: userMessageForDashboardQueryError('people', error),
       searchQuery,
+      activeParishName,
     }
   }
 
-  const rows = (data ?? []).map((row) => parsePersonRow(row as Record<string, unknown>))
+  const rows = (data ?? []).map((row) => parsePersonListItem(row as Record<string, unknown>))
   const personIds = rows.map((row) => row.id)
 
   const primaryByPersonId = new Map<
@@ -122,5 +159,5 @@ export async function loadPeopleList(searchParams: {
     }
   })
 
-  return { people, errorMessage: '', searchQuery }
+  return { people, errorMessage: '', searchQuery, activeParishName }
 }

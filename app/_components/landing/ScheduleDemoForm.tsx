@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { demoRequestClientErrorMessage } from '@/lib/demoRequestClientMessages'
 
 export function ScheduleDemoForm({
   submitButtonClassName,
@@ -15,22 +16,29 @@ export function ScheduleDemoForm({
 
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
+  const [statusIsError, setStatusIsError] = useState(false)
+  const submissionInFlightRef = useRef(false)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submissionInFlightRef.current) return
+
     setStatusMessage('')
-    if (loading) return
+    setStatusIsError(false)
 
     const n = name.trim()
     const p = parishName.trim()
     const em = email.trim()
     if (!n || !p || !em) {
+      setStatusIsError(true)
       setStatusMessage('Please fill in your name, parish name, and email.')
       return
     }
 
+    submissionInFlightRef.current = true
+    setLoading(true)
+
     try {
-      setLoading(true)
       const res = await fetch('/api/demo-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,10 +51,13 @@ export function ScheduleDemoForm({
         }),
       })
 
-      const payload = await res.json().catch(() => ({} as any))
+      const payload = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: unknown
+      }
       if (!res.ok || !payload?.ok) {
-        const err = String(payload?.error || 'Unable to submit demo request.')
-        setStatusMessage(err)
+        setStatusIsError(true)
+        setStatusMessage(demoRequestClientErrorMessage(payload?.error))
         return
       }
 
@@ -56,17 +67,23 @@ export function ScheduleDemoForm({
       setEmail('')
       setRole('')
       setMessage('')
-    } catch (err: any) {
-      setStatusMessage(
-        err?.message || 'Unable to submit demo request. Please try again.'
-      )
+    } catch (err: unknown) {
+      setStatusIsError(true)
+      setStatusMessage(demoRequestClientErrorMessage(err))
     } finally {
+      submissionInFlightRef.current = false
       setLoading(false)
     }
   }
 
   return (
-    <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+    <form
+      method="post"
+      className="mt-6 space-y-4"
+      onSubmit={onSubmit}
+      aria-label="Schedule a Vinea demo"
+      aria-busy={loading}
+    >
       <div>
         <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="demo-name">
           Name
@@ -76,6 +93,7 @@ export function ScheduleDemoForm({
           name="name"
           className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           autoComplete="name"
+          required
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -90,6 +108,7 @@ export function ScheduleDemoForm({
           name="parishName"
           className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           autoComplete="organization"
+          required
           value={parishName}
           onChange={(e) => setParishName(e.target.value)}
         />
@@ -105,6 +124,7 @@ export function ScheduleDemoForm({
           type="email"
           className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           autoComplete="email"
+          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -119,6 +139,7 @@ export function ScheduleDemoForm({
           name="role"
           className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           placeholder="e.g. Parish secretary, Pastor, OCIA coordinator"
+          autoComplete="organization-title"
           value={role}
           onChange={(e) => setRole(e.target.value)}
         />
@@ -133,6 +154,7 @@ export function ScheduleDemoForm({
           name="message"
           className="w-full min-h-[120px] rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           placeholder="Anything you'd like us to know (timeline, parish size, current process, etc.)"
+          autoComplete="off"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
@@ -152,7 +174,11 @@ export function ScheduleDemoForm({
       </div>
 
       {statusMessage ? (
-        <p className="text-sm text-gray-600" role="status" aria-live="polite">
+        <p
+          className={statusIsError ? 'text-sm text-red-700' : 'text-sm text-gray-600'}
+          role={statusIsError ? 'alert' : 'status'}
+          aria-live={statusIsError ? 'assertive' : 'polite'}
+        >
           {statusMessage}
         </p>
       ) : null}

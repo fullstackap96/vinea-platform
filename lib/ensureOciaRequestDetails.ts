@@ -7,6 +7,19 @@ import {
 
 /** Shown in DB until staff completes intake via Edit request details. */
 export const OCIA_PLACEHOLDER_PARISH_STATUS = 'Pending — complete OCIA intake'
+export const OCIA_DETAILS_ACCESS_ERROR = 'Could not access the OCIA intake record. Please try again.'
+export const OCIA_DETAILS_CREATE_ERROR = 'Could not prepare the OCIA intake record. Please try again.'
+export const OCIA_DETAILS_PRESENCE_SELECT = 'request_id'
+
+export type OciaRequestDetailPresence = {
+  request_id: string
+}
+
+function parsePresenceRow(value: unknown): OciaRequestDetailPresence | null {
+  if (!value || typeof value !== 'object') return null
+  const requestId = String((value as { request_id?: unknown }).request_id ?? '').trim()
+  return requestId ? { request_id: requestId } : null
+}
 
 const defaultOciaInsert = (requestId: string) => ({
   request_id: requestId,
@@ -28,23 +41,26 @@ const defaultOciaInsert = (requestId: string) => ({
 export async function ensureOciaRequestDetailsIfMissing(
   supabase: SupabaseClient,
   requestId: string
-): Promise<{ data: Record<string, unknown> | null; error: string | null }> {
+): Promise<{ data: OciaRequestDetailPresence | null; error: string | null }> {
   const id = String(requestId || '').trim()
   if (!id) {
-    return { data: null, error: 'Missing request id' }
+    return { data: null, error: 'Missing request id.' }
   }
 
   const { data: existing, error: selErr } = await supabase
     .from('ocia_request_details')
-    .select('*')
+    .select(OCIA_DETAILS_PRESENCE_SELECT)
     .eq('request_id', id)
     .maybeSingle()
 
   if (selErr) {
-    return { data: null, error: selErr.message }
+    return { data: null, error: OCIA_DETAILS_ACCESS_ERROR }
   }
   if (existing) {
-    return { data: existing as Record<string, unknown>, error: null }
+    const presence = parsePresenceRow(existing)
+    return presence
+      ? { data: presence, error: null }
+      : { data: null, error: OCIA_DETAILS_ACCESS_ERROR }
   }
 
   const insertPayload = defaultOciaInsert(id)
@@ -52,22 +68,24 @@ export async function ensureOciaRequestDetailsIfMissing(
   const { data: inserted, error: insErr } = await supabase
     .from('ocia_request_details')
     .insert(insertPayload)
-    .select('*')
+    .select(OCIA_DETAILS_PRESENCE_SELECT)
     .maybeSingle()
 
   if (!insErr && inserted) {
-    return { data: inserted as Record<string, unknown>, error: null }
+    const presence = parsePresenceRow(inserted)
+    if (presence) return { data: presence, error: null }
   }
 
   // Race or unique conflict: row may exist now
   const { data: raced, error: raceErr } = await supabase
     .from('ocia_request_details')
-    .select('*')
+    .select(OCIA_DETAILS_PRESENCE_SELECT)
     .eq('request_id', id)
     .maybeSingle()
   if (!raceErr && raced) {
-    return { data: raced as Record<string, unknown>, error: null }
+    const presence = parsePresenceRow(raced)
+    if (presence) return { data: presence, error: null }
   }
 
-  return { data: null, error: insErr?.message || raceErr?.message || 'Insert failed' }
+  return { data: null, error: OCIA_DETAILS_CREATE_ERROR }
 }

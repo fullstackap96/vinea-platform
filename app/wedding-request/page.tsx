@@ -1,15 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import {
   intakeInputClass,
   intakeLabelClass,
   intakeSectionHeadingClass,
   intakeStatusMessageClass,
+  intakeStatusMessageTone,
   intakeTextareaClass,
 } from '@/lib/intakeFormStyles'
 import { PublicIntakeShell } from '@/app/_components/PublicIntakeShell'
+import {
+  logPublicIntakeNotificationException,
+  logPublicIntakeNotificationFailure,
+} from '@/lib/publicIntakeNotificationClient'
+import { submitPublicIntake } from '@/lib/publicIntakeSubmissionClient'
 
 export default function WeddingRequestPage() {
   const [fullName, setFullName] = useState('')
@@ -22,34 +28,38 @@ export default function WeddingRequestPage() {
   const [notes, setNotes] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const submissionInFlightRef = useRef(false)
+
+  function finishSubmission() {
+    submissionInFlightRef.current = false
+    setLoading(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submissionInFlightRef.current) return
+
+    submissionInFlightRef.current = true
     setLoading(true)
     setMessage('')
 
-    const intakeRes = await fetch('/api/intake', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requestType: 'wedding',
-        fullName,
-        email,
-        phone,
-        partnerOneName,
-        partnerTwoName,
-        proposedWeddingDate,
-        ceremonyNotes,
-        notes,
-      }),
+    const intakeResult = await submitPublicIntake({
+      requestType: 'wedding',
+      fullName,
+      email,
+      phone,
+      partnerOneName,
+      partnerTwoName,
+      proposedWeddingDate,
+      ceremonyNotes,
+      notes,
     })
-    const intakeData = await intakeRes.json().catch(() => ({}))
-    if (!intakeRes.ok || !intakeData?.ok) {
-      setMessage(String(intakeData?.error || 'Error saving request.'))
-      setLoading(false)
+    if (!intakeResult.ok) {
+      setMessage(intakeResult.error)
+      finishSubmission()
       return
     }
-    const requestId = String(intakeData.requestId)
+    const requestId = intakeResult.requestId
 
     try {
       const res = await fetch('/api/request-notifications', {
@@ -73,11 +83,10 @@ export default function WeddingRequestPage() {
         }),
       })
       if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        console.warn('Request notification failed:', res.status, txt)
+        logPublicIntakeNotificationFailure(res.status)
       }
-    } catch (err) {
-      console.warn('Request notification error:', err)
+    } catch {
+      logPublicIntakeNotificationException()
     }
 
     setMessage('Request submitted successfully.')
@@ -89,19 +98,30 @@ export default function WeddingRequestPage() {
     setProposedWeddingDate('')
     setCeremonyNotes('')
     setNotes('')
-    setLoading(false)
+    finishSubmission()
   }
+
+  const statusTone = intakeStatusMessageTone(message)
 
   return (
     <PublicIntakeShell
       title="Wedding request"
       description="Submit a request to celebrate your wedding at the parish. A parish staff member will contact you."
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        method="post"
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        aria-label="Wedding request"
+        aria-busy={loading}
+      >
         <h2 className={intakeSectionHeadingClass}>Primary contact</h2>
         <input
           className={intakeInputClass}
           placeholder="Your full name"
+          aria-label="Your full name"
+          name="contactName"
+          autoComplete="name"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           required
@@ -110,7 +130,10 @@ export default function WeddingRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="Email"
+          aria-label="Email"
+          name="email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -119,6 +142,11 @@ export default function WeddingRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="Phone"
+          aria-label="Phone"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
@@ -129,6 +157,9 @@ export default function WeddingRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="Partner name"
+          aria-label="Partner name"
+          name="partnerOneName"
+          autoComplete="off"
           value={partnerOneName}
           onChange={(e) => setPartnerOneName(e.target.value)}
           required
@@ -137,6 +168,9 @@ export default function WeddingRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="Partner name (optional)"
+          aria-label="Partner name (optional)"
+          name="partnerTwoName"
+          autoComplete="off"
           value={partnerTwoName}
           onChange={(e) => setPartnerTwoName(e.target.value)}
         />
@@ -144,7 +178,10 @@ export default function WeddingRequestPage() {
         <label className={intakeLabelClass}>Proposed wedding date (if known)</label>
         <input
           className={intakeInputClass}
+          aria-label="Proposed wedding date"
+          name="proposedWeddingDate"
           type="date"
+          autoComplete="off"
           value={proposedWeddingDate}
           onChange={(e) => setProposedWeddingDate(e.target.value)}
         />
@@ -152,6 +189,9 @@ export default function WeddingRequestPage() {
         <textarea
           className={intakeTextareaClass}
           placeholder="Ceremony preferences or questions (Mass, time of year, etc.)"
+          aria-label="Ceremony preferences or questions"
+          name="ceremonyNotes"
+          autoComplete="off"
           value={ceremonyNotes}
           onChange={(e) => setCeremonyNotes(e.target.value)}
         />
@@ -159,6 +199,9 @@ export default function WeddingRequestPage() {
         <textarea
           className={intakeTextareaClass}
           placeholder="Additional notes for parish staff"
+          aria-label="Additional notes for parish staff"
+          name="notes"
+          autoComplete="off"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
@@ -175,8 +218,8 @@ export default function WeddingRequestPage() {
       {message ? (
         <p
           className={intakeStatusMessageClass(message)}
-          role="status"
-          aria-live="polite"
+          role={statusTone === 'success' ? 'status' : 'alert'}
+          aria-live={statusTone === 'success' ? 'polite' : 'assertive'}
         >
           {message}
         </p>

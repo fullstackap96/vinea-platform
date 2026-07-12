@@ -17,7 +17,7 @@ export type CommunicationHistoryItem = {
   contacted_at: string
   method: string
   notes: string | null
-  created_at?: string
+  created_at?: string | null
 }
 
 function formatWhenLabel(iso: string | null | undefined) {

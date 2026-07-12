@@ -78,4 +78,25 @@ describe('buildParishOpsBrief', () => {
       'Wedding: Unnamed contact - Waiting for documents (Log contact; owner: Jane; blocker: Documents)'
     )
   })
+
+  it('keeps focus item links dashboard-internal', () => {
+    const brief = buildParishOpsBrief(
+      [
+        {
+          id: 'urgent/unsafe?next=https://example.test',
+          status: 'new',
+          request_type: 'funeral',
+          created_at: '2026-06-10T12:00:00.000Z',
+          next_follow_up_date: '2026-06-10',
+          assigned_staff_name: '',
+          funeral_detail: { confirmed_service_at: '2026-06-21T15:00:00.000Z' },
+        },
+      ],
+      { now }
+    )
+
+    expect(brief.focusItems[0]?.href).toMatch(/^\/dashboard/)
+    expect(brief.focusItems[0]?.href).not.toContain('://example.test')
+    expect(brief.focusItems[0]?.href).not.toContain('javascript:')
+  })
 })

@@ -1,69 +1,31 @@
-'use client'
-
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
 import { Pencil } from 'lucide-react'
+
+import { DashboardRequestNameLink } from '@/app/dashboard/_components/DashboardRequestNameLink'
+import { CareTimelineSection } from '@/app/dashboard/_components/CareTimelineSection'
 import {
   LabelValueGrid,
   LabelValueRow,
 } from '@/app/dashboard/requests/[id]/_components/LabelValueGrid'
 import { WorkflowSectionCard } from '@/app/dashboard/requests/[id]/_components/WorkflowSectionCard'
 import { SacramentalRecordTypeBadge } from '@/app/dashboard/records/_components/SacramentalRecordTypeBadge'
-import { devDashboardConsoleError } from '@/lib/dashboardSupabaseError'
+import { secondaryButtonMd } from '@/lib/buttonStyles'
+import { dashboardRequestLinkCardP4 } from '@/lib/cardStyles'
+import { buildPersonCareTimeline } from '@/lib/careTimeline'
+import {
+  householdDetailHref,
+  personEditHref,
+  recordDetailHref,
+} from '@/lib/dashboardEntityNavigation'
+import { dashboardRequestOpenLabel, requestDetailHref } from '@/lib/dashboardRequestNavigation'
 import { formatRequestType } from '@/lib/formatRequestType'
 import { formatHouseholdRelationship } from '@/lib/households'
 import { maybeMissingValue } from '@/lib/missingValue'
-import {
-  formatPersonDateOfBirthDisplay,
-  formatPersonDisplayName,
-  parsePersonRow,
-} from '@/lib/people'
-import { formatSacramentDateDisplay, parseSacramentalRecordRow } from '@/lib/sacramentalRecords'
-import { formatRequestStatus } from '@/lib/requestStatus'
-import { secondaryButtonMd } from '@/lib/buttonStyles'
-import { supabase } from '@/lib/supabase'
+import { formatPersonDateOfBirthDisplay, formatPersonDisplayName } from '@/lib/people'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
-import {
-  dashboardRequestLinkCardP4,
-} from '@/lib/cardStyles'
-import { dashboardRequestOpenLabel } from '@/lib/dashboardRequestNavigation'
-import { DashboardRequestNameLink } from '@/app/dashboard/_components/DashboardRequestNameLink'
-import { CareTimelineSection } from '@/app/dashboard/_components/CareTimelineSection'
-import { buildPersonCareTimeline } from '@/lib/careTimeline'
-import type { PersonRow } from '@/lib/types/people'
-import type { SacramentalRecordRow } from '@/lib/types/sacramentalRecords'
-
-type PersonHouseholdMembership = {
-  memberId: string
-  householdId: string
-  householdName: string
-  relationship: string
-  isPrimaryContact: boolean
-}
-
-type LinkedRequest = {
-  id: string
-  request_type: string
-  status: string
-  child_name: string | null
-  created_at: string
-  last_contacted_at: string | null
-  next_follow_up_date: string | null
-  assigned_staff_name: string | null
-  assigned_priest_name: string | null
-  assigned_deacon_name: string | null
-  linkSource: 'person_id' | 'parishioner_id'
-}
-
-type PersonCommunication = {
-  id: string
-  requestId: string
-  requestLabel: string
-  contacted_at: string
-  method: string
-  notes: string | null
-}
+import { formatRequestStatus } from '@/lib/requestStatus'
+import { formatSacramentDateDisplay } from '@/lib/sacramentalRecords'
+import type { PersonDetailResult } from '@/lib/server/loadPersonDetail'
 
 function displayValue(value: string | null | undefined) {
   const s = String(value ?? '').trim()
@@ -88,172 +50,16 @@ function formatSubmittedDate(iso: string | null | undefined) {
   })
 }
 
-export function PersonDetailPage() {
-  const params = useParams()
-  const personId = String(params?.id ?? '')
-
-  const [person, setPerson] = useState<PersonRow | null>(null)
-  const [households, setHouseholds] = useState<PersonHouseholdMembership[]>([])
-  const [records, setRecords] = useState<SacramentalRecordRow[]>([])
-  const [requests, setRequests] = useState<LinkedRequest[]>([])
-  const [communications, setCommunications] = useState<PersonCommunication[]>([])
-  const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
-
-  useEffect(() => {
-    if (!personId) return
-
-    async function load() {
-      setLoading(true)
-      setErrorMessage('')
-
-      const { data: personRow, error: personError } = await supabase
-        .from('people')
-        .select('*')
-        .eq('id', personId)
-        .maybeSingle()
-
-      if (personError) {
-        devDashboardConsoleError('people detail', personError)
-        setErrorMessage('Could not load this person.')
-        setLoading(false)
-        return
-      }
-      if (!personRow) {
-        setErrorMessage('Person not found.')
-        setLoading(false)
-        return
-      }
-
-      const parsedPerson = parsePersonRow(personRow as Record<string, unknown>)
-      setPerson(parsedPerson)
-
-      const { data: memberRows } = await supabase
-        .from('household_members')
-        .select('id, household_id, relationship, is_primary_contact, households(name)')
-        .eq('person_id', personId)
-        .order('is_primary_contact', { ascending: false })
-
-      const membershipList: PersonHouseholdMembership[] = []
-      for (const raw of memberRows ?? []) {
-        const row = raw as Record<string, unknown>
-        const householdsRaw = row.households
-        const householdName =
-          householdsRaw != null &&
-          typeof householdsRaw === 'object' &&
-          !Array.isArray(householdsRaw)
-            ? String((householdsRaw as Record<string, unknown>).name ?? '').trim()
-            : ''
-        membershipList.push({
-          memberId: String(row.id),
-          householdId: String(row.household_id),
-          householdName: householdName || 'Household',
-          relationship: String(row.relationship ?? '').trim(),
-          isPrimaryContact: Boolean(row.is_primary_contact),
-        })
-      }
-      setHouseholds(membershipList)
-
-      const { data: recordRows } = await supabase
-        .from('sacramental_records')
-        .select('*')
-        .eq('person_id', personId)
-        .order('sacrament_date', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
-
-      setRecords(
-        (recordRows ?? []).map((row) =>
-          parseSacramentalRecordRow(row as Record<string, unknown>)
-        )
-      )
-
-      let requestsQuery = supabase
-        .from('requests')
-        .select(
-          'id, request_type, status, child_name, created_at, last_contacted_at, next_follow_up_date, assigned_staff_name, assigned_priest_name, assigned_deacon_name, person_id, parishioner_id'
-        )
-        .order('created_at', { ascending: false })
-
-      if (parsedPerson.parishioner_id) {
-        requestsQuery = requestsQuery.or(
-          `person_id.eq.${personId},parishioner_id.eq.${parsedPerson.parishioner_id}`
-        )
-      } else {
-        requestsQuery = requestsQuery.eq('person_id', personId)
-      }
-
-      const { data: requestRows } = await requestsQuery
-      const linkedRequests: LinkedRequest[] = (requestRows ?? []).map((row) => {
-        const r = row as Record<string, unknown>
-        const rowPersonId = r.person_id != null ? String(r.person_id).trim() : ''
-        const linkSource: LinkedRequest['linkSource'] =
-          rowPersonId === personId ? 'person_id' : 'parishioner_id'
-        return {
-          id: String(r.id),
-          request_type: String(r.request_type ?? ''),
-          status: String(r.status ?? ''),
-          child_name: r.child_name != null ? String(r.child_name) : null,
-          created_at: String(r.created_at ?? ''),
-          last_contacted_at: r.last_contacted_at != null ? String(r.last_contacted_at) : null,
-          next_follow_up_date:
-            r.next_follow_up_date != null ? String(r.next_follow_up_date) : null,
-          assigned_staff_name:
-            r.assigned_staff_name != null ? String(r.assigned_staff_name) : null,
-          assigned_priest_name:
-            r.assigned_priest_name != null ? String(r.assigned_priest_name) : null,
-          assigned_deacon_name:
-            r.assigned_deacon_name != null ? String(r.assigned_deacon_name) : null,
-          linkSource,
-        }
-      })
-      setRequests(linkedRequests)
-
-      const requestIds = linkedRequests.map((r) => r.id)
-      const commList: PersonCommunication[] = []
-
-      if (requestIds.length > 0) {
-        const { data: commRows } = await supabase
-          .from('request_communications')
-          .select('id, request_id, contacted_at, method, notes')
-          .in('request_id', requestIds)
-          .order('contacted_at', { ascending: false })
-
-        const requestLabelById = new Map(
-          linkedRequests.map((r) => [
-            r.id,
-            `${formatRequestType(r.request_type)} · ${formatRequestStatus(r.status)}`,
-          ])
-        )
-
-        for (const raw of commRows ?? []) {
-          const row = raw as Record<string, unknown>
-          const requestId = String(row.request_id ?? '')
-          commList.push({
-            id: String(row.id),
-            requestId,
-            requestLabel: requestLabelById.get(requestId) ?? 'Request',
-            contacted_at: String(row.contacted_at ?? ''),
-            method: String(row.method ?? ''),
-            notes: row.notes != null ? String(row.notes) : null,
-          })
-        }
-      }
-
-      setCommunications(commList)
-      setLoading(false)
-    }
-
-    void load()
-  }, [personId])
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center px-4" aria-busy="true">
-        <p className="text-sm font-medium text-gray-700">Loading profile…</p>
-      </div>
-    )
-  }
-
+export function PersonDetailPage({
+  person,
+  households,
+  records,
+  requests,
+  communications,
+  errorMessage,
+  warningMessage,
+  activeParishName,
+}: PersonDetailResult) {
   if (errorMessage || !person) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 sm:px-6 sm:pt-5">
@@ -262,7 +68,7 @@ export function PersonDetailPage() {
             href="/dashboard/people"
             className="text-sm font-medium text-blue-800 underline underline-offset-2"
           >
-            ← Back to people
+            Back to people
           </Link>
         </p>
         <div
@@ -292,31 +98,45 @@ export function PersonDetailPage() {
           href="/dashboard/people"
           className="text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
         >
-          ← Back to people
+          Back to people
         </Link>
       </p>
 
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl break-words">
+          <h1 className="break-words text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
             {displayName}
           </h1>
           {contactParts.length > 0 || dobDisplay ? (
-            <p className="mt-2 text-sm text-gray-600 break-words">
-              {[contactParts.join(' · '), dobDisplay ? `DOB: ${dobDisplay}` : '']
+            <p className="mt-2 break-words text-sm text-gray-600">
+              {[contactParts.join(' - '), dobDisplay ? `DOB: ${dobDisplay}` : '']
                 .filter(Boolean)
-                .join(' · ')}
+                .join(' - ')}
+            </p>
+          ) : null}
+          {activeParishName ? (
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-blue-900">
+              Scoped to {activeParishName}
             </p>
           ) : null}
         </div>
         <Link
-          href={`/dashboard/people/${person.id}/edit`}
+          href={personEditHref(person.id)}
           className={`${secondaryButtonMd} w-full justify-center gap-2 sm:w-auto`}
         >
           <Pencil className="h-4 w-4 shrink-0" aria-hidden />
           Edit
         </Link>
       </header>
+
+      {warningMessage ? (
+        <div
+          className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="status"
+        >
+          {warningMessage}
+        </div>
+      ) : null}
 
       <div className="space-y-6">
         <WorkflowSectionCard title="Contact" description="Profile details on file for this person.">
@@ -348,13 +168,13 @@ export function PersonDetailPage() {
               {households.map((membership) => (
                 <li key={membership.memberId}>
                   <Link
-                    href={`/dashboard/households/${membership.householdId}`}
+                    href={householdDetailHref(membership.householdId)}
                     className="block rounded-xl border border-gray-200/90 bg-slate-50/80 px-4 py-3 text-sm transition hover:border-gray-300 hover:bg-white"
                   >
                     <p className="font-semibold text-gray-900">{membership.householdName}</p>
                     <p className="mt-1 text-gray-600">
                       {formatHouseholdRelationship(membership.relationship)}
-                      {membership.isPrimaryContact ? ' · Primary contact' : ''}
+                      {membership.isPrimaryContact ? ' - Primary contact' : ''}
                     </p>
                   </Link>
                 </li>
@@ -374,13 +194,13 @@ export function PersonDetailPage() {
               {records.map((record) => (
                 <li key={record.id}>
                   <Link
-                    href={`/dashboard/records/${record.id}`}
+                    href={recordDetailHref(record.id)}
                     className="block rounded-xl border border-gray-200/90 bg-slate-50/80 px-4 py-3 transition hover:border-gray-300 hover:bg-white"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <SacramentalRecordTypeBadge recordType={record.record_type} />
                     </div>
-                    <p className="mt-2 font-semibold text-gray-900 break-words">
+                    <p className="mt-2 break-words font-semibold text-gray-900">
                       {record.person_name}
                     </p>
                     <p className="mt-1 text-sm text-gray-600">
@@ -407,26 +227,26 @@ export function PersonDetailPage() {
                 const requestName = getRequestDetailPrimaryHeading({
                   request_type: request.request_type,
                   child_name: request.child_name,
-                  parishioner: person ? { full_name: formatPersonDisplayName(person) } : null,
+                  parishioner: { full_name: displayName },
                 })
                 return (
                   <li key={request.id}>
                     <Link
-                      href={`/dashboard/requests/${request.id}`}
+                      href={requestDetailHref(request.id)}
                       aria-label={dashboardRequestOpenLabel(requestName)}
                       className={`${dashboardRequestLinkCardP4} !rounded-xl !p-4`}
                     >
                       <DashboardRequestNameLink name={requestName} embedded />
                       <p className="mt-1 text-sm text-gray-600">
                         {formatRequestType(request.request_type)}
-                        {' · '}
+                        {' - '}
                         {formatRequestStatus(request.status)}
-                        {submitted ? ` · Submitted ${submitted}` : ''}
-                        {subtitle ? ` · ${subtitle}` : ''}
+                        {submitted ? ` - Submitted ${submitted}` : ''}
+                        {subtitle ? ` - ${subtitle}` : ''}
                       </p>
                       {request.linkSource === 'parishioner_id' ? (
                         <p className="mt-1.5 text-xs text-amber-900/90">
-                          Linked via intake contact — open the request to set a direct person link.
+                          Linked via intake contact - open the request to set a direct person link.
                         </p>
                       ) : null}
                     </Link>
@@ -465,7 +285,7 @@ export function PersonDetailPage() {
                       {item.notes}
                     </p>
                   ) : (
-                    <p className="mt-2 text-sm text-gray-600">{maybeMissingValue('—')}</p>
+                    <p className="mt-2 text-sm text-gray-600">{maybeMissingValue('-')}</p>
                   )}
                 </div>
               ))}

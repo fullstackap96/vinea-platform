@@ -1,10 +1,16 @@
 import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
+
 import { loadDashboardRequests } from '@/lib/dashboard/loadDashboardRequests'
 import { buildNotificationsCenter } from '@/lib/notificationsCenter/buildNotificationsCenter'
 import type { NotificationsCenterBuildResult } from '@/lib/notificationsCenter/types'
 import { loadDashboardSuggestedActions } from '@/lib/relationshipIntelligence/loadDashboardIntelligence'
+import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+  resolveActiveStaffParishContext,
+} from '@/lib/server/activeStaffParishContext'
 
 export type LoadNotificationsCenterResult = NotificationsCenterBuildResult & {
   errorMessage: string
@@ -35,7 +41,17 @@ export async function loadNotificationsCenter(
     return { ...EMPTY, errorMessage: 'Unauthorized' }
   }
 
-  const requestsResult = await loadDashboardRequests(supabase)
+  const cookieStore = await cookies()
+  const requestedParishId = cookieStore.get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+  const parishContext = await resolveActiveStaffParishContext(supabase, { requestedParishId })
+
+  if (!parishContext.ok) {
+    return { ...EMPTY, errorMessage: parishContext.error }
+  }
+
+  const requestsResult = await loadDashboardRequests(supabase, {
+    activeParishId: parishContext.activeParishId,
+  })
   if (!requestsResult.ok) {
     return {
       ...EMPTY,
@@ -45,7 +61,8 @@ export async function loadNotificationsCenter(
 
   const suggestedActions = await loadDashboardSuggestedActions(
     supabase,
-    requestsResult.requests
+    requestsResult.requests,
+    parishContext.activeParishId,
   )
 
   const built = buildNotificationsCenter({

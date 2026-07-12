@@ -1,27 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import {
   SITE_DOCUMENT_DESCRIPTION,
   SITE_DOCUMENT_TITLE,
   SITE_OG_IMAGE_ALT,
   SITE_OG_IMAGE_PATH,
 } from "@/lib/productBranding";
+import { parseExactAppOrigin } from "@/lib/exactAppOrigin";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const metadataBase = parseExactAppOrigin(process.env.NEXT_PUBLIC_APP_URL, {
+  requireHttps: process.env.VERCEL === "1",
 });
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
 
 export const metadata: Metadata = {
-  metadataBase: appUrl ? new URL(appUrl) : undefined,
+  metadataBase: metadataBase ?? undefined,
   title: SITE_DOCUMENT_TITLE,
   description: SITE_DOCUMENT_DESCRIPTION,
   openGraph: {
@@ -51,10 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className="h-full antialiased">
       <body className="flex min-h-full flex-col font-sans text-gray-900 antialiased">
         {children}
       </body>

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { updateMassIntention } from '../../actions'
 import {
   MassIntentionForm,
@@ -10,100 +10,91 @@ import {
   massIntentionToFormValues,
   type MassIntentionFormValues,
 } from '../../_components/MassIntentionForm'
-import { devDashboardConsoleError } from '@/lib/dashboardSupabaseError'
-import { parseMassIntentionRow } from '@/lib/massIntentions'
+import { massIntentionDetailHref } from '@/lib/dashboardEntityNavigation'
+import { coreRecordClientErrorMessage } from '@/lib/coreRecordClientMessages'
 import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
-import { supabase } from '@/lib/supabase'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
+import type { MassIntentionRow } from '@/lib/types/massIntentions'
 
-export function EditMassIntentionPage() {
-  const params = useParams()
+export function EditMassIntentionPage({
+  intention,
+  errorMessage,
+  activeParishName,
+}: {
+  intention: MassIntentionRow | null
+  errorMessage: string
+  activeParishName: string | null
+}) {
   const router = useRouter()
-  const intentionId = String(params?.id ?? '')
+  const intentionId = intention?.id ?? ''
 
-  const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [values, setValues] = useState<MassIntentionFormValues | null>(null)
-  const [priestOptions, setPriestOptions] = useState<string[]>([])
+  const [values, setValues] = useState<MassIntentionFormValues | null>(
+    intention ? massIntentionToFormValues(intention) : null
+  )
+  const [priestOptions, setPriestOptions] = useState<string[]>(
+    mergeAssigneeDirectoryOptions([], intention?.assigned_priest_name ?? null)
+  )
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const saveInFlightRef = useRef(false)
+
+  function releaseSave() {
+    saveInFlightRef.current = false
+    setSaving(false)
+  }
 
   useEffect(() => {
-    if (!intentionId) return
+    if (!intention) return
 
-    async function load() {
-      setLoading(true)
-      setErrorMessage('')
+    const assignedPriestName = intention.assigned_priest_name
+    let cancelled = false
 
-      const [intentionRes, settingsRes] = await Promise.all([
-        supabase.from('mass_intentions').select('*').eq('id', intentionId).maybeSingle(),
-        fetch('/api/parish/settings', { credentials: 'include' }),
-      ])
-
-      const { data, error } = intentionRes
-
-      if (error) {
-        devDashboardConsoleError('mass_intentions edit load', error)
-        setErrorMessage('Could not load this intention.')
-        setLoading(false)
-        return
+    async function loadPriests() {
+      try {
+        const settingsRes = await fetch('/api/parish/settings', { credentials: 'include' })
+        if (!settingsRes.ok) return
+        const settings = (await settingsRes.json()) as { priest_names?: string[] }
+        if (cancelled) return
+        setPriestOptions(mergeAssigneeDirectoryOptions(settings.priest_names, assignedPriestName))
+      } catch {
+        // Priest directory is optional; free-text fallback remains available.
       }
-      if (!data) {
-        setErrorMessage('Intention not found.')
-        setLoading(false)
-        return
-      }
-
-      const parsed = parseMassIntentionRow(data as Record<string, unknown>)
-      setValues(massIntentionToFormValues(parsed))
-
-      if (settingsRes.ok) {
-        try {
-          const settings = (await settingsRes.json()) as { priest_names?: string[] }
-          setPriestOptions(
-            mergeAssigneeDirectoryOptions(settings.priest_names, parsed.assigned_priest_name)
-          )
-        } catch {
-          setPriestOptions(mergeAssigneeDirectoryOptions([], parsed.assigned_priest_name))
-        }
-      } else {
-        setPriestOptions(mergeAssigneeDirectoryOptions([], parsed.assigned_priest_name))
-      }
-
-      setLoading(false)
     }
 
-    void load()
-  }, [intentionId])
+    void loadPriests()
+    return () => {
+      cancelled = true
+    }
+  }, [intention])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!values) return
+    if (saveInFlightRef.current || !values || !intentionId) return
 
+    saveInFlightRef.current = true
     setSaving(true)
     setMessage('')
 
-    const result = await updateMassIntention(intentionId, formValuesToWriteInput(values))
-    setSaving(false)
-
-    if (!result.ok) {
-      setMessage(result.error)
+    let result: Awaited<ReturnType<typeof updateMassIntention>>
+    try {
+      result = await updateMassIntention(intentionId, formValuesToWriteInput(values))
+    } catch (error: unknown) {
+      setMessage(coreRecordClientErrorMessage('updateMassIntention', error))
+      releaseSave()
       return
     }
 
-    router.push(`/dashboard/intentions/${intentionId}`)
+    if (!result.ok) {
+      setMessage(coreRecordClientErrorMessage('updateMassIntention', result.error))
+      releaseSave()
+      return
+    }
+
+    router.push(massIntentionDetailHref(intentionId))
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center px-4" aria-busy="true">
-        <p className="text-sm font-medium text-gray-700">Loading intention…</p>
-      </div>
-    )
-  }
-
-  if (errorMessage || !values) {
+  if (errorMessage || !values || !intention) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 sm:px-6 sm:pt-5">
         <p className="mb-3">
@@ -111,7 +102,7 @@ export function EditMassIntentionPage() {
             href="/dashboard/intentions"
             className="text-sm font-medium text-blue-800 underline underline-offset-2"
           >
-            ← Back to Mass intentions
+            Back to Mass intentions
           </Link>
         </p>
         <div
@@ -128,24 +119,29 @@ export function EditMassIntentionPage() {
     <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
       <p className="mb-3">
         <Link
-          href={`/dashboard/intentions/${intentionId}`}
+          href={massIntentionDetailHref(intentionId)}
           className="text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
         >
-          ← Back to intention
+          Back to intention
         </Link>
       </p>
 
       <h1 className={sectionHeadingClassName}>Edit Mass intention</h1>
-      <p className="mb-6 max-w-xl text-sm leading-relaxed text-gray-600">
+      <p className="mb-2 max-w-xl text-sm leading-relaxed text-gray-600">
         Update scheduling, stipend status, and fulfillment for this intention.
       </p>
+      {activeParishName ? (
+        <p className="mb-6 text-sm font-medium text-gray-700">Scoped to {activeParishName}.</p>
+      ) : (
+        <div className="mb-6" />
+      )}
 
       <div className={vineaSectionShellClassName}>
         <MassIntentionForm
           values={values}
           onChange={setValues}
           onSubmit={handleSubmit}
-          onCancel={() => router.push(`/dashboard/intentions/${intentionId}`)}
+          onCancel={() => router.push(massIntentionDetailHref(intentionId))}
           submitLabel="Save changes"
           saving={saving}
           message={message}

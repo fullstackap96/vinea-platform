@@ -6,6 +6,11 @@ import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { GLOBAL_SEARCH_MIN_LENGTH } from '@/lib/globalSearch/constants'
 import type { GlobalSearchGroupedResults } from '@/lib/globalSearch/types'
+import { parseGlobalSearchResponse } from '@/lib/globalSearch/parseGlobalSearchResponse'
+import {
+  dashboardGlobalSearchWarningMessage,
+  dashboardShellClientErrorMessage,
+} from '@/lib/dashboardShellClientMessages'
 import { vineaInputFieldClassName } from '@/lib/vineaUi'
 import { GlobalSearchResultGroups } from './GlobalSearchResultGroups'
 
@@ -26,6 +31,7 @@ export function DashboardGlobalSearch() {
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [warningMessage, setWarningMessage] = useState('')
   const [open, setOpen] = useState(false)
 
   const goToFullSearch = useCallback(
@@ -41,20 +47,32 @@ export function DashboardGlobalSearch() {
   useEffect(() => {
     const trimmed = query.trim()
     if (trimmed.length < GLOBAL_SEARCH_MIN_LENGTH) {
-      setResults(EMPTY_RESULTS)
-      setTotalCount(0)
-      setLoading(false)
-      setErrorMessage('')
-      return
+      let cancelled = false
+      queueMicrotask(() => {
+        if (cancelled) return
+        setResults(EMPTY_RESULTS)
+        setTotalCount(0)
+        setLoading(false)
+        setErrorMessage('')
+        setWarningMessage('')
+      })
+      return () => {
+        cancelled = true
+      }
     }
 
     let cancelled = false
+    const controller = new AbortController()
     const timer = window.setTimeout(async () => {
       setLoading(true)
       setErrorMessage('')
+      setWarningMessage('')
 
       try {
-        const response = await fetch(`/api/dashboard/search?q=${encodeURIComponent(trimmed)}`)
+        const response = await fetch(`/api/dashboard/search?q=${encodeURIComponent(trimmed)}`, {
+          credentials: 'include',
+          signal: controller.signal,
+        })
         if (!response.ok) {
           if (!cancelled) {
             setErrorMessage(
@@ -62,26 +80,35 @@ export function DashboardGlobalSearch() {
                 ? 'Please sign in again to search.'
                 : 'Search is temporarily unavailable.'
             )
+            setWarningMessage('')
             setResults(EMPTY_RESULTS)
             setTotalCount(0)
           }
           return
         }
 
-        const data = (await response.json()) as {
-          results: GlobalSearchGroupedResults
-          totalCount: number
-          errorMessage?: string
-        }
+        const data = parseGlobalSearchResponse(await response.json().catch(() => null))
 
-        if (!cancelled) {
-          setResults(data.results ?? EMPTY_RESULTS)
-          setTotalCount(data.totalCount ?? 0)
-          setErrorMessage(data.errorMessage ?? '')
+        if (!cancelled && data && data.query.trim() === trimmed) {
+          setResults(data.results)
+          setTotalCount(data.totalCount)
+          setErrorMessage(
+            data.errorMessage
+              ? dashboardShellClientErrorMessage('globalSearch', data.errorMessage)
+              : '',
+          )
+          setWarningMessage(dashboardGlobalSearchWarningMessage(data.warningMessage))
+        } else if (!cancelled) {
+          setErrorMessage('Search is temporarily unavailable.')
+          setWarningMessage('')
+          setResults(EMPTY_RESULTS)
+          setTotalCount(0)
         }
-      } catch {
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
         if (!cancelled) {
           setErrorMessage('Search is temporarily unavailable.')
+          setWarningMessage('')
           setResults(EMPTY_RESULTS)
           setTotalCount(0)
         }
@@ -95,6 +122,7 @@ export function DashboardGlobalSearch() {
     return () => {
       cancelled = true
       window.clearTimeout(timer)
+      controller.abort()
     }
   }, [query])
 
@@ -128,7 +156,7 @@ export function DashboardGlobalSearch() {
           aria-expanded={showDropdown}
           aria-controls={listboxId}
           aria-autocomplete="list"
-          placeholder="Search Vinea…"
+          placeholder="Search Vinea..."
           value={query}
           onChange={(event) => {
             setQuery(event.target.value)
@@ -161,6 +189,7 @@ export function DashboardGlobalSearch() {
             totalCount={totalCount}
             loading={loading}
             errorMessage={errorMessage}
+            warningMessage={warningMessage}
             compact
             onNavigate={() => setOpen(false)}
           />

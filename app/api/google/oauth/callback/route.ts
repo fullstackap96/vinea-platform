@@ -5,10 +5,34 @@ import { resolveAppOrigin } from '@/lib/appOrigin'
 import {
   GCAL_OAUTH_STATE_COOKIE,
   timingSafeStateEquals,
-  verifySignedOAuthStateCookie,
+  verifySignedOAuthStateCookieWithMetadata,
 } from '@/lib/googleOAuthStateCookie'
-import { createSupabaseRouteHandlerReadOnlyClient } from '@/lib/supabase/routeHandlerClient'
+import { requireStaffFromRequest } from '@/lib/server/requireStaff'
+import { resolveActiveStaffParishContext } from '@/lib/server/activeStaffParishContext'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+
+type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
+type GoogleOAuthCallbackErrorAction =
+  | 'oauth-error-param'
+  | 'state-validation'
+  | 'parish-authorization'
+  | 'config'
+  | 'token-response'
+  | 'userinfo-fetch'
+  | 'integration-upsert'
+  | 'callback-exception'
+
+function logGoogleOAuthCallbackError(
+  action: GoogleOAuthCallbackErrorAction,
+  error: unknown,
+  extra: Record<string, string | number | boolean | null | undefined> = {}
+) {
+  logServerError(`[google-oauth-callback] ${action} failed`, error, {
+    route: '/api/google/oauth/callback',
+    ...extra,
+  })
+}
 
 function settingsRedirect(request: NextRequest, gcal: 'connected' | 'error') {
   const dest = new URL('/dashboard/settings', resolveAppOrigin(request))
@@ -26,6 +50,49 @@ function clearGcalOAuthStateCookie(res: NextResponse) {
   })
 }
 
+async function resolveGoogleOAuthCallbackParishContext(
+  supabase: StaffSupabaseClient,
+  signedParishId: string | null
+) {
+  if (!signedParishId) {
+    return {
+      ok: false as const,
+      source: 'none' as const,
+      error: 'Google Calendar connection is missing parish context.',
+      technicalDetail: 'Signed OAuth state did not include a parish id.',
+      requestedParishId: null,
+    }
+  }
+
+  const context = await resolveActiveStaffParishContext(supabase, {
+    requestedParishId: signedParishId,
+  })
+
+  if (!context.ok) return context
+  if (context.activeParishId !== signedParishId) {
+    return {
+      ok: false as const,
+      source: context.source,
+      error: 'You are not authorized to connect Google Calendar for this parish.',
+      technicalDetail:
+        context.ignoredRequestedParishReason ??
+        'Signed parish id did not resolve to the active staff parish.',
+      requestedParishId: signedParishId,
+    }
+  }
+  if (context.source !== 'membership') {
+    return {
+      ok: false as const,
+      source: context.source,
+      error: 'You are not authorized to connect Google Calendar for this parish.',
+      technicalDetail: 'Google OAuth callback requires membership-backed parish authorization.',
+      requestedParishId: signedParishId,
+    }
+  }
+
+  return context
+}
+
 export async function GET(request: NextRequest) {
   const fail = () => {
     const res = settingsRedirect(request, 'error')
@@ -36,7 +103,11 @@ export async function GET(request: NextRequest) {
   const search = request.nextUrl.searchParams
   const oauthError = search.get('error')
   if (oauthError) {
-    console.error('Google OAuth callback error param:', oauthError)
+    logGoogleOAuthCallbackError(
+      'oauth-error-param',
+      new Error('Google OAuth provider returned an error parameter'),
+      { hasOAuthError: true }
+    )
     return fail()
   }
 
@@ -46,25 +117,48 @@ export async function GET(request: NextRequest) {
     return fail()
   }
 
-  const supabase = createSupabaseRouteHandlerReadOnlyClient(request)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
+  const staff = await requireStaffFromRequest(request)
+  if (!staff.ok) {
     return fail()
   }
 
   const cookieRaw = request.cookies.get(GCAL_OAUTH_STATE_COOKIE)?.value
-  const expectedState = verifySignedOAuthStateCookie(cookieRaw)
-  if (!expectedState || !timingSafeStateEquals(expectedState, stateParam)) {
-    console.error('Google OAuth state mismatch or invalid cookie')
+  const expectedState = verifySignedOAuthStateCookieWithMetadata(cookieRaw)
+  if (!expectedState || !timingSafeStateEquals(expectedState.state, stateParam)) {
+    logGoogleOAuthCallbackError(
+      'state-validation',
+      new Error('Google OAuth state mismatch or invalid cookie'),
+      {
+        hasStateParam: Boolean(stateParam),
+        hasStateCookie: Boolean(cookieRaw),
+      }
+    )
+    return fail()
+  }
+
+  const parishContext = await resolveGoogleOAuthCallbackParishContext(
+    staff.supabase,
+    expectedState.metadata.parishId
+  )
+  if (!parishContext.ok) {
+    logGoogleOAuthCallbackError(
+      'parish-authorization',
+      new Error('Google OAuth parish authorization failed'),
+      {
+        hasSignedParishId: Boolean(expectedState.metadata.parishId),
+        source: parishContext.source,
+      }
+    )
     return fail()
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim()
   if (!clientId || !clientSecret) {
-    console.error('Google OAuth callback: missing client id/secret')
+    logGoogleOAuthCallbackError('config', new Error('Google OAuth client config missing'), {
+      hasClientId: Boolean(clientId),
+      hasClientSecret: Boolean(clientSecret),
+    })
     return fail()
   }
 
@@ -76,22 +170,16 @@ export async function GET(request: NextRequest) {
     const { tokens } = await oauth2Client.getToken(code)
     const refreshToken = tokens.refresh_token
     if (!refreshToken) {
-      console.error('Google OAuth: no refresh_token in token response (prompt=consent required)')
+      logGoogleOAuthCallbackError(
+        'token-response',
+        new Error('Google OAuth token response did not include refresh token'),
+        { hasRefreshToken: false }
+      )
       return fail()
     }
 
     const admin = createSupabaseServiceRoleClient()
-    const { data: parish, error: parishErr } = await admin
-      .from('parishes')
-      .select('id')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-
-    if (parishErr || !parish?.id) {
-      console.error('Google OAuth: parish lookup failed', parishErr)
-      return fail()
-    }
+    const parishId = parishContext.activeParishId
 
     let googleAccountEmail: string | null = null
     const accessToken = tokens.access_token
@@ -105,35 +193,55 @@ export async function GET(request: NextRequest) {
           const em = typeof profile.email === 'string' ? profile.email.trim() : ''
           googleAccountEmail = em || null
         }
-      } catch (e) {
-        console.warn('Google OAuth: userinfo fetch skipped', e)
+      } catch (error: unknown) {
+        logGoogleOAuthCallbackError('userinfo-fetch', error, {
+          hasParishId: Boolean(parishId),
+          hasAccessToken: true,
+        })
       }
     }
 
     const nowIso = new Date().toISOString()
-    const { error: upsertErr } = await admin.from('parish_google_integrations').upsert(
-      {
-        parish_id: parish.id,
-        refresh_token: refreshToken,
-        calendar_id: 'primary',
-        google_account_email: googleAccountEmail,
-        status: 'connected',
-        last_error: null,
-        updated_at: nowIso,
-      },
-      { onConflict: 'parish_id' }
-    )
+    const { data: savedIntegration, error: upsertErr } = await admin.from('parish_google_integrations').upsert(
+        {
+          parish_id: parishId,
+          refresh_token: refreshToken,
+          calendar_id: 'primary',
+          google_account_email: googleAccountEmail,
+          status: 'connected',
+          last_error: null,
+          updated_at: nowIso,
+        },
+        { onConflict: 'parish_id' }
+      )
+      .select('parish_id')
+      .maybeSingle()
 
-    if (upsertErr) {
-      console.error('Google OAuth: upsert parish_google_integrations failed', upsertErr)
+    if (upsertErr || savedIntegration?.parish_id !== parishId) {
+      logGoogleOAuthCallbackError(
+        'integration-upsert',
+        upsertErr ?? new Error('Google Calendar integration was not persisted.'),
+        {
+          hasParishId: Boolean(parishId),
+          hasGoogleAccountEmail: Boolean(googleAccountEmail),
+        }
+      )
       return fail()
     }
 
     const ok = settingsRedirect(request, 'connected')
     clearGcalOAuthStateCookie(ok)
     return ok
-  } catch (e) {
-    console.error('Google OAuth callback exception:', e)
+  } catch (error: unknown) {
+    logGoogleOAuthCallbackError('callback-exception', error, {
+      hasCode: Boolean(code),
+    })
     return fail()
   }
+}
+
+export const googleOAuthCallbackRouteTestInternals = {
+  clearGcalOAuthStateCookie,
+  resolveGoogleOAuthCallbackParishContext,
+  settingsRedirect,
 }

@@ -9,6 +9,7 @@ import {
   requestDocumentStatusLabel,
   type RequestDocument,
 } from '@/lib/requestDocuments'
+import { safeFamilyPortalDocumentUploadMessage } from '@/lib/familyPortalDocumentClientMessages'
 import { workflowStepStatusLabel, type RequestWorkflowStep } from '@/lib/requestWorkflowSteps'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 
@@ -78,13 +79,13 @@ export function FamilyRequestDocumentsPortal({
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || 'Could not upload document.')
+        throw new Error(safeFamilyPortalDocumentUploadMessage(payload?.error))
       }
       setMessage('Thank you. Your document was uploaded for parish review.')
       if (fileInputRef.current) fileInputRef.current.value = ''
       window.location.reload()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not upload document.')
+      setMessage(safeFamilyPortalDocumentUploadMessage(error))
     } finally {
       setUploading(false)
     }
@@ -92,7 +93,11 @@ export function FamilyRequestDocumentsPortal({
 
   return (
     <div className="space-y-5">
-      <form onSubmit={uploadDocument} className="rounded-xl border border-gray-200 bg-white p-4">
+      <form
+        method="post"
+        onSubmit={uploadDocument}
+        className="rounded-xl border border-gray-200 bg-white p-4"
+      >
         <h2 className="text-base font-semibold text-gray-900">Upload a document</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
           <label className="block text-sm">

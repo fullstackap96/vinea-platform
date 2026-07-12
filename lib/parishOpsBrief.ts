@@ -11,6 +11,7 @@ import { formatRequestType } from '@/lib/formatRequestType'
 import { dashboardRequestScheduleRow } from '@/lib/requestWorkflowV2'
 import { isMissingConfirmedSchedule } from '@/lib/requestConfirmedSchedule'
 import { isNextFollowUpDueToday, isNextFollowUpOverdue } from '@/lib/nextFollowUpDate'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 
 export type ParishOpsBriefFocusItem = {
   requestId: string
@@ -303,7 +304,7 @@ export function buildParishOpsBrief(
     actionLabel: row.workflow.recommendedActionLabel,
     ownerLabel: row.ownerLabel,
     blockerLabel: row.blockerLabel,
-    href: row.detailHref,
+    href: safeDashboardHrefOrFallback(row.detailHref, '/dashboard/requests'),
   }))
   const firstAction = buildFirstAction({
     urgentCount,

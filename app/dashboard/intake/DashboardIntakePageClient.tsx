@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, ClipboardList, Filter } from 'lucide-react'
@@ -13,7 +13,7 @@ import { primaryButtonSm, secondaryButtonSm } from '@/lib/buttonStyles'
 import { chipBase } from '@/lib/chipStyles'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaEmptyStateClassName } from '@/lib/vineaUi'
-import { quickTriageMassIntention, quickTriageRequest } from './actions'
+import { dashboardQueueClientErrorMessage } from '@/lib/dashboardQueueClientMessages'
 
 type FilterKey = 'all' | ParishIntakeQueueFilter
 
@@ -31,6 +31,33 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'needs_owner', label: 'Needs owner' },
   { key: 'waiting', label: 'Waiting on family' },
 ]
+
+type IntakeQuickTriageResult = { ok: true } | { ok: false; error: string }
+
+async function postIntakeTriage(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<IntakeQuickTriageResult> {
+  try {
+    const response = await fetch(path, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | { ok?: unknown; error?: unknown }
+      | null
+
+    if (response.ok && payload?.ok === true) return { ok: true }
+    return {
+      ok: false,
+      error: typeof payload?.error === 'string' ? payload.error : '',
+    }
+  } catch {
+    return { ok: false, error: '' }
+  }
+}
 
 function priorityTone(priority: ParishIntakeQueuePriority): string {
   if (priority === 'urgent') return 'border-rose-200 bg-rose-50 text-rose-950'
@@ -63,7 +90,9 @@ export function DashboardIntakePageClient({
   const [filter, setFilter] = useState<FilterKey>('needs_review')
   const [openItemId, setOpenItemId] = useState<string | null>(null)
   const [savingItemId, setSavingItemId] = useState<string | null>(null)
+  const mutationInFlightRef = useRef(false)
   const [messages, setMessages] = useState<Record<string, string>>({})
+  const mutationBusy = savingItemId !== null
   const visibleItems = useMemo(() => filterItems(items, filter), [items, filter])
   const urgentCount = items.filter((item) => item.priority === 'urgent').length
   const missingCount = items.filter((item) => item.filters.includes('missing_info')).length
@@ -74,49 +103,67 @@ export function DashboardIntakePageClient({
   }
 
   async function saveRequestTriage(item: ParishIntakeQueueItem, formData: FormData) {
+    if (mutationInFlightRef.current) return
+
+    mutationInFlightRef.current = true
     setSavingItemId(item.id)
     setItemMessage(item.id, '')
     try {
-      const result = await quickTriageRequest({
-        requestId: item.sourceId,
-        assignedStaffName: formData.get('assignedStaffName'),
-        nextFollowUpDate: formData.get('nextFollowUpDate'),
-        contactMethod: formData.get('contactMethod'),
-        contactNotes: formData.get('contactNotes'),
-        markFirstContact: formData.get('markFirstContact') === 'on',
-        doneForNow: formData.get('doneForNow') === 'on',
-      })
+      const result = await postIntakeTriage(
+        `/api/requests/${encodeURIComponent(item.sourceId)}/intake-triage`,
+        {
+          assignedStaffName: formData.get('assignedStaffName'),
+          nextFollowUpDate: formData.get('nextFollowUpDate'),
+          contactMethod: formData.get('contactMethod'),
+          contactNotes: formData.get('contactNotes'),
+          markFirstContact: formData.get('markFirstContact') === 'on',
+          doneForNow: formData.get('doneForNow') === 'on',
+        },
+      )
       if (!result.ok) {
-        setItemMessage(item.id, `Could not save: ${result.error}`)
+        setItemMessage(
+          item.id,
+          dashboardQueueClientErrorMessage('intakeRequestTriage', result.error),
+        )
         return
       }
       setItemMessage(item.id, 'Quick triage saved.')
       setOpenItemId(null)
       router.refresh()
     } finally {
+      mutationInFlightRef.current = false
       setSavingItemId(null)
     }
   }
 
   async function saveMassIntentionTriage(item: ParishIntakeQueueItem, formData: FormData) {
+    if (mutationInFlightRef.current) return
+
+    mutationInFlightRef.current = true
     setSavingItemId(item.id)
     setItemMessage(item.id, '')
     try {
-      const result = await quickTriageMassIntention({
-        intentionId: item.sourceId,
-        assignedMassDate: formData.get('assignedMassDate'),
-        assignedPriestName: formData.get('assignedPriestName'),
-        stipendReceived: formData.get('stipendReceived') === 'on',
-        doneForNow: formData.get('doneForNow') === 'on',
-      })
+      const result = await postIntakeTriage(
+        `/api/mass-intentions/${encodeURIComponent(item.sourceId)}/intake-triage`,
+        {
+          assignedMassDate: formData.get('assignedMassDate'),
+          assignedPriestName: formData.get('assignedPriestName'),
+          stipendReceived: formData.get('stipendReceived') === 'on',
+          doneForNow: formData.get('doneForNow') === 'on',
+        },
+      )
       if (!result.ok) {
-        setItemMessage(item.id, `Could not save: ${result.error}`)
+        setItemMessage(
+          item.id,
+          dashboardQueueClientErrorMessage('intakeMassIntentionTriage', result.error),
+        )
         return
       }
       setItemMessage(item.id, 'Mass intention triage saved.')
       setOpenItemId(null)
       router.refresh()
     } finally {
+      mutationInFlightRef.current = false
       setSavingItemId(null)
     }
   }
@@ -257,6 +304,7 @@ export function DashboardIntakePageClient({
                         <button
                           type="button"
                           className={secondaryButtonSm}
+                          disabled={mutationBusy}
                           onClick={() =>
                             setOpenItemId((current) => (current === item.id ? null : item.id))
                           }
@@ -274,6 +322,7 @@ export function DashboardIntakePageClient({
                   {openItemId === item.id ? (
                     <form
                       className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3"
+                      aria-busy={mutationBusy}
                       action={(formData) => {
                         if (item.kind === 'mass_intention') {
                           void saveMassIntentionTriage(item, formData)
@@ -297,6 +346,7 @@ export function DashboardIntakePageClient({
                             <input
                               type="date"
                               name="assignedMassDate"
+                              disabled={mutationBusy}
                               defaultValue={item.currentMassDate}
                               className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                             />
@@ -306,6 +356,7 @@ export function DashboardIntakePageClient({
                             <input
                               type="text"
                               name="assignedPriestName"
+                              disabled={mutationBusy}
                               defaultValue={item.currentPriestName}
                               placeholder="Fr. name"
                               className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
@@ -315,6 +366,7 @@ export function DashboardIntakePageClient({
                             <input
                               type="checkbox"
                               name="stipendReceived"
+                              disabled={mutationBusy}
                               defaultChecked={item.stipendReceived}
                               className="mb-1"
                             />
@@ -328,6 +380,7 @@ export function DashboardIntakePageClient({
                             <input
                               type="text"
                               name="assignedStaffName"
+                              disabled={mutationBusy}
                               defaultValue={item.currentOwner}
                               placeholder="Name of staff owner"
                               className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
@@ -338,6 +391,7 @@ export function DashboardIntakePageClient({
                             <input
                               type="date"
                               name="nextFollowUpDate"
+                              disabled={mutationBusy}
                               defaultValue={item.currentFollowUpDate}
                               className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                             />
@@ -347,6 +401,7 @@ export function DashboardIntakePageClient({
                             <select
                               name="contactMethod"
                               defaultValue="phone"
+                              disabled={mutationBusy}
                               className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                             >
                               <option value="phone">Phone call</option>
@@ -360,12 +415,18 @@ export function DashboardIntakePageClient({
                             <input
                               type="text"
                               name="contactNotes"
+                              disabled={mutationBusy}
                               placeholder="Short note for communication history"
                               className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                             />
                           </label>
                           <label className="flex items-start gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 lg:col-span-2">
-                            <input type="checkbox" name="markFirstContact" className="mt-1" />
+                            <input
+                              type="checkbox"
+                              name="markFirstContact"
+                              className="mt-1"
+                              disabled={mutationBusy}
+                            />
                             <span>
                               <span className="block font-semibold">Mark first contact complete</span>
                               <span className="block text-xs leading-relaxed text-gray-600">
@@ -377,7 +438,12 @@ export function DashboardIntakePageClient({
                       )}
 
                       <label className="mt-3 flex items-start gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
-                        <input type="checkbox" name="doneForNow" className="mt-1" />
+                        <input
+                          type="checkbox"
+                          name="doneForNow"
+                          className="mt-1"
+                          disabled={mutationBusy}
+                        />
                         <span>
                           <span className="block font-semibold">Done for now</span>
                           <span className="block text-xs leading-relaxed text-gray-600">
@@ -391,7 +457,7 @@ export function DashboardIntakePageClient({
                         <button
                           type="submit"
                           className={primaryButtonSm}
-                          disabled={savingItemId === item.id}
+                          disabled={mutationBusy}
                         >
                           {savingItemId === item.id ? 'Saving...' : 'Save quick triage'}
                         </button>
@@ -399,7 +465,7 @@ export function DashboardIntakePageClient({
                           type="button"
                           className={secondaryButtonSm}
                           onClick={() => setOpenItemId(null)}
-                          disabled={savingItemId === item.id}
+                          disabled={mutationBusy}
                         >
                           Cancel
                         </button>

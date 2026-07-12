@@ -2,6 +2,7 @@ import { formatRequestType } from '@/lib/formatRequestType'
 import { formatSacramentalRecordType } from '@/lib/formatSacramentalRecordType'
 import { formatRequestStatus } from '@/lib/requestStatus'
 import { isNextFollowUpDueToday, isNextFollowUpOverdue } from '@/lib/nextFollowUpDate'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 
 export type CareTimelineEventKind =
   | 'request'
@@ -112,6 +113,38 @@ function formatCommunicationMethod(value: unknown): string {
   return text(value) || 'Contact'
 }
 
+function requestDetailHref(
+  requestId: unknown,
+  anchor?: 'communication' | 'communication-history' | 'next-follow-up'
+): string {
+  const id = text(requestId)
+  if (!id) return '/dashboard/requests'
+  const suffix = anchor ? `#${anchor}` : ''
+  return safeDashboardHrefOrFallback(
+    `/dashboard/requests/${encodeURIComponent(id)}${suffix}`,
+    '/dashboard/requests'
+  )
+}
+
+function recordDetailHref(recordId: unknown): string {
+  const id = text(recordId)
+  if (!id) return '/dashboard/records'
+  return safeDashboardHrefOrFallback(
+    `/dashboard/records/${encodeURIComponent(id)}`,
+    '/dashboard/records'
+  )
+}
+
+function householdDetailHref(householdId: unknown, mode?: 'edit'): string {
+  const id = text(householdId)
+  if (!id) return '/dashboard/households'
+  const suffix = mode === 'edit' ? '/edit' : ''
+  return safeDashboardHrefOrFallback(
+    `/dashboard/households/${encodeURIComponent(id)}${suffix}`,
+    '/dashboard/households'
+  )
+}
+
 function isOpenRequest(request: CareTimelineRequest): boolean {
   return text(request.status) !== 'complete'
 }
@@ -162,7 +195,7 @@ export function buildCareTimeline(input: {
         .filter(Boolean)
         .join(' | '),
       occurredAt,
-      href: `/dashboard/requests/${encodeURIComponent(request.id)}`,
+      href: requestDetailHref(request.id),
     })
 
     const followUpAt = parseIso(request.next_follow_up_date)
@@ -173,7 +206,7 @@ export function buildCareTimeline(input: {
         label: 'Follow-up scheduled',
         detail: personRequestTitle(request),
         occurredAt: followUpAt,
-        href: `/dashboard/requests/${encodeURIComponent(request.id)}#next-follow-up`,
+        href: requestDetailHref(request.id, 'next-follow-up'),
       })
     }
   }
@@ -188,7 +221,7 @@ export function buildCareTimeline(input: {
       label: `${typeLabel} recorded`,
       detail: text(record.person_name) || 'Register entry linked to this profile.',
       occurredAt,
-      href: `/dashboard/records/${encodeURIComponent(record.id)}`,
+      href: recordDetailHref(record.id),
     })
   }
 
@@ -202,7 +235,7 @@ export function buildCareTimeline(input: {
       label: `${method} touchpoint`,
       detail: compact(communication.notes) || communication.requestLabel,
       occurredAt,
-      href: `/dashboard/requests/${encodeURIComponent(communication.requestId)}#communication-history`,
+      href: requestDetailHref(communication.requestId, 'communication-history'),
     })
   }
 
@@ -215,7 +248,7 @@ export function buildCareTimeline(input: {
         household.isPrimaryContact ? ' | Primary contact' : ''
       }`,
       occurredAt: new Date(0).toISOString(),
-      href: `/dashboard/households/${encodeURIComponent(household.householdId)}`,
+      href: householdDetailHref(household.householdId),
     })
   }
 
@@ -255,7 +288,7 @@ export function buildPersonCareTimeline(input: {
     nextAction = {
       title: 'Log the first pastoral touchpoint',
       detail: `${personRequestTitle(firstContactNeeded)} has no first contact logged yet.`,
-      href: `/dashboard/requests/${encodeURIComponent(firstContactNeeded.id)}#communication`,
+      href: requestDetailHref(firstContactNeeded.id, 'communication'),
       label: 'Log contact',
       tone: 'urgent',
     }
@@ -263,7 +296,7 @@ export function buildPersonCareTimeline(input: {
     nextAction = {
       title: 'Catch up on overdue follow-up',
       detail: `${personRequestTitle(overdueFollowUp)} has a follow-up date that has passed.`,
-      href: `/dashboard/requests/${encodeURIComponent(overdueFollowUp.id)}#next-follow-up`,
+      href: requestDetailHref(overdueFollowUp.id, 'next-follow-up'),
       label: 'Update follow-up',
       tone: 'urgent',
     }
@@ -271,7 +304,7 @@ export function buildPersonCareTimeline(input: {
     nextAction = {
       title: 'Follow up today',
       detail: `${personRequestTitle(dueTodayFollowUp)} has a follow-up due today.`,
-      href: `/dashboard/requests/${encodeURIComponent(dueTodayFollowUp.id)}#next-follow-up`,
+      href: requestDetailHref(dueTodayFollowUp.id, 'next-follow-up'),
       label: 'Open follow-up',
       tone: 'warning',
     }
@@ -279,7 +312,7 @@ export function buildPersonCareTimeline(input: {
     nextAction = {
       title: 'Set the next care follow-up',
       detail: `${personRequestTitle(missingFollowUp)} is open but has no next follow-up date.`,
-      href: `/dashboard/requests/${encodeURIComponent(missingFollowUp.id)}#next-follow-up`,
+      href: requestDetailHref(missingFollowUp.id, 'next-follow-up'),
       label: 'Set follow-up',
       tone: 'warning',
     }
@@ -327,9 +360,7 @@ export function buildHouseholdCareTimeline(input: {
   const memberCount = Math.max(0, Math.floor(Number(input.memberCount ?? 0)))
   const primaryContactCount = Math.max(0, Math.floor(Number(input.primaryContactCount ?? 0)))
   const householdId = text(input.householdId)
-  const editHref = householdId
-    ? `/dashboard/households/${encodeURIComponent(householdId)}/edit`
-    : '/dashboard/households'
+  const editHref = householdDetailHref(householdId, 'edit')
 
   let nextAction = base.nextAction
   if (memberCount === 0) {

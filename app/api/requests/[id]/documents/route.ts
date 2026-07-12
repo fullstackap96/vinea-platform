@@ -1,10 +1,17 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { writeAuditEvent } from '@/lib/server/auditLog'
 import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+} from '@/lib/server/activeStaffParishContext'
+import {
   loadStaffScopedRequestDocumentAccess,
+  type StaffScopedRequestDocumentAccessOptions,
   workflowStepBelongsToRequest,
 } from '@/lib/server/requestDocumentAccess'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
+import { logServerError } from '@/lib/server/safeErrorLogging'
+import { cleanupFailedRequestDocumentUpload } from '@/lib/server/requestDocumentUploadCleanup'
+import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 import {
   normalizeRequestDocumentRow,
   isRequestDocumentsTableMissing,
@@ -23,6 +30,19 @@ function text(value: unknown): string {
   return String(value ?? '').trim()
 }
 
+function activeParishDocumentAccessOptions(
+  request: NextRequest,
+  staffSupabase: StaffScopedRequestDocumentAccessOptions['staffSupabase']
+): StaffScopedRequestDocumentAccessOptions {
+  const activeParishId = request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+
+  return {
+    staffSupabase,
+    activeParishId,
+    allowPrimaryParishFallback: !activeParishId,
+  }
+}
+
 export async function GET(request: NextRequest, context: RouteParams) {
   const staff = await requireStaffFromRequest(request)
   if (!staff.ok) return staff.response
@@ -30,7 +50,11 @@ export async function GET(request: NextRequest, context: RouteParams) {
   const { id: requestId } = await context.params
   try {
     const admin = createSupabaseServiceRoleClient()
-    const access = await loadStaffScopedRequestDocumentAccess(admin, requestId)
+    const access = await loadStaffScopedRequestDocumentAccess(
+      admin,
+      requestId,
+      activeParishDocumentAccessOptions(request, staff.supabase)
+    )
     if (!access) {
       return NextResponse.json({ ok: false, error: 'Request not found.' }, { status: 404 })
     }
@@ -51,7 +75,12 @@ export async function GET(request: NextRequest, context: RouteParams) {
           { status: 503 }
         )
       }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      logServerError('[request-documents] list failed', error, {
+        route: '/api/requests/[id]/documents',
+        hasRequestId: Boolean(requestId),
+        activeParishCookiePresent: Boolean(request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value),
+      })
+      return NextResponse.json({ ok: false, error: 'Could not load documents.' }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -61,19 +90,30 @@ export async function GET(request: NextRequest, context: RouteParams) {
         .filter(Boolean),
     })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not load documents.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    logServerError('[request-documents] list failed', error, {
+      route: '/api/requests/[id]/documents',
+      hasRequestId: Boolean(requestId),
+      activeParishCookiePresent: Boolean(request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value),
+    })
+    return NextResponse.json({ ok: false, error: 'Could not load documents.' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest, context: RouteParams) {
+  const originRejection = rejectCrossOriginMutation(request)
+  if (originRejection) return originRejection
+
   const staff = await requireStaffFromRequest(request)
   if (!staff.ok) return staff.response
 
   const { id: requestId } = await context.params
   try {
     const admin = createSupabaseServiceRoleClient()
-    const access = await loadStaffScopedRequestDocumentAccess(admin, requestId)
+    const access = await loadStaffScopedRequestDocumentAccess(
+      admin,
+      requestId,
+      activeParishDocumentAccessOptions(request, staff.supabase)
+    )
     if (!access) {
       return NextResponse.json({ ok: false, error: 'Request not found.' }, { status: 404 })
     }
@@ -113,12 +153,19 @@ export async function POST(request: NextRequest, context: RouteParams) {
     ].join('/')
     const contentType = text(file.type) || 'application/octet-stream'
     const buffer = Buffer.from(await file.arrayBuffer())
-    const { error: uploadError } = await admin.storage
+    const { data: uploaded, error: uploadError } = await admin.storage
       .from(REQUEST_DOCUMENTS_BUCKET)
       .upload(storagePath, buffer, { contentType, upsert: false })
 
-    if (uploadError) {
-      return NextResponse.json({ ok: false, error: uploadError.message }, { status: 500 })
+    if (uploadError || uploaded?.path !== storagePath) {
+      logServerError('[request-documents] upload storage failed', uploadError, {
+        route: '/api/requests/[id]/documents',
+        hasRequestId: Boolean(requestId),
+        activeParishCookiePresent: Boolean(request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value),
+        hasWorkflowStepId: Boolean(workflowStepId),
+        fileSizeBytes: file.size,
+      })
+      return NextResponse.json({ ok: false, error: 'Could not upload document.' }, { status: 500 })
     }
 
     const { data: inserted, error: insertError } = await admin
@@ -142,15 +189,37 @@ export async function POST(request: NextRequest, context: RouteParams) {
       )
       .single()
 
-    if (insertError) {
-      await admin.storage.from(REQUEST_DOCUMENTS_BUCKET).remove([storagePath])
+    if (insertError || !inserted?.id) {
+      const cleanup = await cleanupFailedRequestDocumentUpload({
+        storage: admin.storage,
+        bucket: REQUEST_DOCUMENTS_BUCKET,
+        storagePath,
+        source: 'staff',
+      })
       if (isRequestDocumentsTableMissing(insertError)) {
         return NextResponse.json(
           { ok: false, error: REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE },
           { status: 503 }
         )
       }
-      return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
+      logServerError('[request-documents] upload insert failed', insertError, {
+        route: '/api/requests/[id]/documents',
+        hasRequestId: Boolean(requestId),
+        activeParishCookiePresent: Boolean(request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value),
+        hasWorkflowStepId: Boolean(workflowStepId),
+        fileSizeBytes: file.size,
+        storageCleanupAttempted: true,
+        storageCleanupComplete: cleanup.ok,
+      })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: cleanup.ok
+            ? 'Could not upload document.'
+            : 'Document upload could not be completed, and storage cleanup could not be confirmed. Ask an administrator to review document storage before retrying.',
+        },
+        { status: 500 },
+      )
     }
 
     await writeAuditEvent({
@@ -162,8 +231,8 @@ export async function POST(request: NextRequest, context: RouteParams) {
       metadata: {
         requestId: access.requestId,
         workflowStepId: workflowStepId || null,
-        filename: originalFilename,
         documentType: text(form.get('documentType')) || null,
+        fileSizeBytes: file.size,
       },
     })
 
@@ -178,7 +247,11 @@ export async function POST(request: NextRequest, context: RouteParams) {
         { status: 503 }
       )
     }
-    const message = error instanceof Error ? error.message : 'Could not upload document.'
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    logServerError('[request-documents] upload failed', error, {
+      route: '/api/requests/[id]/documents',
+      hasRequestId: Boolean(requestId),
+      activeParishCookiePresent: Boolean(request.cookies.get(ACTIVE_STAFF_PARISH_COOKIE)?.value),
+    })
+    return NextResponse.json({ ok: false, error: 'Could not upload document.' }, { status: 500 })
   }
 }

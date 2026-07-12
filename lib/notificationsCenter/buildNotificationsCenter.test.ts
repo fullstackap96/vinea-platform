@@ -110,6 +110,27 @@ describe('buildNotificationsCenter', () => {
     expect(result.groups.recommended).toHaveLength(1)
     expect(result.groups.recommended[0]?.label).toBe('Possible person match found')
   })
+
+  it('keeps request notification links dashboard-internal and encoded', () => {
+    const result = buildNotificationsCenter({
+      now,
+      requests: [
+        {
+          id: 'req/unsafe?next=https://example.test',
+          status: 'new',
+          request_type: 'baptism',
+          created_at: '2026-06-09T11:00:00.000Z',
+          parishioner: { full_name: 'John Doe' },
+        },
+      ],
+      suggestedActions: [],
+    })
+
+    expect(result.groups.new_requests[0]?.href).toBe(
+      '/dashboard/requests/req%2Funsafe%3Fnext%3Dhttps%3A%2F%2Fexample.test'
+    )
+    expect(result.groups.new_requests[0]?.href).not.toContain('://example.test')
+  })
 })
 
 describe('formatNotificationsBadgeCount', () => {

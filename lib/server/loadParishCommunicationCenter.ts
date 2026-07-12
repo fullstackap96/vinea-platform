@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { cookies } from 'next/headers'
+
 import { userMessageForDashboardQueryError } from '@/lib/dashboardSupabaseError'
 import { loadDashboardRequests } from '@/lib/dashboard/loadDashboardRequests'
 import {
@@ -8,12 +10,17 @@ import {
   type ParishCommunicationItem,
   type ParishCommunicationRequest,
 } from '@/lib/parishCommunicationCenter'
+import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+  resolveActiveStaffParishContext,
+} from '@/lib/server/activeStaffParishContext'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export type LoadParishCommunicationCenterResult = {
   items: ParishCommunicationItem[]
   errorMessage: string
   softWarnings: string[]
+  activeParishName: string | null
 }
 
 function text(value: unknown): string {
@@ -28,15 +35,31 @@ export async function loadParishCommunicationCenter(): Promise<LoadParishCommuni
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    return { items: [], errorMessage: 'Unauthorized', softWarnings: [] }
+    return { items: [], errorMessage: 'Unauthorized', softWarnings: [], activeParishName: null }
   }
 
-  const requestResult = await loadDashboardRequests(supabase)
+  const cookieStore = await cookies()
+  const requestedParishId = cookieStore.get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+  const parishContext = await resolveActiveStaffParishContext(supabase, { requestedParishId })
+
+  if (!parishContext.ok) {
+    return {
+      items: [],
+      errorMessage: parishContext.error,
+      softWarnings: [],
+      activeParishName: null,
+    }
+  }
+
+  const requestResult = await loadDashboardRequests(supabase, {
+    activeParishId: parishContext.activeParishId,
+  })
   if (!requestResult.ok) {
     return {
       items: [],
       errorMessage: requestResult.userMessage,
       softWarnings: [],
+      activeParishName: parishContext.activeParish?.name ?? null,
     }
   }
 
@@ -66,5 +89,6 @@ export async function loadParishCommunicationCenter(): Promise<LoadParishCommuni
     items: buildParishCommunicationCenter({ requests, communications }),
     errorMessage: '',
     softWarnings,
+    activeParishName: parishContext.activeParish?.name ?? null,
   }
 }

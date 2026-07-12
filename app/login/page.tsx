@@ -1,11 +1,20 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { primaryButtonLg } from '@/lib/buttonStyles'
+import { safeStaffLoginErrorMessage } from '@/lib/loginAuthMessages'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 import {
   PARISH_OPERATIONS_DESCRIPTOR,
   PRODUCT_NAME,
@@ -41,6 +50,8 @@ function LoginShell({ children }: { children: React.ReactNode }) {
   )
 }
 
+const subscribeToHydration = () => () => {}
+
 export default function LoginPage() {
   return (
     <Suspense
@@ -65,16 +76,18 @@ function LoginForm() {
   const searchParams = useSearchParams()
 
   const nextPath = useMemo(() => {
-    const raw = searchParams.get('next')
-    if (!raw) return '/dashboard'
-    if (!raw.startsWith('/')) return '/dashboard'
-    if (raw.startsWith('//')) return '/dashboard'
-    return raw
+    return safeDashboardHrefOrFallback(searchParams.get('next'), '/dashboard')
   }, [searchParams])
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const formReady = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  )
+  const signInInFlightRef = useRef(false)
   const [errorMessage, setErrorMessage] = useState(() => {
     if (searchParams.get('staff') === 'unauthorized') {
       return 'Your account is signed in, but it is not authorized for staff access. Ask a parish administrator to add your email to Vinea staff access.'
@@ -87,15 +100,19 @@ function LoginForm() {
     let cancelled = false
 
     async function redirectIfAuthed() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!cancelled && user) {
-        router.replace(nextPath)
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!cancelled && user) {
+          router.replace(nextPath)
+        }
+      } catch {
+        // Keep the sign-in form available when the optional existing-session probe fails.
       }
     }
 
-    redirectIfAuthed()
+    void redirectIfAuthed()
 
     return () => {
       cancelled = true
@@ -104,16 +121,27 @@ function LoginForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (signInInFlightRef.current) return
+
+    signInInFlightRef.current = true
     setLoading(true)
     setErrorMessage('')
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    let error: unknown = null
+
+    try {
+      const result = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      error = result.error
+    } catch (err) {
+      error = err
+    }
 
     if (error) {
-      setErrorMessage(error.message)
+      setErrorMessage(safeStaffLoginErrorMessage(error))
+      signInInFlightRef.current = false
       setLoading(false)
       return
     }
@@ -151,28 +179,52 @@ function LoginForm() {
               </span>
             </p>
 
-            <form onSubmit={onSubmit} className="space-y-4">
-              <input
-                className={vineaInputFieldClassName}
-                placeholder="Email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
+            <form
+              onSubmit={onSubmit}
+              method="post"
+              className="space-y-4"
+              aria-label="Staff sign in"
+              aria-busy={loading}
+            >
+              <div className="space-y-1.5">
+                <label htmlFor="staff-email" className="text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  id="staff-email"
+                  name="email"
+                  className={vineaInputFieldClassName}
+                  placeholder="Email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
 
-              <input
-                className={vineaInputFieldClassName}
-                placeholder="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
+              <div className="space-y-1.5">
+                <label htmlFor="staff-password" className="text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <input
+                  id="staff-password"
+                  name="password"
+                  className={vineaInputFieldClassName}
+                  placeholder="Password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
 
-              <button type="submit" disabled={loading} className={primaryButtonLg}>
+              <button
+                type="submit"
+                disabled={!formReady || loading}
+                className={primaryButtonLg}
+              >
                 {loading ? 'Signing in…' : 'Sign in'}
               </button>
             </form>

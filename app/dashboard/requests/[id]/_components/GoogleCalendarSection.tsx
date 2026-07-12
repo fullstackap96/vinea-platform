@@ -1,6 +1,7 @@
 import React from 'react'
 import { Calendar } from 'lucide-react'
 import { dangerButtonMd, primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
+import { safeGoogleCalendarEventHref } from '@/lib/googleCalendarLinks'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { MissingValue } from '@/lib/missingValue'
 import { sectionSubheadingClassName } from '@/lib/sectionHeader'
@@ -51,6 +52,7 @@ export function GoogleCalendarSection({
 
   const hasConflicts = Boolean(conflicts?.length)
   const forceCreateDisabled = busy || !hasConfirmed || synced || !hasConflicts
+  const safeEventLink = safeGoogleCalendarEventHref(eventLink)
 
   const formatRange = (startIso: string | null, endIso: string | null) => {
     if (!startIso || !endIso) return null
@@ -82,7 +84,7 @@ export function GoogleCalendarSection({
   }
 
   return (
-    <div>
+    <div aria-busy={busy}>
       <h3 className={`${sectionSubheadingClassName} flex items-center gap-2`}>
         <Calendar className="h-4 w-4 shrink-0 text-brand" aria-hidden />
         Google Calendar
@@ -106,13 +108,13 @@ export function GoogleCalendarSection({
 
         {synced && (
           <div className="text-sm text-gray-800">
-            {eventLink ? (
+            {safeEventLink ? (
               <p>
                 <a
                   className="underline text-gray-900"
-                  href={eventLink}
+                  href={safeEventLink}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                 >
                   Open Google Calendar event
                 </a>
@@ -179,8 +181,9 @@ export function GoogleCalendarSection({
               {conflicts.map((c, idx) => {
                 const title = (c.summary || 'Untitled event').trim() || 'Untitled event'
                 const range = formatRange(c.start, c.end)
+                const safeConflictHref = safeGoogleCalendarEventHref(c.htmlLink)
                 return (
-                  <li key={`${c.htmlLink || c.start || 'conflict'}-${idx}`}>
+                  <li key={`${c.start || 'conflict'}-${idx}`}>
                     <div>
                       {range ? (
                         <span>
@@ -192,13 +195,13 @@ export function GoogleCalendarSection({
                         </span>
                       )}
                     </div>
-                    {c.htmlLink ? (
+                    {safeConflictHref ? (
                       <div className="mt-1">
                         <a
                           className="underline text-amber-950"
-                          href={c.htmlLink}
+                          href={safeConflictHref}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                         >
                           View existing calendar event
                         </a>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createHousehold } from '../actions'
@@ -9,6 +9,8 @@ import {
   formValuesToWriteInput,
   type HouseholdFormValues,
 } from '../_components/HouseholdForm'
+import { householdEditHref } from '@/lib/dashboardEntityNavigation'
+import { coreRecordClientErrorMessage } from '@/lib/coreRecordClientMessages'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 
@@ -26,21 +28,37 @@ export function NewHouseholdPage() {
   const [values, setValues] = useState(initialValues)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const createInFlightRef = useRef(false)
+
+  function releaseCreate() {
+    createInFlightRef.current = false
+    setSaving(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (createInFlightRef.current) return
+
+    createInFlightRef.current = true
     setSaving(true)
     setMessage('')
 
-    const result = await createHousehold(formValuesToWriteInput(values))
-    setSaving(false)
-
-    if (!result.ok) {
-      setMessage(result.error)
+    let result: Awaited<ReturnType<typeof createHousehold>>
+    try {
+      result = await createHousehold(formValuesToWriteInput(values))
+    } catch (error: unknown) {
+      setMessage(coreRecordClientErrorMessage('createHousehold', error))
+      releaseCreate()
       return
     }
 
-    router.push(`/dashboard/households/${result.householdId}/edit`)
+    if (!result.ok) {
+      setMessage(coreRecordClientErrorMessage('createHousehold', result.error))
+      releaseCreate()
+      return
+    }
+
+    router.push(householdEditHref(result.householdId))
   }
 
   return (

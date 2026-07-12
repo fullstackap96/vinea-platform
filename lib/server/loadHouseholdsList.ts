@@ -1,8 +1,13 @@
 import 'server-only'
 
-import { fetchPrimaryParishId } from '@/lib/dashboardParishRequestScope'
+import { cookies } from 'next/headers'
+
 import { userMessageForDashboardQueryError } from '@/lib/dashboardSupabaseError'
-import { parseHouseholdRow, sanitizeHouseholdsSearchQuery } from '@/lib/households'
+import { sanitizeHouseholdsSearchQuery } from '@/lib/households'
+import {
+  ACTIVE_STAFF_PARISH_COOKIE,
+  resolveActiveStaffParishContext,
+} from '@/lib/server/activeStaffParishContext'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { HouseholdListItem } from '@/lib/types/households'
 
@@ -10,6 +15,27 @@ export type HouseholdsListResult = {
   households: HouseholdListItem[]
   errorMessage: string
   searchQuery: string
+  activeParishName: string | null
+}
+
+export const HOUSEHOLDS_LIST_SELECT =
+  'id, name, address, city, state, postal_code' as const
+
+function nullableString(value: unknown): string | null {
+  const normalized = String(value ?? '').trim()
+  return normalized ? normalized : null
+}
+
+function parseHouseholdListItem(raw: Record<string, unknown>): HouseholdListItem {
+  return {
+    id: String(raw.id ?? ''),
+    name: String(raw.name ?? '').trim(),
+    address: nullableString(raw.address),
+    city: nullableString(raw.city),
+    state: nullableString(raw.state),
+    postal_code: nullableString(raw.postal_code),
+    memberCount: 0,
+  }
 }
 
 function parseListSearchParams(input: {
@@ -31,19 +57,31 @@ export async function loadHouseholdsList(searchParams: {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    return { households: [], errorMessage: 'Unauthorized', searchQuery }
+    return { households: [], errorMessage: 'Unauthorized', searchQuery, activeParishName: null }
   }
 
-  const { parishId, error: parishErr } = await fetchPrimaryParishId(supabase)
-  if (parishErr) {
+  const cookieStore = await cookies()
+  const requestedParishId = cookieStore.get(ACTIVE_STAFF_PARISH_COOKIE)?.value ?? null
+  const parishContext = await resolveActiveStaffParishContext(supabase, { requestedParishId })
+  if (!parishContext.ok) {
     return {
       households: [],
-      errorMessage: userMessageForDashboardQueryError('parish directory', parishErr),
+      errorMessage: parishContext.error,
       searchQuery,
+      activeParishName: null,
     }
   }
 
-  let query = supabase.from('households').select('*').order('name', { ascending: true })
+  const parishId = parishContext.activeParishId
+  const activeParishName =
+    parishContext.parishes.find((parish) => parish.id === parishContext.activeParishId)?.name ??
+    parishContext.activeParish.name ??
+    null
+
+  let query = supabase
+    .from('households')
+    .select(HOUSEHOLDS_LIST_SELECT)
+    .order('name', { ascending: true })
 
   if (parishId) {
     query = query.eq('parish_id', parishId)
@@ -64,10 +102,11 @@ export async function loadHouseholdsList(searchParams: {
       households: [],
       errorMessage: userMessageForDashboardQueryError('households', error),
       searchQuery,
+      activeParishName,
     }
   }
 
-  const rows = (data ?? []).map((row) => parseHouseholdRow(row as Record<string, unknown>))
+  const rows = (data ?? []).map((row) => parseHouseholdListItem(row as Record<string, unknown>))
   const householdIds = rows.map((row) => row.id)
 
   const memberCountByHouseholdId = new Map<string, number>()
@@ -90,5 +129,5 @@ export async function loadHouseholdsList(searchParams: {
     memberCount: memberCountByHouseholdId.get(row.id) ?? 0,
   }))
 
-  return { households, errorMessage: '', searchQuery }
+  return { households, errorMessage: '', searchQuery, activeParishName }
 }

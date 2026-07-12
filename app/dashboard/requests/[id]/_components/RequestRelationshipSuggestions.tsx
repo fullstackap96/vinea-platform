@@ -4,136 +4,102 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { WorkflowSectionCard } from './WorkflowSectionCard'
 import { secondaryButtonSm } from '@/lib/buttonStyles'
-import { parsePersonRow } from '@/lib/people'
 import {
   CONFIDENCE_CHIP_CLASS,
   CONFIDENCE_LABEL,
 } from '@/lib/relationshipIntelligence/confidenceLabels'
-import { matchPeopleForRequest } from '@/lib/relationshipIntelligence/matchPeopleForRequest'
-import {
-  buildHouseholdNamesByPersonId,
-  suggestHouseholdsForPerson,
-  type HouseholdMembershipRow,
-} from '@/lib/relationshipIntelligence/suggestHouseholdsForPeople'
-import type { ParishionerContact, PersonCandidate, PersonMatchSuggestion } from '@/lib/relationshipIntelligence/types'
-import { supabase } from '@/lib/supabase'
-
-const MAX_SUGGESTIONS = 5
+import { householdDetailHref, personDetailHref } from '@/lib/dashboardEntityNavigation'
+import type { PersonMatchSuggestion } from '@/lib/relationshipIntelligence/types'
 
 type Props = {
   requestId: string
   personId: string | null | undefined
+  requestParishId: string | null | undefined
   parishioner: {
     id?: string
-    full_name?: string
-    email?: string
-    phone?: string
+    full_name?: string | null
+    email?: string | null
+    phone?: string | null
   } | null
 }
+
+type RelationshipSuggestionResponse =
+  | {
+      ok: true
+      personMatches: PersonMatchSuggestion[]
+      linkedHouseholds: { householdId: string; householdName: string }[]
+    }
+  | { ok: false; error: string }
 
 export function RequestRelationshipSuggestions({
   requestId,
   personId,
-  parishioner,
+  requestParishId,
 }: Props) {
   const [personMatches, setPersonMatches] = useState<PersonMatchSuggestion[]>([])
   const [linkedHouseholds, setLinkedHouseholds] = useState<
     { householdId: string; householdName: string }[]
   >([])
   const [loading, setLoading] = useState(true)
+  const [loadUnavailable, setLoadUnavailable] = useState(false)
 
   const resolvedPersonId = personId != null ? String(personId).trim() : ''
-  const parishionerId = parishioner?.id != null ? String(parishioner.id).trim() : ''
+  const resolvedRequestParishId =
+    requestParishId != null ? String(requestParishId).trim() : ''
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function load() {
       setLoading(true)
+      setLoadUnavailable(false)
 
-      const { data: peopleRows } = await supabase
-        .from('people')
-        .select('id, parishioner_id, first_name, middle_name, last_name, email, phone')
-
-      if (cancelled) return
-
-      const people: PersonCandidate[] = (peopleRows ?? []).map((row) => {
-        const parsed = parsePersonRow(row as Record<string, unknown>)
-        return {
-          id: parsed.id,
-          parishioner_id: parsed.parishioner_id,
-          first_name: parsed.first_name,
-          middle_name: parsed.middle_name,
-          last_name: parsed.last_name,
-          email: parsed.email,
-          phone: parsed.phone,
+      if (!resolvedRequestParishId) {
+        if (!cancelled) {
+          setPersonMatches([])
+          setLinkedHouseholds([])
+          setLoading(false)
         }
-      })
-
-      const { data: memberRows } = await supabase
-        .from('household_members')
-        .select('person_id, household_id, households(name)')
-
-      if (cancelled) return
-
-      const householdRows: HouseholdMembershipRow[] = []
-      for (const raw of memberRows ?? []) {
-        const row = raw as Record<string, unknown>
-        const householdsRaw = row.households
-        const householdName =
-          householdsRaw != null &&
-          typeof householdsRaw === 'object' &&
-          !Array.isArray(householdsRaw)
-            ? String((householdsRaw as Record<string, unknown>).name ?? '').trim()
-            : ''
-        householdRows.push({
-          person_id: String(row.person_id ?? ''),
-          household_id: String(row.household_id ?? ''),
-          household_name: householdName,
-        })
-      }
-
-      const householdNamesByPersonId = buildHouseholdNamesByPersonId(householdRows)
-
-      if (resolvedPersonId) {
-        setPersonMatches([])
-        setLinkedHouseholds(
-          suggestHouseholdsForPerson(resolvedPersonId, householdRows).map((h) => ({
-            householdId: h.householdId,
-            householdName: h.householdName,
-          }))
-        )
-        setLoading(false)
         return
       }
 
-      const parishionerContact: ParishionerContact | null = parishionerId
-        ? {
-            id: parishionerId,
-            full_name: String(parishioner?.full_name ?? '').trim(),
-            email: String(parishioner?.email ?? '').trim() || null,
-            phone: String(parishioner?.phone ?? '').trim() || null,
-          }
-        : null
+      try {
+        const response = await fetch(`/api/requests/${requestId}/relationship-suggestions`, {
+          credentials: 'include',
+          signal: controller.signal,
+        })
+        const payload = (await response.json().catch(() => null)) as
+          | RelationshipSuggestionResponse
+          | null
 
-      const matches = matchPeopleForRequest({
-        requestId,
-        requestPersonId: null,
-        parishioner: parishionerContact,
-        people,
-        householdNamesByPersonId,
-      })
+        if (cancelled || controller.signal.aborted) return
 
-      setPersonMatches(matches.slice(0, MAX_SUGGESTIONS))
-      setLinkedHouseholds([])
-      setLoading(false)
+        if (!response.ok || !payload?.ok) {
+          setPersonMatches([])
+          setLinkedHouseholds([])
+          setLoadUnavailable(true)
+          return
+        }
+
+        setPersonMatches(payload.personMatches)
+        setLinkedHouseholds(payload.linkedHouseholds)
+      } catch {
+        if (cancelled || controller.signal.aborted) return
+        setPersonMatches([])
+        setLinkedHouseholds([])
+        setLoadUnavailable(true)
+      } finally {
+        if (!cancelled && !controller.signal.aborted) setLoading(false)
+      }
     }
 
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
-  }, [requestId, resolvedPersonId, parishionerId, parishioner])
+  }, [requestId, resolvedPersonId, resolvedRequestParishId])
 
   const hasPersonMatches = personMatches.length > 0
   const hasLinkedHouseholds = linkedHouseholds.length > 0
@@ -145,6 +111,23 @@ export function RequestRelationshipSuggestions({
         description="Review possible matches before linking anyone."
       >
         <p className="text-sm text-gray-600">Loading suggestions…</p>
+      </WorkflowSectionCard>
+    )
+  }
+
+  if (loadUnavailable) {
+    return (
+      <WorkflowSectionCard
+        title="Suggested connections"
+        description="Review possible matches before linking anyone."
+      >
+        <div
+          role="alert"
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-950"
+        >
+          Suggested connections could not be checked. Refresh this request before reviewing or
+          linking a profile.
+        </div>
       </WorkflowSectionCard>
     )
   }
@@ -171,7 +154,7 @@ export function RequestRelationshipSuggestions({
             {linkedHouseholds.map((household) => (
               <li key={household.householdId}>
                 <Link
-                  href={`/dashboard/households/${household.householdId}`}
+                  href={householdDetailHref(household.householdId)}
                   className="text-sm font-medium text-blue-800 underline underline-offset-2 hover:text-blue-950"
                 >
                   {household.householdName}
@@ -215,7 +198,7 @@ export function RequestRelationshipSuggestions({
                   </a>
                 ) : (
                   <Link
-                    href={`/dashboard/people/${match.personId}`}
+                    href={personDetailHref(match.personId)}
                     className={`${secondaryButtonSm} justify-center`}
                   >
                     View person

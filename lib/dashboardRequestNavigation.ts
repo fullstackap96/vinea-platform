@@ -1,10 +1,21 @@
+import { safeDashboardHref, safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
+
+export const REQUEST_DETAIL_FALLBACK_HREF = '/dashboard/requests'
+
 /** Dashboard path to open a request detail page (no workflow anchor). */
-export function requestDetailHref(requestId: string): string {
-  return `/dashboard/requests/${encodeURIComponent(String(requestId).trim())}`
+export function requestDetailHref(requestId: unknown): string {
+  const id = String(requestId ?? '').trim()
+  if (!id) return REQUEST_DETAIL_FALLBACK_HREF
+  return safeDashboardHrefOrFallback(
+    `/dashboard/requests/${encodeURIComponent(id)}`,
+    REQUEST_DETAIL_FALLBACK_HREF
+  )
 }
 
 export function isRequestDetailHref(href: string): boolean {
-  return /^\/dashboard\/requests\/[^/]+$/.test(href.split('#')[0] ?? '')
+  const safeHref = safeDashboardHref(href)
+  if (!safeHref) return false
+  return /^\/dashboard\/requests\/[^/?#]+$/.test(safeHref.split('#')[0] ?? '')
 }
 
 /** Standalone request name link (tab focus + keyboard Enter). */

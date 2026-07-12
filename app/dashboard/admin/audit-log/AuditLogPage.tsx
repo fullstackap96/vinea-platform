@@ -1,8 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
+import { auditLogClientErrorMessage } from '@/lib/auditLogClientMessages'
+import { requestDetailHref } from '@/lib/dashboardRequestNavigation'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { secondaryButtonSm } from '@/lib/buttonStyles'
 import {
@@ -33,7 +36,7 @@ function formatDateTime(value: string): string {
 
 function eventHref(event: AuditEventRow): string | null {
   if (event.target_type === 'request' && event.target_id) {
-    return `/dashboard/requests/${encodeURIComponent(event.target_id)}#activity`
+    return safeDashboardHrefOrFallback(`${requestDetailHref(event.target_id)}#activity`, '/dashboard/requests')
   }
   if (event.target_type === 'staff_user' || event.target_type === 'parish') {
     return '/dashboard/settings'
@@ -46,8 +49,13 @@ export function AuditLogPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('')
+  const [activeParishName, setActiveParishName] = useState('')
+  const loadSequenceRef = useRef(0)
 
   const load = useCallback(async () => {
+    const loadSequence = ++loadSequenceRef.current
+    const isLatestLoad = () => loadSequence === loadSequenceRef.current
+
     setLoading(true)
     setError('')
     try {
@@ -57,22 +65,39 @@ export function AuditLogPage() {
         credentials: 'include',
       })
       const data = await res.json().catch(() => ({}))
+      if (!isLatestLoad()) return
       if (!res.ok || !data?.ok) {
-        setError(String(data?.error || `Could not load audit log (${res.status})`))
+        setError(auditLogClientErrorMessage(data?.error))
         setEvents([])
+        setActiveParishName('')
         return
       }
       setEvents(Array.isArray(data.events) ? data.events : [])
+      setActiveParishName(String(data.activeParishName ?? '').trim())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load audit log.')
+      if (!isLatestLoad()) return
+      setError(auditLogClientErrorMessage(err))
       setEvents([])
+      setActiveParishName('')
     } finally {
-      setLoading(false)
+      if (isLatestLoad()) setLoading(false)
     }
   }, [filter])
 
+  function selectFilter(nextFilter: string) {
+    if (nextFilter === filter) return
+    loadSequenceRef.current += 1
+    setFilter(nextFilter)
+  }
+
   useEffect(() => {
-    void load()
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) void load()
+    })
+    return () => {
+      cancelled = true
+    }
   }, [load])
 
   return (
@@ -85,6 +110,11 @@ export function AuditLogPage() {
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">
           Review staff access changes, settings updates, intake submissions, and request activity.
         </p>
+        {activeParishName ? (
+          <p className="mt-3 inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-950">
+            Audit log is scoped to {activeParishName}.
+          </p>
+        ) : null}
       </div>
 
       <section className={vineaSectionShellClassName} aria-busy={loading}>
@@ -94,7 +124,7 @@ export function AuditLogPage() {
               <button
                 key={item.key || 'all'}
                 type="button"
-                onClick={() => setFilter(item.key)}
+                onClick={() => selectFilter(item.key)}
                 className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
                   filter === item.key
                     ? 'border-gray-900 bg-gray-900 text-white'

@@ -87,6 +87,7 @@ export function DashboardFamilyCarePlans({
   const [notesByPlanId, setNotesByPlanId] = useState<Record<string, string>>({})
   const [nextDateByPlanId, setNextDateByPlanId] = useState<Record<string, string>>({})
   const [careCompleteByPlanId, setCareCompleteByPlanId] = useState<Record<string, boolean>>({})
+  const careTouchpointBusy = Boolean(completingPlanId)
 
   async function submitCarePlan(plan: CarePlan) {
     if (!onCompleteTouchpoint) return
@@ -117,7 +118,7 @@ export function DashboardFamilyCarePlans({
     <section
       className={vineaSectionShellClassName}
       aria-labelledby="family-care-plans-heading"
-      aria-busy={loading}
+      aria-busy={loading || careTouchpointBusy}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -199,6 +200,7 @@ export function DashboardFamilyCarePlans({
                       <button
                         type="button"
                         className={`${primaryButtonSm} gap-2`}
+                        disabled={careTouchpointBusy}
                         onClick={() =>
                           setOpenPlanId((current) =>
                             current === plan.requestId ? null : plan.requestId
@@ -220,7 +222,9 @@ export function DashboardFamilyCarePlans({
 
                   {openPlanId === plan.requestId && onCompleteTouchpoint ? (
                     <form
+                      method="post"
                       className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-gray-950"
+                      aria-busy={completingPlanId === plan.requestId}
                       onSubmit={(event) => {
                         event.preventDefault()
                         void submitCarePlan(plan)
@@ -232,6 +236,7 @@ export function DashboardFamilyCarePlans({
                           Touchpoint type
                           <select
                             className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
+                            disabled={careTouchpointBusy}
                             value={methodByPlanId[plan.requestId] || 'phone'}
                             onChange={(event) =>
                               setMethodByPlanId((current) => ({
@@ -251,6 +256,7 @@ export function DashboardFamilyCarePlans({
                           Notes for the next staff member
                           <textarea
                             className="mt-1 min-h-20 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed"
+                            disabled={careTouchpointBusy}
                             placeholder="Optional: what happened, what the family needs, or what to remember next"
                             value={notesByPlanId[plan.requestId] || ''}
                             onChange={(event) =>
@@ -282,6 +288,7 @@ export function DashboardFamilyCarePlans({
                                 type="radio"
                                 name={`next-follow-up-${plan.requestId}`}
                                 className="sr-only"
+                                disabled={careTouchpointBusy}
                                 checked={
                                   !careCompleteByPlanId[plan.requestId] &&
                                   selectedNextDate(plan) === recommendation.date
@@ -319,7 +326,10 @@ export function DashboardFamilyCarePlans({
                               ? ''
                               : selectedNextDate(plan)
                           }
-                          disabled={Boolean(careCompleteByPlanId[plan.requestId])}
+                          disabled={
+                            Boolean(careCompleteByPlanId[plan.requestId]) ||
+                            careTouchpointBusy
+                          }
                           onChange={(event) => {
                             setCareCompleteByPlanId((current) => ({
                               ...current,
@@ -338,6 +348,7 @@ export function DashboardFamilyCarePlans({
                           <input
                             type="checkbox"
                             className="mt-1"
+                            disabled={careTouchpointBusy}
                             checked={Boolean(careCompleteByPlanId[plan.requestId])}
                             onChange={(event) =>
                               setCareCompleteByPlanId((current) => ({
@@ -359,7 +370,7 @@ export function DashboardFamilyCarePlans({
                         <button
                           type="submit"
                           className={primaryButtonSm}
-                          disabled={completingPlanId === plan.requestId}
+                          disabled={careTouchpointBusy}
                         >
                           {completingPlanId === plan.requestId
                             ? 'Saving...'
@@ -369,7 +380,7 @@ export function DashboardFamilyCarePlans({
                           type="button"
                           className={secondaryButtonSm}
                           onClick={() => setOpenPlanId(null)}
-                          disabled={completingPlanId === plan.requestId}
+                          disabled={careTouchpointBusy}
                         >
                           Cancel
                         </button>

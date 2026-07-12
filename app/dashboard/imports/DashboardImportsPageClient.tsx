@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Upload } from 'lucide-react'
 import {
   applyColumnMapping,
@@ -16,6 +16,7 @@ import {
   type ParsedCsv,
 } from '@/lib/parishDataImport'
 import { primaryButtonMd, secondaryButtonSm } from '@/lib/buttonStyles'
+import { importClientErrorMessage } from '@/lib/importClientMessages'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 
 type ApiState =
@@ -23,6 +24,66 @@ type ApiState =
   | { status: 'loading'; message: string }
   | { status: 'error'; message: string }
   | { status: 'success'; message: string }
+
+type ImportOperation = 'reading_file' | 'previewing' | 'committing'
+
+type ReviewedImportSnapshot = {
+  kind: DataImportKind
+  fileName: string
+  rows: ImportMappedRow[]
+}
+
+const UNCERTAIN_IMPORT_MESSAGE =
+  'Vinea could not confirm whether the import finished. Review Recent imports and the records list before trying again.'
+
+function copyMappedRows(rows: ImportMappedRow[]): ImportMappedRow[] {
+  return rows.map((row) => ({
+    rowNumber: row.rowNumber,
+    values: { ...row.values },
+  }))
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 0
+}
+
+function isImportPreviewResult(value: unknown): value is ImportPreviewResult {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const preview = value as Record<string, unknown>
+  if (!['people', 'households', 'sacramental_records'].includes(String(preview.kind))) return false
+  if (
+    preview.ok !== true ||
+    !isNonNegativeInteger(preview.totalRows) ||
+    !isNonNegativeInteger(preview.importableRows) ||
+    !isNonNegativeInteger(preview.errorCount) ||
+    !isNonNegativeInteger(preview.warningCount) ||
+    !Array.isArray(preview.preparedRows)
+  ) {
+    return false
+  }
+
+  return preview.preparedRows.every((row) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return false
+    const preparedRow = row as Record<string, unknown>
+    if (
+      !Number.isFinite(preparedRow.rowNumber) ||
+      typeof preparedRow.displayName !== 'string' ||
+      !Array.isArray(preparedRow.issues)
+    ) {
+      return false
+    }
+    return preparedRow.issues.every((issue) => {
+      if (!issue || typeof issue !== 'object' || Array.isArray(issue)) return false
+      const preparedIssue = issue as Record<string, unknown>
+      return (
+        (preparedIssue.severity === 'error' || preparedIssue.severity === 'warning') &&
+        Number.isFinite(preparedIssue.rowNumber) &&
+        typeof preparedIssue.message === 'string' &&
+        (preparedIssue.field === undefined || typeof preparedIssue.field === 'string')
+      )
+    })
+  })
+}
 
 const IMPORT_KIND_OPTIONS: { kind: DataImportKind; description: string }[] = [
   {
@@ -83,31 +144,76 @@ export function DashboardImportsPageClient() {
   const [parsedCsv, setParsedCsv] = useState<ParsedCsv | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
   const [preview, setPreview] = useState<ImportPreviewResult | null>(null)
+  const [reviewedSnapshot, setReviewedSnapshot] = useState<ReviewedImportSnapshot | null>(null)
+  const [activeOperation, setActiveOperation] = useState<ImportOperation | null>(null)
+  const [commitRetryBlocked, setCommitRetryBlocked] = useState(false)
   const [history, setHistory] = useState<ImportBatchRow[]>([])
+  const [activeParishName, setActiveParishName] = useState('')
   const [apiState, setApiState] = useState<ApiState>({ status: 'idle' })
+  const operationInFlightRef = useRef(false)
+  const historyLoadSequenceRef = useRef(0)
+  const historyLoadAbortRef = useRef<AbortController | null>(null)
 
-  const loadHistory = useCallback(async () => {
-    const res = await fetch('/api/imports', { credentials: 'include' })
-    const data = await res.json().catch(() => ({}))
-    if (res.ok && data?.ok) {
-      setHistory(Array.isArray(data.imports) ? data.imports : [])
+  function beginOperation(operation: ImportOperation): boolean {
+    if (operationInFlightRef.current) return false
+    operationInFlightRef.current = true
+    setActiveOperation(operation)
+    return true
+  }
+
+  function finishOperation() {
+    operationInFlightRef.current = false
+    setActiveOperation(null)
+  }
+
+  function clearReviewedImport() {
+    setPreview(null)
+    setReviewedSnapshot(null)
+    setCommitRetryBlocked(false)
+  }
+
+  const loadHistory = useCallback(async (): Promise<boolean> => {
+    const loadSequence = ++historyLoadSequenceRef.current
+    historyLoadAbortRef.current?.abort()
+    const controller = new AbortController()
+    historyLoadAbortRef.current = controller
+    const isLatestLoad = () => loadSequence === historyLoadSequenceRef.current
+
+    try {
+      const res = await fetch('/api/imports', {
+        credentials: 'include',
+        signal: controller.signal,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!isLatestLoad()) return false
+      if (res.ok && data?.ok) {
+        setHistory(Array.isArray(data.imports) ? data.imports : [])
+        setActiveParishName(String(data.activeParishName ?? '').trim())
+        return true
+      }
+      setActiveParishName('')
+      return false
+    } catch (error: unknown) {
+      if (!isLatestLoad() || (error instanceof DOMException && error.name === 'AbortError')) {
+        return false
+      }
+      setActiveParishName('')
+      return false
+    } finally {
+      if (historyLoadAbortRef.current === controller) {
+        historyLoadAbortRef.current = null
+      }
     }
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-    fetch('/api/imports', { credentials: 'include' })
-      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        if (!cancelled && ok && data?.ok) {
-          setHistory(Array.isArray(data.imports) ? data.imports : [])
-        }
-      })
-      .catch(() => undefined)
+    void loadHistory()
     return () => {
-      cancelled = true
+      historyLoadSequenceRef.current += 1
+      historyLoadAbortRef.current?.abort()
+      historyLoadAbortRef.current = null
     }
-  }, [])
+  }, [loadHistory])
 
   const mappedRows = useMemo<ImportMappedRow[]>(() => {
     if (!parsedCsv) return []
@@ -115,35 +221,44 @@ export function DashboardImportsPageClient() {
   }, [mapping, parsedCsv])
 
   async function handleFile(file: File | null) {
-    if (!file) return
+    if (!file || operationInFlightRef.current) return
     if (!file.name.toLowerCase().endsWith('.csv')) {
       setApiState({ status: 'error', message: 'Please choose a CSV file.' })
       return
     }
+    if (!beginOperation('reading_file')) return
+    clearReviewedImport()
+    setApiState({ status: 'loading', message: 'Reading the spreadsheet...' })
 
-    const text = await file.text()
-    const nextParsed = parseCsv(text)
-    if (nextParsed.headers.length === 0 || nextParsed.rows.length === 0) {
+    try {
+      const text = await file.text()
+      const nextParsed = parseCsv(text)
+      if (nextParsed.headers.length === 0 || nextParsed.rows.length === 0) {
+        setApiState({
+          status: 'error',
+          message: 'The CSV needs a header row and at least one data row.',
+        })
+        return
+      }
+
+      setFileName(file.name)
+      setParsedCsv(nextParsed)
+      setMapping(guessColumnMapping(kind, nextParsed.headers))
       setApiState({
-        status: 'error',
-        message: 'The CSV needs a header row and at least one data row.',
+        status: 'success',
+        message: `${nextParsed.rows.length} row${nextParsed.rows.length === 1 ? '' : 's'} ready to map.`,
       })
-      return
+    } catch {
+      setApiState({ status: 'error', message: 'Vinea could not read this CSV file.' })
+    } finally {
+      finishOperation()
     }
-
-    setFileName(file.name)
-    setParsedCsv(nextParsed)
-    setMapping(guessColumnMapping(kind, nextParsed.headers))
-    setPreview(null)
-    setApiState({
-      status: 'success',
-      message: `${nextParsed.rows.length} row${nextParsed.rows.length === 1 ? '' : 's'} ready to map.`,
-    })
   }
 
   function handleKindChange(nextKind: DataImportKind) {
+    if (operationInFlightRef.current) return
     setKind(nextKind)
-    setPreview(null)
+    clearReviewedImport()
     if (parsedCsv) {
       setMapping(guessColumnMapping(nextKind, parsedCsv.headers))
     } else {
@@ -151,61 +266,141 @@ export function DashboardImportsPageClient() {
     }
   }
 
+  function handleMappingChange(columnKey: string, sourceHeader: string) {
+    if (operationInFlightRef.current) return
+    setMapping((current) => ({
+      ...current,
+      [columnKey]: sourceHeader,
+    }))
+    clearReviewedImport()
+  }
+
   async function requestPreview() {
+    if (operationInFlightRef.current) return
     if (!parsedCsv || mappedRows.length === 0) {
       setApiState({ status: 'error', message: 'Upload a CSV file first.' })
       return
     }
-    setApiState({ status: 'loading', message: 'Checking the spreadsheet...' })
-    const res = await fetch('/api/imports', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind, fileName, rows: mappedRows, commit: false }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data?.ok) {
-      setApiState({ status: 'error', message: data?.error ?? 'Could not preview import.' })
-      return
+    if (!beginOperation('previewing')) return
+
+    const snapshot: ReviewedImportSnapshot = {
+      kind,
+      fileName,
+      rows: copyMappedRows(mappedRows),
     }
-    setPreview(data.preview)
-    setApiState({
-      status: 'success',
-      message: 'Review complete. Fix errors before importing.',
-    })
+    setApiState({ status: 'loading', message: 'Checking the spreadsheet...' })
+    try {
+      const res = await fetch('/api/imports', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...snapshot, commit: false }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (
+        !res.ok ||
+        !data?.ok ||
+        !isImportPreviewResult(data.preview) ||
+        data.preview.kind !== snapshot.kind ||
+        data.preview.totalRows !== snapshot.rows.length
+      ) {
+        setApiState({ status: 'error', message: importClientErrorMessage('preview', data?.error) })
+        return
+      }
+      setPreview(data.preview)
+      setReviewedSnapshot(snapshot)
+      setCommitRetryBlocked(false)
+      setApiState({
+        status: 'success',
+        message: 'Review complete. Fix errors before importing.',
+      })
+    } catch {
+      setApiState({ status: 'error', message: importClientErrorMessage('preview', null) })
+    } finally {
+      finishOperation()
+    }
   }
 
   async function commitImport() {
-    if (!preview || !parsedCsv) return
+    if (operationInFlightRef.current || !preview || !reviewedSnapshot || commitRetryBlocked) return
     if (preview.errorCount > 0) {
       setApiState({ status: 'error', message: 'Fix rows with errors before importing.' })
       return
     }
-    setApiState({ status: 'loading', message: 'Importing records...' })
-    const res = await fetch('/api/imports', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind, fileName, rows: mappedRows, commit: true }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data?.ok) {
-      setApiState({ status: 'error', message: data?.error ?? 'Could not import rows.' })
-      return
+    if (!beginOperation('committing')) return
+
+    setApiState({ status: 'loading', message: 'Importing the reviewed records...' })
+    try {
+      const res = await fetch('/api/imports', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...reviewedSnapshot, commit: true }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        if (data?.partial === true) {
+          const rowsCreated = Number.isInteger(data?.completed?.rowsCreated)
+            ? Number(data.completed.rowsCreated)
+            : null
+          setCommitRetryBlocked(true)
+          setApiState({
+            status: 'error',
+            message:
+              rowsCreated !== null && rowsCreated > 0
+                ? `${rowsCreated} record${rowsCreated === 1 ? '' : 's'} were created, but the import did not finish cleanly. Review Recent imports and the records list before trying again.`
+                : UNCERTAIN_IMPORT_MESSAGE,
+          })
+          await loadHistory()
+          return
+        }
+        setApiState({ status: 'error', message: importClientErrorMessage('commit', data?.error) })
+        return
+      }
+
+      const createdCount = data?.result?.createdCount
+      if (
+        !isNonNegativeInteger(createdCount) ||
+        !isImportPreviewResult(data.preview) ||
+        data.preview.kind !== reviewedSnapshot.kind ||
+        data.preview.totalRows !== reviewedSnapshot.rows.length ||
+        createdCount > data.preview.importableRows
+      ) {
+        setCommitRetryBlocked(true)
+        setApiState({ status: 'error', message: UNCERTAIN_IMPORT_MESSAGE })
+        await loadHistory()
+        return
+      }
+
+      setPreview(data.preview)
+      setCommitRetryBlocked(true)
+      const historyLoaded = await loadHistory()
+      setApiState({
+        status: 'success',
+        message: historyLoaded
+          ? `Imported ${createdCount} record${createdCount === 1 ? '' : 's'}.`
+          : `Imported ${createdCount} record${createdCount === 1 ? '' : 's'}, but Recent imports could not refresh. Refresh this page before importing again.`,
+      })
+    } catch {
+      setCommitRetryBlocked(true)
+      setApiState({ status: 'error', message: UNCERTAIN_IMPORT_MESSAGE })
+      await loadHistory()
+    } finally {
+      finishOperation()
     }
-    setPreview(data.preview)
-    setApiState({
-      status: 'success',
-      message: `Imported ${data.result?.createdCount ?? 0} record${
-        data.result?.createdCount === 1 ? '' : 's'
-      }.`,
-    })
-    await loadHistory()
   }
 
   const columns = IMPORT_COLUMNS[kind]
-  const canPreview = Boolean(parsedCsv && mappedRows.length > 0 && apiState.status !== 'loading')
-  const canImport = Boolean(preview && preview.errorCount === 0 && preview.importableRows > 0)
+  const operationBusy = activeOperation !== null
+  const canPreview = Boolean(parsedCsv && mappedRows.length > 0 && !operationBusy)
+  const canImport = Boolean(
+    preview &&
+      reviewedSnapshot &&
+      preview.errorCount === 0 &&
+      preview.importableRows > 0 &&
+      !commitRetryBlocked &&
+      !operationBusy,
+  )
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-8 pt-4 text-gray-900 sm:px-6 sm:pt-5">
@@ -217,6 +412,11 @@ export function DashboardImportsPageClient() {
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
             Bring parish spreadsheets into Vinea with a clear review step before anything is saved.
           </p>
+          {activeParishName ? (
+            <p className="mt-3 inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-950">
+              Imports are scoped to {activeParishName}.
+            </p>
+          ) : null}
         </div>
       </header>
 
@@ -237,6 +437,7 @@ export function DashboardImportsPageClient() {
               key={option.kind}
               type="button"
               onClick={() => handleKindChange(option.kind)}
+              disabled={operationBusy}
               className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
                 kind === option.kind
                   ? 'border-brand bg-brand/5 text-gray-950 ring-1 ring-brand/20'
@@ -254,6 +455,7 @@ export function DashboardImportsPageClient() {
           <button
             type="button"
             onClick={() => downloadTemplate(kind)}
+            disabled={operationBusy}
             className={`${secondaryButtonSm} gap-2`}
           >
             <Download className="h-4 w-4" aria-hidden />
@@ -266,7 +468,11 @@ export function DashboardImportsPageClient() {
         <section className="space-y-5">
           <div className={vineaSectionShellClassName}>
             <h2 className="text-lg font-semibold text-gray-900">1. Upload spreadsheet</h2>
-            <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center hover:border-brand/60 hover:bg-brand/5">
+            <label
+              className={`mt-3 flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center ${
+                operationBusy ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:border-brand/60 hover:bg-brand/5'
+              }`}
+            >
               <Upload className="h-7 w-7 text-brand" aria-hidden />
               <span className="mt-2 text-sm font-semibold text-gray-900">
                 Choose a CSV file
@@ -278,6 +484,7 @@ export function DashboardImportsPageClient() {
                 type="file"
                 accept=".csv,text/csv"
                 className="sr-only"
+                disabled={operationBusy}
                 onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
               />
             </label>
@@ -305,12 +512,8 @@ export function DashboardImportsPageClient() {
                     </span>
                     <select
                       value={mapping[column.key] ?? ''}
-                      onChange={(event) =>
-                        setMapping((current) => ({
-                          ...current,
-                          [column.key]: event.target.value,
-                        }))
-                      }
+                      disabled={operationBusy}
+                      onChange={(event) => handleMappingChange(column.key, event.target.value)}
                       className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                     >
                       <option value="">Do not import</option>
@@ -351,7 +554,7 @@ export function DashboardImportsPageClient() {
                 <button
                   type="button"
                   onClick={() => exportIssueCsv(preview)}
-                  disabled={preview.errorCount + preview.warningCount === 0}
+                  disabled={operationBusy || preview.errorCount + preview.warningCount === 0}
                   className={secondaryButtonSm}
                 >
                   Export review notes
@@ -414,11 +617,12 @@ export function DashboardImportsPageClient() {
                 <button
                   type="button"
                   onClick={commitImport}
-                  disabled={!canImport || apiState.status === 'loading'}
+                  disabled={!canImport}
                   className={primaryButtonMd}
                 >
-                  Import {preview.importableRows} ready row
-                  {preview.importableRows === 1 ? '' : 's'}
+                  {activeOperation === 'committing'
+                    ? 'Importing reviewed records...'
+                    : `Import ${preview.importableRows} ready row${preview.importableRows === 1 ? '' : 's'}`}
                 </button>
                 <p className="text-sm leading-relaxed text-gray-600 sm:max-w-md">
                   Rows with warnings will import. Rows with errors will be skipped until fixed.

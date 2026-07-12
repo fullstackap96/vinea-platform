@@ -1,8 +1,4 @@
-'use client'
-
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
 import { Pencil } from 'lucide-react'
 import {
   LabelValueGrid,
@@ -10,12 +6,11 @@ import {
 } from '@/app/dashboard/requests/[id]/_components/LabelValueGrid'
 import { WorkflowSectionCard } from '@/app/dashboard/requests/[id]/_components/WorkflowSectionCard'
 import { MassIntentionStatusBadge } from '../_components/MassIntentionStatusBadge'
-import { devDashboardConsoleError } from '@/lib/dashboardSupabaseError'
-import { formatMassIntentionDateDisplay, parseMassIntentionRow } from '@/lib/massIntentions'
+import { massIntentionEditHref } from '@/lib/dashboardEntityNavigation'
+import { formatMassIntentionDateDisplay } from '@/lib/massIntentions'
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import { maybeMissingValue } from '@/lib/missingValue'
 import { secondaryButtonMd } from '@/lib/buttonStyles'
-import { supabase } from '@/lib/supabase'
 import type { MassIntentionRow } from '@/lib/types/massIntentions'
 
 function displayValue(value: string | null | undefined) {
@@ -27,54 +22,15 @@ function yesNo(value: boolean) {
   return value ? 'Yes' : 'No'
 }
 
-export function MassIntentionDetailPage() {
-  const params = useParams()
-  const intentionId = String(params?.id ?? '')
-
-  const [intention, setIntention] = useState<MassIntentionRow | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
-
-  useEffect(() => {
-    if (!intentionId) return
-
-    async function load() {
-      setLoading(true)
-      setErrorMessage('')
-
-      const { data, error } = await supabase
-        .from('mass_intentions')
-        .select('*')
-        .eq('id', intentionId)
-        .maybeSingle()
-
-      if (error) {
-        devDashboardConsoleError('mass_intentions detail', error)
-        setErrorMessage('Could not load this intention.')
-        setLoading(false)
-        return
-      }
-      if (!data) {
-        setErrorMessage('Intention not found.')
-        setLoading(false)
-        return
-      }
-
-      setIntention(parseMassIntentionRow(data as Record<string, unknown>))
-      setLoading(false)
-    }
-
-    void load()
-  }, [intentionId])
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center px-4" aria-busy="true">
-        <p className="text-sm font-medium text-gray-700">Loading intention…</p>
-      </div>
-    )
-  }
-
+export function MassIntentionDetailPage({
+  intention,
+  errorMessage,
+  activeParishName,
+}: {
+  intention: MassIntentionRow | null
+  errorMessage: string
+  activeParishName: string | null
+}) {
   if (errorMessage || !intention) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-8 pt-4 sm:px-6 sm:pt-5">
@@ -83,7 +39,7 @@ export function MassIntentionDetailPage() {
             href="/dashboard/intentions"
             className="text-sm font-medium text-blue-800 underline underline-offset-2"
           >
-            ← Back to Mass intentions
+            Back to Mass intentions
           </Link>
         </p>
         <div
@@ -106,12 +62,17 @@ export function MassIntentionDetailPage() {
           href="/dashboard/intentions"
           className="text-sm font-medium text-blue-800 underline decoration-blue-800/80 underline-offset-2 hover:text-blue-950"
         >
-          ← Back to Mass intentions
+          Back to Mass intentions
         </Link>
       </p>
 
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
+          {activeParishName ? (
+            <p className="mb-2 text-sm font-medium text-gray-600">
+              Scoped to {activeParishName}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <MassIntentionStatusBadge isFulfilled={intention.is_fulfilled} />
             {intention.stipend_received ? (
@@ -125,7 +86,7 @@ export function MassIntentionDetailPage() {
           </h1>
         </div>
         <Link
-          href={`/dashboard/intentions/${intention.id}/edit`}
+          href={massIntentionEditHref(intention.id)}
           className={`${secondaryButtonMd} w-full justify-center gap-2 sm:w-auto`}
         >
           <Pencil className="h-4 w-4 shrink-0" aria-hidden />

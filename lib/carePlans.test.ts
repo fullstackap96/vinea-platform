@@ -29,7 +29,28 @@ describe('buildFuneralBereavementCarePlan', () => {
       stage: 'before_service',
       priority: 'urgent',
       familyLabel: 'Jose Santos',
+      detailHref: '/dashboard/requests/funeral-1#next-follow-up',
     })
+  })
+
+  it('encodes funeral care plan request detail links through the workflow helper', () => {
+    const plan = buildFuneralBereavementCarePlan(
+      {
+        id: 'funeral request/with?chars',
+        status: 'in_progress',
+        request_type: 'funeral',
+        created_at: '2026-06-18T12:00:00.000Z',
+        funeral_detail: {
+          deceased_name: 'Jose Santos',
+          confirmed_service_at: '2026-06-20T10:00:00.000Z',
+        },
+      },
+      { now }
+    )
+
+    expect(plan?.detailHref).toBe(
+      '/dashboard/requests/funeral%20request%2Fwith%3Fchars#next-follow-up'
+    )
   })
 
   it('creates post-funeral bereavement care after the service', () => {

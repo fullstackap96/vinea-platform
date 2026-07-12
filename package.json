@@ -2,11 +2,31 @@
   "name": "priest-ops-assistant",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --project tsconfig.typecheck.json --noEmit",
+    "typecheck:all": "tsc --noEmit",
+    "check:repository-secrets": "node scripts/check-repository-secrets.mjs",
+    "check:dependency-security": "npm audit --audit-level=high",
+    "check:rls-production-evidence": "node scripts/check-rls-production-evidence.mjs",
+    "check:production-monitoring-evidence": "node scripts/check-production-monitoring-evidence.mjs",
+    "check:production-gates": "node scripts/check-production-gates.mjs",
+    "check:csp-report-only": "node scripts/check-csp-report-only-evidence.mjs",
+    "check:trust-center-claims": "node scripts/check-trust-center-claims.mjs",
+    "check:release-env": "node scripts/check-release-readiness-env.mjs",
+    "check:release-env-cleanup-guide": "node scripts/prepare-release-readiness-env-cleanup.mjs",
+    "check:release-handoff": "node scripts/check-release-readiness-handoff.mjs",
+    "check:release-local-evidence": "node scripts/check-release-local-evidence.mjs",
+    "check:release-source-manifest": "node scripts/build-release-candidate-source-manifest.mjs",
+    "check:release-commit-scope": "node scripts/prepare-release-candidate-commit-scope.mjs",
+    "stage:release-candidate": "node scripts/stage-release-candidate-scope.mjs",
+    "check:release-local": "node scripts/run-release-readiness-local.mjs",
     "test": "vitest run"
   },
   "dependencies": {
@@ -14,12 +34,12 @@
     "@supabase/supabase-js": "^2.102.1",
     "googleapis": "^171.4.0",
     "lucide-react": "^1.8.0",
-    "next": "16.2.2",
+    "next": "16.2.10",
     "openai": "^6.33.0",
     "pdf-lib": "^1.17.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "resend": "^6.10.0",
+    "resend": "^6.17.2",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
@@ -28,9 +48,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.2",
+    "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.6"
+  },
+  "overrides": {
+    "postcss": "8.5.10"
   }
 }

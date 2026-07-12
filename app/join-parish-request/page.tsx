@@ -1,15 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import {
   intakeInputClass,
   intakeLabelClass,
   intakeSectionHeadingClass,
   intakeStatusMessageClass,
+  intakeStatusMessageTone,
   intakeTextareaClass,
 } from '@/lib/intakeFormStyles'
 import { PublicIntakeShell } from '@/app/_components/PublicIntakeShell'
+import {
+  logPublicIntakeNotificationException,
+  logPublicIntakeNotificationFailure,
+} from '@/lib/publicIntakeNotificationClient'
+import { submitPublicIntake } from '@/lib/publicIntakeSubmissionClient'
 
 type YesNo = 'Yes' | 'No'
 type YesNoNotSure = 'Yes' | 'No' | 'Not sure'
@@ -36,9 +42,18 @@ export default function JoinParishRequestPage() {
 
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const submissionInFlightRef = useRef(false)
+
+  function finishSubmission() {
+    submissionInFlightRef.current = false
+    setLoading(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submissionInFlightRef.current) return
+
+    submissionInFlightRef.current = true
     setLoading(true)
     setMessage('')
 
@@ -46,33 +61,28 @@ export default function JoinParishRequestPage() {
     const ln = lastName.trim()
     const fullName = [fn, ln].filter(Boolean).join(' ').trim()
 
-    const intakeRes = await fetch('/api/intake', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requestType: 'join_parish',
-        fullName,
-        email,
-        phone,
-        movingIntoParish,
-        address,
-        householdMembers,
-        baptized,
-        confirmed,
-        firstCommunion,
-        alreadyCatholic,
-        interestedInOcia,
-        reason,
-        notes,
-      }),
+    const intakeResult = await submitPublicIntake({
+      requestType: 'join_parish',
+      fullName,
+      email,
+      phone,
+      movingIntoParish,
+      address,
+      householdMembers,
+      baptized,
+      confirmed,
+      firstCommunion,
+      alreadyCatholic,
+      interestedInOcia,
+      reason,
+      notes,
     })
-    const intakeData = await intakeRes.json().catch(() => ({}))
-    if (!intakeRes.ok || !intakeData?.ok) {
-      setMessage(String(intakeData?.error || 'Error saving request.'))
-      setLoading(false)
+    if (!intakeResult.ok) {
+      setMessage(intakeResult.error)
+      finishSubmission()
       return
     }
-    const requestId = String(intakeData.requestId)
+    const requestId = intakeResult.requestId
 
     try {
       const res = await fetch('/api/request-notifications', {
@@ -109,11 +119,10 @@ export default function JoinParishRequestPage() {
         }),
       })
       if (!res.ok) {
-        const txt = await res.text().catch(() => '')
-        console.warn('Request notification failed:', res.status, txt)
+        logPublicIntakeNotificationFailure(res.status)
       }
-    } catch (err) {
-      console.warn('Request notification error:', err)
+    } catch {
+      logPublicIntakeNotificationException()
     }
 
     setMessage('Request submitted successfully.')
@@ -131,21 +140,32 @@ export default function JoinParishRequestPage() {
     setInterestedInOcia('No')
     setReason('')
     setNotes('')
-    setLoading(false)
+    finishSubmission()
   }
+
+  const statusTone = intakeStatusMessageTone(message)
 
   return (
     <PublicIntakeShell
       title="Join the parish"
       description="Let us know a bit about you and your household. A parish staff member will contact you with next steps."
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        method="post"
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        aria-label="Join the parish request"
+        aria-busy={loading}
+      >
         <h2 className={intakeSectionHeadingClass}>Your contact information</h2>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <input
             className={intakeInputClass}
             placeholder="First name"
+            aria-label="First name"
+            name="firstName"
+            autoComplete="given-name"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             required
@@ -153,6 +173,9 @@ export default function JoinParishRequestPage() {
           <input
             className={intakeInputClass}
             placeholder="Last name"
+            aria-label="Last name"
+            name="lastName"
+            autoComplete="family-name"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             required
@@ -162,7 +185,10 @@ export default function JoinParishRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="Email"
+          aria-label="Email"
+          name="email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -171,6 +197,11 @@ export default function JoinParishRequestPage() {
         <input
           className={intakeInputClass}
           placeholder="Phone"
+          aria-label="Phone"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
@@ -182,6 +213,8 @@ export default function JoinParishRequestPage() {
         <label className={intakeLabelClass}>Moving into the parish?</label>
         <select
           className={intakeInputClass}
+          aria-label="Moving into the parish?"
+          name="movingIntoParish"
           value={movingIntoParish}
           onChange={(e) => setMovingIntoParish(e.target.value as YesNo)}
           required
@@ -193,6 +226,9 @@ export default function JoinParishRequestPage() {
         <textarea
           className={intakeTextareaClass}
           placeholder="Address"
+          aria-label="Address"
+          name="address"
+          autoComplete="street-address"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
         />
@@ -200,6 +236,9 @@ export default function JoinParishRequestPage() {
         <textarea
           className={intakeTextareaClass}
           placeholder="Household members (names, ages, relationships)"
+          aria-label="Household members"
+          name="householdMembers"
+          autoComplete="off"
           value={householdMembers}
           onChange={(e) => setHouseholdMembers(e.target.value)}
         />
@@ -211,6 +250,8 @@ export default function JoinParishRequestPage() {
         <label className={intakeLabelClass}>Baptized?</label>
         <select
           className={intakeInputClass}
+          aria-label="Baptized?"
+          name="baptized"
           value={baptized}
           onChange={(e) => setBaptized(e.target.value as YesNoNotSure)}
           required
@@ -223,6 +264,8 @@ export default function JoinParishRequestPage() {
         <label className={intakeLabelClass}>Confirmed?</label>
         <select
           className={intakeInputClass}
+          aria-label="Confirmed?"
+          name="confirmed"
           value={confirmed}
           onChange={(e) => setConfirmed(e.target.value as YesNoNotSure)}
           required
@@ -235,6 +278,8 @@ export default function JoinParishRequestPage() {
         <label className={intakeLabelClass}>First Communion?</label>
         <select
           className={intakeInputClass}
+          aria-label="First Communion?"
+          name="firstCommunion"
           value={firstCommunion}
           onChange={(e) => setFirstCommunion(e.target.value as YesNoNotSure)}
           required
@@ -247,6 +292,8 @@ export default function JoinParishRequestPage() {
         <label className={intakeLabelClass}>Already Catholic?</label>
         <select
           className={intakeInputClass}
+          aria-label="Already Catholic?"
+          name="alreadyCatholic"
           value={alreadyCatholic}
           onChange={(e) => setAlreadyCatholic(e.target.value as YesNo)}
           required
@@ -258,6 +305,8 @@ export default function JoinParishRequestPage() {
         <label className={intakeLabelClass}>Interested in OCIA?</label>
         <select
           className={intakeInputClass}
+          aria-label="Interested in OCIA?"
+          name="interestedInOcia"
           value={interestedInOcia}
           onChange={(e) => setInterestedInOcia(e.target.value as YesNo)}
           required
@@ -269,6 +318,9 @@ export default function JoinParishRequestPage() {
         <textarea
           className={intakeTextareaClass}
           placeholder="Reason for joining"
+          aria-label="Reason for joining"
+          name="reason"
+          autoComplete="off"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />
@@ -276,6 +328,9 @@ export default function JoinParishRequestPage() {
         <textarea
           className={intakeTextareaClass}
           placeholder="Notes"
+          aria-label="Notes"
+          name="notes"
+          autoComplete="off"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
@@ -286,7 +341,11 @@ export default function JoinParishRequestPage() {
       </form>
 
       {message ? (
-        <p className={intakeStatusMessageClass(message)} role="status" aria-live="polite">
+        <p
+          className={intakeStatusMessageClass(message)}
+          role={statusTone === 'success' ? 'status' : 'alert'}
+          aria-live={statusTone === 'success' ? 'polite' : 'assertive'}
+        >
           {message}
         </p>
       ) : null}

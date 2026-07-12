@@ -5,6 +5,7 @@ import {
   isGoogleOAuthReconnectError,
   serializeGoogleCalendarErrorForLogs,
 } from '@/lib/googleCalendarUserErrors'
+import { logServerError } from '@/lib/server/safeErrorLogging'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 export type GoogleCalendarConflict = {
@@ -34,21 +35,18 @@ export function requireGoogleOAuthClientEnv():
   return { ok: true, clientId, clientSecret }
 }
 
-export async function loadParishGoogleCalendarIntegration(): Promise<ParishGoogleCalendarIntegration | null> {
-  const admin = createSupabaseServiceRoleClient()
-  const { data: parish, error: parishErr } = await admin
-    .from('parishes')
-    .select('id')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+export async function loadParishGoogleCalendarIntegration(
+  parishId?: string | null
+): Promise<ParishGoogleCalendarIntegration | null> {
+  const targetParishId = String(parishId ?? '').trim()
+  if (!targetParishId) return null
 
-  if (parishErr || !parish?.id) return null
+  const admin = createSupabaseServiceRoleClient()
 
   const { data: row, error: rowErr } = await admin
     .from('parish_google_integrations')
     .select('parish_id, refresh_token, calendar_id, status')
-    .eq('parish_id', parish.id)
+    .eq('parish_id', targetParishId)
     .maybeSingle()
 
   if (rowErr || !row) return null
@@ -159,8 +157,10 @@ export async function markParishGoogleCalendarAuthError(parishId: string, error:
         updated_at: new Date().toISOString(),
       })
       .eq('parish_id', parishId)
-  } catch (e) {
-    console.error('markParishGoogleCalendarAuthError failed', e)
+  } catch (error) {
+    logServerError('[google-calendar] auth-error status update failed', error, {
+      action: 'mark-auth-error',
+    })
   }
 }
 

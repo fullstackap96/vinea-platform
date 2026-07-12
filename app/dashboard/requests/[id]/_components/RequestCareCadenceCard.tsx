@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { HeartHandshake } from 'lucide-react'
 import { updateRequestNextFollowUpDate } from '../../actions'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { chipBase } from '@/lib/chipStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+import { requestDetailClientServerActionErrorMessage } from '@/lib/requestDetailClientMessages'
 import {
   type CareCadenceEvaluation,
   type CareCadenceLevel,
@@ -48,25 +49,42 @@ export function RequestCareCadenceCard({
 }) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const saveInFlightRef = useRef(false)
+
+  function releaseSave() {
+    saveInFlightRef.current = false
+    setSaving(false)
+  }
 
   if (!cadence) return null
 
   async function acceptSuggestedDate() {
-    if (!cadence) return
+    if (saveInFlightRef.current || !cadence) return
+
+    saveInFlightRef.current = true
     setSaving(true)
     setMessage('')
-    const result = await updateRequestNextFollowUpDate({
-      requestId: cadence.requestId,
-      nextFollowUpDate: cadence.suggestedFollowUpDate,
-    })
-    setSaving(false)
+
+    let result: Awaited<ReturnType<typeof updateRequestNextFollowUpDate>>
+    try {
+      result = await updateRequestNextFollowUpDate({
+        requestId: cadence.requestId,
+        nextFollowUpDate: cadence.suggestedFollowUpDate,
+      })
+    } catch (error: unknown) {
+      setMessage(requestDetailClientServerActionErrorMessage('updateFollowUp', error))
+      releaseSave()
+      return
+    }
 
     if (!result.ok) {
-      setMessage(result.error)
+      setMessage(requestDetailClientServerActionErrorMessage('updateFollowUp', result.error))
+      releaseSave()
       return
     }
 
     setMessage(`Follow-up set for ${cadence.suggestedFollowUpLabel}.`)
+    releaseSave()
     onSaved()
   }
 
@@ -74,6 +92,7 @@ export function RequestCareCadenceCard({
     <section
       className="rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 via-white to-white p-5 shadow-sm sm:p-6"
       aria-labelledby="request-care-cadence-heading"
+      aria-busy={saving}
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 gap-3">

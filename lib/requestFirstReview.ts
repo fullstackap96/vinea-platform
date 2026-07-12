@@ -27,6 +27,7 @@ export type RequestFirstReview = {
 
 export type RequestFirstReviewInput = {
   request: (NonNullable<RequestWorkflowV2Input['request']> & {
+    created_at?: unknown
     child_name?: unknown
     parishioner?: { full_name?: unknown; email?: unknown; phone?: unknown } | null
   }) | null | undefined

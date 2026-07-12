@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createPerson } from '../actions'
@@ -9,6 +9,8 @@ import {
   formValuesToWriteInput,
   type PersonFormValues,
 } from '../_components/PersonForm'
+import { personDetailHref } from '@/lib/dashboardEntityNavigation'
+import { coreRecordClientErrorMessage } from '@/lib/coreRecordClientMessages'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 
@@ -27,21 +29,37 @@ export function NewPersonPage() {
   const [values, setValues] = useState(initialValues)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const createInFlightRef = useRef(false)
+
+  function releaseCreate() {
+    createInFlightRef.current = false
+    setSaving(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (createInFlightRef.current) return
+
+    createInFlightRef.current = true
     setSaving(true)
     setMessage('')
 
-    const result = await createPerson(formValuesToWriteInput(values))
-    setSaving(false)
-
-    if (!result.ok) {
-      setMessage(result.error)
+    let result: Awaited<ReturnType<typeof createPerson>>
+    try {
+      result = await createPerson(formValuesToWriteInput(values))
+    } catch (error: unknown) {
+      setMessage(coreRecordClientErrorMessage('createPerson', error))
+      releaseCreate()
       return
     }
 
-    router.push(`/dashboard/people/${result.personId}`)
+    if (!result.ok) {
+      setMessage(coreRecordClientErrorMessage('createPerson', result.error))
+      releaseCreate()
+      return
+    }
+
+    router.push(personDetailHref(result.personId))
   }
 
   return (

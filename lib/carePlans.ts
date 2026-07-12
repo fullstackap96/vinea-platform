@@ -1,6 +1,7 @@
 import { formatNextFollowUpDateDisplay, isNextFollowUpOverdue } from '@/lib/nextFollowUpDate'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
+import { requestWorkflowDetailHref } from '@/lib/requestWorkflowV2'
 
 export type CarePlanPriority = 'urgent' | 'high' | 'steady'
 export type CarePlanStage = 'before_service' | 'post_funeral' | 'ongoing_care'
@@ -195,7 +196,7 @@ export function buildFuneralBereavementCarePlan(
     summary,
     nextTouchpoint,
     dueLabel: formatDueLabel(request, now),
-    detailHref: `/dashboard/requests/${encodeURIComponent(requestId)}#next-follow-up`,
+    detailHref: requestWorkflowDetailHref(requestId, 'next-follow-up'),
     nextFollowUpRecommendations: buildCarePlanFollowUpRecommendations(stage, now),
     canCompleteCareCycle: stage !== 'before_service',
     sortScore,

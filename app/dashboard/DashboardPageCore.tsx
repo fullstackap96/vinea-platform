@@ -1,11 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Activity, Calendar, Mail, Phone, User } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { DashboardCommandSummary } from './DashboardCommandSummary'
+import { DashboardDailyOfficeHandoffDigest } from './DashboardDailyOfficeHandoffDigest'
+import { DashboardDailyOfficeHandoffSavedViews } from './DashboardDailyOfficeHandoffSavedViews'
+import { DashboardDailyWorkHubOverview } from './DashboardDailyWorkHubOverview'
+import { DashboardOperationalIntelligenceBrief } from './DashboardOperationalIntelligenceBrief'
+import { DashboardParishHealthScore } from './DashboardParishHealthScore'
+import { DashboardWorkflowReminderPreview } from './DashboardWorkflowReminderPreview'
 import { DashboardTodayView } from './DashboardTodayView'
+import { DashboardRoleWorkHub } from './DashboardRoleWorkHub'
 import { DashboardTodaysCareBrief } from './DashboardTodaysCareBrief'
 import { DashboardParishOpsBrief } from './DashboardParishOpsBrief'
 import { DashboardOnboardingCard } from './DashboardOnboardingCard'
@@ -38,21 +44,18 @@ import { chipBase } from '@/lib/chipStyles'
 import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import { getStatusLabel, requestStatusRankForSort } from '@/lib/requestStatus'
 import { requestWaitingOnLabel } from '@/lib/requestWaitingOn'
-import { loadDashboardSuggestedActions } from '@/lib/relationshipIntelligence/loadDashboardIntelligence'
 import type { DashboardSuggestedAction } from '@/lib/relationshipIntelligence/types'
 import { getDashboardCommandSummaryCounts } from '@/lib/dashboardSummaryCounts'
+import {
+  dashboardClientErrorMessage,
+  dashboardClientFailureMessage,
+} from '@/lib/dashboardClientMessages'
 import {
   defaultDashboardRowFilters,
   requestMatchesDashboardRowFilters,
   type DashboardRowFilters,
 } from '@/lib/dashboardRequestFilter'
-import { requestTypeFromRow } from '@/lib/requestTypeFromRow'
-import { fetchDashboardRequestParishionerScope } from '@/lib/dashboardParishRequestScope'
-import {
-  formatDashboardTechnicalError,
-  logDashboardQueryError,
-  userMessageForDashboardQueryError,
-} from '@/lib/dashboardSupabaseError'
+import { logDashboardQueryError } from '@/lib/dashboardSupabaseError'
 import { evaluateAtRiskRequest } from '@/lib/atRiskRequest'
 import { evaluateSmartFollowUp } from '@/lib/smartFollowUpEngine'
 import { ParishRequestStatusBadgeWithTooltip } from '@/lib/ParishRequestStatusBadge'
@@ -70,7 +73,7 @@ import {
   sortNeedsAttentionRequests,
 } from '@/lib/needsAttention'
 import { dashboardOverdueFollowUpCardClasses } from '@/lib/dashboardOverdueCardStyle'
-import { dashboardRequestOpenLabel } from '@/lib/dashboardRequestNavigation'
+import { dashboardRequestOpenLabel, requestDetailHref } from '@/lib/dashboardRequestNavigation'
 import {
   dashboardRequestContentLink,
   dashboardRequestLinkCardP4,
@@ -103,6 +106,19 @@ import { buildTodaysCareBrief } from '@/lib/parishCareCalendar'
 import { evaluateIntakeTriage } from '@/lib/intakeTriage'
 import { buildOwnershipHealth } from '@/lib/ownershipHealth'
 import { buildParishOpsBrief } from '@/lib/parishOpsBrief'
+import {
+  emptyDailyOperatingSystemSignals,
+  type DailyOperatingSystemSignals,
+} from '@/lib/dailyOperatingSystemSignals'
+import { buildDailyOfficeHandoffDigest } from '@/lib/dailyOfficeHandoffDigest'
+import { buildDailyWorkHubOverview } from '@/lib/dailyWorkHubOverview'
+import { buildOperationalIntelligenceBrief } from '@/lib/operationalIntelligenceBrief'
+import { buildParishHealthScore } from '@/lib/parishHealthScore'
+import { buildWorkflowReminderCandidates } from '@/lib/workflowReminderDtos'
+import {
+  parseDashboardWorkHubRequests,
+  type DashboardWorkHubRequest,
+} from '@/lib/dashboardWorkHubDtos'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import {
   vineaEmptyStateClassName,
@@ -112,8 +128,6 @@ import {
 
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
-
-const FOLLOWUP_QUEUE_CONTACT_NOTES = 'Marked as contacted from Follow-Up Queue'
 
 function commandCenterBucketTone(bucket: StaffCommandCenterRow['bucket']): string {
   switch (bucket) {
@@ -159,7 +173,7 @@ function requestListDisplayName(request: {
   })
 }
 
-function followUpEmailSubject(request: any) {
+function followUpEmailSubject(request: DashboardWorkHubRequest) {
   if (request.request_type === 'funeral') {
     const d = String(request.funeral_detail?.deceased_name ?? '').trim()
     return `Following up: Funeral for ${d || 'your loved one'}`
@@ -178,9 +192,17 @@ function followUpEmailSubject(request: any) {
   return `Following up: Baptism for ${child || 'your family'}`
 }
 
-export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
+export function DashboardPageCore({
+  view,
+  activeParishId = null,
+  activeParishName = null,
+}: {
+  view: 'home' | 'requests'
+  activeParishId?: string | null
+  activeParishName?: string | null
+}) {
   const isHome = view === 'home'
-  const [requests, setRequests] = useState<any[]>([])
+  const [requests, setRequests] = useState<DashboardWorkHubRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [rowFilters, setRowFilters] = useState<DashboardRowFilters>(() =>
     defaultDashboardRowFilters()
@@ -197,7 +219,9 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
 
   const [followUpDraftingId, setFollowUpDraftingId] = useState<string | null>(null)
   const [followUpMarkingId, setFollowUpMarkingId] = useState<string | null>(null)
+  const followUpMarkContactedInFlightRef = useRef(false)
   const [followUpSendingId, setFollowUpSendingId] = useState<string | null>(null)
+  const followUpEmailInFlightRef = useRef(false)
   const [followUpRowMessages, setFollowUpRowMessages] = useState<Record<string, string>>({})
   const [selectedFollowUpIds, setSelectedFollowUpIds] = useState<Set<string>>(
     () => new Set()
@@ -207,12 +231,11 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   )
   const [followUpBatchMessage, setFollowUpBatchMessage] = useState('')
   const [carePlanCompletingId, setCarePlanCompletingId] = useState<string | null>(null)
+  const careTouchpointInFlightRef = useRef(false)
   const [carePlanMessages, setCarePlanMessages] = useState<Record<string, string>>({})
   const [requestsLoadError, setRequestsLoadError] = useState<string | null>(null)
   const [requestsFetchFailed, setRequestsFetchFailed] = useState(false)
-  const [requestsLoadTechnicalDetail, setRequestsLoadTechnicalDetail] = useState<
-    string | null
-  >(null)
+  const requestsLoadSequenceRef = useRef(0)
   const [suggestedActions, setSuggestedActions] = useState<DashboardSuggestedAction[]>(
     []
   )
@@ -220,6 +243,9 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   const [careCadenceSlaRules, setCareCadenceSlaRules] = useState<CareCadenceSlaRules>(
     DEFAULT_CARE_CADENCE_SLA_RULES
   )
+  const [dailyOperatingSignals, setDailyOperatingSignals] =
+    useState<DailyOperatingSystemSignals>(() => emptyDailyOperatingSystemSignals())
+  const [nowMs, setNowMs] = useState(() => Date.now())
 
   async function loadParishWorkflowSettings() {
     try {
@@ -234,7 +260,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     }
   }
 
-  function toTime(value: any) {
+  function toTime(value: unknown) {
     if (!value) return null
     const d = new Date(String(value))
     const t = d.getTime()
@@ -242,10 +268,10 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   }
 
   function wholeDaysSinceTimestamp(ts: number) {
-    return Math.floor((Date.now() - ts) / DAY_MS)
+    return Math.floor((nowMs - ts) / DAY_MS)
   }
 
-  function normalize(value: any) {
+  function normalize(value: unknown) {
     return String(value || '').toLowerCase().trim()
   }
 
@@ -253,7 +279,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     setCarePlanMessages((current) => ({ ...current, [requestId]: message }))
   }
 
-  function sortWithNullsLast(list: any[]) {
+  function sortWithNullsLast(list: DashboardWorkHubRequest[]) {
     const copy = [...list]
     copy.sort((a, b) => {
       if (sortBy === 'urgency') {
@@ -322,22 +348,22 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   }
 
   /** Shared with list badges and Follow-Up Queue membership. */
-  function getAttentionState(request: any) {
+  function getAttentionState(request: DashboardWorkHubRequest) {
     const needsConfirmed = isMissingConfirmedSchedule(request)
     const lastContactedTime = toTime(request.last_contacted_at)
     const needsContact =
-      lastContactedTime === null || Date.now() - lastContactedTime >= FOLLOWUP_STALE_MS
+      lastContactedTime === null || nowMs - lastContactedTime >= FOLLOWUP_STALE_MS
     const checklistIncomplete = Boolean(request.checklist_incomplete)
     return { needsConfirmed, needsContact, checklistIncomplete }
   }
 
-  function inFollowUpQueue(request: any) {
+  function inFollowUpQueue(request: DashboardWorkHubRequest) {
     if (request.status === 'complete') return false
     const { needsConfirmed, needsContact, checklistIncomplete } = getAttentionState(request)
     return needsContact || needsConfirmed || checklistIncomplete
   }
 
-  function buildFollowUpContext(request: any) {
+  function buildFollowUpContext(request: DashboardWorkHubRequest) {
     const { needsConfirmed, needsContact, checklistIncomplete } = getAttentionState(request)
     const lines: string[] = []
     if (needsContact) {
@@ -355,7 +381,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   }
 
   function renderRequestDetailLines(
-    request: any,
+    request: DashboardWorkHubRequest,
     opts?: { streamlinedTiles?: boolean }
   ) {
     const streamlined = opts?.streamlinedTiles ?? false
@@ -528,7 +554,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   }
 
   function renderRequestSummary(
-    request: any,
+    request: DashboardWorkHubRequest,
     opts?: { showAttentionChips?: boolean }
   ) {
     const showAttentionChips = opts?.showAttentionChips ?? true
@@ -609,7 +635,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   }
 
   /** Short highlight lines for Follow-Up Queue cards (scan-friendly). */
-  function followUpQueueHighlightLines(request: any): string[] {
+  function followUpQueueHighlightLines(request: DashboardWorkHubRequest): string[] {
     const { needsConfirmed, needsContact, checklistIncomplete } = getAttentionState(request)
     const lines: string[] = []
     if (needsContact) {
@@ -642,7 +668,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     return lines
   }
 
-  function renderNeedsAttentionCard(request: any) {
+  function renderNeedsAttentionCard(request: DashboardWorkHubRequest) {
     const id = String(request.id)
     const workflow = resolveRequestWorkflowV2({
       request,
@@ -864,7 +890,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     )
   }
 
-  function dashboardRequestLink(request: any) {
+  function dashboardRequestLink(request: DashboardWorkHubRequest) {
     const followUpOverdue = isNextFollowUpOverdue(
       request.next_follow_up_date,
       request.status
@@ -926,7 +952,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   }
 
   async function runDraftFollowUpCore(
-    request: any
+    request: DashboardWorkHubRequest
   ): Promise<{ ok: true } | { ok: false; error: string }> {
     const id = String(request.id)
     try {
@@ -982,8 +1008,8 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       })
 
       if (!res.ok) {
-        const errorText = await res.text()
-        return { ok: false, error: errorText }
+        await res.text().catch(() => '')
+        return { ok: false, error: dashboardClientFailureMessage('draftFollowUp') }
       }
 
       const data = await res.json()
@@ -992,72 +1018,66 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
         return { ok: false, error: 'Empty response.' }
       }
 
-      const { error: updateErr } = await supabase
-        .from('requests')
-        .update({ reply_draft: replyText })
-        .eq('id', id)
+      const saveRes = await fetch(`/api/requests/${encodeURIComponent(id)}/reply-draft`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ replyDraft: replyText }),
+      })
 
-      if (updateErr) {
-        return { ok: false, error: updateErr.message }
+      if (!saveRes.ok) {
+        await saveRes.text().catch(() => '')
+        return { ok: false, error: dashboardClientFailureMessage('saveFollowUpDraft') }
       }
 
       return { ok: true }
-    } catch (error: any) {
-      return { ok: false, error: error?.message || 'Unknown error' }
+    } catch {
+      return { ok: false, error: dashboardClientFailureMessage('draftFollowUp') }
     }
   }
 
-  async function runMarkFollowUpAsContactedCore(
-    request: any,
-    contactedAtIso: string
-  ): Promise<
+  async function runMarkFollowUpAsContactedCore(request: DashboardWorkHubRequest): Promise<
     | { ok: true }
     | { ok: false; error: string; historyInserted?: boolean }
   > {
     const id = String(request.id)
     try {
-      const insertRes = await supabase.from('request_communications').insert({
-        request_id: id,
-        contacted_at: contactedAtIso,
-        method: 'email',
-        notes: FOLLOWUP_QUEUE_CONTACT_NOTES,
+      const res = await fetch(`/api/requests/${encodeURIComponent(id)}/mark-contacted`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: activeParishId
+          ? { 'X-Vinea-Active-Parish-Id': activeParishId }
+          : undefined,
       })
-
-      if (insertRes.error) {
-        return { ok: false, error: insertRes.error.message }
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        completed?: { communicationLogged?: boolean }
       }
 
-      const updateRes = await supabase
-        .from('requests')
-        .update({
-          last_contacted_at: contactedAtIso,
-          last_contact_method: 'email',
-          communication_notes: FOLLOWUP_QUEUE_CONTACT_NOTES,
-        })
-        .eq('id', id)
-
-      if (updateRes.error) {
+      if (!res.ok || !data.ok) {
         return {
           ok: false,
-          error: updateRes.error.message,
-          historyInserted: true,
+          error: data.completed?.communicationLogged
+            ? dashboardClientFailureMessage('updateFollowUpContactedSummary')
+            : dashboardClientFailureMessage('logFollowUpContacted'),
+          historyInserted: data.completed?.communicationLogged === true,
         }
       }
 
       return { ok: true }
-    } catch (error: any) {
-      return { ok: false, error: error?.message || 'Unknown error' }
+    } catch {
+      return { ok: false, error: dashboardClientFailureMessage('markFollowUpContacted') }
     }
   }
 
-  async function draftFollowUpEmail(request: any) {
+  async function draftFollowUpEmail(request: DashboardWorkHubRequest) {
     const id = String(request.id)
     setFollowUpDraftingId(id)
     setFollowUpRowMessage(id, '')
     try {
       const result = await runDraftFollowUpCore(request)
       if (!result.ok) {
-        setFollowUpRowMessage(id, `Draft failed: ${result.error}`)
+        setFollowUpRowMessage(id, dashboardClientErrorMessage('draftFollowUp', result.error))
         return
       }
 
@@ -1066,14 +1086,16 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
         'Follow-up draft saved. You can send from the queue or open the full request.'
       )
       await loadRequests(true)
-    } catch (error: any) {
-      setFollowUpRowMessage(id, `Draft failed: ${error?.message || 'Unknown error'}`)
+    } catch {
+      setFollowUpRowMessage(id, dashboardClientFailureMessage('draftFollowUp'))
     } finally {
       setFollowUpDraftingId(null)
     }
   }
 
-  async function sendFollowUpEmail(request: any) {
+  async function sendFollowUpEmail(request: DashboardWorkHubRequest) {
+    if (followUpEmailInFlightRef.current) return
+
     const id = String(request.id)
     const to = String(request.parishioner?.email || '').trim()
     const subject = followUpEmailSubject(request)
@@ -1088,55 +1110,68 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       return
     }
 
+    followUpEmailInFlightRef.current = true
     setFollowUpSendingId(id)
     setFollowUpRowMessage(id, '')
     try {
-      const res = await fetch('/api/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ to, subject, text }),
-      })
+      let res: Response
+      try {
+        res = await fetch('/api/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ requestId: id, subject, text }),
+        })
+      } catch {
+        setFollowUpRowMessage(id, dashboardClientFailureMessage('sendFollowUpEmail'))
+        return
+      }
 
-      const payload = await res.json().catch(() => ({} as any))
-      if (!res.ok || !payload?.ok) {
-        const err = payload?.error || `Send failed (${res.status})`
-        setFollowUpRowMessage(id, String(err))
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean } | null
+      if (!res.ok) {
+        setFollowUpRowMessage(id, dashboardClientFailureMessage('sendFollowUpEmail'))
+        return
+      }
+      if (payload?.ok !== true) {
+        setFollowUpRowMessage(id, dashboardClientFailureMessage('confirmFollowUpEmailSend'))
         return
       }
 
       const contactedAtIso = new Date().toISOString()
       const summary = `Email sent: ${subject}`
 
-      const insertRes = await supabase.from('request_communications').insert({
-        request_id: id,
-        contacted_at: contactedAtIso,
-        method: 'email',
-        notes: summary,
-      })
-
-      if (insertRes.error) {
-        setFollowUpRowMessage(
-          id,
-          `Email sent, but failed logging communication: ${insertRes.error.message}`
-        )
+      let logRes: Response
+      try {
+        logRes = await fetch(`/api/requests/${encodeURIComponent(id)}/communications`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contactedAt: contactedAtIso,
+            method: 'email',
+            notes: summary,
+          }),
+        })
+      } catch {
+        setFollowUpRowMessage(id, dashboardClientFailureMessage('logFollowUpEmail'))
         await loadRequests(true)
         return
       }
+      const logData = (await logRes.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: unknown
+      }
 
-      const updateRes = await supabase
-        .from('requests')
-        .update({
-          last_contacted_at: contactedAtIso,
-          last_contact_method: 'email',
-          communication_notes: summary,
-        })
-        .eq('id', id)
-
-      if (updateRes.error) {
+      if (!logRes.ok || !logData.ok) {
+        const summaryUpdateFailed =
+          logData.error ===
+          'Communication was logged, but Vinea could not update the request summary. Please refresh before closing this follow-up.'
+        const message = summaryUpdateFailed
+          ? dashboardClientFailureMessage('updateFollowUpEmailSummary')
+          : dashboardClientFailureMessage('logFollowUpEmail')
         setFollowUpRowMessage(
           id,
-          `Email sent and logged, but failed updating summary fields: ${updateRes.error.message}`
+          message,
         )
         await loadRequests(true)
         return
@@ -1144,32 +1179,33 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
 
       setFollowUpRowMessage(id, 'Follow-up email sent successfully.')
       await loadRequests(true)
-    } catch (error: any) {
-      setFollowUpRowMessage(id, `Send failed: ${error?.message || 'Unknown error'}`)
     } finally {
+      followUpEmailInFlightRef.current = false
       setFollowUpSendingId(null)
     }
   }
 
-  async function markFollowUpAsContacted(request: any) {
+  async function markFollowUpAsContacted(request: DashboardWorkHubRequest) {
+    if (followUpMarkContactedInFlightRef.current) return
+
     const id = String(request.id)
+    followUpMarkContactedInFlightRef.current = true
     setFollowUpMarkingId(id)
     setFollowUpRowMessage(id, '')
     try {
-      const contactedAtIso = new Date().toISOString()
-      const result = await runMarkFollowUpAsContactedCore(request, contactedAtIso)
+      const result = await runMarkFollowUpAsContactedCore(request)
 
       if (!result.ok) {
         if (result.historyInserted) {
           setFollowUpRowMessage(
             id,
-            `Logged history, but failed updating request: ${result.error}`
+            dashboardClientErrorMessage('updateFollowUpContactedSummary', result.error),
           )
           await loadRequests(true)
         } else {
           setFollowUpRowMessage(
             id,
-            `Could not log communication: ${result.error}`
+            dashboardClientErrorMessage('markFollowUpContacted', result.error),
           )
         }
         return
@@ -1177,9 +1213,10 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
 
       setFollowUpRowMessage(id, 'Marked as contacted.')
       await loadRequests(true)
-    } catch (error: any) {
-      setFollowUpRowMessage(id, `Error: ${error?.message || 'Unknown error'}`)
+    } catch {
+      setFollowUpRowMessage(id, dashboardClientFailureMessage('markFollowUpContacted'))
     } finally {
+      followUpMarkContactedInFlightRef.current = false
       setFollowUpMarkingId(null)
     }
   }
@@ -1193,6 +1230,10 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   }: CompleteCarePlanTouchpointInput): Promise<
     { ok: true } | { ok: false; error: string }
   > {
+    if (careTouchpointInFlightRef.current) {
+      return { ok: false, error: 'A care touchpoint is already being saved.' }
+    }
+
     const id = String(plan.requestId)
     const normalizedMethod = String(method || 'phone').trim()
     const trimmedNotes = String(notes || '').trim()
@@ -1203,11 +1244,11 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       return { ok: false, error }
     }
 
+    careTouchpointInFlightRef.current = true
     setCarePlanCompletingId(id)
     setCarePlanMessage(id, '')
 
     try {
-      const contactedAtIso = new Date().toISOString()
       const nextFollowUpDisplay = careCycleComplete
         ? 'Care cycle complete'
         : `Next follow-up: ${formatNextFollowUpDateDisplay(nextFollowUpDate)}`
@@ -1217,54 +1258,37 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
         nextFollowUpDisplay,
       ].join('\n')
 
-      const insertRes = await supabase.from('request_communications').insert({
-        request_id: id,
-        contacted_at: contactedAtIso,
-        method: normalizedMethod,
-        notes: communicationNotes,
+      const res = await fetch(`/api/requests/${encodeURIComponent(id)}/care-touchpoint`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(activeParishId
+            ? { 'X-Vinea-Active-Parish-Id': activeParishId }
+            : {}),
+        },
+        body: JSON.stringify({
+          method: normalizedMethod,
+          notes: communicationNotes,
+          nextFollowUpDate,
+          careCycleComplete,
+        }),
       })
-
-      if (insertRes.error) {
-        setCarePlanMessage(id, `Could not log care touchpoint: ${insertRes.error.message}`)
-        return { ok: false, error: insertRes.error.message }
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        partialStep?: 'funeral_care_date' | 'request_summary'
       }
 
-      if (plan.planType === 'funeral_bereavement') {
-        const funeralUpdate = await supabase
-          .from('funeral_request_details')
-          .update({
-            post_funeral_follow_up_date: careCycleComplete ? null : nextFollowUpDate,
-          })
-          .eq('request_id', id)
-
-        if (funeralUpdate.error) {
-          const error = `Logged touchpoint, but failed updating funeral care date: ${funeralUpdate.error.message}`
-          setCarePlanMessage(id, error)
-          await loadRequests(true)
-          return { ok: false, error }
-        }
-      }
-
-      const updatePayload: Record<string, unknown> = {
-        last_contacted_at: contactedAtIso,
-        last_contact_method: normalizedMethod,
-        communication_notes: communicationNotes,
-        next_follow_up_date: careCycleComplete ? null : nextFollowUpDate,
-      }
-      if (careCycleComplete) {
-        updatePayload.status = 'complete'
-      }
-
-      const updateRes = await supabase
-        .from('requests')
-        .update(updatePayload)
-        .eq('id', id)
-
-      if (updateRes.error) {
-        const error = `Logged touchpoint, but failed updating request: ${updateRes.error.message}`
-        setCarePlanMessage(id, error)
-        await loadRequests(true)
-        return { ok: false, error }
+      if (!res.ok || !data.ok) {
+        const message =
+          data.partialStep === 'funeral_care_date'
+            ? dashboardClientFailureMessage('updateFuneralCareDate')
+            : data.partialStep === 'request_summary'
+              ? dashboardClientFailureMessage('updateCareRequest')
+              : dashboardClientFailureMessage('logCareTouchpoint')
+        setCarePlanMessage(id, message)
+        if (data.partialStep) await loadRequests(true)
+        return { ok: false, error: message }
       }
 
       setCarePlanMessage(
@@ -1275,17 +1299,17 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       )
       await loadRequests(true)
       return { ok: true }
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? `Error: ${error.message}` : 'Error: Unknown error'
+    } catch {
+      const message = dashboardClientFailureMessage('saveCareTouchpoint')
       setCarePlanMessage(id, message)
       return { ok: false, error: message }
     } finally {
+      careTouchpointInFlightRef.current = false
       setCarePlanCompletingId(null)
     }
   }
 
-  function followUpQueueRow(request: any) {
+  function followUpQueueRow(request: DashboardWorkHubRequest) {
     const id = String(request.id)
     const followUpGlobalBusy =
       followUpBatchBusy !== null ||
@@ -1322,7 +1346,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
       checklistIncomplete: Boolean(request.checklist_incomplete),
     })
 
-    const requestDetailHref = `/dashboard/requests/${encodeURIComponent(id)}`
+    const detailHref = requestDetailHref(id)
 
     return (
       <div
@@ -1346,7 +1370,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="min-w-0 flex-1 space-y-2">
                 <Link
-                  href={requestDetailHref}
+                  href={detailHref}
                   aria-label={dashboardRequestOpenLabel(displayName)}
                   className={dashboardRequestContentLink}
                 >
@@ -1473,7 +1497,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
                     <button
                       type="button"
                       disabled={sendDisabled}
-                      onClick={() => sendFollowUpEmail(request)}
+                      onClick={() => void sendFollowUpEmail(request)}
                       className={`${primaryButtonMd} w-full justify-center`}
                     >
                       {followUpSendingId === id ? 'Sending...' : 'Send follow-up email'}
@@ -1511,278 +1535,117 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   }
 
   async function loadRequests(silent = false) {
+    const loadSequence = ++requestsLoadSequenceRef.current
+    const isLatestLoad = () => loadSequence === requestsLoadSequenceRef.current
+
     if (!silent) setLoading(true)
     setRequestsLoadError(null)
     setRequestsFetchFailed(false)
-    setRequestsLoadTechnicalDetail(null)
+    setSuggestedActionsLoading(true)
     const softWarnings: string[] = []
 
     try {
-    const parishScope = await fetchDashboardRequestParishionerScope(supabase)
-    if (!parishScope.ok) {
-      if (parishScope.technicalDetail) {
-        logDashboardQueryError(
-          'dashboard request parish scope',
-          new Error(parishScope.technicalDetail)
+      const response = await fetch('/api/dashboard/work-hub', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: activeParishId
+          ? { 'X-Vinea-Active-Parish-Id': activeParishId }
+          : undefined,
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        ok?: unknown
+        fetchFailed?: unknown
+        error?: unknown
+        requests?: unknown
+        suggestedActions?: unknown
+        signals?: unknown
+        warnings?: unknown
+      } | null
+      const parsedRequests = parseDashboardWorkHubRequests(payload?.requests)
+
+      if (!isLatestLoad()) return
+
+      if (
+        !response.ok ||
+        payload?.ok !== true ||
+        !parsedRequests ||
+        !payload.signals ||
+        typeof payload.signals !== 'object' ||
+        Array.isArray(payload.signals)
+      ) {
+        setRequestsFetchFailed(payload?.fetchFailed !== false)
+        setRequests([])
+        setSuggestedActions([])
+        setDailyOperatingSignals(emptyDailyOperatingSystemSignals())
+        setRequestsLoadError(
+          typeof payload?.error === 'string'
+            ? payload.error
+            : 'The Daily Work Hub could not be loaded.',
         )
-        setRequestsLoadTechnicalDetail(parishScope.technicalDetail)
+        return
       }
-      setRequests([])
-      setSuggestedActions([])
-      setRequestsLoadError(parishScope.userMessage)
-      return
-    }
 
-    const parishionerIdsForParish = parishScope.parishionerIds
-
-    let requestsQuery = supabase
-      .from('requests')
-      .select(`
-        id,
-        request_type,
-        status,
-        child_name,
-        preferred_dates,
-        notes,
-        reply_draft,
-        created_at,
-        parishioner_id,
-        person_id,
-        confirmed_baptism_date,
-        last_contacted_at,
-        assigned_staff_name,
-        assigned_priest_name,
-        assigned_deacon_name,
-        next_follow_up_date,
-        waiting_on
-      `)
-      .order('created_at', { ascending: false })
-
-    requestsQuery = requestsQuery.in('parishioner_id', parishionerIdsForParish)
-
-    const { data: requestsData, error: requestsError } = await requestsQuery
-
-    if (requestsError) {
-      logDashboardQueryError('requests (dashboard list)', requestsError)
-      setRequestsFetchFailed(true)
-      setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(requestsError))
-      setRequests([])
-      setSuggestedActions([])
-      return
-    }
-
-    if (!requestsData) {
-      const synthetic = new Error('Supabase returned no data and no error')
-      logDashboardQueryError('requests (dashboard list)', synthetic)
-      setRequestsFetchFailed(true)
-      setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(synthetic))
-      setRequests([])
-      setSuggestedActions([])
-      return
-    }
-
-    const requestRows = (requestsData || []).map((r) => ({
-      ...r,
-      request_type: requestTypeFromRow(r as { request_type?: unknown }),
-    }))
-
-    const parishionerIds = requestRows
-      .map((request) => request.parishioner_id)
-      .filter(Boolean)
-
-    let parishionersData:
-      | { id: string; full_name: string | null; email: string | null; phone: string | null; parish_id: string | null }[]
-      | null
-    let parishionersError: { message: string } | null
-
-    if (parishionerIds.length > 0) {
-      const pRes = await supabase
-        .from('parishioners')
-        .select('id, full_name, email, phone, parish_id')
-        .in('id', parishionerIds)
-      parishionersData = pRes.data as typeof parishionersData
-      parishionersError = pRes.error
-    } else {
-      parishionersData = []
-      parishionersError = null
-    }
-
-    if (parishionersError) {
-      logDashboardQueryError('parishioners (for dashboard merge)', parishionersError)
-      setRequestsFetchFailed(true)
-      setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(parishionersError))
-      setRequests([])
-      setSuggestedActions([])
-      return
-    }
-
-    const requestIds = requestRows.map((r) => r.id).filter(Boolean)
-    let checklistIncompleteCountByRequestId = new Map<string, number>()
-    if (requestIds.length > 0) {
-      const { data: checklistData, error: checklistError } = await supabase
-        .from('checklist_items')
-        .select('request_id, is_complete')
-        .in('request_id', requestIds)
-
-      if (checklistError) {
-        logDashboardQueryError('checklist_items (for dashboard)', checklistError)
+      const serverSuggestedActions = Array.isArray(payload.suggestedActions)
+        ? (payload.suggestedActions as DashboardSuggestedAction[])
+        : []
+      const serverSignals = payload.signals as DailyOperatingSystemSignals
+      if (Array.isArray(payload.warnings)) {
         softWarnings.push(
-          userMessageForDashboardQueryError('checklist summary', checklistError)
-        )
-      } else {
-        checklistIncompleteCountByRequestId = new Map<string, number>()
-        for (const item of checklistData || []) {
-          const reqId = String(item.request_id)
-          if (item.is_complete === false) {
-            checklistIncompleteCountByRequestId.set(
-              reqId,
-              (checklistIncompleteCountByRequestId.get(reqId) ?? 0) + 1
-            )
-          }
-        }
-      }
-    }
-
-    const mergedRequests = requestRows.map((request) => {
-      const matchingParishioner = parishionersData?.find(
-        (p) => p.id === request.parishioner_id
-      )
-
-      const checklistIncompleteCount =
-        checklistIncompleteCountByRequestId.get(String(request.id)) ?? 0
-
-      return {
-        ...request,
-        parishioner: matchingParishioner || null,
-        checklist_incomplete: checklistIncompleteCount > 0,
-        checklist_incomplete_count: checklistIncompleteCount,
-      }
-    })
-
-    const funeralIds = mergedRequests
-      .filter((r) => r.request_type === 'funeral')
-      .map((r) => String(r.id))
-
-    const funeralById = new Map<string, Record<string, unknown>>()
-    if (funeralIds.length > 0) {
-      const { data: funeralRows, error: funeralErr } = await supabase
-        .from('funeral_request_details')
-        .select('*')
-        .in('request_id', funeralIds)
-
-      if (funeralErr) {
-        logDashboardQueryError('funeral_request_details (for dashboard)', funeralErr)
-        softWarnings.push(
-          userMessageForDashboardQueryError('funeral request details', funeralErr)
+          ...payload.warnings.filter(
+            (warning): warning is string => typeof warning === 'string',
+          ),
         )
       }
-      for (const row of funeralRows || []) {
-        funeralById.set(String(row.request_id), row as Record<string, unknown>)
-      }
-    }
 
-    const withFuneral = mergedRequests.map((r) => ({
-      ...r,
-      funeral_detail:
-        r.request_type === 'funeral'
-          ? funeralById.get(String(r.id)) ?? null
-          : null,
-    }))
+      setDailyOperatingSignals(serverSignals)
+      setRequests(parsedRequests)
+      setSuggestedActions(serverSuggestedActions)
+      setRequestsFetchFailed(false)
+      setRequestsLoadError(softWarnings.length > 0 ? softWarnings.join(' ') : null)
 
-    const weddingIds = withFuneral
-      .filter((r) => r.request_type === 'wedding')
-      .map((r) => String(r.id))
-
-    const weddingById = new Map<string, Record<string, unknown>>()
-    if (weddingIds.length > 0) {
-      const { data: weddingRows, error: weddingErr } = await supabase
-        .from('wedding_request_details')
-        .select('*')
-        .in('request_id', weddingIds)
-
-      if (weddingErr) {
-        logDashboardQueryError('wedding_request_details (for dashboard)', weddingErr)
-        softWarnings.push(
-          userMessageForDashboardQueryError('wedding request details', weddingErr)
-        )
-      }
-      for (const row of weddingRows || []) {
-        weddingById.set(String(row.request_id), row as Record<string, unknown>)
-      }
-    }
-
-    const withWedding = withFuneral.map((r) => ({
-      ...r,
-      wedding_detail:
-        r.request_type === 'wedding'
-          ? weddingById.get(String(r.id)) ?? null
-          : null,
-    }))
-
-    const ociaIds = withWedding
-      .filter((r) => r.request_type === 'ocia')
-      .map((r) => String(r.id))
-
-    const ociaById = new Map<string, Record<string, unknown>>()
-    if (ociaIds.length > 0) {
-      const { data: ociaRows, error: ociaErr } = await supabase
-        .from('ocia_request_details')
-        .select('*')
-        .in('request_id', ociaIds)
-
-      if (ociaErr) {
-        logDashboardQueryError('ocia_request_details (for dashboard)', ociaErr)
-        softWarnings.push(
-          userMessageForDashboardQueryError('OCIA request details', ociaErr)
-        )
-      }
-      for (const row of ociaRows || []) {
-        ociaById.set(String(row.request_id), row as Record<string, unknown>)
-      }
-    }
-
-    const withDetails = withWedding.map((r) => ({
-      ...r,
-      ocia_detail:
-        r.request_type === 'ocia' ? ociaById.get(String(r.id)) ?? null : null,
-    }))
-
-    setRequests(withDetails)
-    setRequestsFetchFailed(false)
-    setRequestsLoadTechnicalDetail(null)
-    setRequestsLoadError(softWarnings.length > 0 ? softWarnings.join(' • ') : null)
-
-    setSuggestedActionsLoading(true)
-    try {
-      const actions = await loadDashboardSuggestedActions(supabase, withDetails)
-      setSuggestedActions(actions)
-    } catch (suggestionsErr) {
-      logDashboardQueryError('dashboard suggested actions', suggestionsErr)
-      setSuggestedActions([])
-    } finally {
-      setSuggestedActionsLoading(false)
-    }
     } catch (unexpected) {
-      logDashboardQueryError('dashboard load (unexpected)', unexpected)
+      if (!isLatestLoad()) return
+      logDashboardQueryError('dashboard work hub endpoint', unexpected)
       setRequestsFetchFailed(true)
-      setRequestsLoadTechnicalDetail(formatDashboardTechnicalError(unexpected))
+      setRequestsLoadError('The Daily Work Hub could not be loaded.')
       setRequests([])
       setSuggestedActions([])
+      setDailyOperatingSignals(emptyDailyOperatingSystemSignals())
     } finally {
-      if (!silent) setLoading(false)
+      if (isLatestLoad()) {
+        setSuggestedActionsLoading(false)
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
-    loadRequests(false)
-    void loadParishWorkflowSettings()
-  }, [])
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setNowMs(Date.now())
+      loadRequests(false)
+      void loadParishWorkflowSettings()
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activeParishId is the server-validated parish scope trigger; loadRequests is intentionally not stable.
+  }, [activeParishId])
 
   const rowFiltersKey = JSON.stringify(rowFilters)
 
   useEffect(() => {
-    setSelectedFollowUpIds(new Set())
-    setFollowUpBatchMessage('')
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setSelectedFollowUpIds(new Set())
+      setFollowUpBatchMessage('')
+    })
+    return () => {
+      cancelled = true
+    }
   }, [rowFiltersKey, searchQuery])
 
   const { staffAssigneeOptions, priestAssigneeOptions } = useMemo(() => {
@@ -1864,7 +1727,7 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
   )
 
   /** One timestamp per loaded request list so summary cards and staff workload use the same rules. */
-  const dashboardMetricsAt = useMemo(() => new Date(), [requests])
+  const dashboardMetricsAt = useMemo(() => new Date(nowMs), [nowMs])
 
   const actionRequiredCount = useMemo(
     () => getDashboardCommandSummaryCounts(requests, dashboardMetricsAt).actionRequired,
@@ -1943,6 +1806,100 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     [isHome, requests, searchedRequests, dashboardMetricsAt]
   )
 
+  const dailyWorkHubOverview = useMemo(
+    () =>
+      buildDailyWorkHubOverview({
+        now: dashboardMetricsAt,
+        requests: isHome ? requests : searchedRequests,
+        staffCommandCenter,
+        parishOpsBrief,
+        staffWorkloadRows,
+        careCadence,
+        communicationCommitments,
+        operatingSignals: dailyOperatingSignals.healthSignals,
+      }),
+    [
+      isHome,
+      requests,
+      searchedRequests,
+      dashboardMetricsAt,
+      staffCommandCenter,
+      parishOpsBrief,
+      staffWorkloadRows,
+      careCadence,
+      communicationCommitments,
+      dailyOperatingSignals,
+    ]
+  )
+
+  const parishHealthScore = useMemo(
+    () =>
+      buildParishHealthScore({
+        now: dashboardMetricsAt,
+        requests: isHome ? requests : searchedRequests,
+        staffCommandCenter,
+        parishOpsBrief,
+        staffWorkloadRows,
+        careCadence,
+        communicationCommitments,
+        operatingSignals: dailyOperatingSignals.healthSignals,
+      }),
+    [
+      isHome,
+      requests,
+      searchedRequests,
+      dashboardMetricsAt,
+      staffCommandCenter,
+      parishOpsBrief,
+      staffWorkloadRows,
+      careCadence,
+      communicationCommitments,
+      dailyOperatingSignals,
+    ]
+  )
+
+  const workflowReminderPreview = useMemo(
+    () =>
+      buildWorkflowReminderCandidates({
+        now: dashboardMetricsAt,
+        requests: isHome ? requests : searchedRequests,
+        certificateReady: dailyOperatingSignals.certificateReady,
+        duplicateReview: dailyOperatingSignals.duplicateReview,
+      }),
+    [isHome, requests, searchedRequests, dashboardMetricsAt, dailyOperatingSignals]
+  )
+
+  const operationalIntelligenceBrief = useMemo(
+    () =>
+      buildOperationalIntelligenceBrief({
+        now: dashboardMetricsAt,
+        requests: isHome ? requests : searchedRequests,
+        staffCommandCenter,
+        staffWorkloadRows,
+        communicationCommitments,
+        operatingSignals: dailyOperatingSignals.healthSignals,
+      }),
+    [
+      isHome,
+      requests,
+      searchedRequests,
+      dashboardMetricsAt,
+      staffCommandCenter,
+      staffWorkloadRows,
+      communicationCommitments,
+      dailyOperatingSignals,
+    ]
+  )
+
+  const dailyOfficeHandoffDigest = useMemo(
+    () =>
+      buildDailyOfficeHandoffDigest({
+        parishHealthScore,
+        operationalIntelligence: operationalIntelligenceBrief,
+      }),
+    [parishHealthScore, operationalIntelligenceBrief]
+  )
+
   const followUpToolbarLocked =
     loading ||
     followUpBatchBusy !== null ||
@@ -1956,69 +1913,69 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
 
     setFollowUpBatchBusy('draft')
     setFollowUpBatchMessage('')
-    const failures: string[] = []
+    const failedIds: string[] = []
     let ok = 0
 
     for (const id of ids) {
       const request = requests.find((r) => String(r.id) === id)
       if (!request) {
-        failures.push(`${id}: request not found`)
+        failedIds.push(id)
         continue
       }
       const result = await runDraftFollowUpCore(request)
       if (result.ok) ok++
-      else failures.push(`${id}: ${result.error}`)
+      else failedIds.push(id)
     }
 
     let msg = `Batch drafts finished: ${ok} saved`
-    if (failures.length > 0) {
-      msg += `, ${failures.length} failed. ${failures.join(' ')}`
+    if (failedIds.length > 0) {
+      msg += `, ${failedIds.length} failed. Failed items remain selected for individual review.`
     } else {
       msg += '.'
     }
     setFollowUpBatchMessage(msg)
-    setSelectedFollowUpIds(new Set())
+    setSelectedFollowUpIds(new Set(failedIds))
     await loadRequests(true)
     setFollowUpBatchBusy(null)
   }
 
   async function batchMarkFollowUpAsContacted() {
+    if (followUpMarkContactedInFlightRef.current) return
+
     const ids = Array.from(selectedFollowUpIds)
     if (ids.length === 0) return
 
+    followUpMarkContactedInFlightRef.current = true
     setFollowUpBatchBusy('mark')
     setFollowUpBatchMessage('')
-    const contactedAtIso = new Date().toISOString()
-    const failures: string[] = []
-    let ok = 0
+    try {
+      const failedIds: string[] = []
+      let ok = 0
 
-    for (const id of ids) {
-      const request = requests.find((r) => String(r.id) === id)
-      if (!request) {
-        failures.push(`${id}: request not found`)
-        continue
+      for (const id of ids) {
+        const request = requests.find((r) => String(r.id) === id)
+        if (!request) {
+          failedIds.push(id)
+          continue
+        }
+        const result = await runMarkFollowUpAsContactedCore(request)
+        if (result.ok) ok++
+        else failedIds.push(id)
       }
-      const result = await runMarkFollowUpAsContactedCore(request, contactedAtIso)
-      if (result.ok) ok++
-      else {
-        const detail =
-          result.historyInserted
-            ? `history logged but request update failed (${result.error})`
-            : result.error
-        failures.push(`${id}: ${detail}`)
-      }
-    }
 
-    let msg = `Batch mark finished: ${ok} updated`
-    if (failures.length > 0) {
-      msg += `, ${failures.length} failed. ${failures.join(' ')}`
-    } else {
-      msg += '.'
+      let msg = `Batch mark finished: ${ok} updated`
+      if (failedIds.length > 0) {
+        msg += `, ${failedIds.length} failed. Failed items remain selected for individual review.`
+      } else {
+        msg += '.'
+      }
+      setFollowUpBatchMessage(msg)
+      setSelectedFollowUpIds(new Set(failedIds))
+      await loadRequests(true)
+    } finally {
+      followUpMarkContactedInFlightRef.current = false
+      setFollowUpBatchBusy(null)
     }
-    setFollowUpBatchMessage(msg)
-    setSelectedFollowUpIds(new Set())
-    await loadRequests(true)
-    setFollowUpBatchBusy(null)
   }
 
   function selectAllFollowUpVisible() {
@@ -2033,8 +1990,6 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
     requestsFetchFailed ||
     (Boolean(requestsLoadError) && requests.length === 0 && !loading)
 
-  const isDevRuntime = process.env.NODE_ENV === 'development'
-
   return (
     <main className="mx-auto min-h-full w-full max-w-6xl px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
       <header className={isHome ? 'mb-3 sm:mb-4' : 'mb-4 sm:mb-5'}>
@@ -2046,6 +2001,14 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
             ? 'Start with today’s priorities, then review recommended actions and your work queue.'
             : 'Search and filter parish requests, work the follow-up list, and browse everything in one place.'}
         </p>
+        {!isHome && activeParishName ? (
+          <p className="mt-2 inline-flex max-w-full rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm">
+            <span className="truncate">
+              Requests are scoped to{' '}
+              <span className="font-semibold text-gray-900">{activeParishName}</span>.
+            </span>
+          </p>
+        ) : null}
       </header>
 
       {false ? (
@@ -2090,11 +2053,6 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
           <p className="mt-1.5 text-sm leading-relaxed text-rose-900/95">
             Check your connection or try again. If this keeps happening, contact support.
           </p>
-          {isDevRuntime && requestsLoadTechnicalDetail ? (
-            <pre className="mt-3 max-h-52 overflow-auto rounded-md border border-rose-200/80 bg-white/90 p-3 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap text-gray-900">
-              {requestsLoadTechnicalDetail}
-            </pre>
-          ) : null}
         </div>
       ) : requestsLoadError ? (
         <div
@@ -2110,6 +2068,45 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
         <>
           <DashboardOnboardingCard />
 
+          <DashboardDailyWorkHubOverview
+            overview={dailyWorkHubOverview}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+            activeParishName={activeParishName}
+          />
+
+          <DashboardDailyOfficeHandoffDigest
+            digest={dailyOfficeHandoffDigest}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+            activeParishName={activeParishName}
+          />
+
+          <DashboardDailyOfficeHandoffSavedViews
+            dailyOfficeHandoffDigest={dailyOfficeHandoffDigest}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+            activeParishName={activeParishName}
+          />
+
+          <DashboardParishHealthScore
+            health={parishHealthScore}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+          />
+
+          <DashboardWorkflowReminderPreview
+            reminders={workflowReminderPreview}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+          />
+
+          <DashboardOperationalIntelligenceBrief
+            brief={operationalIntelligenceBrief}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
+          />
+
           <DashboardTodayView
             careCadence={careCadence}
             communicationCommitments={communicationCommitments}
@@ -2117,6 +2114,14 @@ export function DashboardPageCore({ view }: { view: 'home' | 'requests' }) {
             loading={loading}
             dataUnavailable={requestsFetchFailed}
             slaRules={careCadenceSlaRules}
+          />
+
+          <DashboardRoleWorkHub
+            commandCenter={staffCommandCenter}
+            activeParishId={activeParishId}
+            activeParishName={activeParishName}
+            loading={loading}
+            dataUnavailable={requestsFetchFailed}
           />
 
           <DashboardTodaysCareBrief

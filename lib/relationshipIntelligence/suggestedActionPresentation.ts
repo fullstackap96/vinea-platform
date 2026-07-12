@@ -1,13 +1,45 @@
 import type { DashboardSuggestedAction } from './types'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
+
+function dashboardHref(path: string, fallback: string) {
+  return safeDashboardHrefOrFallback(path, fallback)
+}
+
+export function recordPrefillHrefForRequest(requestId: unknown): string {
+  const normalizedRequestId = String(requestId ?? '').trim()
+  if (!normalizedRequestId) return '/dashboard/records'
+  return dashboardHref(
+    `/dashboard/records/new?requestId=${encodeURIComponent(normalizedRequestId)}`,
+    '/dashboard/records'
+  )
+}
+
+export function recordDetailHrefForSuggestedAction(recordId: unknown): string {
+  const normalizedRecordId = String(recordId ?? '').trim()
+  if (!normalizedRecordId) return '/dashboard/records'
+  return dashboardHref(
+    `/dashboard/records/${encodeURIComponent(normalizedRecordId)}`,
+    '/dashboard/records'
+  )
+}
+
+export function requestDetailHrefForSuggestedAction(requestId: unknown): string {
+  const normalizedRequestId = String(requestId ?? '').trim()
+  if (!normalizedRequestId) return '/dashboard/requests'
+  return dashboardHref(
+    `/dashboard/requests/${encodeURIComponent(normalizedRequestId)}`,
+    '/dashboard/requests'
+  )
+}
 
 export function suggestedActionHref(action: DashboardSuggestedAction): string {
   if (action.kind === 'record_creation') {
-    return `/dashboard/records/new?requestId=${encodeURIComponent(action.requestId)}`
+    return recordPrefillHrefForRequest(action.requestId)
   }
   if (action.kind === 'certificate') {
-    return `/dashboard/records/${action.recordId}`
+    return recordDetailHrefForSuggestedAction(action.recordId)
   }
-  return `/dashboard/requests/${action.requestId}`
+  return requestDetailHrefForSuggestedAction(action.requestId)
 }
 
 export function plainSuggestedActionLabel(action: DashboardSuggestedAction): string {

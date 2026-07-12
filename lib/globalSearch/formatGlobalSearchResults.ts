@@ -5,6 +5,7 @@ import { formatPersonDisplayName } from '@/lib/people'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { getStatusLabel } from '@/lib/requestStatus'
 import { formatSacramentDateDisplay } from '@/lib/sacramentalRecords'
+import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 import type {
   GlobalSearchGroupedResults,
   GlobalSearchLoadResult,
@@ -47,6 +48,18 @@ function formatRequestContext(request: GlobalSearchRawData['requests'][number]):
   return `${statusLabel} · Contact: ${contact}`
 }
 
+function resultHref(
+  basePath: '/dashboard/requests' | '/dashboard/people' | '/dashboard/households' | '/dashboard/records',
+  id: unknown
+): string {
+  const normalizedId = String(id ?? '').trim()
+  if (!normalizedId) return basePath
+  return safeDashboardHrefOrFallback(
+    `${basePath}/${encodeURIComponent(normalizedId)}`,
+    basePath
+  )
+}
+
 export function formatGlobalSearchGroupedResults(
   raw: GlobalSearchRawData
 ): GlobalSearchGroupedResults {
@@ -62,7 +75,7 @@ export function formatGlobalSearchGroupedResults(
         }),
         typeLabel: `${formatRequestType(request.request_type)} request`,
         context: formatRequestContext(request),
-        href: `/dashboard/requests/${request.id}`,
+        href: resultHref('/dashboard/requests', request.id),
       })
     ),
     people: raw.people.map(
@@ -70,7 +83,7 @@ export function formatGlobalSearchGroupedResults(
         title: formatPersonDisplayName(person),
         typeLabel: 'Person',
         context: formatPersonContext(person),
-        href: `/dashboard/people/${person.id}`,
+        href: resultHref('/dashboard/people', person.id),
       })
     ),
     households: raw.households.map(
@@ -78,7 +91,7 @@ export function formatGlobalSearchGroupedResults(
         title: household.name,
         typeLabel: 'Household',
         context: formatHouseholdContext(household),
-        href: `/dashboard/households/${household.id}`,
+        href: resultHref('/dashboard/households', household.id),
       })
     ),
     records: raw.records.map(
@@ -86,7 +99,7 @@ export function formatGlobalSearchGroupedResults(
         title: record.person_name,
         typeLabel: `${formatSacramentalRecordType(record.record_type)} record`,
         context: formatRecordContext(record),
-        href: `/dashboard/records/${record.id}`,
+        href: resultHref('/dashboard/records', record.id),
       })
     ),
   }
@@ -95,12 +108,14 @@ export function formatGlobalSearchGroupedResults(
 export function formatGlobalSearchResponse(loadResult: GlobalSearchLoadResult): {
   query: string
   errorMessage: string
+  warningMessage: string
   totalCount: number
   results: GlobalSearchGroupedResults
 } {
   return {
     query: loadResult.query,
     errorMessage: loadResult.errorMessage,
+    warningMessage: loadResult.warningMessage,
     totalCount: loadResult.totalCount,
     results: formatGlobalSearchGroupedResults(loadResult.raw),
   }

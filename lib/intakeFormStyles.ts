@@ -13,10 +13,15 @@ export const intakeSectionHeadingClass = sectionHeadingClassName
 
 export const intakeLabelClass = 'block text-sm font-medium text-gray-700'
 
+export type IntakeStatusMessageTone = 'success' | 'error'
+
+export function intakeStatusMessageTone(message: string): IntakeStatusMessageTone {
+  return message.toLowerCase().includes('successfully') ? 'success' : 'error'
+}
+
 /** Status / error copy after submit — green when submission succeeded. */
 export function intakeStatusMessageClass(message: string): string {
-  const t = message.toLowerCase()
-  if (t.includes('successfully')) {
+  if (intakeStatusMessageTone(message) === 'success') {
     return 'mt-6 rounded-md border border-green-200 bg-green-50 px-3 py-3 text-sm text-green-950'
   }
   return 'mt-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950'
