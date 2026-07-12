@@ -2991,7 +2991,11 @@ async function deleteGoogleCalendarEvent() {
               <InlineFormMessage message={workflowStepMessage} className="!mt-4" />
             ) : null}
 
-            <RequestDocumentsSection requestId={routeId} workflowSteps={workflowSteps} />
+            <RequestDocumentsSection
+              key={routeId}
+              requestId={routeId}
+              workflowSteps={workflowSteps}
+            />
 
             {!hasWorkflowSteps ? (
               <div className="mt-6 border-t border-gray-100 pt-5">

@@ -9,10 +9,13 @@ import {
 const actions: RequestDocumentClientAction[] = [
   'loadDocuments',
   'uploadDocument',
+  'uploadDocumentUnconfirmed',
   'reviewDocument',
+  'reviewDocumentUnconfirmed',
   'openDocument',
   'openDocumentPopupBlocked',
   'createFamilyUploadLink',
+  'createFamilyUploadLinkUnconfirmed',
 ]
 
 describe('request document client messages', () => {
@@ -49,6 +52,18 @@ describe('request document client messages', () => {
   it('provides specific safe guidance when the browser blocks the document window', () => {
     expect(requestDocumentClientFailureMessage('openDocumentPopupBlocked')).toBe(
       'Your browser blocked the document window. Allow popups for Vinea and try again.'
+    )
+  })
+
+  it('gives uncertain-write recovery guidance without private or technical detail', () => {
+    expect(requestDocumentClientFailureMessage('uploadDocumentUnconfirmed')).toContain(
+      'Refresh the document list before trying again'
+    )
+    expect(requestDocumentClientFailureMessage('reviewDocumentUnconfirmed')).toContain(
+      'Refresh the document list before saving it again'
+    )
+    expect(requestDocumentClientFailureMessage('createFamilyUploadLinkUnconfirmed')).toContain(
+      'Check the Audit Log before creating another link'
     )
   })
 })

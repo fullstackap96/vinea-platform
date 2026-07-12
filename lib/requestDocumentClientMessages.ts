@@ -3,20 +3,29 @@ import { REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE } from './requestDocume
 export type RequestDocumentClientAction =
   | 'loadDocuments'
   | 'uploadDocument'
+  | 'uploadDocumentUnconfirmed'
   | 'reviewDocument'
+  | 'reviewDocumentUnconfirmed'
   | 'openDocument'
   | 'openDocumentPopupBlocked'
   | 'createFamilyUploadLink'
+  | 'createFamilyUploadLinkUnconfirmed'
 
 export const requestDocumentClientFailureMessages: Record<RequestDocumentClientAction, string> = {
   loadDocuments: 'Could not load request documents. Please refresh the page and try again.',
   uploadDocument: 'Could not upload the document. Please try again.',
+  uploadDocumentUnconfirmed:
+    'The upload did not confirm in time. Refresh the document list before trying again so the same file is not uploaded twice.',
   reviewDocument: 'Could not save the document review. Please try again.',
+  reviewDocumentUnconfirmed:
+    'The document review did not confirm in time. Refresh the document list before saving it again.',
   openDocument: 'Could not open the document securely. Please try again.',
   openDocumentPopupBlocked:
     'Your browser blocked the document window. Allow popups for Vinea and try again.',
   createFamilyUploadLink:
     'Could not create the family upload link. Please try again before sharing a link.',
+  createFamilyUploadLinkUnconfirmed:
+    'The family upload link did not confirm in time. Check the Audit Log before creating another link.',
 }
 
 const REQUEST_PORTAL_TOKENS_NOT_CONFIGURED_MESSAGE =

@@ -15,6 +15,17 @@ import { requestDocumentClientFailureMessage } from '@/lib/requestDocumentClient
 import type { RequestWorkflowStep } from '@/lib/requestWorkflowSteps'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 
+const REQUEST_DOCUMENT_READ_TIMEOUT_MS = 15_000
+const REQUEST_DOCUMENT_WRITE_TIMEOUT_MS = 20_000
+const REQUEST_DOCUMENT_UPLOAD_TIMEOUT_MS = 60_000
+
+function isRequestDocumentTimeout(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    (error.name === 'TimeoutError' || error.name === 'AbortError')
+  )
+}
+
 function statusClasses(status: RequestDocumentStatus): string {
   if (status === 'approved') return 'bg-emerald-50 text-emerald-800'
   if (status === 'rejected') return 'bg-rose-50 text-rose-800'
@@ -53,6 +64,8 @@ export function RequestDocumentsSection({
   const [creatingPortalLink, setCreatingPortalLink] = useState(false)
   const [portalLink, setPortalLink] = useState('')
   const mutationInFlightRef = useRef<'upload' | 'review' | 'portal-link' | null>(null)
+  const documentLoadAbortRef = useRef<AbortController | null>(null)
+  const documentLoadSequenceRef = useRef(0)
 
   const mutationBusy = uploading || Boolean(reviewingId) || creatingPortalLink
 
@@ -62,13 +75,31 @@ export function RequestDocumentsSection({
     return map
   }, [workflowSteps])
 
-  const loadDocuments = useCallback(async () => {
+  const loadDocuments = useCallback(async (options?: { preserveMessage?: boolean }) => {
     if (!requestId) return
+
+    const loadSequence = ++documentLoadSequenceRef.current
+    documentLoadAbortRef.current?.abort()
+    const controller = new AbortController()
+    documentLoadAbortRef.current = controller
+    let timedOut = false
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, REQUEST_DOCUMENT_READ_TIMEOUT_MS)
+    const isLatestLoad = () => loadSequence === documentLoadSequenceRef.current
+
     setLoading(true)
-    setMessage('')
+    if (!options?.preserveMessage) setMessage('')
     try {
-      const response = await fetch(`/api/requests/${requestId}/documents`)
+      const response = await fetch(`/api/requests/${requestId}/documents`, {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal,
+      })
       const payload = await response.json().catch(() => null)
+      controller.signal.throwIfAborted()
+      if (!isLatestLoad()) return
       if (!response.ok || !payload?.ok) {
         throw new Error(requestDocumentClientFailureMessage('loadDocuments', payload?.error))
       }
@@ -76,11 +107,17 @@ export function RequestDocumentsSection({
         (payload.documents ?? [])
           .map((row: Record<string, unknown>) => normalizeRequestDocumentRow(row))
           .filter((document: RequestDocument | null): document is RequestDocument => Boolean(document))
+          .filter((document: RequestDocument) => document.request_id === requestId)
       )
     } catch (error) {
+      if (!isLatestLoad() || (controller.signal.aborted && !timedOut)) return
       setMessage(requestDocumentClientFailureMessage('loadDocuments', error))
     } finally {
-      setLoading(false)
+      window.clearTimeout(timeoutId)
+      if (documentLoadAbortRef.current === controller) {
+        documentLoadAbortRef.current = null
+      }
+      if (isLatestLoad()) setLoading(false)
     }
   }, [requestId])
 
@@ -91,6 +128,9 @@ export function RequestDocumentsSection({
     })
     return () => {
       cancelled = true
+      documentLoadSequenceRef.current += 1
+      documentLoadAbortRef.current?.abort()
+      documentLoadAbortRef.current = null
     }
   }, [loadDocuments])
 
@@ -115,6 +155,7 @@ export function RequestDocumentsSection({
       const response = await fetch(`/api/requests/${requestId}/documents`, {
         method: 'POST',
         body: formData,
+        signal: AbortSignal.timeout(REQUEST_DOCUMENT_UPLOAD_TIMEOUT_MS),
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok) {
@@ -124,9 +165,14 @@ export function RequestDocumentsSection({
       setWorkflowStepId('')
       if (fileInputRef.current) fileInputRef.current.value = ''
       setMessage('Document uploaded for staff review.')
-      await loadDocuments()
+      await loadDocuments({ preserveMessage: true })
     } catch (error) {
-      setMessage(requestDocumentClientFailureMessage('uploadDocument', error))
+      setMessage(
+        requestDocumentClientFailureMessage(
+          isRequestDocumentTimeout(error) ? 'uploadDocumentUnconfirmed' : 'uploadDocument',
+          error
+        )
+      )
     } finally {
       mutationInFlightRef.current = null
       setUploading(false)
@@ -144,15 +190,21 @@ export function RequestDocumentsSection({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, reviewNote: reviewNotes[documentId] ?? '' }),
+        signal: AbortSignal.timeout(REQUEST_DOCUMENT_WRITE_TIMEOUT_MS),
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok) {
         throw new Error(requestDocumentClientFailureMessage('reviewDocument', payload?.error))
       }
       setMessage(status === 'approved' ? 'Document approved.' : 'Document rejected.')
-      await loadDocuments()
+      await loadDocuments({ preserveMessage: true })
     } catch (error) {
-      setMessage(requestDocumentClientFailureMessage('reviewDocument', error))
+      setMessage(
+        requestDocumentClientFailureMessage(
+          isRequestDocumentTimeout(error) ? 'reviewDocumentUnconfirmed' : 'reviewDocument',
+          error
+        )
+      )
     } finally {
       mutationInFlightRef.current = null
       setReviewingId('')
@@ -171,7 +223,11 @@ export function RequestDocumentsSection({
     }
 
     try {
-      const response = await fetch(`/api/requests/${requestId}/documents/${documentId}`)
+      const response = await fetch(`/api/requests/${requestId}/documents/${documentId}`, {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(REQUEST_DOCUMENT_READ_TIMEOUT_MS),
+      })
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok || !payload.url) {
         throw new Error(requestDocumentClientFailureMessage('openDocument', payload?.error))
@@ -194,6 +250,7 @@ export function RequestDocumentsSection({
     try {
       const response = await fetch(`/api/requests/${requestId}/portal-token`, {
         method: 'POST',
+        signal: AbortSignal.timeout(REQUEST_DOCUMENT_WRITE_TIMEOUT_MS),
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok || !payload.url) {
@@ -207,7 +264,14 @@ export function RequestDocumentsSection({
         setMessage('Family upload link created. Copy it below.')
       }
     } catch (error) {
-      setMessage(requestDocumentClientFailureMessage('createFamilyUploadLink', error))
+      setMessage(
+        requestDocumentClientFailureMessage(
+          isRequestDocumentTimeout(error)
+            ? 'createFamilyUploadLinkUnconfirmed'
+            : 'createFamilyUploadLink',
+          error
+        )
+      )
     } finally {
       mutationInFlightRef.current = null
       setCreatingPortalLink(false)

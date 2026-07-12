@@ -53,8 +53,11 @@ describe('request document client safe messages', () => {
     expect(source).toContain("requestDocumentClientFailureMessage('openDocumentPopupBlocked')")
     expect(source).toContain('documentWindow.location.replace(payload.url)')
     expect(source).toContain('documentWindow.close()')
-    expect(source.indexOf("const documentWindow = window.open('', '_blank')")).toBeLessThan(
-      source.indexOf('fetch(`/api/requests/${requestId}/documents/${documentId}`)')
+    const openStart = source.indexOf('async function openDocument')
+    const openEnd = source.indexOf('async function createPortalLink', openStart)
+    const openDocument = source.slice(openStart, openEnd)
+    expect(openDocument.indexOf("const documentWindow = window.open('', '_blank')")).toBeLessThan(
+      openDocument.indexOf('fetch(`/api/requests/${requestId}/documents/${documentId}`')
     )
     expect(source).toContain('navigator.clipboard.writeText(payload.url)')
   })
