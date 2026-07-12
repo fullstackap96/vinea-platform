@@ -1,8 +1,8 @@
 # Vinea Roadmap
 
-Latest completed release-scope slice: a read-only commit-scope checker now separates source and operational evidence from sales, CSV, generated, binary, temporary, and secret-bearing artifacts. A guarded staging command refuses a non-empty index or missing exact approval; only no-op/refusal behavior has run. The proposed 1,805-path release candidate remains unstaged pending owner approval.
+Latest completed release-integrity milestone: the mechanically reviewed 1,801-path source/evidence scope is committed on `codex/release-candidate-20260711`; 57 sales, CSV, generated, binary, temporary, and unrelated artifacts remain excluded. Commit-aware scope checks, secret scanning, source hashing, whitespace verification, both TypeScript scopes, lint, 809 test files/3,441 tests, and the Next.js 16.2.10 build pass at commit `1e47ba1`. This release candidate is technically approved for remote CI and isolated non-production preview validation.
 
-Latest completed release-identity slice: a deterministic, secret-safe release-source manifest now identifies the exact dirty-worktree source surface that passed technical checks. It is a review aid, not a substitute for the still-required clean immutable production-intended Git commit and fresh release runner.
+Next release-integrity step: push the release-candidate branch, require remote CI against the immutable source aggregate, and collect isolated preview/staging smoke evidence. Production cutover and every production-sensitive capability remain separately gated and are not authorized by the local technical approval.
 
 Latest completed release-evidence slice: a process-clean execution of the complete 12-command local release runner passed all evidence gates, both TypeScript scopes, lint, 806 test files/3,429 tests, and the Next.js 16.2.10 build. Secret scanning and the live dependency audit had zero findings. Production-sensitive gates remain locked and human approval boundaries remain authoritative.
 

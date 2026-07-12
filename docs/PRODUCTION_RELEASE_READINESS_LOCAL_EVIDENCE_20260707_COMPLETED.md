@@ -20,7 +20,7 @@ This evidence is not a release approval, deployment record, production smoke rec
 
 ## 2026-07-11 Full Local Release Readiness Refresh
 
-This refresh supersedes earlier local command counts for the current worktree. It was captured after membership-aware proxy authorization, authenticated shared-QA proxy smoke, login/native-form fallback hardening, and the membership-aware RLS engineering/QA technical approval record.
+This refresh supersedes earlier local command counts. The final run was captured against immutable release-candidate commit `1e47ba10ad032bfa87f5e3ed16535038e70761d4` on `codex/release-candidate-20260711`, after commit-aware release-scope verification was added.
 
 - Initial current-shell decision: `REFUSED_SENSITIVE_RUNTIME_FLAGS`.
 - Initial residue category: AI summary non-production QA runtime and acknowledgement variables.
@@ -38,15 +38,15 @@ This refresh supersedes earlier local command counts for the current worktree. I
 - TypeScript production/source scope: `PASS`.
 - TypeScript all-file scope: `PASS`.
 - ESLint quiet mode: `PASS`.
-- Full Vitest: `PASS`; 806 test files and 3,429 tests.
+- Full Vitest: `PASS`; 809 test files and 3,441 tests.
 - Next.js production build: `PASS`; Next.js `16.2.10`.
 - Final runner decision: `LOCAL_RELEASE_READINESS_PASSED`.
-- Repository secret scan, captured in the same work session: 2,133 text files; 26 binary files skipped; findings `0`.
+- Repository secret scan, captured in the same work session: 2,094 text files; 17 binary files skipped; findings `0`.
 - Live npm advisory audit, captured in the same work session: 575 dependencies; vulnerabilities `0` at every severity.
 - Production accessed, migrations applied, operational RLS changed, records mutated, exports run, AI called, storage accessed, signed URLs created, communications sent, certificates generated, Google Calendar touched, or public claims made: `NO`.
 - Production-sensitive features or public claims approved by this evidence: `NO`.
 
-Remaining hard gates are human/operational: immutable production-intended Git commit, named product/security/rollback/monitoring/support/evidence owners, exact production-safe fixtures and target labels, approved rollout window, pre/post production smoke, and explicit production approval.
+The immutable release-candidate requirement is satisfied for the locally verified source. Remaining hard gates are remote CI/preview evidence plus human/operational production decisions: named product/security/rollback/monitoring/support/evidence owners, exact production-safe fixtures and target labels, approved rollout window, pre/post production smoke, and explicit production approval.
 
 ## Evidence Header
 

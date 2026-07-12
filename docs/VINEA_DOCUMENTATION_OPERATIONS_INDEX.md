@@ -1,6 +1,6 @@
 # Vinea Documentation And Operations Index
 
-Last updated: 2026-07-10
+Last updated: 2026-07-11
 
 This is the front door to Vinea's repository documentation. Use it to find the source that answers a question; do not treat this index as a replacement for the linked source.
 
@@ -61,6 +61,7 @@ Start with these index documents instead of opening individual approval packets 
 | Area | Entry point | Current boundary |
 | --- | --- | --- |
 | Overall release review | [Production Release Readiness Handoff Index](PRODUCTION_RELEASE_READINESS_HANDOFF_INDEX_20260706.md) | Review map only; not deployment or production approval |
+| Release candidate technical approval | [Release Candidate Technical Approval](RELEASE_CANDIDATE_TECHNICAL_APPROVAL_20260711.md) | Approved for remote CI and isolated non-production preview validation; production remains gated |
 | All production-sensitive capabilities | [Production-Sensitive Gate Boundary Index](PRODUCTION_SENSITIVE_GATE_BOUNDARY_INDEX_20260706.md) | Capabilities remain `NO-GO` without separate explicit approval |
 | Membership-aware operational RLS | [RLS Evidence Package Index](MEMBERSHIP_AWARE_RLS_PRODUCTION_EVIDENCE_PACKAGE_INDEX_20260629.md) | Evidence package prepared; production rollout not approved |
 | Production monitoring | [Monitoring Evidence Package Index](PRODUCTION_MONITORING_EVIDENCE_PACKAGE_INDEX_20260705.md) | Runtime monitoring remains `NO-GO` |
