@@ -70,6 +70,7 @@ Start with these index documents instead of opening individual approval packets 
 | Backup and restore | [Backup And Restore Runbook](BACKUP_RESTORE_RUNBOOK_20260627.md) | Existing evidence is bounded; stronger production claims remain gated |
 | Environment contract | [Environment Configuration Baseline](ENVIRONMENT_CONFIGURATION_BASELINE_20260709.md) | Variable names and safety rules only; no secret values or deployment approval |
 | Google Calendar provider reliability | [Google Calendar Provider Reliability](GOOGLE_CALENDAR_PROVIDER_RELIABILITY_20260712.md) | Local/CI implementation approved with constraints; live synthetic provider recovery remains rollout-unverified |
+| Public intake retry identity | [Public Intake Retry Identity](PUBLIC_INTAKE_RETRY_IDENTITY_20260712.md) | Same-page implementation approved with constraints; live response-loss recovery remains rollout-unverified |
 
 The gate index tells you whether work may proceed. The evidence package tells you what reviewers need. An approval packet prepares a decision; it does not grant approval merely by existing.
 

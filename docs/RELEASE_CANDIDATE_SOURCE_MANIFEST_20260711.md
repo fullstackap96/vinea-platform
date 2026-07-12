@@ -6,11 +6,11 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
 ## Manifest Identity
 
-- Parent/base commit before this Google OAuth transport deadline slice: `e2b380df4372eda22e21f92ef1090d0892e68a97`
-- Immutable implementation commit: `21fb3d4a0d26b4881a9ab936793a032ca64633fa`
-- Release-source aggregate SHA-256: `A8653C9DB5FCF3259B8F8A3E0031F59D41F8C2136D7BECAB13F547FBA0E65E5B`
-- Source file count: `1457`
-- Tracked or staged source files: `1457`
+- Parent/base commit before this public intake retry-identity slice: `7efbf4471dc144f3aaea9499c575b9b2044a30ad`
+- Immutable implementation commit: `ca7412d1d64b21841bac7018eae7054ea25311d4`
+- Release-source aggregate SHA-256: `B492D2C542EC7CBE53EA3A28A0BFCD1CE031AF505739579535BA99E763F95D32`
+- Source file count: `1460`
+- Tracked or staged source files: `1460`
 - Untracked source files: `0`
 - Worktree dirty: `YES`
 - Production approval granted: `NO`
@@ -39,6 +39,6 @@ Environment files, ignored secrets, documentation, command output, file paths, a
 
 ## Limitation
 
-This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `21fb3d4a0d26b4881a9ab936793a032ca64633fa` on `codex/release-candidate-20260711` is the immutable OAuth transport implementation binding for this aggregate. The complete local release gate passed. Clean-checkout GitHub Actions, actual PR check attribution, and a correctly configured protected-preview smoke remain pending. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
+This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `ca7412d1d64b21841bac7018eae7054ea25311d4` on `codex/release-candidate-20260711` is the immutable public-intake retry-identity implementation binding for this aggregate. The complete 15-check local release gate passed against this aggregate in 298.9 seconds. Clean-checkout GitHub Actions, actual PR check attribution, and a correctly configured protected-preview smoke remain pending. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
 
 No production access, deployment, migration, operational RLS change, record mutation, provider call, export, AI call, storage action, signed URL, communication, certificate generation, or public claim was performed.
