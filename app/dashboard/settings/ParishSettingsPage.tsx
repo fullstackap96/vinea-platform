@@ -112,6 +112,10 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   const [dailyBriefSending, setDailyBriefSending] = useState(false)
   const parishSettingsMutationInFlightRef =
     useRef<'settings-save' | 'daily-brief-send' | null>(null)
+  const dailyBriefDeliveryAttemptRef = useRef<{
+    parishId: string | null
+    id: string
+  } | null>(null)
   const [dailyBriefMessage, setDailyBriefMessage] = useState('')
   const [confirmDailyBriefSendOpen, setConfirmDailyBriefSendOpen] = useState(false)
   const [staffText, setStaffText] = useState('')
@@ -507,6 +511,14 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   async function sendDailyBriefNow() {
     if (parishSettingsMutationInFlightRef.current) return
 
+    if (dailyBriefDeliveryAttemptRef.current?.parishId !== activeParishId) {
+      dailyBriefDeliveryAttemptRef.current = {
+        parishId: activeParishId,
+        id: crypto.randomUUID(),
+      }
+    }
+    const deliveryAttemptId = dailyBriefDeliveryAttemptRef.current.id
+
     parishSettingsMutationInFlightRef.current = 'daily-brief-send'
     setDailyBriefSending(true)
     setDailyBriefMessage('')
@@ -514,6 +526,8 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
       const res = await fetch('/api/parish/daily-brief', {
         method: 'POST',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliveryAttemptId }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok) {
@@ -521,6 +535,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         return
       }
       setDailyBriefMessage(`Daily brief sent to ${String(data.to || '').trim() || 'the parish inbox'}.`)
+      dailyBriefDeliveryAttemptRef.current = null
       await load()
     } catch (error: unknown) {
       setDailyBriefMessage(parishSettingsClientErrorMessage('sendDailyBrief', error))

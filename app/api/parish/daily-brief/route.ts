@@ -12,6 +12,12 @@ import {
   loadParishDailyBriefByParishId,
   type LoadedParishDailyBrief,
 } from '@/lib/server/loadParishDailyBrief'
+import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
+import {
+  createDailyBriefProviderOptions,
+  DAILY_BRIEF_PROVIDER_TIMEOUT_MS,
+  isValidDailyBriefDeliveryAttemptId,
+} from '@/lib/server/dailyBriefDelivery'
 import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 import {
   ACTIVE_STAFF_PARISH_COOKIE,
@@ -32,6 +38,7 @@ type DailyBriefErrorAction =
   | 'state-write'
 
 const DAILY_BRIEF_SEND_ERROR = 'Daily brief send failed.'
+const MAX_MANUAL_SEND_BODY_BYTES = 4 * 1024
 
 function logDailyBriefError(
   action: DailyBriefErrorAction,
@@ -113,6 +120,8 @@ async function sendBriefEmail(input: {
   loaded: LoadedParishDailyBrief
   appUrl: string
   now: Date
+  deliveryKind: 'manual' | 'scheduled'
+  deliveryAttemptId?: string
 }) {
   const { apiKey, from } = requireEmailConfig()
   if (!input.loaded.toEmail) {
@@ -137,15 +146,47 @@ async function sendBriefEmail(input: {
     appUrl: input.appUrl,
   })
 
-  const { data, error } = await resend.emails.send({
-    from,
-    to: input.loaded.toEmail,
-    subject,
-    text,
-    html,
+  const providerOptions = createDailyBriefProviderOptions({
+    parishId: input.loaded.parish.id,
+    deliveryDateYmd: dateYmd(input.now),
+    deliveryKind: input.deliveryKind,
+    deliveryAttemptId: input.deliveryAttemptId,
   })
+  let providerResult: Awaited<ReturnType<typeof resend.emails.send>>
+  try {
+    providerResult = await resend.emails.send(
+      {
+        from,
+        to: input.loaded.toEmail,
+        subject,
+        text,
+        html,
+      },
+      providerOptions,
+    )
+  } catch (error: unknown) {
+    if (providerOptions.signal.aborted) {
+      logDailyBriefError('email-provider', new Error('Provider confirmation timed out.'), {
+        parishId: input.loaded.parish.id,
+        hasRecipientEmail: true,
+        timeoutMs: DAILY_BRIEF_PROVIDER_TIMEOUT_MS,
+      })
+      throw new Error(DAILY_BRIEF_SEND_ERROR)
+    }
+    throw error
+  }
+
+  const { data, error } = providerResult
 
   const providerMessageId = String(data?.id ?? '').trim()
+  if (providerOptions.signal.aborted && !providerMessageId) {
+    logDailyBriefError('email-provider', new Error('Provider confirmation timed out.'), {
+      parishId: input.loaded.parish.id,
+      hasRecipientEmail: true,
+      timeoutMs: DAILY_BRIEF_PROVIDER_TIMEOUT_MS,
+    })
+    throw new Error(DAILY_BRIEF_SEND_ERROR)
+  }
   if (error || !providerMessageId) {
     logDailyBriefError('email-provider', error ?? new Error('Email provider did not return a message id.'), {
       parishId: input.loaded.parish.id,
@@ -201,6 +242,25 @@ export async function POST(request: NextRequest) {
     const staff = await requireStaffFromRequest(request)
     if (!staff.ok) return staff.response
 
+    const parsedBody = await readBoundedJsonBody(request, MAX_MANUAL_SEND_BODY_BYTES)
+    if (!parsedBody.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid daily brief send request.' },
+        { status: parsedBody.reason === 'too_large' ? 413 : 400 },
+      )
+    }
+    const body =
+      parsedBody.value && typeof parsedBody.value === 'object'
+        ? (parsedBody.value as Record<string, unknown>)
+        : {}
+    const deliveryAttemptId = String(body.deliveryAttemptId ?? '').trim()
+    if (!isValidDailyBriefDeliveryAttemptId(deliveryAttemptId)) {
+      return NextResponse.json(
+        { ok: false, error: 'Please retry the daily brief send.' },
+        { status: 400 },
+      )
+    }
+
     const now = new Date()
     const admin = createSupabaseServiceRoleClient()
     const requestedParishId = activeParishCookie(request)
@@ -228,7 +288,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const id = await sendBriefEmail({ loaded, appUrl: resolveAppOrigin(request), now })
+    const id = await sendBriefEmail({
+      loaded,
+      appUrl: resolveAppOrigin(request),
+      now,
+      deliveryKind: 'manual',
+      deliveryAttemptId,
+    })
     const stateRecorded = await recordDailyBriefState({
       admin,
       parishId: loaded.parish.id,
@@ -286,7 +352,12 @@ export async function GET(request: NextRequest) {
 
     for (const loaded of loadedBriefs) {
       try {
-        const id = await sendBriefEmail({ loaded, appUrl: resolveAppOrigin(request), now })
+        const id = await sendBriefEmail({
+          loaded,
+          appUrl: resolveAppOrigin(request),
+          now,
+          deliveryKind: 'scheduled',
+        })
         const stateRecorded = await recordDailyBriefState({
           admin,
           parishId: loaded.parish.id,

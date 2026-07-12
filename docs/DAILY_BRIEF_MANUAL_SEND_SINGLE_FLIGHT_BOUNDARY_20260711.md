@@ -16,7 +16,7 @@ The existing authenticated, selected-parish Daily Brief route remains authoritat
 
 ## Boundary
 
-This prevents immediate duplicate dispatch from one mounted Parish Settings screen. It is not provider-level idempotency, durable server idempotency, cross-tab/device replay protection, or automatic resend protection.
+This prevents immediate duplicate dispatch from one mounted Parish Settings screen. At this milestone it was not provider-level idempotency, durable server idempotency, cross-tab/device replay protection, or automatic resend protection. The later `docs/DAILY_BRIEF_PROVIDER_RELIABILITY_20260712.md` milestone adds attempt-scoped provider idempotency and a bounded provider deadline while preserving this browser lock.
 
 No production or shared-QA access, email or communication send, credential use, provider or Calendar call, settings/request/audit mutation, migration, operational RLS change, AI call, export, storage access, certificate action, production-sensitive flag change, or public trust claim occurred.
 

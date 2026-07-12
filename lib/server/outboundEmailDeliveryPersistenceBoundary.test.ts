@@ -37,7 +37,7 @@ describe('outbound email delivery persistence boundary', () => {
     const stateHelperIndex = source.indexOf('async function recordDailyBriefState')
     const stateConfirmationIndex = source.indexOf('!data?.id', stateHelperIndex)
     const manualSendIndex = source.indexOf(
-      'const id = await sendBriefEmail({ loaded, appUrl: resolveAppOrigin(request), now })',
+      'const id = await sendBriefEmail({',
     )
     const manualStateIndex = source.indexOf(
       'const stateRecorded = await recordDailyBriefState({',
