@@ -52,6 +52,44 @@ describe('isAppOriginReady', () => {
     ).toBe(true)
   })
 
+  it('accepts trusted Vercel deployment hostnames when no app origin is configured', () => {
+    expect(
+      isAppOriginReady({
+        VERCEL: '1',
+        VERCEL_BRANCH_URL: 'safe-preview.vercel.app',
+      }),
+    ).toBe(true)
+    expect(
+      isAppOriginReady({
+        VERCEL: '1',
+        VERCEL_URL: 'safe-deployment.vercel.app',
+      }),
+    ).toBe(true)
+    expect(
+      isAppOriginReady({
+        VERCEL: '1',
+        VERCEL_PROJECT_PRODUCTION_URL: 'safe-project.vercel.app',
+      }),
+    ).toBe(true)
+  })
+
+  it('rejects unsafe Vercel deployment hostname fallbacks', () => {
+    for (const hostname of [
+      'https://safe-preview.vercel.app',
+      'user:password@safe-preview.vercel.app',
+      'safe-preview.vercel.app/dashboard',
+      'safe-preview.vercel.app?query=value',
+      'safe-preview.vercel.app#fragment',
+    ]) {
+      expect(
+        isAppOriginReady({
+          VERCEL: '1',
+          VERCEL_URL: hostname,
+        }),
+      ).toBe(false)
+    }
+  })
+
   it.each([
     undefined,
     '',

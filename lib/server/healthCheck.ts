@@ -218,18 +218,38 @@ export function isGoogleCalendarIntegrationEnabled(): boolean {
 type AppOriginEnv = {
   NEXT_PUBLIC_APP_URL?: string
   VERCEL?: string
+  VERCEL_URL?: string
+  VERCEL_BRANCH_URL?: string
+  VERCEL_PROJECT_PRODUCTION_URL?: string
 }
 
 export function isAppOriginReady(
   env: AppOriginEnv = {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     VERCEL: process.env.VERCEL,
+    VERCEL_URL: process.env.VERCEL_URL,
+    VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
+    VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   },
 ): boolean {
-  return Boolean(
+  const isVercel = env.VERCEL === '1'
+  if (
     parseExactAppOrigin(env.NEXT_PUBLIC_APP_URL, {
-      requireHttps: env.VERCEL === '1',
-    }),
+      requireHttps: isVercel,
+    })
+  ) {
+    return true
+  }
+
+  if (!isVercel) return false
+
+  return [env.VERCEL_URL, env.VERCEL_BRANCH_URL, env.VERCEL_PROJECT_PRODUCTION_URL].some(
+    (hostname) =>
+      Boolean(
+        parseExactAppOrigin(hostname ? `https://${hostname}` : undefined, {
+          requireHttps: true,
+        }),
+      ),
   )
 }
 
