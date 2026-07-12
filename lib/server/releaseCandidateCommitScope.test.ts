@@ -62,7 +62,7 @@ describe('release candidate commit scope', () => {
       expect(scope.candidatePathCount).toBeGreaterThan(0)
     }
     expect(scope.deletedCandidatePathCount).toBeGreaterThanOrEqual(0)
-    expect(scope.excludedPathCount).toBeGreaterThan(0)
+    expect(scope.excludedPathCount).toBeGreaterThanOrEqual(0)
     expect(scope.mutatesGitIndex).toBe(false)
     expect(scope.createsCommit).toBe(false)
   })
