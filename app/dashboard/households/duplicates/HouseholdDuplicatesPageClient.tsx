@@ -34,6 +34,9 @@ type StatusState =
   | { kind: 'success'; message: string }
   | { kind: 'error'; message: string }
 
+const DUPLICATE_REVIEW_LOAD_TIMEOUT_MS = 20_000
+const DUPLICATE_REVIEW_MERGE_TIMEOUT_MS = 120_000
+
 type MergeField = keyof Pick<
   HouseholdRow,
   'name' | 'address' | 'city' | 'state' | 'postal_code' | 'notes'
@@ -96,7 +99,10 @@ export function HouseholdDuplicatesPageClient({
   async function loadCandidatesCore(afterConfirmedMerge = false) {
     setStatus({ kind: 'loading', message: 'Looking for possible duplicate households...' })
     try {
-      const res = await fetch('/api/households/duplicates', { credentials: 'include' })
+      const res = await fetch('/api/households/duplicates', {
+        credentials: 'include',
+        signal: AbortSignal.timeout(DUPLICATE_REVIEW_LOAD_TIMEOUT_MS),
+      })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok) {
         if (afterConfirmedMerge) setReviewRequiresRefresh(true)
@@ -205,6 +211,7 @@ export function HouseholdDuplicatesPageClient({
           duplicateHouseholdId: duplicate.id,
           selectedFields,
         }),
+        signal: AbortSignal.timeout(DUPLICATE_REVIEW_MERGE_TIMEOUT_MS),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

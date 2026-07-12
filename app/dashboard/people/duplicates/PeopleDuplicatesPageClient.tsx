@@ -35,6 +35,9 @@ type StatusState =
   | { kind: 'success'; message: string }
   | { kind: 'error'; message: string }
 
+const DUPLICATE_REVIEW_LOAD_TIMEOUT_MS = 20_000
+const DUPLICATE_REVIEW_MERGE_TIMEOUT_MS = 120_000
+
 const FIELD_LABELS: { key: MergeField; label: string }[] = [
   { key: 'first_name', label: 'First name' },
   { key: 'middle_name', label: 'Middle name' },
@@ -104,7 +107,10 @@ export function PeopleDuplicatesPageClient({
   async function loadCandidatesCore(afterConfirmedMerge = false) {
     setStatus({ kind: 'loading', message: 'Looking for possible duplicate people...' })
     try {
-      const res = await fetch('/api/people/duplicates', { credentials: 'include' })
+      const res = await fetch('/api/people/duplicates', {
+        credentials: 'include',
+        signal: AbortSignal.timeout(DUPLICATE_REVIEW_LOAD_TIMEOUT_MS),
+      })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok) {
         if (afterConfirmedMerge) setReviewRequiresRefresh(true)
@@ -209,6 +215,7 @@ export function PeopleDuplicatesPageClient({
           duplicatePersonId: duplicate.id,
           selectedFields,
         }),
+        signal: AbortSignal.timeout(DUPLICATE_REVIEW_MERGE_TIMEOUT_MS),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
