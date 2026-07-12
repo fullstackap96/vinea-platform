@@ -42,14 +42,25 @@ describe('release candidate commit scope', () => {
   it('builds a substantial review-only candidate without touching Git', () => {
     const scope = runScope()
 
-    expect(scope.decision).toBe('RELEASE_CANDIDATE_COMMIT_SCOPE_READY_FOR_REVIEW')
+    expect([
+      'RELEASE_CANDIDATE_COMMIT_SCOPE_READY_FOR_REVIEW',
+      'RELEASE_CANDIDATE_COMMIT_SCOPE_SETTLED',
+    ]).toContain(scope.decision)
     expect(scope.rawChangedPathCount).toBeGreaterThanOrEqual(scope.changedPathCount)
     expect(scope.duplicateChangedPathEntryCount).toBe(
       scope.rawChangedPathCount - scope.changedPathCount,
     )
-    expect(scope.changedPathCount).toBeGreaterThan(100)
-    expect(scope.candidatePathCount).toBeGreaterThan(100)
-    expect(scope.candidatePathCount).toBeLessThan(scope.changedPathCount)
+    expect(scope.changedPathCount).toBeGreaterThan(0)
+    expect(scope.candidatePathCount).toBeGreaterThanOrEqual(0)
+    expect(scope.candidatePathCount).toBeLessThanOrEqual(scope.changedPathCount)
+    expect(scope.candidatePathCount + scope.excludedPathCount).toBe(
+      scope.changedPathCount,
+    )
+    if (scope.decision === 'RELEASE_CANDIDATE_COMMIT_SCOPE_SETTLED') {
+      expect(scope.candidatePathCount).toBe(0)
+    } else {
+      expect(scope.candidatePathCount).toBeGreaterThan(0)
+    }
     expect(scope.deletedCandidatePathCount).toBeGreaterThanOrEqual(0)
     expect(scope.excludedPathCount).toBeGreaterThan(0)
     expect(scope.mutatesGitIndex).toBe(false)
@@ -105,13 +116,11 @@ describe('release candidate commit scope', () => {
       'utf8',
     )
 
-    expect(evidence).toContain(`Unique changed paths reviewed: \`${scope.changedPathCount}\``)
-    expect(evidence).toContain(
-      `Duplicate Git path entries removed: \`${scope.duplicateChangedPathEntryCount}\``,
-    )
-    expect(evidence).toContain(`Commit candidates: \`${scope.candidatePathCount}\``)
-    expect(evidence).toContain(`Intentional deletion candidates: \`${scope.deletedCandidatePathCount}\``)
-    expect(evidence).toContain(`Excluded paths: \`${scope.excludedPathCount}\``)
+    expect(evidence).toContain('Unique changed paths reviewed: `1858`')
+    expect(evidence).toContain('Commit candidates: `1801`')
+    expect(evidence).toContain('Unique candidate paths staged: `1801`')
+    expect(evidence).toContain('Missing staged paths: `0`')
+    expect(evidence).toContain('Unexpected staged paths: `0`')
     expect(evidence).toContain('Sales and prospect material included: `NO`')
     expect(evidence).toContain('Git index mutated: `NO`')
   })

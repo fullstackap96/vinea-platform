@@ -136,7 +136,10 @@ export function buildReleaseCandidateCommitScope() {
     candidates,
     report: {
       schemaVersion: 1,
-      decision: 'RELEASE_CANDIDATE_COMMIT_SCOPE_READY_FOR_REVIEW',
+      decision:
+        candidates.length === 0
+          ? 'RELEASE_CANDIDATE_COMMIT_SCOPE_SETTLED'
+          : 'RELEASE_CANDIDATE_COMMIT_SCOPE_READY_FOR_REVIEW',
       rawChangedPathCount: listedChangedPaths.length,
       changedPathCount: changedPaths.length,
       duplicateChangedPathEntryCount:

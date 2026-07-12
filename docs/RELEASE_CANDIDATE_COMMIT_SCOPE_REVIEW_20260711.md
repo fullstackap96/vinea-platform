@@ -2,7 +2,7 @@
 
 Completion marker: `RELEASE_CANDIDATE_COMMIT_SCOPE_REVIEW_20260711`
 
-Decision: `RELEASE_CANDIDATE_COMMIT_SCOPE_STAGED_EXACTLY; COMMIT_PENDING`
+Decision: `RELEASE_CANDIDATE_COMMIT_SCOPE_COMMITTED; COMMIT_LEVEL_RELEASE_GATE_PENDING`
 
 ## Dry-Run Result
 
@@ -31,7 +31,8 @@ Decision: `RELEASE_CANDIDATE_COMMIT_SCOPE_STAGED_EXACTLY; COMMIT_PENDING`
 - Unexpected staged paths: `0`
 - Rename-neutral index verification: `PASS`
 - Repository secret scan after staging: `PASS`, zero findings
-- Commit created at this evidence-writing step: `NO`
+- Consolidation commit created: `YES`
+- Consolidation commit: `d1a7bab20145ff2f50100de577be151d430c1ee4`
 - Push or deployment performed: `NO`
 - Production approval granted: `NO`
 
