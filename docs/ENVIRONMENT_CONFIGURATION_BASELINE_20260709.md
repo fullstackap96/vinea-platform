@@ -34,6 +34,9 @@ Configure these only when the corresponding capability is approved for that envi
 4. Keep production-sensitive runtime gates absent from `.env.example`; their approval packets remain the source of truth.
 5. Validate `/api/health` after configuring a target. A passing local build does not prove target credentials or schema readiness.
 6. Run `npm run check:repository-secrets` before review.
+7. Vercel builds fail closed in `next.config.ts` when any core Supabase requirement is missing. This preflight reports names only and does not replace the target `/api/health` smoke.
+
+See `docs/VERCEL_CORE_ENV_BUILD_PREFLIGHT_20260712.md` for the guard contract and its non-production/production boundaries.
 
 ## Production Boundary
 

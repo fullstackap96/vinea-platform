@@ -6,12 +6,12 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
 ## Manifest Identity
 
-- Parent/base commit before this request-notification reliability slice: `b8a346f94d6f4c28cde51040087eae963447e8f3`
-- Immutable implementation commit: `10dd6087e473d7137014114daa37522bfd0ec598`
-- Release-source aggregate SHA-256: `BB1E62201692E4A2505A49C8C598A2097B40DDBCA11213EBCB25C0E1652F0333`
-- Source file count: `1445`
+- Parent/base commit before this Vercel core environment preflight slice: `d83ce2209bc1cdc175746c59b3ec07d4450a0ae0`
+- Immutable implementation commit: `PENDING_AFTER_COMPLETE_LOCAL_GATE`
+- Release-source aggregate SHA-256: `A497B78D7161E0F3F04CA94D2D6ED1B1F015D6D5FBFC27435DD5E9AAB94AB7F4`
+- Source file count: `1447`
 - Tracked or staged source files: `1445`
-- Untracked source files: `0`
+- Untracked source files: `2`
 - Worktree dirty: `YES`
 - Production approval granted: `NO`
 
@@ -39,6 +39,6 @@ Environment files, ignored secrets, documentation, command output, file paths, a
 
 ## Limitation
 
-This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `10dd6087e473d7137014114daa37522bfd0ec598` on `codex/release-candidate-20260711` is the immutable binding for this aggregate. The full local release gate and clean-checkout GitHub Actions run passed against that source. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
+This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. The Vercel core environment preflight slice is still uncommitted while its complete local gate runs; therefore no immutable implementation commit or clean-checkout GitHub Actions result is claimed for this aggregate yet. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
 
 No production access, deployment, migration, operational RLS change, record mutation, provider call, export, AI call, storage action, signed URL, communication, certificate generation, or public claim was performed.

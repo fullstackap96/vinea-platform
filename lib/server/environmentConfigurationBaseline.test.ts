@@ -88,4 +88,20 @@ describe('environment configuration baseline', () => {
     expect(readme).toContain('docs/ENVIRONMENT_CONFIGURATION_BASELINE_20260709.md')
     expect(readme).toContain('cp .env.example .env.local')
   })
+
+  it('documents the Vercel core environment preflight without approving deployment', () => {
+    const baseline = readRepoFile('docs/ENVIRONMENT_CONFIGURATION_BASELINE_20260709.md')
+    const preflight = readRepoFile('docs/VERCEL_CORE_ENV_BUILD_PREFLIGHT_20260712.md')
+
+    expect(baseline).toContain('Vercel builds fail closed in `next.config.ts`')
+    expect(baseline).toContain('docs/VERCEL_CORE_ENV_BUILD_PREFLIGHT_20260712.md')
+    expect(preflight).toContain('When `VERCEL=1`')
+    expect(preflight).toContain('`NEXT_PUBLIC_SUPABASE_URL` or `SUPABASE_URL`')
+    expect(preflight).toContain('`NEXT_PUBLIC_SUPABASE_ANON_KEY`')
+    expect(preflight).toContain('`SUPABASE_SERVICE_ROLE_KEY`')
+    expect(preflight).toContain('missing variable names only')
+    expect(preflight).toContain('Local development and credential-free CI builds remain supported')
+    expect(preflight).toContain('Production deployment, merge, production access')
+    expect(preflight).toContain('remain `NO-GO`')
+  })
 })

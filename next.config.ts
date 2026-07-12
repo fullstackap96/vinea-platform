@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import { assertVercelCoreDeploymentEnv } from "./lib/server/vercelDeploymentEnvironmentPreflight";
+
+assertVercelCoreDeploymentEnv();
 
 export const productionSecurityHeaders = [
   {
