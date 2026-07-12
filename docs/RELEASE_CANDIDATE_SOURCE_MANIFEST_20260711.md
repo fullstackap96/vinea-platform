@@ -7,7 +7,7 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 ## Manifest Identity
 
 - Parent/base commit before the release candidate: `f5ee00b75da36607ca4409a04c1d66e1ba10f4a7`
-- Release-source aggregate SHA-256: `B9511A0D7CA4E38ADC0D46171382448B8A10FC45E53FF846020667C621E92FD0`
+- Release-source aggregate SHA-256: `C8B08F87AE5ED34D6B097F33B2F67F7ABBEC80D8C8349918081E17DB8CA9A709`
 - Source file count: `1439`
 - Tracked or staged source files: `1439`
 - Untracked source files: `0`

@@ -47,6 +47,8 @@ export type PublicHealthCheckResponse = {
   error?: 'unhealthy'
 }
 
+export const HEALTH_DATABASE_TIMEOUT_MS = 8_000
+
 /**
  * Keeps the public production probe useful without exposing configuration names
  * or schema labels when a deployment is unhealthy.
@@ -249,16 +251,23 @@ function checkGoogleOAuthEnv(): { ok: boolean; error?: string } {
   return { ok: false, error: missing[0] }
 }
 
-async function checkSupabaseAndParishes(): Promise<{
+async function checkSupabaseAndParishes(signal: AbortSignal): Promise<{
   supabase: boolean
   parishes: boolean
   error?: string
 }> {
   try {
     const admin = createSupabaseServiceRoleClient()
-    const { error } = await admin.from('parishes').select('id').limit(1)
+    const { error } = await admin
+      .from('parishes')
+      .select('id')
+      .limit(1)
+      .abortSignal(signal)
 
     if (error) {
+      if (signal.aborted) {
+        return { supabase: false, parishes: false, error: 'supabase-timeout' }
+      }
       return { supabase: true, parishes: false, error: 'parishes' }
     }
 
@@ -284,13 +293,15 @@ function isSchemaMissingError(error: { code?: string; message?: string } | null 
 
 export async function runSchemaReadinessChecks(
   admin: SupabaseAdmin,
-  checks: readonly SchemaReadinessCheck[] = REQUIRED_SCHEMA_READINESS_CHECKS
+  checks: readonly SchemaReadinessCheck[] = REQUIRED_SCHEMA_READINESS_CHECKS,
+  signal?: AbortSignal,
 ): Promise<string[]> {
   const missing: string[] = []
 
   for (const check of checks) {
     if (check.kind === 'select') {
-      const { error } = await admin.from(check.table).select(check.columns).limit(1)
+      const query = admin.from(check.table).select(check.columns).limit(1)
+      const { error } = await (signal ? query.abortSignal(signal) : query)
       if (isSchemaMissingError(error)) {
         missing.push(check.label)
       } else if (error) {
@@ -299,7 +310,8 @@ export async function runSchemaReadinessChecks(
       continue
     }
 
-    const { error } = await admin.rpc(check.functionName, check.args)
+    const query = admin.rpc(check.functionName, check.args)
+    const { error } = await (signal ? query.abortSignal(signal) : query)
     if (error) {
       const code = error.code ?? ''
       if (check.missingCodes.includes(code) || isSchemaMissingError(error)) {
@@ -316,7 +328,9 @@ export async function runSchemaReadinessChecks(
 /**
  * Runs deployment health checks. Never includes secret values in the response.
  */
-export async function runHealthChecks(): Promise<HealthCheckResponse> {
+export async function runHealthChecks(
+  options: { databaseTimeoutMs?: number } = {},
+): Promise<HealthCheckResponse> {
   const checks: HealthChecks = {
     env: false,
     supabase: false,
@@ -355,7 +369,10 @@ export async function runHealthChecks(): Promise<HealthCheckResponse> {
     return { ok: false, checks, error: google.error }
   }
 
-  const db = await checkSupabaseAndParishes()
+  const databaseSignal = AbortSignal.timeout(
+    options.databaseTimeoutMs ?? HEALTH_DATABASE_TIMEOUT_MS,
+  )
+  const db = await checkSupabaseAndParishes(databaseSignal)
   checks.supabase = db.supabase
   checks.parishes = db.parishes
   if (!db.supabase || !db.parishes) {
@@ -364,7 +381,11 @@ export async function runHealthChecks(): Promise<HealthCheckResponse> {
 
   try {
     const admin = createSupabaseServiceRoleClient()
-    const missingSchema = await runSchemaReadinessChecks(admin)
+    const missingSchema = await runSchemaReadinessChecks(
+      admin,
+      REQUIRED_SCHEMA_READINESS_CHECKS,
+      databaseSignal,
+    )
     checks.schema = missingSchema.length === 0
     if (missingSchema.length > 0) {
       return {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
@@ -8,12 +8,20 @@ vi.mock('@/lib/supabaseServiceServer', () => ({
 
 import {
   buildPublicHealthCheckResponse,
+  HEALTH_DATABASE_TIMEOUT_MS,
   isAppOriginReady,
   REQUIRED_SCHEMA_READINESS_CHECKS,
+  runHealthChecks,
   runSchemaReadinessChecks,
   type HealthCheckResponse,
   type SchemaReadinessCheck,
 } from './healthCheck'
+import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.clearAllMocks()
+})
 
 describe('isAppOriginReady', () => {
   it('accepts exact HTTPS deployment origins and local non-Vercel HTTP origins', () => {
@@ -105,6 +113,44 @@ const checks: SchemaReadinessCheck[] = [
 ]
 
 describe('runSchemaReadinessChecks', () => {
+  it('passes one caller-owned abort signal to every select and RPC probe', async () => {
+    const receivedSignals: AbortSignal[] = []
+    const signal = new AbortController().signal
+    const result = { error: null }
+    const admin = {
+      from() {
+        return {
+          select() {
+            return {
+              limit() {
+                return {
+                  abortSignal(nextSignal: AbortSignal) {
+                    receivedSignals.push(nextSignal)
+                    return Promise.resolve(result)
+                  },
+                }
+              },
+            }
+          },
+        }
+      },
+      rpc() {
+        return {
+          abortSignal(nextSignal: AbortSignal) {
+            receivedSignals.push(nextSignal)
+            return Promise.resolve(result)
+          },
+        }
+      },
+    }
+
+    await expect(
+      runSchemaReadinessChecks(admin as never, checks, signal),
+    ).resolves.toEqual([])
+    expect(receivedSignals).toHaveLength(checks.length)
+    expect(receivedSignals.every((value) => value === signal)).toBe(true)
+  })
+
   it('checks the daily brief columns created by the migration', () => {
     const dailyBriefCheck = REQUIRED_SCHEMA_READINESS_CHECKS.find(
       (check) => check.label === 'daily brief parish columns'
@@ -353,6 +399,101 @@ describe('runSchemaReadinessChecks', () => {
         checks
       )
     ).rejects.toMatchObject({ code: '42501' })
+  })
+})
+
+describe('runHealthChecks database deadline', () => {
+  it('shares one bounded signal across the parish and schema probes', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://safe-health.supabase.co')
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'safe-anon-label')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'safe-service-label')
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.vineaplatform.test')
+
+    const receivedSignals: AbortSignal[] = []
+    const result = { error: null }
+    const admin = {
+      from() {
+        return {
+          select() {
+            return {
+              limit() {
+                return {
+                  abortSignal(signal: AbortSignal) {
+                    receivedSignals.push(signal)
+                    return Promise.resolve(result)
+                  },
+                }
+              },
+            }
+          },
+        }
+      },
+      rpc() {
+        return {
+          abortSignal(signal: AbortSignal) {
+            receivedSignals.push(signal)
+            return Promise.resolve(result)
+          },
+        }
+      },
+    }
+    vi.mocked(createSupabaseServiceRoleClient).mockReturnValue(admin as never)
+
+    await expect(runHealthChecks()).resolves.toMatchObject({
+      ok: true,
+      checks: { supabase: true, parishes: true, schema: true },
+    })
+    expect(HEALTH_DATABASE_TIMEOUT_MS).toBe(8_000)
+    expect(receivedSignals).toHaveLength(
+      REQUIRED_SCHEMA_READINESS_CHECKS.length + 1,
+    )
+    expect(new Set(receivedSignals).size).toBe(1)
+
+  })
+
+  it('returns a safe unhealthy result when the database deadline expires', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://safe-health.supabase.co')
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'safe-anon-label')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'safe-service-label')
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.vineaplatform.test')
+
+    const admin = {
+      from() {
+        return {
+          select() {
+            return {
+              limit() {
+                return {
+                  abortSignal(signal: AbortSignal) {
+                    return new Promise((resolve) => {
+                      signal.addEventListener(
+                        'abort',
+                        () => resolve({ error: { message: 'aborted' } }),
+                        { once: true },
+                      )
+                    })
+                  },
+                }
+              },
+            }
+          },
+        }
+      },
+    }
+    vi.mocked(createSupabaseServiceRoleClient).mockReturnValue(admin as never)
+
+    await expect(runHealthChecks({ databaseTimeoutMs: 5 })).resolves.toEqual({
+      ok: false,
+      checks: {
+        env: true,
+        supabase: false,
+        parishes: false,
+        schema: false,
+        resend: true,
+        googleOAuth: true,
+      },
+      error: 'supabase-timeout',
+    })
   })
 })
 

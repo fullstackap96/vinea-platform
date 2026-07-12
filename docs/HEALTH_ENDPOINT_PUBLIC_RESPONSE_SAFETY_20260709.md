@@ -32,6 +32,10 @@ Health responses therefore reflect the current deployment state instead of an in
 
 The public-intake rate-limit RPC normally deletes expired buckets and inserts or updates the current bucket. Health now calls that RPC with an empty key, which the existing function rejects before any mutating statement. The readiness checker accepts only the expected PostgreSQL `P0001` validation code for this probe; missing-function errors remain missing-schema findings, and every other unexpected RPC error fails health.
 
+## Database Deadline Boundary
+
+The parish connectivity probe and every schema-readiness select/RPC share one eight-second `AbortSignal` budget. A stalled Supabase request therefore settles as an unhealthy result instead of holding the public probe until the hosting runtime terminates it. Production still receives only the generic `unhealthy` failure label; non-production may receive the safe `supabase-timeout` label. The deadline does not retry queries, mutate records, or weaken any authorization or RLS boundary.
+
 ## Safety Boundary
 
 - production accessed: `NO`

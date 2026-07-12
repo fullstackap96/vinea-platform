@@ -38,4 +38,12 @@ describe('public health route safety boundary', () => {
     expect(healthCheck).toContain("error: coreMissing[0] ?? 'app-origin'")
     expect(route).not.toContain('NEXT_PUBLIC_APP_URL')
   })
+
+  it('bounds all Supabase health work with one shared database deadline', () => {
+    expect(healthCheck).toContain('HEALTH_DATABASE_TIMEOUT_MS = 8_000')
+    expect(healthCheck).toContain('AbortSignal.timeout(')
+    expect(healthCheck).toContain('.abortSignal(signal)')
+    expect(healthCheck).toContain('databaseSignal,')
+    expect(healthCheck).toContain("error: 'supabase-timeout'")
+  })
 })
