@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 
 type VineaErrorRecoveryProps = {
   scope?: 'page' | 'application' | 'dashboard'
@@ -19,7 +20,7 @@ export default function VineaErrorRecovery({
         ? 'This parish workspace could not finish loading'
         : 'This page could not finish loading'
   const returnHref = isDashboard ? '/dashboard' : '/'
-  const returnLabel = isDashboard ? 'Return to dashboard' : 'Return to Vinea home'
+  const returnLabel = isDashboard ? 'Daily Work Hub' : 'Return to Vinea home'
 
   return (
     <main className="flex min-h-[60vh] w-full items-center justify-center px-4 py-12">
@@ -39,17 +40,20 @@ export default function VineaErrorRecovery({
           Please try again. If the problem continues, return to {isDashboard ? 'the dashboard' : 'Vinea'}
           {' '}and contact your support person with a short description of what you were doing.
         </p>
+        <p className="mt-3 text-sm font-medium leading-6 text-gray-800">
+          Before repeating a recent save or send, confirm whether it already completed.
+        </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
           <button
-            className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-ring"
+            className={primaryButtonMd}
             onClick={unstable_retry}
             type="button"
           >
             Try again
           </button>
           <Link
-            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-ring"
+            className={secondaryButtonMd}
             href={returnHref}
           >
             {returnLabel}

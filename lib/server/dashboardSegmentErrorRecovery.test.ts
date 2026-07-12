@@ -18,7 +18,7 @@ describe('dashboard segment error recovery boundary', () => {
     expect(boundary).toContain('scope="dashboard"')
     expect(boundary).toContain('unstable_retry={unstable_retry}')
     expect(recovery).toContain("isDashboard ? '/dashboard' : '/'")
-    expect(recovery).toContain("isDashboard ? 'Return to dashboard' : 'Return to Vinea home'")
+    expect(recovery).toContain("isDashboard ? 'Daily Work Hub' : 'Return to Vinea home'")
   })
 
   it('does not consume or expose supplied error details', () => {

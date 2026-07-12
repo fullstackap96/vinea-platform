@@ -8,7 +8,7 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
 - Parent/base commit before this email-provider reliability slice: `cef11d5fac2ad09e0bc73a28873fd8b21ec697da`
 - Immutable implementation commit: `1226c2307a8b9c9c3e5b4bb5d96e4a63a5cc542f`
-- Release-source aggregate SHA-256: `81CA2DBABFC9BCF11B7AAAC7865DE911E8D07163D8555F4CD1E827B84B48F4CB`
+- Release-source aggregate SHA-256: `FBCC65B8C4F462BB547CA7A196692D7D7817325D3C96FF80D7A050C30F8A6433`
 - Source file count: `1442`
 - Tracked or staged source files: `1442`
 - Untracked source files: `0`

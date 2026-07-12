@@ -13,6 +13,8 @@ Vinea now provides App Router recovery UI for unexpected page-render failures an
 - `app/error.tsx` handles uncaught errors below the root layout.
 - `app/global-error.tsx` provides a complete HTML fallback if the root layout fails.
 - Both boundaries use the Next.js 16 `unstable_retry` recovery contract.
+- The shared recovery surface now warns staff to confirm whether a recent save or send completed before repeating it, reducing duplicate-action risk after an uncertain render failure.
+- Retry and return controls use Vinea's shared primary/secondary button system, and the dashboard return action is labeled `Daily Work Hub` in parish-office language.
 - The shared fallback offers a plain retry action and a normal home link.
 - Exception messages, error digests, object dumps, stack traces, and raw technical details are not rendered or logged by the client fallback.
 

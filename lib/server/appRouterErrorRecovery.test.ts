@@ -20,6 +20,10 @@ describe('App Router error recovery boundary', () => {
     expect(appError).toContain('unstable_retry={unstable_retry}')
     expect(globalError).toContain('unstable_retry={unstable_retry}')
     expect(recovery).toContain('onClick={unstable_retry}')
+    expect(recovery).toContain('confirm whether it already completed')
+    expect(recovery).toContain('className={primaryButtonMd}')
+    expect(recovery).toContain('className={secondaryButtonMd}')
+    expect(recovery).toContain("isDashboard ? 'Daily Work Hub'")
   })
 
   it('provides a complete root-layout fallback', () => {
