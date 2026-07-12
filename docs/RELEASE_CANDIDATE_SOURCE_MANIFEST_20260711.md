@@ -6,7 +6,8 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
 ## Manifest Identity
 
-- Parent/base commit before the release candidate: `f5ee00b75da36607ca4409a04c1d66e1ba10f4a7`
+- Parent/base commit before this bounded-recovery source slice: `7cba52bb370063956a959d129c6f18e2a996db96`
+- Immutable implementation commit: `cc2f1f89366f2cd40d51d2b1304a643094a269f4`
 - Release-source aggregate SHA-256: `4B7FC56DA9280E8BB1D95F9C0A96E9662413C72971A1FD4A898DCF388480E42A`
 - Source file count: `1439`
 - Tracked or staged source files: `1439`
@@ -38,6 +39,6 @@ Environment files, ignored secrets, documentation, command output, file paths, a
 
 ## Limitation
 
-This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. The first release-candidate commit on `codex/release-candidate-20260711` containing this document is the immutable binding for this aggregate. Before any production deployment, the manifest and full release-readiness runner must pass against that exact committed source. Excluded non-release artifacts may remain outside the commit and do not authorize production.
+This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `cc2f1f89366f2cd40d51d2b1304a643094a269f4` on `codex/release-candidate-20260711` is the immutable binding for this aggregate. The full local release gate and clean-checkout GitHub Actions run passed against that source. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
 
 No production access, deployment, migration, operational RLS change, record mutation, provider call, export, AI call, storage action, signed URL, communication, certificate generation, or public claim was performed.
