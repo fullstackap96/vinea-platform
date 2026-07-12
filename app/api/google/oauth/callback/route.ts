@@ -11,6 +11,7 @@ import { requireStaffFromRequest } from '@/lib/server/requireStaff'
 import { resolveActiveStaffParishContext } from '@/lib/server/activeStaffParishContext'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 import { logServerError } from '@/lib/server/safeErrorLogging'
+import { createGoogleCalendarProviderOptions } from '@/lib/server/googleCalendarProviderReliability'
 
 type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
 type GoogleOAuthCallbackErrorAction =
@@ -166,7 +167,12 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${origin}/api/google/oauth/callback`
 
   try {
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
+    const oauth2Client = new google.auth.OAuth2({
+      clientId,
+      clientSecret,
+      redirectUri,
+      transporterOptions: createGoogleCalendarProviderOptions(),
+    })
     const { tokens } = await oauth2Client.getToken(code)
     const refreshToken = tokens.refresh_token
     if (!refreshToken) {
@@ -187,6 +193,7 @@ export async function GET(request: NextRequest) {
       try {
         const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
           headers: { Authorization: `Bearer ${accessToken}` },
+          ...createGoogleCalendarProviderOptions(),
         })
         if (profileRes.ok) {
           const profile = (await profileRes.json()) as { email?: string }

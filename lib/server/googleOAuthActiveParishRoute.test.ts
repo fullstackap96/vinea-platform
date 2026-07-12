@@ -52,6 +52,8 @@ describe('Google OAuth active parish route wiring', () => {
     expect(source).toContain('.maybeSingle()')
     expect(source).toContain('savedIntegration?.parish_id !== parishId')
     expect(source).toContain('Google OAuth callback requires membership-backed parish authorization.')
+    expect(source).toContain('transporterOptions: createGoogleCalendarProviderOptions()')
+    expect(source).toContain('...createGoogleCalendarProviderOptions()')
     expect(source).not.toContain("order('created_at'")
     expect(source).not.toContain(".from('parishes')")
     expect(source).not.toContain('createSupabaseRouteHandlerReadOnlyClient')
@@ -63,6 +65,7 @@ describe('Google OAuth active parish route wiring', () => {
       'const parishContext = await resolveGoogleOAuthCallbackParishContext'
     )
     expectBefore(source, 'const parishContext = await resolveGoogleOAuthCallbackParishContext', 'oauth2Client.getToken(code)')
+    expectBefore(source, 'transporterOptions: createGoogleCalendarProviderOptions()', 'oauth2Client.getToken(code)')
     expectBefore(source, 'const parishId = parishContext.activeParishId', ".from('parish_google_integrations').upsert")
     expectBefore(source, 'parish_id: parishId', 'refresh_token: refreshToken')
     expectBefore(source, 'savedIntegration?.parish_id !== parishId', "settingsRedirect(request, 'connected')")

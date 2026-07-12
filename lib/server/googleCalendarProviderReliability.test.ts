@@ -40,6 +40,15 @@ const deleteRoutePath = join(
   'route.ts'
 )
 const calendarServerPath = join(process.cwd(), 'lib', 'parishGoogleCalendarServer.ts')
+const oauthCallbackPath = join(
+  process.cwd(),
+  'app',
+  'api',
+  'google',
+  'oauth',
+  'callback',
+  'route.ts'
+)
 const evidencePath = join(
   process.cwd(),
   'docs',
@@ -176,6 +185,31 @@ describe('Google Calendar provider reliability', () => {
     )
     expect(serverSource).toMatch(
       /calendar\.events\.list\([\s\S]*?createGoogleCalendarProviderOptions\(\)[\s\S]*?\)/
+    )
+  })
+
+  it('bounds hidden OAuth refresh, callback token exchange, and optional profile lookup', () => {
+    const calendarServerSource = readFileSync(calendarServerPath, 'utf8')
+    const callbackSource = readFileSync(oauthCallbackPath, 'utf8')
+
+    expect(calendarServerSource).toContain('transporterOptions: createGoogleCalendarProviderOptions()')
+    expectBefore(
+      calendarServerSource,
+      'transporterOptions: createGoogleCalendarProviderOptions()',
+      'oauth2.setCredentials({ refresh_token: refreshToken })'
+    )
+    expect(callbackSource).toContain('transporterOptions: createGoogleCalendarProviderOptions()')
+    expect(callbackSource).toContain("fetch('https://www.googleapis.com/oauth2/v2/userinfo'")
+    expect(callbackSource).toContain('...createGoogleCalendarProviderOptions()')
+    expectBefore(
+      callbackSource,
+      'const parishContext = await resolveGoogleOAuthCallbackParishContext',
+      'transporterOptions: createGoogleCalendarProviderOptions()'
+    )
+    expectBefore(
+      callbackSource,
+      'transporterOptions: createGoogleCalendarProviderOptions()',
+      'oauth2Client.getToken(code)'
     )
   })
 

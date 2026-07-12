@@ -81,7 +81,11 @@ export function getGoogleCalendarClient(
   clientId: string,
   clientSecret: string
 ) {
-  const oauth2 = new google.auth.OAuth2(clientId, clientSecret)
+  const oauth2 = new google.auth.OAuth2({
+    clientId,
+    clientSecret,
+    transporterOptions: createGoogleCalendarProviderOptions(),
+  })
   oauth2.setCredentials({ refresh_token: refreshToken })
   return google.calendar({ version: 'v3', auth: oauth2 })
 }

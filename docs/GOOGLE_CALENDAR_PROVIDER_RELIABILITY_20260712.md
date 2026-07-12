@@ -50,6 +50,23 @@ Status: `Implemented and verified` locally. Live provider retry recovery remains
 
 **Next required action:** Run the complete release gate, bind an immutable commit, obtain clean remote CI, then exercise one approved synthetic test-calendar create/retry/update/delete smoke without touching real parish calendars.
 
+## OAuth Transport Deadline Addendum
+
+Status: `Implemented and verified` locally; immutable implementation commit pending the complete release gate.
+
+The event API deadlines now extend through the OAuth transport boundary. Calendar clients receive a fresh 15-second transporter signal before refresh-token use, the OAuth callback applies the same boundary to authorization-code exchange, and the optional Google profile lookup receives its own 15-second abort signal. Staff authentication, signed state, active-parish membership, redirect URI, token requirements, selected-parish persistence, and safe callback failure behavior are unchanged.
+
+- Complete Calendar/OAuth regression slice: `36 files / 139 tests passed`.
+- Focused transport slice: `3 files / 15 tests passed`.
+- Standard TypeScript check: `PASS`.
+- Release-source aggregate before immutable commit: `A8653C9DB5FCF3259B8F8A3E0031F59D41F8C2136D7BECAB13F547FBA0E65E5B` across `1,457` files.
+- Production accessed: `NO`.
+- Google Calendar, OAuth, or profile endpoint called: `NO`.
+- Token, integration, event, request, or parish record mutated: `NO`.
+- Migration, operational RLS, scope, redirect, or production flag changed: `NO`.
+
+Live token refresh, code exchange, and timeout recovery remain `Implemented but not rollout-verified`.
+
 ## Plain-English Summary
 
 If Google creates an event but Vinea loses the reply, Vinea can now recognize that exact event on retry instead of making a second copy. Google operations also stop waiting after a fixed deadline. Vinea still checks the staff member, selected parish, request, calendar connection, and scheduling conflicts first.
