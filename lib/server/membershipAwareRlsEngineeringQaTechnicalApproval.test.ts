@@ -10,7 +10,11 @@ function read(path: string) {
 }
 
 function sha256(path: string) {
-  return createHash('sha256').update(read(path)).digest('hex').toUpperCase()
+  const canonicalText = read(path).replaceAll('\r\n', '\n')
+  return createHash('sha256')
+    .update(canonicalText, 'utf8')
+    .digest('hex')
+    .toUpperCase()
 }
 
 describe('membership-aware RLS engineering and QA technical approval', () => {

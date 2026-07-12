@@ -14,10 +14,10 @@ No production environment was accessed. No migration was applied. Operational RL
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `supabase/migrations/20260626170000_membership_aware_operational_rls.sql` | `DF06A8D742FF630358EABA8C727B472D6BE3C6079E0B7ADEED7E28587B601E66` |
+| `supabase/migrations/20260626170000_membership_aware_operational_rls.sql` | `24A8BC18F2717A9B42DBF23C9C8D43F09BEB59AA332FED2F5E82BB852AFB86F1` |
 | `docs/sql/membership_aware_operational_rls_rollback_draft.sql` | `823BE85DF4BADEA7DC2650532FF4A9E6E1A188467163BFE01299DCC44D610324` |
 
-Any hash change invalidates this technical approval until the changed SQL is reviewed and the forward/rollback evidence is repeated.
+Hashes use UTF-8 content with LF line endings so the identity is stable across Windows and Linux checkouts. Any canonical hash change invalidates this technical approval until the changed SQL is reviewed and the forward/rollback evidence is repeated.
 
 ## Evidence Accepted
 

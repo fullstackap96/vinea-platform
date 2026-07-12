@@ -15,10 +15,10 @@ describe('Vinea CI workflow', () => {
     expect(workflow).toContain('pull_request:')
     expect(workflow).toContain('push:')
     expect(workflow).toContain(
-      'uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4',
+      'uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5',
     )
     expect(workflow).toContain(
-      'uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4',
+      'uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6',
     )
     expect(workflow).toContain("node-version: '24'")
     expect(workflow).toContain('run: npm run check:repository-secrets')

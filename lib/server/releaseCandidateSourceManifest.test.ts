@@ -80,6 +80,9 @@ describe('release candidate source manifest', () => {
 
     expect(source).not.toContain("'.env'")
     expect(source).not.toContain("'.env.local'")
+    expect(source).toContain('function canonicalSourceBytes(path, bytes)')
+    expect(source).toContain("replaceAll('\\r\\n', '\\n')")
+    expect(source).toContain('binaryExtensions.has(extname(path).toLowerCase())')
   })
 
   it('binds the current aggregate into the human-review evidence record', () => {

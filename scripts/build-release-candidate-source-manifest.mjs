@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { extname, resolve } from 'node:path'
 
 const repoRoot = process.cwd()
 
@@ -28,6 +28,30 @@ const includedRootFiles = new Set([
   'tsconfig.typecheck.json',
   'vitest.config.ts',
 ])
+
+const binaryExtensions = new Set([
+  '.gif',
+  '.ico',
+  '.jpeg',
+  '.jpg',
+  '.mp4',
+  '.otf',
+  '.pdf',
+  '.png',
+  '.ttf',
+  '.webm',
+  '.webp',
+  '.woff',
+  '.woff2',
+])
+
+function canonicalSourceBytes(path, bytes) {
+  if (binaryExtensions.has(extname(path).toLowerCase()) || bytes.includes(0)) {
+    return bytes
+  }
+
+  return Buffer.from(bytes.toString('utf8').replaceAll('\r\n', '\n'), 'utf8')
+}
 
 function gitLines(args) {
   return execFileSync('git', args, {
@@ -66,7 +90,10 @@ let trackedFileCount = 0
 let untrackedFileCount = 0
 
 for (const path of sourcePaths) {
-  const bytes = readFileSync(resolve(repoRoot, path))
+  const bytes = canonicalSourceBytes(
+    path,
+    readFileSync(resolve(repoRoot, path)),
+  )
   const contentHash = createHash('sha256').update(bytes).digest('hex')
 
   aggregate.update(path)

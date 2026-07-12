@@ -16,8 +16,8 @@ describe('CI action provenance baseline', () => {
       .map((match) => match[1])
 
     expect(actionReferences).toEqual([
-      'actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5',
-      'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020',
+      'actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd',
+      'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e',
     ])
 
     for (const reference of actionReferences) {

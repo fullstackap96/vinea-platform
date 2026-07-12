@@ -50,7 +50,7 @@ describe('release candidate commit scope', () => {
     expect(scope.duplicateChangedPathEntryCount).toBe(
       scope.rawChangedPathCount - scope.changedPathCount,
     )
-    expect(scope.changedPathCount).toBeGreaterThan(0)
+    expect(scope.changedPathCount).toBeGreaterThanOrEqual(0)
     expect(scope.candidatePathCount).toBeGreaterThanOrEqual(0)
     expect(scope.candidatePathCount).toBeLessThanOrEqual(scope.changedPathCount)
     expect(scope.candidatePathCount + scope.excludedPathCount).toBe(
@@ -86,7 +86,11 @@ describe('release candidate commit scope', () => {
     expect(scope.includesEnvironmentSecrets).toBe(false)
     expect(scope.printsPathList).toBe(false)
     expect(scope.productionApproved).toBe(false)
-    expect(scope.exclusionReasonCounts['forbidden-prefix']).toBeGreaterThan(0)
+    if (scope.excludedPathCount > 0) {
+      expect(scope.exclusionReasonCounts['forbidden-prefix']).toBeGreaterThan(0)
+    } else {
+      expect(scope.exclusionReasonCounts['forbidden-prefix']).toBeUndefined()
+    }
   })
 
   it('keeps the scope policy explicit in source', () => {

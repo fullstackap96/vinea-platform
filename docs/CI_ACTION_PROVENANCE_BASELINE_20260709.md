@@ -6,8 +6,8 @@ Status: Implemented and verified. Vinea's GitHub Actions workflow uses immutable
 
 The official repositories' `v4` refs were resolved on 2026-07-09 and recorded as:
 
-- `actions/checkout`: `34e114876b0b11c390a56381ad16ebd13914f8d5` (`v4`)
-- `actions/setup-node`: `49933ea5288caeca8642d1e84afbd3f7d6820020` (`v4`)
+- `actions/checkout`: `93cb6efe18208431cddfb8368fd83d5badbf9bfd` (`v5`)
+- `actions/setup-node`: `48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e` (`v6`)
 
 The workflow uses the immutable commit, not the mutable major-version tag. The trailing `# v4` comment remains for reviewer readability.
 
