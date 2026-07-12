@@ -35,6 +35,9 @@ type ReviewedImportSnapshot = {
 
 const UNCERTAIN_IMPORT_MESSAGE =
   'Vinea could not confirm whether the import finished. Review Recent imports and the records list before trying again.'
+const IMPORT_HISTORY_TIMEOUT_MS = 15_000
+const IMPORT_PREVIEW_TIMEOUT_MS = 30_000
+const IMPORT_COMMIT_TIMEOUT_MS = 120_000
 
 function copyMappedRows(rows: ImportMappedRow[]): ImportMappedRow[] {
   return rows.map((row) => ({
@@ -178,6 +181,7 @@ export function DashboardImportsPageClient() {
     const controller = new AbortController()
     historyLoadAbortRef.current = controller
     const isLatestLoad = () => loadSequence === historyLoadSequenceRef.current
+    const timeoutId = window.setTimeout(() => controller.abort(), IMPORT_HISTORY_TIMEOUT_MS)
 
     try {
       const res = await fetch('/api/imports', {
@@ -200,6 +204,7 @@ export function DashboardImportsPageClient() {
       setActiveParishName('')
       return false
     } finally {
+      window.clearTimeout(timeoutId)
       if (historyLoadAbortRef.current === controller) {
         historyLoadAbortRef.current = null
       }
@@ -295,6 +300,7 @@ export function DashboardImportsPageClient() {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...snapshot, commit: false }),
+        signal: AbortSignal.timeout(IMPORT_PREVIEW_TIMEOUT_MS),
       })
       const data = await res.json().catch(() => ({}))
       if (
@@ -336,6 +342,7 @@ export function DashboardImportsPageClient() {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...reviewedSnapshot, commit: true }),
+        signal: AbortSignal.timeout(IMPORT_COMMIT_TIMEOUT_MS),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok) {
