@@ -83,7 +83,9 @@ describe('Google Calendar data projection boundary', () => {
     ]
 
     for (const path of browserSupabaseImports) {
-      expect(read(path)).toContain("import { supabase } from '@/lib/supabase'")
+      expect(read(path)).toContain(
+        "import { getSupabaseBrowserClient } from '@/lib/supabase'",
+      )
     }
 
     const requestDetail = read('app/dashboard/requests/[id]/page.tsx')

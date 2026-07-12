@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { setActiveStaffParish } from '@/app/dashboard/parish-context/actions'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import {
   dashboardParishSwitcherWarningMessage,
@@ -91,6 +91,7 @@ export function DashboardLayoutClient({
     setIsSigningOut(true)
     setLogoutMessage('')
     try {
+      const supabase = getSupabaseBrowserClient()
       const { error } = await supabase.auth.signOut({ scope: 'local' })
       if (error) {
         setLogoutMessage(dashboardShellClientErrorMessage('logout', error))

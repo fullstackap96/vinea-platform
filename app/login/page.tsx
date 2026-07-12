@@ -11,7 +11,7 @@ import {
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { primaryButtonLg } from '@/lib/buttonStyles'
 import { safeStaffLoginErrorMessage } from '@/lib/loginAuthMessages'
 import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
@@ -101,6 +101,7 @@ function LoginForm() {
 
     async function redirectIfAuthed() {
       try {
+        const supabase = getSupabaseBrowserClient()
         const {
           data: { user },
         } = await supabase.auth.getUser()
@@ -130,6 +131,7 @@ function LoginForm() {
     let error: unknown = null
 
     try {
+      const supabase = getSupabaseBrowserClient()
       const result = await supabase.auth.signInWithPassword({
         email,
         password,
