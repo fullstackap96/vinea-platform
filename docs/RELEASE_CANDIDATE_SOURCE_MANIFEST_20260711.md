@@ -6,9 +6,9 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
 ## Manifest Identity
 
-- Parent/base commit before this Communications Center client-recovery slice: `970a844405444b346489d4d12fd89f5327e64acb`
-- Immutable implementation commit: `ca3488436906f5836e96ddabe4fb9e0ee14d328c`
-- Release-source aggregate SHA-256: `F9ED8FAC6AEAE72B94DD4F4CEDA513DED3A7C46D16EA353E7A020D33C73EA188`
+- Parent/base commit before this Preview health origin-alignment slice: `9899f8e7fc6fed898e13a73f0beb522dcacd848b`
+- Immutable implementation commit: `19b601df046de06a6a52f214e24adcdeba05b577`
+- Release-source aggregate SHA-256: `965D52668D4803437C25F22980FD1D741C612607D370AFF7896AD565D5EEADCA`
 - Source file count: `1468`
 - Tracked or staged source files: `1468`
 - Untracked source files: `0`
@@ -39,6 +39,6 @@ Environment files, ignored secrets, documentation, command output, file paths, a
 
 ## Limitation
 
-This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `ca3488436906f5836e96ddabe4fb9e0ee14d328c` on `codex/release-candidate-20260711` is the immutable Communications Center client-recovery implementation binding for this aggregate. The complete 15-check local release gate passed in `297.7` seconds with zero secret findings across `2,141` files, zero vulnerabilities, both TypeScript scopes, lint, `832` test files / `3,544` tests, and the credential-free `56`-page build. Clean-checkout GitHub Actions, actual PR check attribution, and a correctly configured protected-preview smoke remain pending. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
+This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `19b601df046de06a6a52f214e24adcdeba05b577` on `codex/release-candidate-20260711` is the immutable Preview health origin-alignment implementation binding for this aggregate. The focused health/origin/security slice passed `5` files / `61` tests plus typecheck. The complete 15-check local release gate then passed in `304.9` seconds with zero secret findings across `2,142` files, zero vulnerabilities, both TypeScript scopes, lint, `832` test files / `3,546` tests, and the credential-free `56`-page build. Clean-checkout GitHub Actions and a fresh protected-preview health rerun remain pending for this new implementation commit. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
 
 No production access, deployment, migration, operational RLS change, record mutation, provider call, export, AI call, storage action, signed URL, communication, certificate generation, or public claim was performed.
