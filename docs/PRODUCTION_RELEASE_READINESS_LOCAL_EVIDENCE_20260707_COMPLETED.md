@@ -18,6 +18,25 @@ This file was refreshed later in the same session after dashboard error redactio
 
 This evidence is not a release approval, deployment record, production smoke record, production RLS approval, production export approval, production monitoring approval, public trust-center approval, or customer-facing claim.
 
+## 2026-07-11 Local And CI Release-Policy Parity Addendum
+
+- Immutable source commit: `e6ec46541ea1eeb3a84a8530e97454147e2af28a`.
+- Release-source aggregate: `B9511A0D7CA4E38ADC0D46171382448B8A10FC45E53FF846020667C621E92FD0` across `1,439` files.
+- Local release command count: `15`.
+- CI command count: `16`; clean install via `npm ci` is the only intentional additional CI command.
+- Repository secret scan included in local one-command gate: `YES`; files scanned `2,097`; findings `0`; values printed `NO`.
+- Dependency security audit included in local one-command gate: `YES`; vulnerabilities `0`.
+- Completed local evidence validation included in local one-command gate: `YES`; findings `0`; production approval `NO`.
+- Initial full parity run: `FAILED CLOSED` at `npm test` after a stale validator-test expectation; failure waived `NO`.
+- Corrective action: updated the expectation to derive ordered command names from the shared release command contract.
+- Corrected focused verification: `8` test files and `29` tests passed.
+- Corrected complete 15-command local runner: `PASS`; duration `299.9 seconds`; decision `LOCAL_RELEASE_READINESS_PASSED`.
+- Both TypeScript scopes, full lint, complete Vitest, and credential-free Next.js `16.2.10` build: `PASS`.
+- Independent remote verification: GitHub Actions run `29179833235`; conclusion `success`; exact head matched `YES`.
+- Matching Vercel preview: `dpl_HEPmAhSzomhL6c7iiHjXokgHCd26`; state `READY`; target `null`; production deployment `NO`.
+- Production-sensitive features or public trust claims approved: `NO`.
+- Production accessed, deployed, or changed: `NO`.
+
 ## 2026-07-11 Credential-Free Local Build Enforcement Addendum
 
 - Immutable source commit: `037c5c964cb233ed6305dd3393cb9907d050286b`.
