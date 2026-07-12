@@ -2,7 +2,7 @@
 
 Date: `2026-07-12`
 
-Status: `PARTIAL PASS - STAFF WORKSPACES PASSED; HEALTH CONFIGURATION BLOCKED`
+Status: `PASS - REPAIRED PREVIEW HEALTH AND STAFF WORKSPACES VERIFIED`
 
 ## Approved Scope
 
@@ -46,18 +46,33 @@ Immutable follow-up commit `19b601df046de06a6a52f214e24adcdeba05b577` aligns hea
 ## Decision
 
 - Engineering implementation: `PASS`
-- Exact-head CI: `PASS`
+- Original exact-head CI: `PASS`
 - Protected staff workspace smoke: `PASS`
-- Protected health/schema smoke: `FAIL - PREVIEW CONFIGURATION`
+- Repaired protected health/schema smoke: `PASS`
 - Merge approval: `NOT GRANTED`
 - Production access or deployment: `NOT GRANTED`
-- Release-candidate rollout evidence: `PARTIAL`
+- Release-candidate Preview rollout evidence: `PASS`
+
+## Repaired Preview Rerun
+
+| Gate | Result | Sanitized evidence |
+| --- | --- | --- |
+| Implementation commit | `PASS` | `19b601df046de06a6a52f214e24adcdeba05b577` aligns health with Vinea's established trusted Vercel-origin policy |
+| Evidence head | `PASS` | `b4e95e5a69f1c2522af5f83c2fac575f01ba2c00` contains the reviewed implementation descendant and sanitized evidence |
+| Source manifest | `PASS` | Aggregate `965D52668D4803437C25F22980FD1D741C612607D370AFF7896AD565D5EEADCA` binds `1,468` release-source files |
+| Complete local release gate | `PASS` | All `15` checks passed in `304.9` seconds; zero secret findings, zero vulnerabilities, both TypeScript scopes, lint, `832` test files / `3,546` tests, and the credential-free `56`-page build |
+| Vercel Preview | `PASS` | Deployment `dpl_12zYEf2RQE7W2xsGhPgeEmy1LFa9` reached `READY` with target `Preview` and commit status `success` |
+| `/api/health` | `PASS` | Exact repaired deployment runtime evidence recorded `GET /api/health 200`; the route can return `200` only after `ok`, Supabase, parishes, and schema readiness are true |
+| Staff authentication | `PASS` | The approved safe QA staff session remained authenticated across every repaired-Preview page |
+| Active parish | `PASS` | Communications changed from approved Parish A scope to Parish B scope and the Parish B selection persisted |
+| Onboarding | `PASS` | Parish B setup checklist settled with the selected-parish label and setup steps |
+| Imports | `PASS` | Parish B import workspace rendered; no file selection, preview, or commit occurred |
+| Duplicate review | `PASS` | Parish B People duplicate-review workspace rendered; no discovery or merge occurred |
+| Communications Center | `PASS` | Parish B Communications Center rendered; no touchpoint or follow-up write occurred |
+| Browser console | `PASS` | No warning or error entries were captured during the repaired-Preview smoke |
 
 ## Required Follow-Up
 
-1. Run the complete local release gate against implementation commit `19b601df046de06a6a52f214e24adcdeba05b577`.
-2. Push the implementation and evidence descendants to the release-candidate branch without merging.
-3. Wait for exact-head CI and a fresh non-production Preview deployment.
-4. Confirm `/api/health` returns HTTP `200` with `checks.schema: true` without adding a duplicated app-origin variable.
-5. Recheck staff sign-in, parish switching, onboarding, imports, duplicate review, and Communications Center without performing writes.
-6. Keep merge and production rollout behind separate explicit approval.
+1. Confirm clean-checkout GitHub Actions for the latest evidence head when the run is available.
+2. Keep the release-candidate PR open for human review; do not merge without explicit approval.
+3. Keep production rollout, production RLS, monitoring, exports, public-intake routing, customer-facing AI, and public trust claims behind their existing owner gates.
