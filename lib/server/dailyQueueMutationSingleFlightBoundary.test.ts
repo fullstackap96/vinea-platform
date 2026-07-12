@@ -28,7 +28,9 @@ describe('daily queue mutation single-flight boundary', () => {
       ['async function saveFollowUp', '\n  return (', 'updateCommunicationFollowUp'],
     ] as const) {
       const block = handler(communications, start, end)
-      expect(block).toContain('if (mutationInFlightRef.current) return')
+      expect(block).toContain(
+        'if (mutationInFlightRef.current || mutationRequiresRefresh) return',
+      )
       expect(block.indexOf('mutationInFlightRef.current = true')).toBeLessThan(
         block.indexOf(requestMarker),
       )
@@ -61,7 +63,7 @@ describe('daily queue mutation single-flight boundary', () => {
       expect(source).toContain('const mutationBusy = savingItemId !== null')
       expect(source).toContain('aria-busy={mutationBusy}')
       expect(
-        source.match(/disabled=\{mutationBusy\}/g)?.length ?? 0,
+        source.match(/disabled=\{mutationBusy(?: \|\| mutationRequiresRefresh)?\}/g)?.length ?? 0,
       ).toBeGreaterThanOrEqual(6)
     }
   })

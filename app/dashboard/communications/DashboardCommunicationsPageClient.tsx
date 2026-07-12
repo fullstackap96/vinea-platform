@@ -25,6 +25,9 @@ type Props = {
 }
 
 type CommunicationActionResult = { ok: true } | { ok: false; error: unknown }
+const COMMUNICATION_MUTATION_TIMEOUT_MS = 60_000
+const UNCERTAIN_COMMUNICATION_MUTATION_MESSAGE =
+  'Could not confirm whether this change finished. Refresh Communications and review the request before trying again.'
 
 async function communicationRequest(
   requestId: string,
@@ -38,6 +41,7 @@ async function communicationRequest(
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(COMMUNICATION_MUTATION_TIMEOUT_MS),
     },
   )
   const payload = (await response.json().catch(() => null)) as {
@@ -114,6 +118,7 @@ export function DashboardCommunicationsPageClient({
   const [openItemId, setOpenItemId] = useState<string | null>(null)
   const [savingItemId, setSavingItemId] = useState<string | null>(null)
   const mutationInFlightRef = useRef(false)
+  const [mutationRequiresRefresh, setMutationRequiresRefresh] = useState(false)
   const [messages, setMessages] = useState<Record<string, string>>({})
   const mutationBusy = savingItemId !== null
   const visibleItems = useMemo(() => filterItems(items, filter), [items, filter])
@@ -126,7 +131,7 @@ export function DashboardCommunicationsPageClient({
   }
 
   async function saveTouchpoint(item: ParishCommunicationItem, formData: FormData) {
-    if (mutationInFlightRef.current) return
+    if (mutationInFlightRef.current || mutationRequiresRefresh) return
 
     mutationInFlightRef.current = true
     setSavingItemId(item.id)
@@ -149,10 +154,8 @@ export function DashboardCommunicationsPageClient({
       setOpenItemId(null)
       router.refresh()
     } catch {
-      setItemMessage(
-        item.id,
-        dashboardQueueClientErrorMessage('communicationTouchpoint', null),
-      )
+      setMutationRequiresRefresh(true)
+      setItemMessage(item.id, UNCERTAIN_COMMUNICATION_MUTATION_MESSAGE)
     } finally {
       mutationInFlightRef.current = false
       setSavingItemId(null)
@@ -160,7 +163,7 @@ export function DashboardCommunicationsPageClient({
   }
 
   async function saveFollowUp(item: ParishCommunicationItem, formData: FormData) {
-    if (mutationInFlightRef.current) return
+    if (mutationInFlightRef.current || mutationRequiresRefresh) return
 
     mutationInFlightRef.current = true
     setSavingItemId(item.id)
@@ -180,10 +183,8 @@ export function DashboardCommunicationsPageClient({
       setItemMessage(item.id, 'Follow-up date updated.')
       router.refresh()
     } catch {
-      setItemMessage(
-        item.id,
-        dashboardQueueClientErrorMessage('communicationFollowUp', null),
-      )
+      setMutationRequiresRefresh(true)
+      setItemMessage(item.id, UNCERTAIN_COMMUNICATION_MUTATION_MESSAGE)
     } finally {
       mutationInFlightRef.current = false
       setSavingItemId(null)
@@ -327,7 +328,7 @@ export function DashboardCommunicationsPageClient({
                         <button
                           type="button"
                           className={secondaryButtonSm}
-                          disabled={mutationBusy}
+                          disabled={mutationBusy || mutationRequiresRefresh}
                           onClick={() => setOpenItemId((current) => (current === item.id ? null : item.id))}
                         >
                           Log touchpoint
@@ -353,7 +354,7 @@ export function DashboardCommunicationsPageClient({
                           <select
                             name="method"
                             defaultValue="phone"
-                            disabled={mutationBusy}
+                            disabled={mutationBusy || mutationRequiresRefresh}
                             className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                           >
                             <option value="phone">Phone call</option>
@@ -367,7 +368,7 @@ export function DashboardCommunicationsPageClient({
                           <input
                             type="text"
                             name="notes"
-                            disabled={mutationBusy}
+                            disabled={mutationBusy || mutationRequiresRefresh}
                             placeholder="Short note for the communication history"
                             className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                           />
@@ -377,28 +378,32 @@ export function DashboardCommunicationsPageClient({
                           <input
                             type="date"
                             name="nextFollowUpDate"
-                            disabled={mutationBusy}
+                            disabled={mutationBusy || mutationRequiresRefresh}
                             defaultValue={item.currentFollowUpDate}
                             className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
                           />
                         </label>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <button type="submit" className={primaryButtonSm} disabled={mutationBusy}>
+                        <button
+                          type="submit"
+                          className={primaryButtonSm}
+                          disabled={mutationBusy || mutationRequiresRefresh}
+                        >
                           {savingItemId === item.id ? 'Saving...' : 'Save communication'}
                         </button>
                         <button
                           type="button"
                           className={secondaryButtonSm}
                           onClick={() => setOpenItemId(null)}
-                          disabled={mutationBusy}
+                          disabled={mutationBusy || mutationRequiresRefresh}
                         >
                           Cancel
                         </button>
                         <button
                           type="button"
                           className={secondaryButtonSm}
-                          disabled={mutationBusy}
+                          disabled={mutationBusy || mutationRequiresRefresh}
                           onClick={() => {
                             const formData = new FormData()
                             formData.set('nextFollowUpDate', item.currentFollowUpDate)
