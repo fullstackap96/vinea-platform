@@ -8,7 +8,7 @@ Status: `Implemented and verified` locally. Live provider retry recovery remains
 
 **Environment tested:** Local Windows release-candidate worktree; no Google Calendar request or production access.
 
-**Repository state/commit:** `codex/release-candidate-20260711`; immutable implementation commit recorded after the complete release gate.
+**Repository state/commit:** `codex/release-candidate-20260711` at immutable implementation commit `74dc786b1489f37d83082d68aa12bfdf75fae37f`.
 
 **Date:** 2026-07-12
 
@@ -28,8 +28,11 @@ Status: `Implemented and verified` locally. Live provider retry recovery remains
 - Standard and all-file TypeScript checks: `PASS`.
 - ESLint: `PASS`.
 - Next.js `16.2.10` production build: `PASS`; `56` static pages generated.
-- Repository secret scan: `2,121` files scanned; `0` findings; no secret values printed.
-- Source aggregate before immutable commit: `EEE8DAD194D70650341FD4643019DBF530AFA856E1DDA897D78DC69FD61124B3` across `1,457` release-source files.
+- Repository secret scan: `2,122` files scanned; `0` findings; no secret values printed.
+- Immutable source aggregate: `EEE8DAD194D70650341FD4643019DBF530AFA856E1DDA897D78DC69FD61124B3` across `1,457` release-source files.
+- Complete `15`-check local release gate: `PASS` in `271.6` seconds.
+- Complete Vitest regression: `822` files / `3,503` tests passed.
+- Release security/evidence gates: zero dependency vulnerabilities and zero findings across RLS, monitoring, production gates, CSP, trust claims, release handoff, and completed evidence.
 
 **Security and tenancy result:** `PASS` for source/unit scope. Event identity is derived only after staff authentication, selected-parish resolution, and same-parish request ownership. The custom event id contains no raw parish or request id.
 

@@ -1323,6 +1323,39 @@ Verification summary:
 - Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
 - `git diff --check`: `PASS`; existing line-ending warnings only.
 
+## 2026-07-12 Google Calendar Provider Reliability Addendum
+
+This label-only addendum records local/CI reliability evidence without calendar titles, dates, times, parish ids, request ids, event ids, calendar ids, links, OAuth material, staff identities, database rows, credentials, or secrets.
+
+- Immutable implementation commit: `74dc786b1489f37d83082d68aa12bfdf75fae37f`.
+- Release-source aggregate: `EEE8DAD194D70650341FD4643019DBF530AFA856E1DDA897D78DC69FD61124B3` across `1,457` files.
+- Create identity is deterministic, opaque, selected-parish/request scoped, and Google-compatible: `YES`.
+- Create retry ignores only its deterministic event during conflict scanning: `YES`.
+- Already-exists recovery verifies id, summary, start, and end before local linkage: `YES`.
+- Calendar list, insert, recovery get, patch, and delete calls have a 15-second deadline: `YES`.
+- Staff authentication, active-parish membership, request ownership, selected integration, conflict review, and audit ordering remain before provider/local linkage: `YES`.
+- Live provider retry recovery rollout-verified: `NO`.
+- Production accessed: `NO`.
+- Google Calendar or OAuth called: `NO`.
+- Event, request, or integration mutated during verification: `NO`.
+- Migration or operational RLS changed: `NO`.
+- Production-sensitive features approved: `NO`.
+- Public trust claims approved: `NO`.
+
+Verification summary:
+
+- Complete Google Calendar slice: `34 files / 128 tests passed`.
+- Complete local release gate: `15 / 15 checks passed` in `271.6` seconds.
+- Full Vitest regression suite: `822 test files / 3,503 tests passed`.
+- Standard and all-file TypeScript checks: `PASS`.
+- ESLint: `PASS`.
+- Next.js production build: `PASS` with Next.js `16.2.10` and `56` static pages generated.
+- Repository secret scan: `2,122 files / 17 binaries skipped / 0 findings`; secret values printed: `NO`.
+- Dependency audit: `0 vulnerabilities`.
+- Release handoff: `141 artifacts / 16 CI commands / 15 locked gates / 0 findings`.
+- Completed local evidence: `510 required phrases / 0 findings`.
+- Production gate check: `15 locked gates / 0 findings`.
+
 ## 2026-07-10 Dashboard Shell Server Context And Exact-Parish Admin Addendum
 
 This label-only addendum records the shell and Audit Events authorization boundary without recording staff email, staff roster rows, parish ids, audit event rows or metadata, request ids, database details, credentials, or secrets.
