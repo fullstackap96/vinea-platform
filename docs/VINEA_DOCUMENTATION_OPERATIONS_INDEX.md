@@ -71,6 +71,7 @@ Start with these index documents instead of opening individual approval packets 
 | Environment contract | [Environment Configuration Baseline](ENVIRONMENT_CONFIGURATION_BASELINE_20260709.md) | Variable names and safety rules only; no secret values or deployment approval |
 | Google Calendar provider reliability | [Google Calendar Provider Reliability](GOOGLE_CALENDAR_PROVIDER_RELIABILITY_20260712.md) | Local/CI implementation approved with constraints; live synthetic provider recovery remains rollout-unverified |
 | Public intake retry identity | [Public Intake Retry Identity](PUBLIC_INTAKE_RETRY_IDENTITY_20260712.md) | Same-page implementation approved with constraints; live response-loss recovery remains rollout-unverified |
+| Public intake success settlement | [Public Intake Success Settlement Boundary](PUBLIC_INTAKE_SUCCESS_SETTLEMENT_BOUNDARY_20260712.md) | Stored success no longer awaits staff alert; live browser timing remains rollout-unverified |
 
 The gate index tells you whether work may proceed. The evidence package tells you what reviewers need. An approval packet prepares a decision; it does not grant approval merely by existing.
 
