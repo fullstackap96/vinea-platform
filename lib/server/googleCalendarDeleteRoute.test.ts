@@ -203,6 +203,7 @@ describe('Google Calendar delete route parish context', () => {
     expect(source).toContain('requestCalendarMatchesSelectedIntegration')
     expect(source).toContain('loadParishGoogleCalendarIntegration(')
     expect(source).toContain('parishContext.activeParishId')
+    expect(source).toContain('createGoogleCalendarProviderOptions')
     expect(source).not.toContain('createSupabaseRouteHandlerClient')
 
     expectBefore(source, 'const staff = await requireStaffFromRequest(request)', 'const parsedBody = await readBoundedJsonBody')

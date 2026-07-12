@@ -226,6 +226,8 @@ describe('Google Calendar create route parish context', () => {
     expect(source).toContain('parishionerMatchesParish')
     expect(source).toContain('loadParishGoogleCalendarIntegration(')
     expect(source).toContain('parishContext.activeParishId')
+    expect(source).toContain('buildDeterministicGoogleCalendarEventId')
+    expect(source).toContain('createGoogleCalendarProviderOptions')
     expect(source).not.toContain('createSupabaseRouteHandlerClient')
 
     expectBefore(source, 'const staff = await requireStaffFromRequest(request)', 'const parsedBody = await readBoundedJsonBody')
@@ -233,6 +235,8 @@ describe('Google Calendar create route parish context', () => {
     expectBefore(source, 'if (!parishionerMatchesParish', 'const integration = await loadParishGoogleCalendarIntegration')
     expectBefore(source, 'const integration = await loadParishGoogleCalendarIntegration', 'const calendar = getGoogleCalendarClient')
     expectBefore(source, 'const calendar = getGoogleCalendarClient', 'const insertRes = await calendar.events.insert')
+    expectBefore(source, 'const deterministicEventId = buildDeterministicGoogleCalendarEventId', 'const insertRes = await calendar.events.insert')
+    expectBefore(source, 'recoveredGoogleCalendarEventMatches(recovered.data', '.update({')
   })
 
   it('logs unexpected create failures through the shared safe logger', () => {

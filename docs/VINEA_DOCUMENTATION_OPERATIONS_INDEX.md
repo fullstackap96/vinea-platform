@@ -1,6 +1,6 @@
 # Vinea Documentation And Operations Index
 
-Last updated: 2026-07-11
+Last updated: 2026-07-12
 
 This is the front door to Vinea's repository documentation. Use it to find the source that answers a question; do not treat this index as a replacement for the linked source.
 
@@ -69,6 +69,7 @@ Start with these index documents instead of opening individual approval packets 
 | Incident readiness | [Incident Tabletop Evidence Package Index](INCIDENT_TABLETOP_EVIDENCE_PACKAGE_INDEX_20260705.md) and [Incident Response Runbook](INCIDENT_RESPONSE_RUNBOOK_20260627.md) | Prepared guidance is not completed production evidence |
 | Backup and restore | [Backup And Restore Runbook](BACKUP_RESTORE_RUNBOOK_20260627.md) | Existing evidence is bounded; stronger production claims remain gated |
 | Environment contract | [Environment Configuration Baseline](ENVIRONMENT_CONFIGURATION_BASELINE_20260709.md) | Variable names and safety rules only; no secret values or deployment approval |
+| Google Calendar provider reliability | [Google Calendar Provider Reliability](GOOGLE_CALENDAR_PROVIDER_RELIABILITY_20260712.md) | Local/CI implementation approved with constraints; live synthetic provider recovery remains rollout-unverified |
 
 The gate index tells you whether work may proceed. The evidence package tells you what reviewers need. An approval packet prepares a decision; it does not grant approval merely by existing.
 

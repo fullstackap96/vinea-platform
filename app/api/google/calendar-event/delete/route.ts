@@ -23,6 +23,7 @@ import {
   resolveActiveStaffParishContext,
 } from '@/lib/server/activeStaffParishContext'
 import { logServerError } from '@/lib/server/safeErrorLogging'
+import { createGoogleCalendarProviderOptions } from '@/lib/server/googleCalendarProviderReliability'
 import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 
 type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
@@ -200,10 +201,13 @@ export async function POST(request: NextRequest) {
     )
 
     try {
-      await calendar.events.delete({
-        calendarId,
-        eventId,
-      })
+      await calendar.events.delete(
+        {
+          calendarId,
+          eventId,
+        },
+        createGoogleCalendarProviderOptions()
+      )
     } catch (gErr: unknown) {
       if (!isNotFoundGoogleError(gErr)) {
         throw gErr

@@ -193,6 +193,7 @@ describe('Google Calendar update route parish context', () => {
     expect(source).toContain('requestCalendarMatchesSelectedIntegration')
     expect(source).toContain('loadParishGoogleCalendarIntegration(')
     expect(source).toContain('parishContext.activeParishId')
+    expect(source).toContain('createGoogleCalendarProviderOptions')
     expect(source).not.toContain('createSupabaseRouteHandlerClient')
 
     expectBefore(source, 'const staff = await requireStaffFromRequest(request)', 'const parsedBody = await readBoundedJsonBody')
@@ -201,6 +202,7 @@ describe('Google Calendar update route parish context', () => {
     expectBefore(source, 'const integration = await loadParishGoogleCalendarIntegration', 'const calendarId = usable.calendarId')
     expectBefore(source, 'if (!requestCalendarMatchesSelectedIntegration', 'const calendarId = usable.calendarId')
     expectBefore(source, 'const calendar = getGoogleCalendarClient', 'const patchRes = await calendar.events.patch')
+    expectBefore(source, 'const patchRes = await calendar.events.patch', '.update({')
   })
 
   it('logs unexpected update failures through the shared safe logger', () => {

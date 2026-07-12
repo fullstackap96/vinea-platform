@@ -25,6 +25,12 @@ import {
   resolveActiveStaffParishContext,
 } from '@/lib/server/activeStaffParishContext'
 import { logServerError } from '@/lib/server/safeErrorLogging'
+import {
+  buildDeterministicGoogleCalendarEventId,
+  createGoogleCalendarProviderOptions,
+  isGoogleCalendarAlreadyExistsError,
+  recoveredGoogleCalendarEventMatches,
+} from '@/lib/server/googleCalendarProviderReliability'
 import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 
 type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
@@ -174,6 +180,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { start, end, summary, description } = built
+    const deterministicEventId = buildDeterministicGoogleCalendarEventId({
+      parishId: parishContext.activeParishId,
+      requestId,
+    })
 
     const calendar = getGoogleCalendarClient(
       usable.refreshToken,
@@ -187,7 +197,7 @@ export async function POST(request: NextRequest) {
         calendarId: usable.calendarId,
         start,
         end,
-        ignoreEventId: null,
+        ignoreEventId: deterministicEventId,
       })
 
       if (conflicts.length) {
@@ -202,18 +212,64 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const insertRes = await calendar.events.insert({
-      calendarId: usable.calendarId,
-      requestBody: {
-        summary,
-        description,
-        start: { dateTime: start.toISOString() },
-        end: { dateTime: end.toISOString() },
-      },
-    })
+    const requestBody = {
+      id: deterministicEventId,
+      summary,
+      description,
+      start: { dateTime: start.toISOString() },
+      end: { dateTime: end.toISOString() },
+    }
 
-    const eventId = insertRes.data.id || null
-    const htmlLink = insertRes.data.htmlLink || null
+    let calendarEvent: {
+      id?: string | null
+      htmlLink?: string | null
+      summary?: string | null
+      start?: { dateTime?: string | null } | null
+      end?: { dateTime?: string | null } | null
+    }
+
+    try {
+      const insertRes = await calendar.events.insert(
+        {
+          calendarId: usable.calendarId,
+          requestBody,
+        },
+        createGoogleCalendarProviderOptions()
+      )
+      calendarEvent = insertRes.data
+    } catch (error: unknown) {
+      if (!isGoogleCalendarAlreadyExistsError(error)) throw error
+
+      const recovered = await calendar.events.get(
+        {
+          calendarId: usable.calendarId,
+          eventId: deterministicEventId,
+        },
+        createGoogleCalendarProviderOptions()
+      )
+
+      if (
+        !recoveredGoogleCalendarEventMatches(recovered.data, {
+          eventId: deterministicEventId,
+          summary,
+          start,
+          end,
+        })
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'An existing calendar event could not be safely matched to this request.',
+          },
+          { status: 409 }
+        )
+      }
+
+      calendarEvent = recovered.data
+    }
+
+    const eventId = calendarEvent.id || null
+    const htmlLink = calendarEvent.htmlLink || null
 
     if (!eventId) {
       return NextResponse.json(

@@ -6,6 +6,7 @@ import {
   serializeGoogleCalendarErrorForLogs,
 } from '@/lib/googleCalendarUserErrors'
 import { logServerError } from '@/lib/server/safeErrorLogging'
+import { createGoogleCalendarProviderOptions } from '@/lib/server/googleCalendarProviderReliability'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 export type GoogleCalendarConflict = {
@@ -110,13 +111,16 @@ export async function listParishGoogleCalendarConflicts(args: {
 }): Promise<GoogleCalendarConflict[]> {
   const { calendar, calendarId, start, end, ignoreEventId } = args
 
-  const res = await calendar.events.list({
-    calendarId,
-    timeMin: start.toISOString(),
-    timeMax: end.toISOString(),
-    singleEvents: true,
-    orderBy: 'startTime',
-  })
+  const res = await calendar.events.list(
+    {
+      calendarId,
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    },
+    createGoogleCalendarProviderOptions()
+  )
 
   const items = res.data.items ?? []
   const conflicts: GoogleCalendarConflict[] = []

@@ -25,6 +25,7 @@ import {
   resolveActiveStaffParishContext,
 } from '@/lib/server/activeStaffParishContext'
 import { logServerError } from '@/lib/server/safeErrorLogging'
+import { createGoogleCalendarProviderOptions } from '@/lib/server/googleCalendarProviderReliability'
 import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 
 type StaffSupabaseClient = Parameters<typeof resolveActiveStaffParishContext>[0]
@@ -221,16 +222,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const patchRes = await calendar.events.patch({
-      calendarId,
-      eventId,
-      requestBody: {
-        summary,
-        description,
-        start: { dateTime: start.toISOString() },
-        end: { dateTime: end.toISOString() },
+    const patchRes = await calendar.events.patch(
+      {
+        calendarId,
+        eventId,
+        requestBody: {
+          summary,
+          description,
+          start: { dateTime: start.toISOString() },
+          end: { dateTime: end.toISOString() },
+        },
       },
-    })
+      createGoogleCalendarProviderOptions()
+    )
 
     const htmlLink = patchRes.data.htmlLink || null
 
