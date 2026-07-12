@@ -12,6 +12,8 @@ Completion marker: `RELEASE_CANDIDATE_TECHNICAL_APPROVAL_20260711`
 
 **Date:** 2026-07-11
 
+**Post-approval hardening addendum:** Commit `037c5c964cb233ed6305dd3393cb9907d050286b` updates the release-source aggregate to `4865365E244756008022788AD375698900390857D1138899A6F3132A2AF24A95` across the same `1,439` source files. The local release runner now forces its final build to be credential-free even when `.env.local` exists. The full 12-command local runner passed in 301.5 seconds, the credential-free Next.js 16.2.10 build generated 56 pages, and the repository secret scan covered 2,097 files with zero findings. GitHub Actions run `29178995424` passed all 22 steps against this exact commit, and matching non-production Vercel preview `dpl_DocXHSgUah5T87sC5KmoCUz2tidL` is `READY`. This addendum does not expand the constrained approval scope or authorize merge/production.
+
 **Acceptance criteria:** Exact reviewed source scope; secret-free commit; immutable source identity; empty Git index; commit-aware scope verification; production-sensitive environment residue refused; RLS, monitoring, CSP, trust-claim, production-gate, and release-handoff evidence internally consistent; both TypeScript scopes, lint, complete tests, and Next.js production build pass.
 
 **Evidence collected:**

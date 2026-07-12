@@ -1,6 +1,6 @@
 # Vinea Repository Audit
 
-Last updated: 2026-07-10
+Last updated: 2026-07-11
 
 This audit is a living map of the current repository. It should be refreshed when routes, APIs, data model, RLS posture, docs, tests, or known risks materially change.
 
@@ -23,7 +23,7 @@ The worktree had many pre-existing uncommitted changes. This audit records curre
 
 ## Application Stack
 
-- Next.js 16.2.2 App Router.
+- Next.js 16.2.10 App Router.
 - React 19.2.4.
 - TypeScript.
 - Tailwind CSS 4.
@@ -222,6 +222,8 @@ The current worktree had many modified and untracked files before VAOS edits. Fu
 
 ## Current Risks And Unfinished Work
 
+- Authenticated preview health and staff smoke remain blocked by Vercel Deployment Protection; weakening protection is not an acceptable evidence shortcut.
+- Human branch review and merge approval remain pending for the release candidate.
 - Production RLS promotion is gated by approvals and safe smoke evidence.
 - Runtime workflow reminders are valuable but gated.
 - Certificate issuance logging runtime and correction/notation runtime are gated.
