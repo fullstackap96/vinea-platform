@@ -38,6 +38,13 @@ Status: `Implemented and verified` for local source, unit, type, and release-gat
 - Complete release gate: all `15/15` checks passed in `298.9` seconds, including zero secret findings across `2,126` files, zero dependency vulnerabilities, every locked evidence check, both TypeScript scopes, lint, `824` test files / `3,511` tests, and the credential-free Next.js `16.2.10` build with `56` static pages.
 - No public submission, email, provider call, production access, migration, operational RLS change, runtime-routing flag change, storage action, signed URL, export, AI call, record correction, or public claim occurred.
 
+## Remote Verification
+
+- GitHub Actions run `29197924589` passed `Test, lint, and build` for exact evidence head `1819e3eb8579a2029a936e1fe50724b4c840932b`.
+- Matching non-production Vercel deployment `dpl_E3ZrW9mQH6UerBmm3jgCzSYYsW7d` failed closed before `READY` because Preview is missing the required environment variable name `SUPABASE_SERVICE_ROLE_KEY`; no value was printed or changed.
+- The connected GitHub app and the repository pull-request API both returned zero open pull requests at verification time, so no PR-number check attribution was available despite the expected open-PR premise.
+- Protected-preview health and authenticated staff smoke did not run because no exact-head deployment was published. A prior deployment or local substitute is not represented as exact-head preview evidence.
+
 ## Technical Approval Record
 
 **Capability:** Public intake same-page ambiguous-response retry identity.
@@ -64,4 +71,4 @@ Status: `Implemented and verified` for local source, unit, type, and release-gat
 
 **Reasoning:** The server-owned recovery boundary now distinguishes completed persistence from partial leftovers without adding schema or weakening existing abuse, tenancy, cleanup, or privacy controls.
 
-**Next required action:** Bind the complete release result to an immutable commit, obtain remote CI, and run a synthetic non-production response-loss retry smoke when an approved healthy preview is available.
+**Next required action:** Add the approved shared-QA service-role credential to Vercel Preview scope without exposing it, redeploy the exact head, confirm the open PR reference, then run protected health/staff smoke and a synthetic non-production response-loss retry smoke.
