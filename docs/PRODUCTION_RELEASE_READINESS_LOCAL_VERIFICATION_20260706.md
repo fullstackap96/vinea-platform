@@ -23,6 +23,8 @@ npm run check:release-local -- --plan
 The wrapper runs this command sequence:
 
 ```bash
+npm run check:repository-secrets
+npm run check:dependency-security
 npm run check:release-env
 npm run check:rls-production-evidence
 npm run check:production-monitoring-evidence
@@ -30,6 +32,7 @@ npm run check:production-gates
 npm run check:csp-report-only
 npm run check:trust-center-claims
 npm run check:release-handoff
+npm run check:release-local-evidence
 npm run typecheck
 npm run typecheck:all
 npm run lint
@@ -37,7 +40,7 @@ npm test
 npm run build
 ```
 
-The sequence is intentionally conservative. It keeps the full test suite on the same stable top-level `npm test` path used elsewhere in the repo. The first command, `npm run check:release-env`, refuses to continue if obvious production-sensitive runtime flags are enabled in the shell. The RLS production evidence checker, `npm run check:rls-production-evidence`, verifies that membership-aware operational RLS production evidence remains ready for final human review while rollout, migrations, and operational RLS changes stay blocked. The production monitoring evidence checker, `npm run check:production-monitoring-evidence`, verifies that monitoring readiness artifacts remain ready for runtime approval review while runtime monitoring, external sends, production smoke, and public trust claims stay blocked. The CSP report-only evidence checker, `npm run check:csp-report-only`, verifies that browser-security evidence remains ready for review while runtime CSP, production CSP, enforcing CSP, and public trust claims stay blocked. The trust-center claims checker, `npm run check:trust-center-claims`, verifies that public trust-center publishing and public claims remain blocked before the heavier local checks run. The handoff checker, `npm run check:release-handoff`, verifies that the release-readiness index, local checklist, evidence template, CI workflow, production-sensitive gate references, RLS evidence references, monitoring evidence references, CSP evidence references, and trust-center claims references still agree before the heavier local checks run.
+The sequence is intentionally conservative. It starts with the repository secret scan and dependency audit, then keeps the full test suite on the same stable top-level `npm test` path used elsewhere in the repo. `npm run check:release-env` refuses to continue if obvious production-sensitive runtime flags are enabled in the shell. The RLS production evidence checker, `npm run check:rls-production-evidence`, verifies that membership-aware operational RLS production evidence remains ready for final human review while rollout, migrations, and operational RLS changes stay blocked. The production monitoring evidence checker, `npm run check:production-monitoring-evidence`, verifies that monitoring readiness artifacts remain ready for runtime approval review while runtime monitoring, external sends, production smoke, and public trust claims stay blocked. The CSP report-only evidence checker, `npm run check:csp-report-only`, verifies that browser-security evidence remains ready for review while runtime CSP, production CSP, enforcing CSP, and public trust claims stay blocked. The trust-center claims checker, `npm run check:trust-center-claims`, verifies that public trust-center publishing and public claims remain blocked before the heavier local checks run. The handoff checker and completed-evidence checker verify that the release index, local checklist, evidence template, CI workflow, gate references, and sanitized evidence still agree before type checks, lint, tests, and build.
 
 The wrapper stops at the first failed command and reports only command labels, counts, and safe boundary booleans. It does not clear or override production-sensitive runtime flags; if QA/prototype flags are enabled, the release environment guard must refuse the run.
 
@@ -83,18 +86,21 @@ Wrapper command:
 
 Expanded sequence:
 
-1. `npm run check:release-env`
-2. `npm run check:rls-production-evidence`
-3. `npm run check:production-monitoring-evidence`
-4. `npm run check:production-gates`
-5. `npm run check:csp-report-only`
-6. `npm run check:trust-center-claims`
-7. `npm run check:release-handoff`
-8. `npm run typecheck`
-9. `npm run typecheck:all`
-10. `npm run lint`
-11. `npm test`
-12. `npm run build`
+1. `npm run check:repository-secrets`
+2. `npm run check:dependency-security`
+3. `npm run check:release-env`
+4. `npm run check:rls-production-evidence`
+5. `npm run check:production-monitoring-evidence`
+6. `npm run check:production-gates`
+7. `npm run check:csp-report-only`
+8. `npm run check:trust-center-claims`
+9. `npm run check:release-handoff`
+10. `npm run check:release-local-evidence`
+11. `npm run typecheck`
+12. `npm run typecheck:all`
+13. `npm run lint`
+14. `npm test`
+15. `npm run build`
 
 ## Safety Boundary
 

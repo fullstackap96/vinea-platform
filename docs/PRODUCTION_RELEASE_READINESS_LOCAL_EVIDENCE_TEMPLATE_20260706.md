@@ -45,18 +45,21 @@ Record pass/fail only. Do not paste secrets, raw environment values, database UR
 
 | Order | Command | Status | Sanitized notes |
 |---:|---|---|---|
-| 1 | `npm run check:release-env` |  |  |
-| 2 | `npm run check:rls-production-evidence` |  |  |
-| 3 | `npm run check:production-monitoring-evidence` |  |  |
-| 4 | `npm run check:production-gates` |  |  |
-| 5 | `npm run check:csp-report-only` |  |  |
-| 6 | `npm run check:trust-center-claims` |  |  |
-| 7 | `npm run check:release-handoff` |  |  |
-| 8 | `npm run typecheck` |  |  |
-| 9 | `npm run typecheck:all` |  |  |
-| 10 | `npm run lint` |  |  |
-| 11 | `npm test` |  |  |
-| 12 | `npm run build` |  |  |
+| 1 | `npm run check:repository-secrets` |  |  |
+| 2 | `npm run check:dependency-security` |  |  |
+| 3 | `npm run check:release-env` |  |  |
+| 4 | `npm run check:rls-production-evidence` |  |  |
+| 5 | `npm run check:production-monitoring-evidence` |  |  |
+| 6 | `npm run check:production-gates` |  |  |
+| 7 | `npm run check:csp-report-only` |  |  |
+| 8 | `npm run check:trust-center-claims` |  |  |
+| 9 | `npm run check:release-handoff` |  |  |
+| 10 | `npm run check:release-local-evidence` |  |  |
+| 11 | `npm run typecheck` |  |  |
+| 12 | `npm run typecheck:all` |  |  |
+| 13 | `npm run lint` |  |  |
+| 14 | `npm test` |  |  |
+| 15 | `npm run build` |  |  |
 
 ## Required Sanitized Outputs
 

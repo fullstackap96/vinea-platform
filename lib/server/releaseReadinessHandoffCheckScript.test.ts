@@ -290,7 +290,7 @@ describe('release readiness handoff consistency checker', () => {
     expect(report.publicTrustClaimsApproved).toBe(false)
     expect(report.artifactCount).toBe(141)
     expect(report.existingArtifactCount).toBe(141)
-    expect(report.localCommandCount).toBe(12)
+    expect(report.localCommandCount).toBe(15)
     expect(report.ciCommandCount).toBe(16)
     expect(report.lockedGateCount).toBe(15)
     expect(report.humanReviewBoundaryCount).toBe(20)

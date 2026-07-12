@@ -357,7 +357,7 @@ describe('completed local release evidence checker script', () => {
     expect(report.productionSensitiveFeaturesApproved).toBe(false)
     expect(report.publicTrustClaimsApproved).toBe(false)
     expect(report.productionApprovalGranted).toBe(false)
-    expect(report.commandCount).toBe(12)
+    expect(report.commandCount).toBe(15)
     expect(report.requiredPhraseCount).toBe(510)
     expect(report.findings).toEqual([])
     expect(output).not.toMatch(/postgresql:\/\/[^`\s<\[]+/i)

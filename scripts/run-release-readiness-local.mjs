@@ -50,6 +50,14 @@ function buildChildProcessEnv(parentEnv, { credentialFreeBuild = false } = {}) {
 
 const releaseReadinessCommands = [
   {
+    label: 'npm run check:repository-secrets',
+    args: ['run', 'check:repository-secrets'],
+  },
+  {
+    label: 'npm run check:dependency-security',
+    args: ['run', 'check:dependency-security'],
+  },
+  {
     label: 'npm run check:release-env',
     args: ['run', 'check:release-env'],
   },
@@ -76,6 +84,10 @@ const releaseReadinessCommands = [
   {
     label: 'npm run check:release-handoff',
     args: ['run', 'check:release-handoff'],
+  },
+  {
+    label: 'npm run check:release-local-evidence',
+    args: ['run', 'check:release-local-evidence'],
   },
   {
     label: 'npm run typecheck',

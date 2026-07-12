@@ -66,7 +66,7 @@ describe('release readiness local evidence validator', () => {
       commandResults: [
         {
           order: 1,
-          command: 'npm run check:release-env',
+          command: RELEASE_READINESS_LOCAL_COMMANDS[0],
           status: 'PASS',
           sanitizedNotesLabel: 'Passed',
         },
@@ -85,9 +85,9 @@ describe('release readiness local evidence validator', () => {
     expect(result.findings).toEqual(
       expect.arrayContaining([
         `commandResults must include exactly ${RELEASE_READINESS_LOCAL_COMMANDS.length} commands`,
-        'commandResults[1].command must be npm run check:rls-production-evidence',
+        `commandResults[1].command must be ${RELEASE_READINESS_LOCAL_COMMANDS[1]}`,
         'commandResults[1].status must be PASS',
-        'commandResults[2] is missing npm run check:production-monitoring-evidence',
+        `commandResults[2] is missing ${RELEASE_READINESS_LOCAL_COMMANDS[2]}`,
       ]),
     )
   })

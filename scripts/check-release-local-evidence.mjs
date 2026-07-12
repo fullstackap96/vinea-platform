@@ -8,6 +8,8 @@ const validatorDocPath =
   'docs/PRODUCTION_RELEASE_READINESS_LOCAL_EVIDENCE_VALIDATOR_20260706.md'
 
 const requiredCommands = [
+  'npm run check:repository-secrets',
+  'npm run check:dependency-security',
   'npm run check:release-env',
   'npm run check:rls-production-evidence',
   'npm run check:production-monitoring-evidence',
@@ -15,6 +17,7 @@ const requiredCommands = [
   'npm run check:csp-report-only',
   'npm run check:trust-center-claims',
   'npm run check:release-handoff',
+  'npm run check:release-local-evidence',
   'npm run typecheck',
   'npm run typecheck:all',
   'npm run lint',

@@ -19,7 +19,7 @@ It is a map, not approval. It does not deploy, enable production flags, add prod
 | Local evidence | `docs/PRODUCTION_RELEASE_READINESS_LOCAL_EVIDENCE_TEMPLATE_20260706.md` | Capture pass/fail results with sanitized labels only. |
 | Local evidence validator | `docs/PRODUCTION_RELEASE_READINESS_LOCAL_EVIDENCE_VALIDATOR_20260706.md` and `lib/releaseReadinessLocalEvidence.ts` | Validate the filled local evidence record before using it in a handoff. |
 | Local evidence validated example | `docs/PRODUCTION_RELEASE_READINESS_LOCAL_EVIDENCE_VALIDATED_EXAMPLE_20260706.md` | Reference the expected sanitized passing shape without treating it as real rollout evidence. |
-| Current completed local evidence | `docs/PRODUCTION_RELEASE_READINESS_LOCAL_EVIDENCE_20260707_COMPLETED.md` | Review the commit-level 2026-07-11 process-clean 12-command refresh with 809 test files and 3,441 tests; this is not production approval. |
+| Current completed local evidence | `docs/PRODUCTION_RELEASE_READINESS_LOCAL_EVIDENCE_20260707_COMPLETED.md` | Review the current 15-command local release contract, including repository secret scanning, dependency security, completed-evidence validation, full tests, and credential-free build; this is not production approval. |
 | Fresh process-clean local rerun evidence | `docs/PRODUCTION_RELEASE_READINESS_LOCAL_RERUN_EVIDENCE_20260708.md` | Review the latest process-clean local release-readiness rerun evidence; this is not production approval. |
 | Release-env cleanup guide | `docs/PRODUCTION_RELEASE_READINESS_ENV_CLEANUP_GUIDE_20260708.md`, `scripts/prepare-release-readiness-env-cleanup.mjs`, and `scripts/release-readiness-env-config.mjs` | If `check:release-env` refuses a QA shell, run `npm run check:release-env-cleanup-guide` to list variable names and safe labels only before intentional cleanup. |
 | Human review packet | `docs/PRODUCTION_RELEASE_READINESS_HUMAN_REVIEW_PACKET_20260707.md` | Convert the completed local evidence into a human-review decision record without approving production-sensitive gates. |
@@ -28,7 +28,7 @@ It is a map, not approval. It does not deploy, enable production flags, add prod
 | Environment configuration contract | `.env.example` and `docs/ENVIRONMENT_CONFIGURATION_BASELINE_20260709.md` | Confirm required and optional variable names are documented without credentials or production-sensitive runtime gates. |
 | CI action provenance | `docs/CI_ACTION_PROVENANCE_BASELINE_20260709.md` and `.github/workflows/ci.yml` | Confirm every third-party action is pinned to a reviewed full commit SHA and CI permissions remain read-only. |
 | Release candidate technical approval | `docs/RELEASE_CANDIDATE_TECHNICAL_APPROVAL_20260711.md` | Review the evidence-backed approval for remote CI and isolated non-production preview validation; production deployment and sensitive gates remain unapproved. |
-| Release candidate source manifest | `docs/RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711.md`, `scripts/build-release-candidate-source-manifest.mjs`, and `lib/server/releaseCandidateSourceManifest.test.ts` | Confirm committed source aggregate `4865365E244756008022788AD375698900390857D1138899A6F3132A2AF24A95` remains deterministic and secret-safe. |
+| Release candidate source manifest | `docs/RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711.md`, `scripts/build-release-candidate-source-manifest.mjs`, and `lib/server/releaseCandidateSourceManifest.test.ts` | Confirm committed source aggregate `B9511A0D7CA4E38ADC0D46171382448B8A10FC45E53FF846020667C621E92FD0` remains deterministic and secret-safe. |
 | Release candidate commit scope | `docs/RELEASE_CANDIDATE_COMMIT_SCOPE_REVIEW_20260711.md`, `scripts/prepare-release-candidate-commit-scope.mjs`, and `lib/server/releaseCandidateCommitScope.test.ts` | Confirm the initial 1,801-path candidate was staged exactly, excluded artifacts remain outside Git, and post-commit scope verification is settled or contains only an intentional follow-up. |
 | Dependency update maintenance | `.github/dependabot.yml` and `docs/DEPENDENCY_UPDATE_MAINTENANCE_BASELINE_20260709.md` | Confirm npm and GitHub Actions updates arrive as bounded review PRs, with no automatic merge, deployment, credentials, or production-gate approval. |
 | Public health response safety | `docs/HEALTH_ENDPOINT_PUBLIC_RESPONSE_SAFETY_20260709.md`, `app/api/health/route.ts`, and `lib/server/healthCheck.ts` | Confirm healthy probes preserve `checks.schema`, production failures hide configuration/schema labels, and responses are dynamic and uncacheable. |
@@ -184,6 +184,8 @@ Expected cleanup-guide behavior:
 Run these commands in order before a release-readiness handoff:
 
 ```bash
+npm run check:repository-secrets
+npm run check:dependency-security
 npm run check:release-env
 npm run check:rls-production-evidence
 npm run check:production-monitoring-evidence
@@ -191,6 +193,7 @@ npm run check:production-gates
 npm run check:csp-report-only
 npm run check:trust-center-claims
 npm run check:release-handoff
+npm run check:release-local-evidence
 npm run typecheck
 npm run typecheck:all
 npm run lint

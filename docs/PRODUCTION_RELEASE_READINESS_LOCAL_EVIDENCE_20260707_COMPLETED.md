@@ -111,25 +111,27 @@ The immutable release-candidate requirement is satisfied for the locally verifie
 
 | Order | Command | Status | Sanitized notes |
 |---:|---|---|---|
-| 1 | `npm run check:release-env` | `PASS` | Returned `RELEASE_READINESS_ENVIRONMENT_ACCEPTED` after clearing non-production QA runtime flags from the command process only; production-sensitive runtime flags disabled for the release check. |
-| 2 | `npm run check:rls-production-evidence` | `PASS` | Returned `RLS_PRODUCTION_EVIDENCE_READY_FOR_FINAL_HUMAN_REVIEW`; production RLS rollout, migrations, and operational RLS changes remained false; findings count `0`. |
-| 3 | `npm run check:production-monitoring-evidence` | `PASS` | Returned `PRODUCTION_MONITORING_EVIDENCE_READY_FOR_RUNTIME_APPROVAL_REVIEW`; runtime monitoring, external sends, production smoke, and public trust claims remained false; findings count `0`. |
-| 4 | `npm run check:production-gates` | `PASS` | Returned `BOUNDARIES_READY_FOR_REVIEW`; artifact count `14`; linked artifact count `14`; existing artifact count `14`; findings count `0`; sensitive approvals remained false. |
-| 5 | `npm run check:csp-report-only` | `PASS` | Returned `CSP_REPORT_ONLY_EVIDENCE_READY_FOR_REVIEW`; report-only runtime, production CSP, enforcing CSP, and public trust claims remained false; findings count `0`. |
-| 6 | `npm run check:trust-center-claims` | `PASS` | Returned `PUBLIC_CLAIMS_BOUNDARIES_READY_FOR_REVIEW`; public trust-center publishing and public claims remained false; findings count `0`. |
-| 7 | `npm run check:release-handoff` | `PASS` | Returned `RELEASE_HANDOFF_READY_FOR_REVIEW`; artifact count `28`; locked gate count `14`; human review boundary count `17`; findings count `0`. |
-| 8 | `npm run typecheck` | `PASS` | Production/source TypeScript check completed successfully. |
-| 9 | `npm run typecheck:all` | `PASS` | All-file TypeScript check completed successfully. |
-| 10 | `npm run lint -- --quiet` | `PASS` | Quiet lint completed successfully. |
-| 10a | `npm run lint` | `PASS` | Full lint completed with zero errors and zero warnings during the 2026-07-11 contract-alignment verification. |
-| 11 | `npm test` | `PASS` | Full Vitest completed successfully: 544 test files, 2,172 tests. |
-| 12 | `npm run build` | `PASS` | Next.js production build completed successfully with Next.js `16.2.2`. |
+| 1 | `npm run check:repository-secrets` | `PASS` | Repository scan completed with label-only output and no findings. |
+| 2 | `npm run check:dependency-security` | `PASS` | Dependency audit completed with zero high-severity findings. |
+| 3 | `npm run check:release-env` | `PASS` | Returned `RELEASE_READINESS_ENVIRONMENT_ACCEPTED` after clearing non-production QA runtime flags from the command process only; production-sensitive runtime flags disabled for the release check. |
+| 4 | `npm run check:rls-production-evidence` | `PASS` | Returned `RLS_PRODUCTION_EVIDENCE_READY_FOR_FINAL_HUMAN_REVIEW`; production RLS rollout, migrations, and operational RLS changes remained false; findings count `0`. |
+| 5 | `npm run check:production-monitoring-evidence` | `PASS` | Returned `PRODUCTION_MONITORING_EVIDENCE_READY_FOR_RUNTIME_APPROVAL_REVIEW`; runtime monitoring, external sends, production smoke, and public trust claims remained false; findings count `0`. |
+| 6 | `npm run check:production-gates` | `PASS` | Returned `BOUNDARIES_READY_FOR_REVIEW`; artifact count `14`; linked artifact count `14`; existing artifact count `14`; findings count `0`; sensitive approvals remained false. |
+| 7 | `npm run check:csp-report-only` | `PASS` | Returned `CSP_REPORT_ONLY_EVIDENCE_READY_FOR_REVIEW`; report-only runtime, production CSP, enforcing CSP, and public trust claims remained false; findings count `0`. |
+| 8 | `npm run check:trust-center-claims` | `PASS` | Returned `PUBLIC_CLAIMS_BOUNDARIES_READY_FOR_REVIEW`; public trust-center publishing and public claims remained false; findings count `0`. |
+| 9 | `npm run check:release-handoff` | `PASS` | Returned `RELEASE_HANDOFF_READY_FOR_REVIEW`; locked production gates remained intact; findings count `0`. |
+| 10 | `npm run check:release-local-evidence` | `PASS` | Returned `LOCAL_RELEASE_EVIDENCE_READY_FOR_HUMAN_REVIEW`; production approval remained false; findings count `0`. |
+| 11 | `npm run typecheck` | `PASS` | Production/source TypeScript check completed successfully. |
+| 12 | `npm run typecheck:all` | `PASS` | All-file TypeScript check completed successfully. |
+| 13 | `npm run lint` | `PASS` | Full lint completed with zero errors and zero warnings. |
+| 14 | `npm test` | `PASS` | Full Vitest completed successfully. |
+| 15 | `npm run build` | `PASS` | Credential-free Next.js `16.2.10` production build completed successfully. |
 
 ## One-Command Runner Result
 
 - Command label: `npm run check:release-local`
 - Decision label: `LOCAL_RELEASE_READINESS_PASSED`
-- Command count: `12`
+- Command count: `15`
 - Production-sensitive features approved: `NO`
 - Public trust claims approved: `NO`
 - Raw output or secrets captured: `NO`

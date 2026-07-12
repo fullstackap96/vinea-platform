@@ -19,6 +19,8 @@ describe('local release-readiness runner', () => {
     )
 
     const orderedCommands = [
+      'npm run check:repository-secrets',
+      'npm run check:dependency-security',
       'npm run check:release-env',
       'npm run check:rls-production-evidence',
       'npm run check:production-monitoring-evidence',
@@ -26,6 +28,7 @@ describe('local release-readiness runner', () => {
       'npm run check:csp-report-only',
       'npm run check:trust-center-claims',
       'npm run check:release-handoff',
+      'npm run check:release-local-evidence',
       'npm run typecheck',
       'npm run typecheck:all',
       'npm run lint',
@@ -89,10 +92,12 @@ describe('local release-readiness runner', () => {
     expect(plan.decision).toBe('LOCAL_RELEASE_READINESS_PLAN_READY')
     expect(plan.productionSensitiveFeaturesApproved).toBe(false)
     expect(plan.publicTrustClaimsApproved).toBe(false)
-    expect(plan.commandCount).toBe(12)
+    expect(plan.commandCount).toBe(15)
     expect(plan.credentialFreeBuild).toBe(true)
     expect(plan.credentialFreeBuildEnvironmentKeyCount).toBe(11)
     expect(plan.commands).toEqual([
+      'npm run check:repository-secrets',
+      'npm run check:dependency-security',
       'npm run check:release-env',
       'npm run check:rls-production-evidence',
       'npm run check:production-monitoring-evidence',
@@ -100,6 +105,7 @@ describe('local release-readiness runner', () => {
       'npm run check:csp-report-only',
       'npm run check:trust-center-claims',
       'npm run check:release-handoff',
+      'npm run check:release-local-evidence',
       'npm run typecheck',
       'npm run typecheck:all',
       'npm run lint',

@@ -47,18 +47,21 @@ The source record uses label-only planning values. This document intentionally d
 
 | Order | Command | Example status |
 |---:|---|---|
-| 1 | `npm run check:release-env` | `PASS` |
-| 2 | `npm run check:rls-production-evidence` | `PASS` |
-| 3 | `npm run check:production-monitoring-evidence` | `PASS` |
-| 4 | `npm run check:production-gates` | `PASS` |
-| 5 | `npm run check:csp-report-only` | `PASS` |
-| 6 | `npm run check:trust-center-claims` | `PASS` |
-| 7 | `npm run check:release-handoff` | `PASS` |
-| 8 | `npm run typecheck` | `PASS` |
-| 9 | `npm run typecheck:all` | `PASS` |
-| 10 | `npm run lint -- --quiet` | `PASS` |
-| 11 | `npm test` | `PASS` |
-| 12 | `npm run build` | `PASS` |
+| 1 | `npm run check:repository-secrets` | `PASS` |
+| 2 | `npm run check:dependency-security` | `PASS` |
+| 3 | `npm run check:release-env` | `PASS` |
+| 4 | `npm run check:rls-production-evidence` | `PASS` |
+| 5 | `npm run check:production-monitoring-evidence` | `PASS` |
+| 6 | `npm run check:production-gates` | `PASS` |
+| 7 | `npm run check:csp-report-only` | `PASS` |
+| 8 | `npm run check:trust-center-claims` | `PASS` |
+| 9 | `npm run check:release-handoff` | `PASS` |
+| 10 | `npm run check:release-local-evidence` | `PASS` |
+| 11 | `npm run typecheck` | `PASS` |
+| 12 | `npm run typecheck:all` | `PASS` |
+| 13 | `npm run lint` | `PASS` |
+| 14 | `npm test` | `PASS` |
+| 15 | `npm run build` | `PASS` |
 
 ## Sanitized Guard Summary
 
@@ -80,8 +83,8 @@ The source record uses label-only planning values. This document intentionally d
 | `decision` | `READY_FOR_HUMAN_RELEASE_REVIEW` |
 | `readyForHumanReleaseReview` | `true` |
 | `productionApprovalGranted` | `false` |
-| `safeSummary.commandCount` | `12` |
-| `safeSummary.passingCommandCount` | `12` |
+| `safeSummary.commandCount` | `15` |
+| `safeSummary.passingCommandCount` | `15` |
 | `safeSummary.failedOrMissingCommandCount` | `0` |
 | `safeSummary.releaseEnvironmentAccepted` | `true` |
 | `safeSummary.qaPrototypeRuntimeResidueClear` | `true` |

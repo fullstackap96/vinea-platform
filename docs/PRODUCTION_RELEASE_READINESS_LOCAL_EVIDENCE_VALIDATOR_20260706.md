@@ -16,7 +16,7 @@ The validator checks a filled local release evidence record for:
 
 - all twelve local release-readiness commands in the documented order;
 - command statuses recorded as `PASS`;
-- accepted sanitized output decisions for `check:release-env`, `check:rls-production-evidence`, `check:production-monitoring-evidence`, `check:production-gates`, `check:csp-report-only`, `check:trust-center-claims`, and `check:release-handoff`;
+- accepted sanitized output decisions for repository secret scanning, dependency security, `check:release-env`, `check:rls-production-evidence`, `check:production-monitoring-evidence`, `check:production-gates`, `check:csp-report-only`, `check:trust-center-claims`, `check:release-handoff`, and `check:release-local-evidence`;
 - current production gate and release handoff counts, including production-gates artifact count `14`, linked artifact count `14`, existing artifact count `14`, release-handoff artifact count `28`, locked gate count `14`, and human review boundary count `17`;
 - explicit confirmation that QA/prototype `_ACK` and `_ENV` residue was not configured for the accepted release environment guard;
 - no production-sensitive feature approval or public trust claim approval;

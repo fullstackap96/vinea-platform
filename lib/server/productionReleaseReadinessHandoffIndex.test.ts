@@ -115,6 +115,8 @@ describe('production release readiness handoff index', () => {
     const doc = readRepoFile(indexPath)
 
     const localCommands = [
+      'npm run check:repository-secrets',
+      'npm run check:dependency-security',
       'npm run check:release-env',
       'npm run check:rls-production-evidence',
       'npm run check:production-monitoring-evidence',
@@ -122,6 +124,7 @@ describe('production release readiness handoff index', () => {
       'npm run check:csp-report-only',
       'npm run check:trust-center-claims',
       'npm run check:release-handoff',
+      'npm run check:release-local-evidence',
       'npm run typecheck',
       'npm run typecheck:all',
       'npm run lint',
