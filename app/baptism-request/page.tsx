@@ -9,10 +9,7 @@ import {
   intakeTextareaClass,
 } from '@/lib/intakeFormStyles'
 import { PublicIntakeShell } from '@/app/_components/PublicIntakeShell'
-import {
-  logPublicIntakeNotificationException,
-  logPublicIntakeNotificationFailure,
-} from '@/lib/publicIntakeNotificationClient'
+import { queuePublicIntakeStaffNotification } from '@/lib/publicIntakeNotificationClient'
 import { submitPublicIntake } from '@/lib/publicIntakeSubmissionClient'
 
 export default function BaptismRequestPage() {
@@ -55,29 +52,18 @@ export default function BaptismRequestPage() {
     }
     const requestId = intakeResult.requestId
 
-    try {
-      const res = await fetch('/api/request-notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requestId,
-          requestType: 'baptism',
-          contactName: fullName,
-          contactEmail: email,
-          contactPhone: phone || '—',
-          childName,
-          notes,
-          requestSpecificSummary: preferredDates
-            ? `Preferred dates: ${preferredDates}`
-            : undefined,
-        }),
-      })
-      if (!res.ok) {
-        logPublicIntakeNotificationFailure(res.status)
-      }
-    } catch {
-      logPublicIntakeNotificationException()
-    }
+    queuePublicIntakeStaffNotification({
+      requestId,
+      requestType: 'baptism',
+      contactName: fullName,
+      contactEmail: email,
+      contactPhone: phone || '—',
+      childName,
+      notes,
+      requestSpecificSummary: preferredDates
+        ? `Preferred dates: ${preferredDates}`
+        : undefined,
+    })
 
     setMessage('Request submitted successfully.')
     setFullName('')

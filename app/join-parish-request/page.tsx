@@ -11,10 +11,7 @@ import {
   intakeTextareaClass,
 } from '@/lib/intakeFormStyles'
 import { PublicIntakeShell } from '@/app/_components/PublicIntakeShell'
-import {
-  logPublicIntakeNotificationException,
-  logPublicIntakeNotificationFailure,
-} from '@/lib/publicIntakeNotificationClient'
+import { queuePublicIntakeStaffNotification } from '@/lib/publicIntakeNotificationClient'
 import { submitPublicIntake } from '@/lib/publicIntakeSubmissionClient'
 
 type YesNo = 'Yes' | 'No'
@@ -84,46 +81,35 @@ export default function JoinParishRequestPage() {
     }
     const requestId = intakeResult.requestId
 
-    try {
-      const res = await fetch('/api/request-notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requestId,
-          requestType: 'join_parish',
-          contactName: fullName,
-          contactEmail: email,
-          contactPhone: phone || '—',
-          notes,
-          joinParish: {
-            address: address.trim() || undefined,
-            baptized,
-            confirmed,
-            firstCommunion,
-            interestedInOcia,
-            reason: reason.trim() || undefined,
-          },
-          requestSpecificSummary: [
-            `Moving into parish: ${movingIntoParish}`,
-            address.trim() ? `Address: ${address.trim()}` : null,
-            householdMembers.trim() ? `Household members: ${householdMembers.trim()}` : null,
-            `Baptized: ${baptized}`,
-            `Confirmed: ${confirmed}`,
-            `First Communion: ${firstCommunion}`,
-            `Already Catholic: ${alreadyCatholic}`,
-            `Interested in OCIA: ${interestedInOcia}`,
-            reason.trim() ? `Reason: ${reason.trim()}` : null,
-          ]
-            .filter(Boolean)
-            .join('\n'),
-        }),
-      })
-      if (!res.ok) {
-        logPublicIntakeNotificationFailure(res.status)
-      }
-    } catch {
-      logPublicIntakeNotificationException()
-    }
+    queuePublicIntakeStaffNotification({
+      requestId,
+      requestType: 'join_parish',
+      contactName: fullName,
+      contactEmail: email,
+      contactPhone: phone || '—',
+      notes,
+      joinParish: {
+        address: address.trim() || undefined,
+        baptized,
+        confirmed,
+        firstCommunion,
+        interestedInOcia,
+        reason: reason.trim() || undefined,
+      },
+      requestSpecificSummary: [
+        `Moving into parish: ${movingIntoParish}`,
+        address.trim() ? `Address: ${address.trim()}` : null,
+        householdMembers.trim() ? `Household members: ${householdMembers.trim()}` : null,
+        `Baptized: ${baptized}`,
+        `Confirmed: ${confirmed}`,
+        `First Communion: ${firstCommunion}`,
+        `Already Catholic: ${alreadyCatholic}`,
+        `Interested in OCIA: ${interestedInOcia}`,
+        reason.trim() ? `Reason: ${reason.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    })
 
     setMessage('Request submitted successfully.')
     setFirstName('')

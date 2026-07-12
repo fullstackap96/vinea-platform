@@ -24,8 +24,11 @@ describe('public intake client notification logging', () => {
       expect(source).toContain(
         "from '@/lib/publicIntakeNotificationClient'"
       )
-      expect(source).toContain('logPublicIntakeNotificationFailure(res.status)')
-      expect(source).toContain('logPublicIntakeNotificationException()')
+      expect(source).toContain('queuePublicIntakeStaffNotification({')
+      expect(source).not.toContain("await fetch('/api/request-notifications'")
+      expect(source.indexOf('queuePublicIntakeStaffNotification({')).toBeLessThan(
+        source.indexOf("setMessage('Request submitted successfully.')")
+      )
       expect(source).not.toContain('await res.text()')
       expect(source).not.toContain("console.warn('Request notification failed:'")
       expect(source).not.toContain("console.warn('Request notification error:'")
@@ -34,15 +37,22 @@ describe('public intake client notification logging', () => {
 
   it('keeps the client logger label-only and disabled in production', () => {
     const source = readRepoFile('lib/publicIntakeNotificationClient.ts')
+    const loggerSource = source.slice(
+      0,
+      source.indexOf('const PUBLIC_INTAKE_NOTIFICATION_TIMEOUT_MS')
+    )
 
-    expect(source).toContain("process.env.NODE_ENV === 'production'")
-    expect(source).toContain("[public-intake] staff notification failed")
-    expect(source).toContain("[public-intake] staff notification exception")
-    expect(source).toContain("statusLabel: Number.isFinite(status)")
-    expect(source).toContain("statusLabel: 'network-or-client-error'")
-    expect(source).not.toContain('error:')
-    expect(source).not.toContain('message:')
-    expect(source).not.toContain('response')
-    expect(source).not.toContain('body')
+    expect(loggerSource).toContain("process.env.NODE_ENV === 'production'")
+    expect(loggerSource).toContain("[public-intake] staff notification failed")
+    expect(loggerSource).toContain("[public-intake] staff notification exception")
+    expect(loggerSource).toContain("statusLabel: Number.isFinite(status)")
+    expect(loggerSource).toContain("statusLabel: 'network-or-client-error'")
+    expect(source).toContain('PUBLIC_INTAKE_NOTIFICATION_TIMEOUT_MS = 15_000')
+    expect(source).toContain('signal: controller.signal')
+    expect(source).toContain('void Promise.resolve()')
+    expect(loggerSource).not.toContain('error:')
+    expect(loggerSource).not.toContain('message:')
+    expect(loggerSource).not.toContain('response')
+    expect(loggerSource).not.toContain('body')
   })
 })

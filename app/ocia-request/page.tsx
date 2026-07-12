@@ -19,10 +19,7 @@ import {
   SEEKING_LABEL,
   SEEKING_VALUES,
 } from '@/lib/ociaIntakeOptions'
-import {
-  logPublicIntakeNotificationException,
-  logPublicIntakeNotificationFailure,
-} from '@/lib/publicIntakeNotificationClient'
+import { queuePublicIntakeStaffNotification } from '@/lib/publicIntakeNotificationClient'
 import { submitPublicIntake } from '@/lib/publicIntakeSubmissionClient'
 
 export default function OciaRequestPage() {
@@ -87,38 +84,27 @@ export default function OciaRequestPage() {
     }
     const requestId = intakeResult.requestId
 
-    try {
-      const res = await fetch('/api/request-notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requestId,
-          requestType: 'ocia',
-          contactName: fullName,
-          contactEmail: email,
-          contactPhone: phone || '—',
-          notes,
-          requestSpecificSummary: [
-            dateOfBirth ? `Date of birth: ${dateOfBirth}` : null,
-            ageOrDobNote ? `Age/DOB note: ${ageOrDobNote.trim()}` : null,
-            sacramentalBackground ? `Sacramental background: ${sacramentalBackground}` : null,
-            seeking ? `Seeking: ${seeking}` : null,
-            parishionerStatus ? `Parishioner status: ${parishionerStatus.trim()}` : null,
-            preferredContactMethod
-              ? `Preferred contact method: ${preferredContactMethod}`
-              : null,
-            availability ? `Availability: ${availability.trim()}` : null,
-          ]
-            .filter(Boolean)
-            .join('\n'),
-        }),
-      })
-      if (!res.ok) {
-        logPublicIntakeNotificationFailure(res.status)
-      }
-    } catch {
-      logPublicIntakeNotificationException()
-    }
+    queuePublicIntakeStaffNotification({
+      requestId,
+      requestType: 'ocia',
+      contactName: fullName,
+      contactEmail: email,
+      contactPhone: phone || '—',
+      notes,
+      requestSpecificSummary: [
+        dateOfBirth ? `Date of birth: ${dateOfBirth}` : null,
+        ageOrDobNote ? `Age/DOB note: ${ageOrDobNote.trim()}` : null,
+        sacramentalBackground ? `Sacramental background: ${sacramentalBackground}` : null,
+        seeking ? `Seeking: ${seeking}` : null,
+        parishionerStatus ? `Parishioner status: ${parishionerStatus.trim()}` : null,
+        preferredContactMethod
+          ? `Preferred contact method: ${preferredContactMethod}`
+          : null,
+        availability ? `Availability: ${availability.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    })
 
     setMessage('Request submitted successfully.')
     setFullName('')

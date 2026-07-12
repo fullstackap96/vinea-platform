@@ -11,10 +11,7 @@ import {
   intakeTextareaClass,
 } from '@/lib/intakeFormStyles'
 import { PublicIntakeShell } from '@/app/_components/PublicIntakeShell'
-import {
-  logPublicIntakeNotificationException,
-  logPublicIntakeNotificationFailure,
-} from '@/lib/publicIntakeNotificationClient'
+import { queuePublicIntakeStaffNotification } from '@/lib/publicIntakeNotificationClient'
 import { submitPublicIntake } from '@/lib/publicIntakeSubmissionClient'
 
 export default function FuneralRequestPage() {
@@ -77,47 +74,36 @@ export default function FuneralRequestPage() {
     }
     const requestId = intakeResult.requestId
 
-    try {
-      const res = await fetch('/api/request-notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requestId,
-          requestType: 'funeral',
-          contactName: fullName,
-          contactEmail: email,
-          contactPhone: phone || '—',
-          notes,
-          requestSpecificSummary: [
-            deceasedName ? `Deceased: ${deceasedName.trim()}` : null,
-            familyRelationship ? `Relationship: ${familyRelationship.trim()}` : null,
-            dateOfDeath ? `Date of death: ${dateOfDeath}` : null,
-            funeralHome ? `Funeral home/location: ${funeralHome.trim()}` : null,
-            funeralDirectorContact
-              ? `Funeral director contact: ${funeralDirectorContact.trim()}`
-              : null,
-            serviceLocation ? `Service location: ${serviceLocation.trim()}` : null,
-            visitationDetails ? `Visitation: ${visitationDetails.trim()}` : null,
-            cemeteryOrCommittal ? `Cemetery/committal: ${cemeteryOrCommittal.trim()}` : null,
-            readingsMusicNotes ? `Readings/music: ${readingsMusicNotes.trim()}` : null,
-            obituaryProgramNotes ? `Obituary/program: ${obituaryProgramNotes.trim()}` : null,
-            postFuneralFollowUpDate
-              ? `Post-funeral follow-up: ${postFuneralFollowUpDate}`
-              : null,
-            preferredServiceNotes
-              ? `Preferred dates/times/notes: ${preferredServiceNotes.trim()}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join('\n'),
-        }),
-      })
-      if (!res.ok) {
-        logPublicIntakeNotificationFailure(res.status)
-      }
-    } catch {
-      logPublicIntakeNotificationException()
-    }
+    queuePublicIntakeStaffNotification({
+      requestId,
+      requestType: 'funeral',
+      contactName: fullName,
+      contactEmail: email,
+      contactPhone: phone || '—',
+      notes,
+      requestSpecificSummary: [
+        deceasedName ? `Deceased: ${deceasedName.trim()}` : null,
+        familyRelationship ? `Relationship: ${familyRelationship.trim()}` : null,
+        dateOfDeath ? `Date of death: ${dateOfDeath}` : null,
+        funeralHome ? `Funeral home/location: ${funeralHome.trim()}` : null,
+        funeralDirectorContact
+          ? `Funeral director contact: ${funeralDirectorContact.trim()}`
+          : null,
+        serviceLocation ? `Service location: ${serviceLocation.trim()}` : null,
+        visitationDetails ? `Visitation: ${visitationDetails.trim()}` : null,
+        cemeteryOrCommittal ? `Cemetery/committal: ${cemeteryOrCommittal.trim()}` : null,
+        readingsMusicNotes ? `Readings/music: ${readingsMusicNotes.trim()}` : null,
+        obituaryProgramNotes ? `Obituary/program: ${obituaryProgramNotes.trim()}` : null,
+        postFuneralFollowUpDate
+          ? `Post-funeral follow-up: ${postFuneralFollowUpDate}`
+          : null,
+        preferredServiceNotes
+          ? `Preferred dates/times/notes: ${preferredServiceNotes.trim()}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    })
 
     setMessage('Request submitted successfully.')
     setFullName('')

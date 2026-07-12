@@ -11,10 +11,7 @@ import {
   intakeTextareaClass,
 } from '@/lib/intakeFormStyles'
 import { PublicIntakeShell } from '@/app/_components/PublicIntakeShell'
-import {
-  logPublicIntakeNotificationException,
-  logPublicIntakeNotificationFailure,
-} from '@/lib/publicIntakeNotificationClient'
+import { queuePublicIntakeStaffNotification } from '@/lib/publicIntakeNotificationClient'
 import { submitPublicIntake } from '@/lib/publicIntakeSubmissionClient'
 
 export default function WeddingRequestPage() {
@@ -61,33 +58,22 @@ export default function WeddingRequestPage() {
     }
     const requestId = intakeResult.requestId
 
-    try {
-      const res = await fetch('/api/request-notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requestId,
-          requestType: 'wedding',
-          contactName: fullName,
-          contactEmail: email,
-          contactPhone: phone || '—',
-          notes,
-          requestSpecificSummary: [
-            partnerOneName ? `Partner 1: ${partnerOneName.trim()}` : null,
-            partnerTwoName ? `Partner 2: ${partnerTwoName.trim()}` : null,
-            proposedWeddingDate ? `Proposed date: ${proposedWeddingDate}` : null,
-            ceremonyNotes ? `Ceremony notes: ${ceremonyNotes.trim()}` : null,
-          ]
-            .filter(Boolean)
-            .join('\n'),
-        }),
-      })
-      if (!res.ok) {
-        logPublicIntakeNotificationFailure(res.status)
-      }
-    } catch {
-      logPublicIntakeNotificationException()
-    }
+    queuePublicIntakeStaffNotification({
+      requestId,
+      requestType: 'wedding',
+      contactName: fullName,
+      contactEmail: email,
+      contactPhone: phone || '—',
+      notes,
+      requestSpecificSummary: [
+        partnerOneName ? `Partner 1: ${partnerOneName.trim()}` : null,
+        partnerTwoName ? `Partner 2: ${partnerTwoName.trim()}` : null,
+        proposedWeddingDate ? `Proposed date: ${proposedWeddingDate}` : null,
+        ceremonyNotes ? `Ceremony notes: ${ceremonyNotes.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    })
 
     setMessage('Request submitted successfully.')
     setFullName('')
