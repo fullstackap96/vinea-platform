@@ -14,10 +14,11 @@ describe('family portal document client messages', () => {
     const helper = readRepoFile('lib/familyPortalDocumentClientMessages.ts')
 
     expect(component).toContain(
-      "import { safeFamilyPortalDocumentUploadMessage } from '@/lib/familyPortalDocumentClientMessages'",
+      "} from '@/lib/familyPortalDocumentClientMessages'",
     )
     expect(component).toContain('safeFamilyPortalDocumentUploadMessage(payload?.error)')
-    expect(component).toContain('safeFamilyPortalDocumentUploadMessage(error)')
+    expect(component).toContain('safeFamilyPortalDocumentUploadMessage(')
+    expect(component).toContain('familyPortalDocumentUploadUnconfirmedMessage')
     expect(component).not.toContain("throw new Error(payload?.error || 'Could not upload document.')")
     expect(component).not.toContain(
       "setMessage(error instanceof Error ? error.message : 'Could not upload document.')",

@@ -6,12 +6,25 @@ import { Upload } from 'lucide-react'
 import { primaryButtonMd } from '@/lib/buttonStyles'
 import {
   formatRequestDocumentFileSize,
+  REQUEST_DOCUMENT_MAX_FILE_BYTES,
   requestDocumentStatusLabel,
   type RequestDocument,
 } from '@/lib/requestDocuments'
-import { safeFamilyPortalDocumentUploadMessage } from '@/lib/familyPortalDocumentClientMessages'
+import {
+  familyPortalDocumentUploadUnconfirmedMessage,
+  safeFamilyPortalDocumentUploadMessage,
+} from '@/lib/familyPortalDocumentClientMessages'
 import { workflowStepStatusLabel, type RequestWorkflowStep } from '@/lib/requestWorkflowSteps'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
+
+const FAMILY_PORTAL_UPLOAD_TIMEOUT_MS = 60_000
+
+function isFamilyPortalUploadTimeout(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    (error.name === 'TimeoutError' || error.name === 'AbortError')
+  )
+}
 
 function formatDueDate(value: string | null): string {
   if (!value) return 'No due date'
@@ -42,6 +55,7 @@ export function FamilyRequestDocumentsPortal({
   documents: RequestDocument[]
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const uploadInFlightRef = useRef(false)
   const [selectedStepId, setSelectedStepId] = useState(steps[0]?.id ?? '')
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
@@ -57,6 +71,8 @@ export function FamilyRequestDocumentsPortal({
 
   async function uploadDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (uploadInFlightRef.current) return
+
     const file = fileInputRef.current?.files?.[0]
     if (!selectedStepId) {
       setMessage('Choose the document you are uploading.')
@@ -66,7 +82,12 @@ export function FamilyRequestDocumentsPortal({
       setMessage('Choose a file to upload.')
       return
     }
+    if (file.size > REQUEST_DOCUMENT_MAX_FILE_BYTES) {
+      setMessage(safeFamilyPortalDocumentUploadMessage('Documents must be 10 MB or smaller.'))
+      return
+    }
 
+    uploadInFlightRef.current = true
     setUploading(true)
     setMessage('')
     try {
@@ -76,6 +97,7 @@ export function FamilyRequestDocumentsPortal({
       const response = await fetch(`/api/family/request-portal/${token}/documents`, {
         method: 'POST',
         body: formData,
+        signal: AbortSignal.timeout(FAMILY_PORTAL_UPLOAD_TIMEOUT_MS),
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok || !payload?.ok) {
@@ -85,8 +107,15 @@ export function FamilyRequestDocumentsPortal({
       if (fileInputRef.current) fileInputRef.current.value = ''
       window.location.reload()
     } catch (error) {
-      setMessage(safeFamilyPortalDocumentUploadMessage(error))
+      setMessage(
+        safeFamilyPortalDocumentUploadMessage(
+          isFamilyPortalUploadTimeout(error)
+            ? familyPortalDocumentUploadUnconfirmedMessage
+            : error,
+        ),
+      )
     } finally {
+      uploadInFlightRef.current = false
       setUploading(false)
     }
   }
@@ -97,6 +126,7 @@ export function FamilyRequestDocumentsPortal({
         method="post"
         onSubmit={uploadDocument}
         className="rounded-xl border border-gray-200 bg-white p-4"
+        aria-busy={uploading}
       >
         <h2 className="text-base font-semibold text-gray-900">Upload a document</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
@@ -104,6 +134,7 @@ export function FamilyRequestDocumentsPortal({
             <span className="font-medium text-gray-800">Requested document</span>
             <select
               value={selectedStepId}
+              disabled={uploading}
               onChange={(event) => setSelectedStepId(event.target.value)}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
@@ -119,6 +150,7 @@ export function FamilyRequestDocumentsPortal({
             <input
               ref={fileInputRef}
               type="file"
+              disabled={uploading}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </label>

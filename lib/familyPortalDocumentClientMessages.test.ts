@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE } from './requestDocuments'
 import {
   familyPortalDocumentUploadGenericMessage,
+  familyPortalDocumentUploadUnconfirmedMessage,
   safeFamilyPortalDocumentUploadMessage,
 } from './familyPortalDocumentClientMessages'
 
@@ -13,6 +14,7 @@ describe('safeFamilyPortalDocumentUploadMessage', () => {
       'Choose a document to upload.',
       'Documents must be 10 MB or smaller.',
       'Could not upload document.',
+      familyPortalDocumentUploadUnconfirmedMessage,
       REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
     ]) {
       expect(safeFamilyPortalDocumentUploadMessage(message)).toBe(message)
@@ -30,5 +32,16 @@ describe('safeFamilyPortalDocumentUploadMessage', () => {
     expect(message).not.toContain('family@example.com')
     expect(message).not.toContain('token_123')
     expect(message).not.toContain('postgresql://')
+  })
+
+  it('keeps uncertain upload guidance family-safe and duplicate-aware', () => {
+    expect(safeFamilyPortalDocumentUploadMessage(familyPortalDocumentUploadUnconfirmedMessage)).toBe(
+      familyPortalDocumentUploadUnconfirmedMessage,
+    )
+    expect(familyPortalDocumentUploadUnconfirmedMessage).toContain(
+      'contact the parish office before trying again',
+    )
+    expect(familyPortalDocumentUploadUnconfirmedMessage).not.toContain('token')
+    expect(familyPortalDocumentUploadUnconfirmedMessage).not.toContain('storage')
   })
 })
