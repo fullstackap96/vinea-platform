@@ -33,12 +33,14 @@ Status: `Implemented and verified` locally. Live provider retry recovery remains
 - Complete `15`-check local release gate: `PASS` in `271.6` seconds.
 - Complete Vitest regression: `822` files / `3,503` tests passed.
 - Release security/evidence gates: zero dependency vulnerabilities and zero findings across RLS, monitoring, production gates, CSP, trust claims, release handoff, and completed evidence.
+- Remote Vercel preview deployment `dpl_GbuTZdN1n5rrp8KJNzLDLxcS6pN3` failed closed before `READY` because Preview scope still lacks the required `SUPABASE_SERVICE_ROLE_KEY` name; the build log exposed no value.
+- GitHub's connected app returned no open PR and no GitHub Actions workflow run for the evidence head at review time; PR-level check attribution remains unavailable.
 
 **Security and tenancy result:** `PASS` for source/unit scope. Event identity is derived only after staff authentication, selected-parish resolution, and same-parish request ownership. The custom event id contains no raw parish or request id.
 
 **Failure and rollback result:** Provider calls settle after `15` seconds. Create retry recovery fails closed with a generic conflict when the existing event does not match. Update and delete retain their existing repeat-safe behavior. Rollback is the code revert; there is no migration, feature flag, database policy, or data conversion.
 
-**Known limitations:** No live Google timeout was induced, no real event was created, and no provider-side `409` recovery was exercised against an approved test calendar in this slice. Provider behavior therefore remains `Implemented but not rollout-verified`.
+**Known limitations:** No live Google timeout was induced, no real event was created, and no provider-side `409` recovery was exercised against an approved test calendar in this slice. The protected preview could not be smoke-tested because its build failed closed on the missing Preview service-role credential. Provider behavior therefore remains `Implemented but not rollout-verified`.
 
 **Approval decision:** `Approved with constraints`.
 
