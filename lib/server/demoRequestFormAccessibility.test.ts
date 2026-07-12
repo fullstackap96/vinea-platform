@@ -52,4 +52,19 @@ describe('Schedule Demo form accessibility', () => {
       expect(source).toContain(field)
     }
   })
+
+  it('reuses one delivery attempt only for an unchanged reviewed payload', () => {
+    expect(source).toContain('const deliveryAttemptRef = useRef<{')
+    expect(source).toContain('const reviewedSubmission = {')
+    expect(source).toContain('const fingerprint = JSON.stringify(reviewedSubmission)')
+    expect(source).toContain('deliveryAttemptRef.current?.fingerprint !== fingerprint')
+    expect(source).toContain('id: crypto.randomUUID()')
+    expect(source).toContain('const deliveryAttemptId = deliveryAttemptRef.current.id')
+    expect(source).toContain('...reviewedSubmission')
+    expect(source).toContain('deliveryAttemptId,')
+    expect(source).toContain('deliveryAttemptRef.current = null')
+    expect(source.indexOf('const fingerprint =')).toBeLessThan(
+      source.indexOf("fetch('/api/demo-request'"),
+    )
+  })
 })

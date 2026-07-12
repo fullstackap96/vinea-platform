@@ -18,6 +18,10 @@ export function ScheduleDemoForm({
   const [statusMessage, setStatusMessage] = useState('')
   const [statusIsError, setStatusIsError] = useState(false)
   const submissionInFlightRef = useRef(false)
+  const deliveryAttemptRef = useRef<{
+    fingerprint: string
+    id: string
+  } | null>(null)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,6 +39,22 @@ export function ScheduleDemoForm({
       return
     }
 
+    const reviewedSubmission = {
+      name: n,
+      parishName: p,
+      email: em,
+      roleTitle: role.trim() || undefined,
+      message: message.trim() || undefined,
+    }
+    const fingerprint = JSON.stringify(reviewedSubmission)
+    if (deliveryAttemptRef.current?.fingerprint !== fingerprint) {
+      deliveryAttemptRef.current = {
+        fingerprint,
+        id: crypto.randomUUID(),
+      }
+    }
+    const deliveryAttemptId = deliveryAttemptRef.current.id
+
     submissionInFlightRef.current = true
     setLoading(true)
 
@@ -43,11 +63,8 @@ export function ScheduleDemoForm({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: n,
-          parishName: p,
-          email: em,
-          roleTitle: role.trim() || undefined,
-          message: message.trim() || undefined,
+          ...reviewedSubmission,
+          deliveryAttemptId,
         }),
       })
 
@@ -67,6 +84,7 @@ export function ScheduleDemoForm({
       setEmail('')
       setRole('')
       setMessage('')
+      deliveryAttemptRef.current = null
     } catch (err: unknown) {
       setStatusIsError(true)
       setStatusMessage(demoRequestClientErrorMessage(err))

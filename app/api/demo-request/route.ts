@@ -4,6 +4,11 @@ import { Resend } from 'resend'
 import { buildDemoRequestEmail } from '@/lib/email/demoRequestEmail'
 import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
 import { checkDurableRateLimit } from '@/lib/server/durableRateLimit'
+import {
+  createDemoRequestProviderOptions,
+  DEMO_REQUEST_PROVIDER_TIMEOUT_MS,
+  isValidDemoRequestDeliveryAttemptId,
+} from '@/lib/server/demoRequestDelivery'
 import { logServerError, logServerWarning } from '@/lib/server/safeErrorLogging'
 import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 import { durableRateLimitKeyFromRequest } from '@/lib/server/simpleRateLimit'
@@ -79,12 +84,19 @@ export async function POST(request: NextRequest) {
     const body = parsedBody.ok ? parsedBody.value : null
 
     const bodyRecord = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+    const deliveryAttemptId = normalizeRequiredText(bodyRecord.deliveryAttemptId)
     const name = normalizeRequiredText(bodyRecord.name)
     const parishName = normalizeRequiredText(bodyRecord.parishName)
     const email = normalizeRequiredText(bodyRecord.email)
     const roleTitle = normalizeOptionalText(bodyRecord.roleTitle)
     const message = normalizeOptionalText(bodyRecord.message)
 
+    if (!isValidDemoRequestDeliveryAttemptId(deliveryAttemptId)) {
+      return NextResponse.json(
+        { ok: false, error: 'Please retry your demo request.' },
+        { status: 400 },
+      )
+    }
     if (!name) {
       return NextResponse.json({ ok: false, error: 'Please enter your name.' }, { status: 400 })
     }
@@ -137,15 +149,54 @@ export async function POST(request: NextRequest) {
     })
 
     const resend = new Resend(apiKey)
-    const { data, error } = await resend.emails.send({
-      from,
-      to,
-      subject,
-      text,
-      html,
-    })
+    const providerOptions = createDemoRequestProviderOptions({ deliveryAttemptId })
+    let providerResult: Awaited<ReturnType<typeof resend.emails.send>>
+    try {
+      providerResult = await resend.emails.send(
+        {
+          from,
+          to,
+          subject,
+          text,
+          html,
+        },
+        providerOptions,
+      )
+    } catch (error: unknown) {
+      if (providerOptions.signal.aborted) {
+        logServerWarning('[demo-request] provider confirmation timed out', {
+          route: '/api/demo-request',
+          timeoutMs: DEMO_REQUEST_PROVIDER_TIMEOUT_MS,
+        })
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Demo requests are temporarily unavailable. Please email us directly.',
+          },
+          { status: 504 },
+        )
+      }
+      throw error
+    }
+
+    const { data, error } = providerResult
 
     const providerMessageId = String(data?.id ?? '').trim()
+    if (providerOptions.signal.aborted && !providerMessageId) {
+      logServerWarning('[demo-request] provider confirmation timed out', {
+        route: '/api/demo-request',
+        timeoutMs: DEMO_REQUEST_PROVIDER_TIMEOUT_MS,
+      })
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Demo requests are temporarily unavailable. Please email us directly.',
+        },
+        { status: 504 },
+      )
+    }
     if (error || !providerMessageId) {
       logServerError('[demo-request] resend send failed', error, {
         route: '/api/demo-request',

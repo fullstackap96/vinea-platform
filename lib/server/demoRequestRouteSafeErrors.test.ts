@@ -30,7 +30,10 @@ const routePath = join(process.cwd(), 'app', 'api', 'demo-request', 'route.ts')
 function demoRequest(body: Record<string, unknown>) {
   return new NextRequest('https://vinea.test/api/demo-request', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      deliveryAttemptId: '11111111-1111-4111-8111-111111111111',
+      ...body,
+    }),
     headers: {
       'content-type': 'application/json',
       origin: 'https://vinea.test',
@@ -119,6 +122,89 @@ describe('demo request route safe error handling', () => {
     expect(JSON.stringify(errorSpy.mock.calls)).toContain('missingProviderMessageId')
   })
 
+  it('requires a valid browser delivery attempt before provider work', async () => {
+    const response = await POST(
+      demoRequest({
+        deliveryAttemptId: 'forged-attempt',
+        name: 'Safe Contact',
+        parishName: 'Safe Parish',
+        email: 'owner@example.com',
+      }),
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: 'Please retry your demo request.',
+    })
+    expect(resendSendMock).not.toHaveBeenCalled()
+  })
+
+  it('sends with an opaque attempt-scoped key and provider deadline', async () => {
+    resendSendMock.mockResolvedValue({
+      data: { id: 'provider-message-id' },
+      error: null,
+    })
+
+    const response = await POST(
+      demoRequest({
+        name: 'Safe Contact',
+        parishName: 'Safe Parish',
+        email: 'owner@example.com',
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, id: 'provider-message-id' })
+    expect(resendSendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'sales@example.test',
+      }),
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(/^vinea-demo-request-[a-f0-9]{64}$/),
+        signal: expect.any(AbortSignal),
+      }),
+    )
+    const options = resendSendMock.mock.calls[0]?.[1]
+    expect(options.idempotencyKey).not.toContain(
+      '11111111-1111-4111-8111-111111111111',
+    )
+  })
+
+  it('settles a provider timeout with generic public guidance', async () => {
+    const warningSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const timeoutController = new AbortController()
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(timeoutController.signal)
+    resendSendMock.mockImplementation(
+      async (_message: unknown, options: { signal: AbortSignal }) => {
+        queueMicrotask(() => timeoutController.abort())
+        await new Promise((resolve) =>
+          options.signal.addEventListener('abort', resolve, { once: true }),
+        )
+        throw new DOMException('Timed out for owner@example.com', 'AbortError')
+      },
+    )
+
+    const response = await POST(
+      demoRequest({
+        name: 'Safe Contact',
+        parishName: 'Safe Parish',
+        email: 'owner@example.com',
+      }),
+    )
+
+    expect(response.status).toBe(504)
+    expect(await response.json()).toEqual({
+      ok: false,
+      error:
+        'Demo requests are temporarily unavailable. Please email us directly.',
+    })
+    expect(JSON.stringify(warningSpy.mock.calls)).toContain(
+      '[demo-request] provider confirmation timed out',
+    )
+    expect(JSON.stringify(warningSpy.mock.calls)).not.toContain('owner@example.com')
+  })
+
   it('uses the safe logger instead of raw console error in source', () => {
     const source = readFileSync(routePath, 'utf8')
 
@@ -132,6 +218,7 @@ describe('demo request route safe error handling', () => {
     expect(source).toContain("logServerError('[demo-request] resend send failed'")
     expect(source).toContain("logServerError('[demo-request] rate limit check failed'")
     expect(source).toContain("logServerError('[demo-request] unexpected failure'")
+    expect(source).toContain("logServerWarning('[demo-request] provider confirmation timed out'")
     expect(source).not.toContain("console.error('[demo-request] ERROR:'")
     expect(source).not.toContain('console.warn(')
     expect(source).not.toContain('return NextResponse.json({ ok: false, error: error.message }')
@@ -245,5 +332,23 @@ describe('demo request route safe error handling', () => {
     expect(buildStatus).toContain('Demo Request Safe Error Logging Implemented')
     expect(roadmap).toContain('Demo Request Safe Error Logging')
     expect(sourceOfTruth).toContain('demo-request route with safe error logging')
+  })
+
+  it('documents retry-safe provider delivery without approving production', () => {
+    const doc = readFileSync(
+      join(process.cwd(), 'docs', 'DEMO_REQUEST_PROVIDER_RELIABILITY_20260712.md'),
+      'utf8',
+    )
+
+    for (const expected of [
+      'same-payload retries',
+      'opaque Resend idempotency key',
+      '12-second confirmation deadline',
+      'Durable rate limiting remains before bounded body parsing',
+      'Production deployment approved: `NO`',
+      'Real email sent during verification: `NO`',
+    ]) {
+      expect(doc).toContain(expected)
+    }
   })
 })
