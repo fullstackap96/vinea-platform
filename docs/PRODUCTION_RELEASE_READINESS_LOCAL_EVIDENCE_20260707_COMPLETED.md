@@ -18,6 +18,23 @@ This file was refreshed later in the same session after dashboard error redactio
 
 This evidence is not a release approval, deployment record, production smoke record, production RLS approval, production export approval, production monitoring approval, public trust-center approval, or customer-facing claim.
 
+## 2026-07-11 Bounded Deployment Health Probe Addendum
+
+- Immutable source commit: `1f8155f65885244bc511c0ac3692a340421c592c`.
+- Release-source aggregate: `C8B08F87AE5ED34D6B097F33B2F67F7ABBEC80D8C8349918081E17DB8CA9A709` across `1,439` files.
+- Shared database/schema health deadline: `8,000 ms`.
+- Parish connectivity and every schema select/RPC use the same abort signal: `YES`.
+- Simulated stalled Supabase probe returns controlled unhealthy result: `YES`.
+- Production failure details remain generic: `YES`.
+- Query retry, record mutation, migration, authorization change, or operational RLS change: `NO`.
+- Focused health/manifest verification: `4` test files and `39` tests passed.
+- Complete 15-command local release gate: `PASS`; duration `300.6 seconds`.
+- Repository secret findings: `0`; dependency vulnerabilities: `0`.
+- Both TypeScript scopes, full lint, complete Vitest, and credential-free Next.js `16.2.10` build: `PASS`.
+- Independent remote verification: GitHub Actions run `29180435998`; conclusion `success`; exact head matched `YES`.
+- Matching Vercel preview: `dpl_H9awFsMtrSZRouoepkUeo4ucjgJY`; state `READY`; target `null`; production deployment `NO`.
+- Production-sensitive features or public trust claims approved: `NO`.
+
 ## 2026-07-11 Local And CI Release-Policy Parity Addendum
 
 - Immutable source commit: `e6ec46541ea1eeb3a84a8530e97454147e2af28a`.
