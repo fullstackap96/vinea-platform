@@ -15,6 +15,19 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 - Worktree dirty: `YES`
 - Production approval granted: `NO`
 
+## Post-Merge Checkpoint Identity
+
+The merged release identity above remains the authoritative record for `f134b598308ddd78b5b6b81ee447bf5b1fb15937`. The later documentation-only controlled-rollout checkpoint adds one source-allowlisted validation test, so it has a separate aggregate rather than rewriting the merged release record:
+
+- Checkpoint commit: `19a7ee598a1bc5201dcb71a49827da87e1110c1b`
+- Release-source aggregate SHA-256: `C42FE6E07B427E55D26B4B6F735CF63112F0C8234DD3409B83AFAD343BF82CDD`
+- Source file count: `1469`
+- Tracked source files: `1469`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+This checkpoint aggregate identifies the post-merge documentation guard branch only. It does not authorize promotion of the merged release or alter the rollback state recorded in `docs/CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260712.md`.
+
 ## Scope
 
 The aggregate covers the current Git-tracked and non-ignored untracked release source under:
