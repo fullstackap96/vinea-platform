@@ -9,6 +9,22 @@ function read(path: string) {
 const route = read('app/api/intake/route.ts')
 
 describe('public intake insert persistence boundary', () => {
+  it('uses the validated browser attempt as request identity after scoped recovery', () => {
+    const attemptValidationIndex = route.indexOf(
+      'isValidPublicIntakeSubmissionAttemptId(submissionAttemptId)'
+    )
+    const recoveryIndex = route.indexOf(
+      'const existingAttempt = await loadExistingPublicIntakeAttempt'
+    )
+    const requestInsertIndex = route.indexOf(".from('requests')", recoveryIndex + 1)
+    const explicitIdIndex = route.indexOf('id: submissionAttemptId', requestInsertIndex)
+
+    expect(attemptValidationIndex).toBeGreaterThanOrEqual(0)
+    expect(recoveryIndex).toBeGreaterThan(attemptValidationIndex)
+    expect(requestInsertIndex).toBeGreaterThan(recoveryIndex)
+    expect(explicitIdIndex).toBeGreaterThan(requestInsertIndex)
+  })
+
   for (const table of [
     'funeral_request_details',
     'wedding_request_details',
@@ -42,7 +58,8 @@ describe('public intake insert persistence boundary', () => {
       countConfirmationIndex,
     )
     const auditIndex = route.indexOf("action: 'public_intake.created'", workflowIndex)
-    const successIndex = route.indexOf('status: 201', auditIndex)
+    const auditConfirmationIndex = route.indexOf('if (!auditWritten)', auditIndex)
+    const successIndex = route.indexOf('status: 201', auditConfirmationIndex)
 
     expect(route.slice(checklistIndex, countConfirmationIndex)).toMatch(
       /\.insert\(checklist\)[\s\S]*?\.select\('id'\)/,
@@ -50,7 +67,8 @@ describe('public intake insert persistence boundary', () => {
     expect(countConfirmationIndex).toBeGreaterThan(checklistIndex)
     expect(workflowIndex).toBeGreaterThan(countConfirmationIndex)
     expect(auditIndex).toBeGreaterThan(workflowIndex)
-    expect(successIndex).toBeGreaterThan(auditIndex)
+    expect(auditConfirmationIndex).toBeGreaterThan(auditIndex)
+    expect(successIndex).toBeGreaterThan(auditConfirmationIndex)
   })
 
   it('routes detail or checklist confirmation failures through checked partial cleanup', () => {

@@ -15,6 +15,10 @@ import { getPublicIntakeRoutingRuntimeGate } from '@/lib/server/publicIntakeRout
 import { logServerError } from '@/lib/server/safeErrorLogging'
 import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
 import { cleanupPartialPublicIntake } from '@/lib/server/publicIntakePartialCleanup'
+import {
+  existingPublicIntakeAttemptMatches,
+  isValidPublicIntakeSubmissionAttemptId,
+} from '@/lib/publicIntakeSubmissionAttempt'
 
 export const runtime = 'nodejs'
 
@@ -80,6 +84,49 @@ function checklistFor(body: Record<string, unknown>): Array<{ item_name: string 
   ].map((item_name) => ({ item_name }))
 }
 
+async function loadExistingPublicIntakeAttempt(
+  admin: ReturnType<typeof createSupabaseServiceRoleClient>,
+  submissionAttemptId: string
+) {
+  const { data: requestRow, error: requestError } = await admin
+    .from('requests')
+    .select('id, request_type, parishioner_id')
+    .eq('id', submissionAttemptId)
+    .maybeSingle()
+  if (requestError) throw requestError
+  if (!requestRow?.id || !requestRow.parishioner_id) return null
+
+  const { data: existingParishioner, error: parishionerError } = await admin
+    .from('parishioners')
+    .select('id, parish_id, full_name, email, phone')
+    .eq('id', requestRow.parishioner_id)
+    .maybeSingle()
+  if (parishionerError) throw parishionerError
+  if (!existingParishioner?.id || !existingParishioner.parish_id) return null
+
+  const { data: completionAudit, error: completionAuditError } = await admin
+    .from('audit_events')
+    .select('id')
+    .eq('parish_id', existingParishioner.parish_id)
+    .eq('action', 'public_intake.created')
+    .eq('target_type', 'request')
+    .eq('target_id', requestRow.id)
+    .limit(1)
+    .maybeSingle()
+  if (completionAuditError) throw completionAuditError
+
+  return {
+    requestId: String(requestRow.id),
+    requestType: String(requestRow.request_type ?? ''),
+    parishionerId: String(existingParishioner.id),
+    parishId: String(existingParishioner.parish_id),
+    fullName: String(existingParishioner.full_name ?? ''),
+    email: String(existingParishioner.email ?? ''),
+    phone: String(existingParishioner.phone ?? ''),
+    completionAuditConfirmed: Boolean(completionAudit?.id),
+  }
+}
+
 async function primaryParishId(admin: ReturnType<typeof createSupabaseServiceRoleClient>) {
   // Deliberate legacy fallback only: keep this isolated behind
   // resolvePublicIntakeRequestParishScopeForFutureRuntime while runtime routing is disabled.
@@ -134,6 +181,7 @@ export async function POST(request: NextRequest) {
   const email = text(body.email, 320)
   const phone = text(body.phone, 80)
   const notes = optionalText(body.notes, 4000)
+  const submissionAttemptId = text(body.submissionAttemptId, 80).toLowerCase()
 
   if (!ALLOWED_TYPES.has(requestType)) {
     return NextResponse.json({ ok: false, error: 'Invalid request type.' }, { status: 400 })
@@ -143,6 +191,9 @@ export async function POST(request: NextRequest) {
       { ok: false, error: 'Please provide a name and valid email.' },
       { status: 400 }
     )
+  }
+  if (!isValidPublicIntakeSubmissionAttemptId(submissionAttemptId)) {
+    return NextResponse.json({ ok: false, error: 'Invalid request.' }, { status: 400 })
   }
   if (requestType === 'baptism' && !text(body.childName, 200)) {
     return NextResponse.json({ ok: false, error: 'Child name is required.' }, { status: 400 })
@@ -186,6 +237,34 @@ export async function POST(request: NextRequest) {
 
     const parishId = scope.parishId
 
+    const existingAttempt = await loadExistingPublicIntakeAttempt(
+      admin,
+      submissionAttemptId
+    )
+    if (existingAttempt) {
+      if (
+        !existingPublicIntakeAttemptMatches(existingAttempt, {
+          submissionAttemptId,
+          requestType,
+          parishId,
+          fullName,
+          email,
+          phone,
+        })
+      ) {
+        return NextResponse.json(
+          { ok: false, error: 'Could not submit request.' },
+          { status: 409 }
+        )
+      }
+
+      return NextResponse.json({
+        ok: true,
+        requestId: existingAttempt.requestId,
+        parishionerId: existingAttempt.parishionerId,
+      })
+    }
+
     const { data: parishioner, error: parishionerError } = await admin
       .from('parishioners')
       .insert({
@@ -202,6 +281,7 @@ export async function POST(request: NextRequest) {
     const { data: requestRow, error: requestError } = await admin
       .from('requests')
       .insert({
+        id: submissionAttemptId,
         parishioner_id: ids.parishionerId,
         request_type: requestType,
         child_name: requestType === 'baptism' ? text(body.childName, 200) : null,
@@ -309,7 +389,7 @@ export async function POST(request: NextRequest) {
       requestId: ids.requestId,
     })
 
-    await writeAuditEvent({
+    const auditWritten = await writeAuditEvent({
       parishId,
       actorEmail: email,
       action: 'public_intake.created',
@@ -317,6 +397,9 @@ export async function POST(request: NextRequest) {
       targetId: ids.requestId,
       metadata: { requestType, workflowStepsCreated, ...scope.auditMetadata },
     })
+    if (!auditWritten) {
+      throw new Error('Public intake completion audit was not recorded.')
+    }
 
     return NextResponse.json(
       {

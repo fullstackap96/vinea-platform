@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { submitPublicIntake } from '@/lib/publicIntakeSubmissionClient'
+import {
+  publicIntakeSubmissionClientTestInternals,
+  submitPublicIntake,
+} from '@/lib/publicIntakeSubmissionClient'
 
 describe('public intake submission client', () => {
   afterEach(() => {
+    publicIntakeSubmissionClientTestInternals.resetPendingSubmissionAttempt()
     vi.unstubAllGlobals()
   })
 
@@ -18,11 +22,43 @@ describe('public intake submission client', () => {
     await expect(
       submitPublicIntake({ requestType: 'baptism', fullName: 'Safe family' }),
     ).resolves.toEqual({ ok: true, requestId: 'request-a' })
-    expect(fetchMock).toHaveBeenCalledWith('/api/intake', {
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(options).toMatchObject({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestType: 'baptism', fullName: 'Safe family' }),
     })
+    expect(JSON.parse(String(options.body))).toMatchObject({
+      requestType: 'baptism',
+      fullName: 'Safe family',
+      submissionAttemptId: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      ),
+    })
+  })
+
+  it('reuses the exact attempt after uncertainty and replaces it when reviewed content changes', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('response lost'))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, requestId: 'request-a' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, requestId: 'request-b' }), { status: 201 }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const firstPayload = { requestType: 'funeral', fullName: 'Safe family' }
+    await submitPublicIntake(firstPayload)
+    await submitPublicIntake(firstPayload)
+    await submitPublicIntake({ ...firstPayload, fullName: 'Updated family' })
+
+    const bodies = fetchMock.mock.calls.map(([, options]) =>
+      JSON.parse(String((options as RequestInit).body)) as { submissionAttemptId: string }
+    )
+    expect(bodies[1].submissionAttemptId).toBe(bodies[0].submissionAttemptId)
+    expect(bodies[2].submissionAttemptId).not.toBe(bodies[1].submissionAttemptId)
   })
 
   it('preserves allowlisted public validation guidance', async () => {
