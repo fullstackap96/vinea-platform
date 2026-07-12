@@ -74,6 +74,7 @@ Start with these index documents instead of opening individual approval packets 
 | Public intake success settlement | [Public Intake Success Settlement Boundary](PUBLIC_INTAKE_SUCCESS_SETTLEMENT_BOUNDARY_20260712.md) | Stored success no longer awaits staff alert; live browser timing remains rollout-unverified |
 | Request document client recovery | [Request Document Client Recovery Boundary](REQUEST_DOCUMENT_CLIENT_RECOVERY_BOUNDARY_20260712.md) | Latest-request-wins reads, bounded operations, and uncertain-write guidance; no storage or authorization change |
 | Family portal upload client recovery | [Family Portal Document Upload Client Recovery](FAMILY_PORTAL_DOCUMENT_UPLOAD_CLIENT_RECOVERY_20260712.md) | Rapid-submit lock, bounded wait, and duplicate-aware family guidance; server upload path unchanged |
+| Data import client recovery | [Data Import Client Recovery Boundary](DATA_IMPORT_CLIENT_RECOVERY_BOUNDARY_20260712.md) | Bounded history/preview/commit waits with confirm-before-retry protection; server import path unchanged |
 
 The gate index tells you whether work may proceed. The evidence package tells you what reviewers need. An approval packet prepares a decision; it does not grant approval merely by existing.
 
