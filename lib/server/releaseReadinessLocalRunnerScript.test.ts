@@ -44,10 +44,15 @@ describe('local release-readiness runner', () => {
     expect(script).toContain('LOCAL_RELEASE_READINESS_FAILED')
     expect(script).toContain('LOCAL_RELEASE_READINESS_PASSED')
     expect(script).toContain('function buildNpmInvocation(args)')
-    expect(script).toContain('function buildChildProcessEnv(parentEnv)')
+    expect(script).toContain(
+      'function buildChildProcessEnv(parentEnv, { credentialFreeBuild = false } = {})',
+    )
     expect(script).toContain("if (/^npm_/i.test(key))")
     expect(script).toContain('delete childEnv.INIT_CWD')
-    expect(script).toContain('env: buildChildProcessEnv(process.env)')
+    expect(script).toContain('credentialFreeBuildEnvironmentKeys')
+    expect(script).toContain("childEnv[key] = ''")
+    expect(script).toContain('credentialFreeBuild: true')
+    expect(script).toContain('env: buildChildProcessEnv(process.env, command)')
     expect(script).toContain("args: ['test', '--', '--configLoader', 'runner']")
     expect(script).toContain("command: 'cmd.exe'")
     expect(script).toContain("args: ['/d', '/c', 'npm.cmd', ...args]")
@@ -76,6 +81,8 @@ describe('local release-readiness runner', () => {
       publicTrustClaimsApproved: boolean
       commandCount: number
       commands: string[]
+      credentialFreeBuild: boolean
+      credentialFreeBuildEnvironmentKeyCount: number
       safeBoundary: Record<string, boolean>
     }
 
@@ -83,6 +90,8 @@ describe('local release-readiness runner', () => {
     expect(plan.productionSensitiveFeaturesApproved).toBe(false)
     expect(plan.publicTrustClaimsApproved).toBe(false)
     expect(plan.commandCount).toBe(12)
+    expect(plan.credentialFreeBuild).toBe(true)
+    expect(plan.credentialFreeBuildEnvironmentKeyCount).toBe(11)
     expect(plan.commands).toEqual([
       'npm run check:release-env',
       'npm run check:rls-production-evidence',
@@ -117,5 +126,22 @@ describe('local release-readiness runner', () => {
     expect(output).not.toMatch(/postgresql:\/\/[^`\s<\[]+/i)
     expect(output).not.toMatch(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/)
     expect(output).not.toMatch(/sk-[A-Za-z0-9]{20,}/)
+  })
+
+  it('keeps the final build credential-free without changing normal build commands', () => {
+    const script = readRepoFile('scripts/run-release-readiness-local.mjs')
+    const buildCommandStart = script.indexOf("label: 'npm run build'")
+    const buildCommandEnd = script.indexOf('\n  },', buildCommandStart)
+    const buildCommand = script.slice(buildCommandStart, buildCommandEnd)
+
+    expect(buildCommand).toContain("args: ['run', 'build']")
+    expect(buildCommand).toContain('credentialFreeBuild: true')
+    expect(script).toContain("'NEXT_PUBLIC_SUPABASE_URL'")
+    expect(script).toContain("'NEXT_PUBLIC_SUPABASE_ANON_KEY'")
+    expect(script).toContain("'SUPABASE_SERVICE_ROLE_KEY'")
+    expect(script).toContain("'OPENAI_API_KEY'")
+    expect(script).toContain("'RESEND_API_KEY'")
+    expect(script).toContain("'GOOGLE_CLIENT_SECRET'")
+    expect(script).not.toContain('delete process.env')
   })
 })

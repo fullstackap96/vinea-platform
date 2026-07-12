@@ -1,5 +1,19 @@
 import { spawnSync } from 'node:child_process'
 
+const credentialFreeBuildEnvironmentKeys = [
+  'CRON_SECRET',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_OAUTH_STATE_SECRET',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'OPENAI_API_KEY',
+  'RESEND_API_KEY',
+  'STAFF_ALLOWLIST_EMAILS',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'SUPABASE_URL',
+]
+
 function buildNpmInvocation(args) {
   if (process.platform === 'win32') {
     return {
@@ -14,7 +28,7 @@ function buildNpmInvocation(args) {
   }
 }
 
-function buildChildProcessEnv(parentEnv) {
+function buildChildProcessEnv(parentEnv, { credentialFreeBuild = false } = {}) {
   const childEnv = { ...parentEnv }
 
   for (const key of Object.keys(childEnv)) {
@@ -24,6 +38,12 @@ function buildChildProcessEnv(parentEnv) {
   }
 
   delete childEnv.INIT_CWD
+
+  if (credentialFreeBuild) {
+    for (const key of credentialFreeBuildEnvironmentKeys) {
+      childEnv[key] = ''
+    }
+  }
 
   return childEnv
 }
@@ -76,6 +96,7 @@ const releaseReadinessCommands = [
   {
     label: 'npm run build',
     args: ['run', 'build'],
+    credentialFreeBuild: true,
   },
 ]
 
@@ -105,6 +126,9 @@ function buildPlanReport() {
     publicTrustClaimsApproved: false,
     commandCount: releaseReadinessCommands.length,
     commands: releaseReadinessCommands.map((command) => command.label),
+    credentialFreeBuild: true,
+    credentialFreeBuildEnvironmentKeyCount:
+      credentialFreeBuildEnvironmentKeys.length,
     safeBoundary,
   }
 }
@@ -139,7 +163,7 @@ for (const [index, command] of releaseReadinessCommands.entries()) {
 
   const result = spawnSync(invocation.command, invocation.args, {
     cwd: process.cwd(),
-    env: buildChildProcessEnv(process.env),
+    env: buildChildProcessEnv(process.env, command),
     stdio: 'inherit',
     shell: false,
   })
