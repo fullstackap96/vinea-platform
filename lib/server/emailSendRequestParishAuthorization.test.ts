@@ -37,7 +37,8 @@ describe('request-bound staff email authorization', () => {
       source.indexOf('async function createGoogleCalendarEvent'),
     )
 
-    expect(block).toContain('JSON.stringify({ requestId: routeId, subject, text })')
+    expect(block).toContain('deliveryAttemptId: deliveryAttempt.id')
+    expect(block).toContain('requestId: routeId')
     expect(block).not.toContain('JSON.stringify({ to, subject, text })')
     expect(block).toContain("fetch(`/api/requests/${routeId}/communications`")
     expect(block).not.toContain(".from('request_communications')")
@@ -51,7 +52,8 @@ describe('request-bound staff email authorization', () => {
       source.indexOf('async function markFollowUpAsContacted'),
     )
 
-    expect(block).toContain('JSON.stringify({ requestId: id, subject, text })')
+    expect(block).toContain('deliveryAttemptId: deliveryAttempt.id')
+    expect(block).toContain('requestId: id')
     expect(block).not.toContain('JSON.stringify({ to, subject, text })')
     expect(block).toContain(
       'fetch(`/api/requests/${encodeURIComponent(id)}/communications`',

@@ -24,7 +24,8 @@ describe('staff email send single-flight boundary', () => {
       handler.indexOf("fetch('/api/email/send'"),
     )
     expect(handler).toContain('emailSendInFlightRef.current = false')
-    expect(handler).toContain('JSON.stringify({ requestId: routeId, subject, text })')
+    expect(handler).toContain('deliveryAttemptId: deliveryAttempt.id')
+    expect(handler).toContain('requestId: routeId')
     expect(handler).toContain("fetch(`/api/requests/${routeId}/communications`")
   })
 
@@ -47,7 +48,8 @@ describe('staff email send single-flight boundary', () => {
       handler.indexOf("fetch('/api/email/send'"),
     )
     expect(handler).toContain('followUpEmailInFlightRef.current = false')
-    expect(handler).toContain('JSON.stringify({ requestId: id, subject, text })')
+    expect(handler).toContain('deliveryAttemptId: deliveryAttempt.id')
+    expect(handler).toContain('requestId: id')
     expect(handler).toContain(
       'fetch(`/api/requests/${encodeURIComponent(id)}/communications`',
     )

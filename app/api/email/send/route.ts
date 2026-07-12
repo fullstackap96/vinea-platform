@@ -8,8 +8,13 @@ import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
 import { loadStaffScopedRequestDetailAccess } from '@/lib/server/requestDetailAccess'
 import { loadStoredRequestEmailRecipient } from '@/lib/server/requestEmailRecipient'
 import { authorizeStaffUser } from '@/lib/server/requireStaff'
-import { logServerError } from '@/lib/server/safeErrorLogging'
+import { logServerError, logServerWarning } from '@/lib/server/safeErrorLogging'
 import { rejectCrossOriginMutation } from '@/lib/server/sameOriginMutation'
+import {
+  createStaffEmailProviderRequestOptions,
+  isValidStaffEmailDeliveryAttemptId,
+  STAFF_EMAIL_PROVIDER_TIMEOUT_MS,
+} from '@/lib/server/staffEmailDelivery'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
 const MAX_BODY_BYTES = 128 * 1024
@@ -88,13 +93,19 @@ export async function POST(request: NextRequest) {
         ? (rawBody as Record<string, unknown>)
         : {}
     const requestId = String(body?.requestId || '').trim()
+    const deliveryAttemptId = String(body?.deliveryAttemptId || '').trim()
     const subject = String(body?.subject || '').trim()
     let text = String(body?.text || '').trim()
     text = stripLeadingSubjectLineFromPlainText(text)
 
-    if (!requestId || !subject || !text) {
+    if (
+      !requestId ||
+      !subject ||
+      !text ||
+      !isValidStaffEmailDeliveryAttemptId(deliveryAttemptId)
+    ) {
       return NextResponse.json(
-        { ok: false, error: 'Missing requestId, subject, or text' },
+        { ok: false, error: 'Invalid email request.' },
         { status: 400 }
       )
     }
@@ -130,14 +141,58 @@ export async function POST(request: NextRequest) {
     }
 
     const resend = new Resend(apiKey)
-    const { data, error } = await resend.emails.send({
-      from,
-      to: recipient.email,
-      subject,
-      text,
+    const providerRequestOptions = createStaffEmailProviderRequestOptions({
+      requestId: access.requestId,
+      deliveryAttemptId,
     })
+    let providerResult: Awaited<ReturnType<typeof resend.emails.send>>
+    try {
+      providerResult = await resend.emails.send(
+        {
+          from,
+          to: recipient.email,
+          subject,
+          text,
+        },
+        providerRequestOptions,
+      )
+    } catch (error: unknown) {
+      if (providerRequestOptions.signal.aborted) {
+        logServerWarning('[email/send] provider confirmation timed out', {
+          route: '/api/email/send',
+          timeoutMs: STAFF_EMAIL_PROVIDER_TIMEOUT_MS,
+        })
+        return NextResponse.json(
+          {
+            ok: false,
+            uncertain: true,
+            error:
+              'Email delivery could not be confirmed. Check with the recipient before trying again.',
+          },
+          { status: 504 },
+        )
+      }
+      throw error
+    }
+
+    const { data, error } = providerResult
 
     const providerMessageId = String(data?.id ?? '').trim()
+    if (providerRequestOptions.signal.aborted && !providerMessageId) {
+      logServerWarning('[email/send] provider confirmation timed out', {
+        route: '/api/email/send',
+        timeoutMs: STAFF_EMAIL_PROVIDER_TIMEOUT_MS,
+      })
+      return NextResponse.json(
+        {
+          ok: false,
+          uncertain: true,
+          error:
+            'Email delivery could not be confirmed. Check with the recipient before trying again.',
+        },
+        { status: 504 },
+      )
+    }
     if (error || !providerMessageId) {
       logServerError('[email/send] resend send failed', error ?? new Error('Email provider did not return a message id.'), {
         route: '/api/email/send',

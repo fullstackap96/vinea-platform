@@ -30,7 +30,7 @@ const routeSpecs: RouteSpec[] = [
     method: 'POST',
     scopeMarker: 'loadStaffScopedRequestDetailAccess(admin, requestId',
     denialMarker: 'if (!access)',
-    sideEffectMarker: 'resend.emails.send({',
+    sideEffectMarker: 'providerResult = await resend.emails.send(',
   },
   {
     path: 'app/api/households/duplicates/route.ts',

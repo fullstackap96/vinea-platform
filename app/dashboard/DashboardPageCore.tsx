@@ -223,6 +223,9 @@ export function DashboardPageCore({
   const followUpMarkContactedInFlightRef = useRef(false)
   const [followUpSendingId, setFollowUpSendingId] = useState<string | null>(null)
   const followUpEmailInFlightRef = useRef(false)
+  const followUpEmailAttemptRef = useRef(
+    new Map<string, { id: string; subject: string; text: string }>(),
+  )
   const [followUpRowMessages, setFollowUpRowMessages] = useState<Record<string, string>>({})
   const [selectedFollowUpIds, setSelectedFollowUpIds] = useState<Set<string>>(
     () => new Set()
@@ -1112,6 +1115,12 @@ export function DashboardPageCore({
     }
 
     followUpEmailInFlightRef.current = true
+    const existingAttempt = followUpEmailAttemptRef.current.get(id)
+    const deliveryAttempt =
+      existingAttempt?.subject === subject && existingAttempt.text === text
+        ? existingAttempt
+        : { id: crypto.randomUUID(), subject, text }
+    followUpEmailAttemptRef.current.set(id, deliveryAttempt)
     setFollowUpSendingId(id)
     setFollowUpRowMessage(id, '')
     try {
@@ -1121,22 +1130,42 @@ export function DashboardPageCore({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ requestId: id, subject, text }),
+          body: JSON.stringify({
+            requestId: id,
+            deliveryAttemptId: deliveryAttempt.id,
+            subject,
+            text,
+          }),
         })
       } catch {
-        setFollowUpRowMessage(id, dashboardClientFailureMessage('sendFollowUpEmail'))
+        setFollowUpRowMessage(
+          id,
+          dashboardClientFailureMessage('confirmFollowUpEmailSend'),
+        )
         return
       }
 
-      const payload = (await res.json().catch(() => null)) as { ok?: boolean } | null
+      const payload = (await res.json().catch(() => null)) as {
+        ok?: boolean
+        uncertain?: boolean
+      } | null
       if (!res.ok) {
-        setFollowUpRowMessage(id, dashboardClientFailureMessage('sendFollowUpEmail'))
+        if (payload?.uncertain === true) {
+          setFollowUpRowMessage(
+            id,
+            dashboardClientFailureMessage('confirmFollowUpEmailSend'),
+          )
+        } else {
+          followUpEmailAttemptRef.current.delete(id)
+          setFollowUpRowMessage(id, dashboardClientFailureMessage('sendFollowUpEmail'))
+        }
         return
       }
       if (payload?.ok !== true) {
         setFollowUpRowMessage(id, dashboardClientFailureMessage('confirmFollowUpEmailSend'))
         return
       }
+      followUpEmailAttemptRef.current.delete(id)
 
       const contactedAtIso = new Date().toISOString()
       const summary = `Email sent: ${subject}`

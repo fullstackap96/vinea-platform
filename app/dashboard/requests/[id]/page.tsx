@@ -225,6 +225,12 @@ const [staffNotes, setStaffNotes] = useState('')
   const [emailSending, setEmailSending] = useState(false)
   const [emailMessage, setEmailMessage] = useState('')
   const emailSendInFlightRef = useRef(false)
+  const emailDeliveryAttemptRef = useRef<{
+    id: string
+    requestId: string
+    subject: string
+    text: string
+  } | null>(null)
   const [pendingEmailTemplateId, setPendingEmailTemplateId] =
     useState<VineaEmailTemplateId | null>(null)
   const [emailTemplateApplying, setEmailTemplateApplying] = useState(false)
@@ -1817,6 +1823,14 @@ async function sendEmail() {
   }
 
   emailSendInFlightRef.current = true
+  const existingDeliveryAttempt = emailDeliveryAttemptRef.current
+  const deliveryAttempt =
+    existingDeliveryAttempt?.requestId === routeId &&
+    existingDeliveryAttempt.subject === subject &&
+    existingDeliveryAttempt.text === text
+      ? existingDeliveryAttempt
+      : { id: crypto.randomUUID(), requestId: routeId, subject, text }
+  emailDeliveryAttemptRef.current = deliveryAttempt
   setEmailSending(true)
   setEmailMessage('')
   try {
@@ -1825,22 +1839,36 @@ async function sendEmail() {
       res = await fetch('/api/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: routeId, subject, text }),
+        body: JSON.stringify({
+          requestId: routeId,
+          deliveryAttemptId: deliveryAttempt.id,
+          subject,
+          text,
+        }),
       })
     } catch {
-      setEmailMessage(requestDetailClientFailureMessage('sendEmail'))
+      setEmailMessage(requestDetailClientFailureMessage('confirmEmailSend'))
       return
     }
 
-    const payload = (await res.json().catch(() => null)) as { ok?: boolean } | null
+    const payload = (await res.json().catch(() => null)) as {
+      ok?: boolean
+      uncertain?: boolean
+    } | null
     if (!res.ok) {
-      setEmailMessage(requestDetailClientFailureMessage('sendEmail'))
+      if (payload?.uncertain === true) {
+        setEmailMessage(requestDetailClientFailureMessage('confirmEmailSend'))
+      } else {
+        emailDeliveryAttemptRef.current = null
+        setEmailMessage(requestDetailClientFailureMessage('sendEmail'))
+      }
       return
     }
     if (payload?.ok !== true) {
       setEmailMessage(requestDetailClientFailureMessage('confirmEmailSend'))
       return
     }
+    emailDeliveryAttemptRef.current = null
 
     const contactedAtIso = new Date().toISOString()
     const summary = `Email sent: ${subject}`

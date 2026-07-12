@@ -14,7 +14,7 @@ describe('outbound email delivery persistence boundary', () => {
   ]) {
     it(`${routePath} requires a provider message id before audit or success`, () => {
       const source = read(routePath)
-      const sendIndex = source.indexOf('await resend.emails.send({')
+      const sendIndex = source.indexOf('await resend.emails.send(')
       const idIndex = source.indexOf('const providerMessageId = String(data?.id', sendIndex)
       const confirmationIndex = source.indexOf('!providerMessageId', idIndex)
       const successIndex = source.indexOf(
@@ -32,7 +32,7 @@ describe('outbound email delivery persistence boundary', () => {
 
   it('requires a provider message id and confirmed parish state for Daily Brief success', () => {
     const source = read('app/api/parish/daily-brief/route.ts')
-    const sendIndex = source.indexOf('await resend.emails.send({')
+    const sendIndex = source.indexOf('await resend.emails.send(')
     const providerConfirmationIndex = source.indexOf('!providerMessageId', sendIndex)
     const stateHelperIndex = source.indexOf('async function recordDailyBriefState')
     const stateConfirmationIndex = source.indexOf('!data?.id', stateHelperIndex)

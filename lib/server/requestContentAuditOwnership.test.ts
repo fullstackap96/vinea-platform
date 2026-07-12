@@ -84,7 +84,7 @@ describe('request mutation audit ownership', () => {
 
   it('writes the sent-email event after provider success without content or recipient values', () => {
     const source = read('app/api/email/send/route.ts')
-    const providerIndex = source.indexOf('const { data, error } = await resend.emails.send({')
+    const providerIndex = source.indexOf('providerResult = await resend.emails.send(')
     const auditIndex = source.indexOf("action: 'request.email.sent'")
     const metadata = source.slice(
       source.indexOf('metadata: {', auditIndex),

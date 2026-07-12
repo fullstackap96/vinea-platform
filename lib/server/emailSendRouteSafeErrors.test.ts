@@ -52,7 +52,10 @@ const routePath = join(process.cwd(), 'app', 'api', 'email', 'send', 'route.ts')
 function emailRequest(body: Record<string, unknown>, origin = 'https://vinea.test') {
   return new NextRequest('https://vinea.test/api/email/send', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      deliveryAttemptId: '9d629d9c-a32e-4fbf-a403-93aaeba7a0ba',
+      ...body,
+    }),
     headers: {
       'content-type': 'application/json',
       origin,
@@ -206,7 +209,9 @@ describe('staff email send route safe error handling', () => {
   it('uses the shared safe logger instead of raw console/provider errors in source', () => {
     const source = readFileSync(routePath, 'utf8')
 
-    expect(source).toContain("import { logServerError } from '@/lib/server/safeErrorLogging'")
+    expect(source).toContain(
+      "import { logServerError, logServerWarning } from '@/lib/server/safeErrorLogging'",
+    )
     expect(source).toContain("logServerError('[email/send] resend send failed'")
     expect(source).toContain("logServerError('[email/send] unexpected failure'")
     expect(source).not.toContain("console.error('EMAIL SEND ERROR:'")
@@ -311,6 +316,10 @@ describe('staff email send route safe error handling', () => {
     })
     expect(resendSendMock).toHaveBeenCalledWith(
       expect.objectContaining({ to: 'stored-recipient@example.test' }),
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(/^vinea-request-email-[a-f0-9]{64}$/),
+        signal: expect.any(AbortSignal),
+      }),
     )
     expect(JSON.stringify(resendSendMock.mock.calls)).not.toContain(
       'forged-recipient@example.test',
@@ -370,7 +379,7 @@ describe('staff email send route safe error handling', () => {
     expect(missingRequestResponse.status).toBe(400)
     expect(await missingRequestResponse.json()).toEqual({
       ok: false,
-      error: 'Missing requestId, subject, or text',
+      error: 'Invalid email request.',
     })
     expect(loadStaffScopedRequestDetailAccessMock).not.toHaveBeenCalled()
 
@@ -390,6 +399,22 @@ describe('staff email send route safe error handling', () => {
     })
     expect(resendConstructorMock).not.toHaveBeenCalled()
     expect(resendSendMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a missing or forged delivery attempt before request or provider access', async () => {
+    const response = await POST(
+      emailRequest({
+        requestId: 'request-1',
+        deliveryAttemptId: 'not-a-uuid',
+        subject: 'Follow-up',
+        text: 'Please call the office.',
+      }),
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ ok: false, error: 'Invalid email request.' })
+    expect(loadStaffScopedRequestDetailAccessMock).not.toHaveBeenCalled()
+    expect(resendConstructorMock).not.toHaveBeenCalled()
   })
 
   it('documents the staff email send route hardening without claiming broader monitoring readiness', () => {

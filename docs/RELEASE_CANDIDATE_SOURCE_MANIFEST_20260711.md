@@ -8,9 +8,9 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
 - Parent/base commit before this bounded-recovery source slice: `7cba52bb370063956a959d129c6f18e2a996db96`
 - Immutable implementation commit: `cc2f1f89366f2cd40d51d2b1304a643094a269f4`
-- Release-source aggregate SHA-256: `4B7FC56DA9280E8BB1D95F9C0A96E9662413C72971A1FD4A898DCF388480E42A`
-- Source file count: `1439`
-- Tracked or staged source files: `1439`
+- Release-source aggregate SHA-256: `81CA2DBABFC9BCF11B7AAAC7865DE911E8D07163D8555F4CD1E827B84B48F4CB`
+- Source file count: `1442`
+- Tracked or staged source files: `1442`
 - Untracked source files: `0`
 - Worktree dirty: `YES`
 - Production approval granted: `NO`
