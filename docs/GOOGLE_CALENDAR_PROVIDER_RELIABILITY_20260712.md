@@ -64,12 +64,14 @@ The event API deadlines now extend through the OAuth transport boundary. Calenda
 - Complete Vitest regression: `822` files / `3,504` tests passed.
 - Both TypeScript scopes, ESLint, every evidence gate, and the credential-free `56`-page build: `PASS`.
 - Repository secret scan: `2,122` files / `0` findings; dependency audit: `0` vulnerabilities.
+- GitHub Actions run `29196473916`: `SUCCESS` on exact evidence head `5c8eaf75c5f86140f8146cc80c1a95011722b7fe`.
+- Vercel preview `dpl_DTgXTzk5BZQD8JTBo8wxDt4rsm77`: failed closed before `READY` because Preview still lacks required variable name `SUPABASE_SERVICE_ROLE_KEY`; no value was printed.
 - Production accessed: `NO`.
 - Google Calendar, OAuth, or profile endpoint called: `NO`.
 - Token, integration, event, request, or parish record mutated: `NO`.
 - Migration, operational RLS, scope, redirect, or production flag changed: `NO`.
 
-Live token refresh, code exchange, and timeout recovery remain `Implemented but not rollout-verified`.
+Live token refresh, code exchange, and timeout recovery remain `Implemented but not rollout-verified`. Protected-preview health/staff smoke also remains blocked by the missing Preview credential, not by deployment protection.
 
 ## Plain-English Summary
 
