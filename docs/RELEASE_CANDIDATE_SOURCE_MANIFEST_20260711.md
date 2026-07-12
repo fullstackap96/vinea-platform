@@ -6,8 +6,8 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
 ## Manifest Identity
 
-- Parent/base commit before this error-recovery polish slice: `f849969a1b99e7fe85147d6a15b5e9a994f51cd3`
-- Immutable implementation commit: `90ee398d2e141f56c033000adfc479bcdc35b15b`
+- Parent/base commit before this request-notification reliability slice: `b8a346f94d6f4c28cde51040087eae963447e8f3`
+- Immutable implementation commit: `10dd6087e473d7137014114daa37522bfd0ec598`
 - Release-source aggregate SHA-256: `BB1E62201692E4A2505A49C8C598A2097B40DDBCA11213EBCB25C0E1652F0333`
 - Source file count: `1445`
 - Tracked or staged source files: `1445`
@@ -39,6 +39,6 @@ Environment files, ignored secrets, documentation, command output, file paths, a
 
 ## Limitation
 
-This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `90ee398d2e141f56c033000adfc479bcdc35b15b` on `codex/release-candidate-20260711` is the immutable binding for this aggregate. The full local release gate and clean-checkout GitHub Actions run passed against that source. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
+This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `10dd6087e473d7137014114daa37522bfd0ec598` on `codex/release-candidate-20260711` is the immutable binding for this aggregate. The full local release gate and clean-checkout GitHub Actions run passed against that source. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
 
 No production access, deployment, migration, operational RLS change, record mutation, provider call, export, AI call, storage action, signed URL, communication, certificate generation, or public claim was performed.
