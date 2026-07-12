@@ -28,7 +28,7 @@ describe('local release-readiness runner', () => {
       'npm run check:release-handoff',
       'npm run typecheck',
       'npm run typecheck:all',
-      'npm run lint -- --quiet',
+      'npm run lint',
       'npm test',
       'npm run build',
     ]
@@ -93,7 +93,7 @@ describe('local release-readiness runner', () => {
       'npm run check:release-handoff',
       'npm run typecheck',
       'npm run typecheck:all',
-      'npm run lint -- --quiet',
+      'npm run lint',
       'npm test',
       'npm run build',
     ])

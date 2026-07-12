@@ -55,7 +55,7 @@ describe('release readiness verification checklist', () => {
       'npm run check:release-handoff',
       'npm run typecheck',
       'npm run typecheck:all',
-      'npm run lint -- --quiet',
+      'npm run lint',
       'npm test',
       'npm run build',
     ]
@@ -413,7 +413,7 @@ describe('release readiness verification checklist', () => {
     expect(doc).toContain('npm run check:release-handoff')
     expect(doc).toContain('npm run typecheck')
     expect(doc).toContain('npm run typecheck:all')
-    expect(doc).toContain('npm run lint -- --quiet')
+    expect(doc).toContain('npm run lint')
     expect(doc).toContain('npm test')
     expect(doc).toContain('npm run build')
     expect(doc).toContain(

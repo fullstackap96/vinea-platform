@@ -32,7 +32,7 @@ npm run check:trust-center-claims
 npm run check:release-handoff
 npm run typecheck
 npm run typecheck:all
-npm run lint -- --quiet
+npm run lint
 npm test
 npm run build
 ```
@@ -92,7 +92,7 @@ Expanded sequence:
 7. `npm run check:release-handoff`
 8. `npm run typecheck`
 9. `npm run typecheck:all`
-10. `npm run lint -- --quiet`
+10. `npm run lint`
 11. `npm test`
 12. `npm run build`
 

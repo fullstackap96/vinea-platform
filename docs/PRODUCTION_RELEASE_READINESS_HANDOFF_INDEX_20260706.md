@@ -193,7 +193,7 @@ npm run check:trust-center-claims
 npm run check:release-handoff
 npm run typecheck
 npm run typecheck:all
-npm run lint -- --quiet
+npm run lint
 npm test
 npm run build
 ```

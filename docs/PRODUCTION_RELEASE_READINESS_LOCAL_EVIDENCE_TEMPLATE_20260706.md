@@ -54,7 +54,7 @@ Record pass/fail only. Do not paste secrets, raw environment values, database UR
 | 7 | `npm run check:release-handoff` |  |  |
 | 8 | `npm run typecheck` |  |  |
 | 9 | `npm run typecheck:all` |  |  |
-| 10 | `npm run lint -- --quiet` |  |  |
+| 10 | `npm run lint` |  |  |
 | 11 | `npm test` |  |  |
 | 12 | `npm run build` |  |  |
 

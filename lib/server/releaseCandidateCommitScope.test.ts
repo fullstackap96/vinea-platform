@@ -114,7 +114,6 @@ describe('release candidate commit scope', () => {
   })
 
   it('binds the dry-run counts and exclusions into the review packet', () => {
-    const scope = runScope()
     const evidence = readFileSync(
       join(root, 'docs', 'RELEASE_CANDIDATE_COMMIT_SCOPE_REVIEW_20260711.md'),
       'utf8',

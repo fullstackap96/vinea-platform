@@ -57,6 +57,7 @@ function listedPaths(args) {
   return execFileSync('git', args, {
     cwd: repoRoot,
     encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\0')
     .filter(Boolean)

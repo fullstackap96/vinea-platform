@@ -66,8 +66,8 @@ const releaseReadinessCommands = [
     args: ['run', 'typecheck:all'],
   },
   {
-    label: 'npm run lint -- --quiet',
-    args: ['run', 'lint', '--', '--quiet'],
+    label: 'npm run lint',
+    args: ['run', 'lint'],
   },
   {
     label: 'npm test',

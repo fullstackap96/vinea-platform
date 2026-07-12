@@ -18,6 +18,13 @@ This file was refreshed later in the same session after dashboard error redactio
 
 This evidence is not a release approval, deployment record, production smoke record, production RLS approval, production export approval, production monitoring approval, public trust-center approval, or customer-facing claim.
 
+## 2026-07-11 Full Lint Contract Alignment
+
+The active release-readiness contract now runs full ESLint output so local verification and GitHub CI enforce the same warning boundary. The historical quiet-lint evidence below remains unchanged.
+
+- Production-sensitive features or public claims approved by this alignment: `NO`.
+- Production accessed or runtime behavior changed: `NO`.
+
 ## 2026-07-11 Full Local Release Readiness Refresh
 
 This refresh supersedes earlier local command counts. The final run was captured against immutable release-candidate commit `1e47ba10ad032bfa87f5e3ed16535038e70761d4` on `codex/release-candidate-20260711`, after commit-aware release-scope verification was added.
@@ -85,6 +92,7 @@ The immutable release-candidate requirement is satisfied for the locally verifie
 | 8 | `npm run typecheck` | `PASS` | Production/source TypeScript check completed successfully. |
 | 9 | `npm run typecheck:all` | `PASS` | All-file TypeScript check completed successfully. |
 | 10 | `npm run lint -- --quiet` | `PASS` | Quiet lint completed successfully. |
+| 10a | `npm run lint` | `PASS` | Full lint completed with zero errors and zero warnings during the 2026-07-11 contract-alignment verification. |
 | 11 | `npm test` | `PASS` | Full Vitest completed successfully: 544 test files, 2,172 tests. |
 | 12 | `npm run build` | `PASS` | Next.js production build completed successfully with Next.js `16.2.2`. |
 
