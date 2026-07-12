@@ -7,7 +7,7 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 ## Manifest Identity
 
 - Parent/base commit before this Google OAuth transport deadline slice: `e2b380df4372eda22e21f92ef1090d0892e68a97`
-- Immutable implementation commit: pending until the complete release gate passes and the implementation is committed.
+- Immutable implementation commit: `21fb3d4a0d26b4881a9ab936793a032ca64633fa`
 - Release-source aggregate SHA-256: `A8653C9DB5FCF3259B8F8A3E0031F59D41F8C2136D7BECAB13F547FBA0E65E5B`
 - Source file count: `1457`
 - Tracked or staged source files: `1457`
@@ -39,6 +39,6 @@ Environment files, ignored secrets, documentation, command output, file paths, a
 
 ## Limitation
 
-This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. The OAuth transport implementation commit will be recorded after the complete local release gate passes. Clean-checkout GitHub Actions, actual PR check attribution, and a correctly configured protected-preview smoke remain pending. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
+This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `21fb3d4a0d26b4881a9ab936793a032ca64633fa` on `codex/release-candidate-20260711` is the immutable OAuth transport implementation binding for this aggregate. The complete local release gate passed. Clean-checkout GitHub Actions, actual PR check attribution, and a correctly configured protected-preview smoke remain pending. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
 
 No production access, deployment, migration, operational RLS change, record mutation, provider call, export, AI call, storage action, signed URL, communication, certificate generation, or public claim was performed.

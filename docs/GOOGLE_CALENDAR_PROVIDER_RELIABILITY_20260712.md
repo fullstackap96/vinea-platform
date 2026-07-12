@@ -52,14 +52,18 @@ Status: `Implemented and verified` locally. Live provider retry recovery remains
 
 ## OAuth Transport Deadline Addendum
 
-Status: `Implemented and verified` locally; immutable implementation commit pending the complete release gate.
+Status: `Implemented and verified` locally at immutable implementation commit `21fb3d4a0d26b4881a9ab936793a032ca64633fa`.
 
 The event API deadlines now extend through the OAuth transport boundary. Calendar clients receive a fresh 15-second transporter signal before refresh-token use, the OAuth callback applies the same boundary to authorization-code exchange, and the optional Google profile lookup receives its own 15-second abort signal. Staff authentication, signed state, active-parish membership, redirect URI, token requirements, selected-parish persistence, and safe callback failure behavior are unchanged.
 
 - Complete Calendar/OAuth regression slice: `36 files / 139 tests passed`.
 - Focused transport slice: `3 files / 15 tests passed`.
 - Standard TypeScript check: `PASS`.
-- Release-source aggregate before immutable commit: `A8653C9DB5FCF3259B8F8A3E0031F59D41F8C2136D7BECAB13F547FBA0E65E5B` across `1,457` files.
+- Immutable release-source aggregate: `A8653C9DB5FCF3259B8F8A3E0031F59D41F8C2136D7BECAB13F547FBA0E65E5B` across `1,457` files.
+- Complete `15`-check local release gate: `PASS` in `269.5` seconds.
+- Complete Vitest regression: `822` files / `3,504` tests passed.
+- Both TypeScript scopes, ESLint, every evidence gate, and the credential-free `56`-page build: `PASS`.
+- Repository secret scan: `2,122` files / `0` findings; dependency audit: `0` vulnerabilities.
 - Production accessed: `NO`.
 - Google Calendar, OAuth, or profile endpoint called: `NO`.
 - Token, integration, event, request, or parish record mutated: `NO`.

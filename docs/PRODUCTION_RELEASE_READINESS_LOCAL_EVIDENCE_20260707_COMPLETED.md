@@ -1356,6 +1356,31 @@ Verification summary:
 - Completed local evidence: `510 required phrases / 0 findings`.
 - Production gate check: `15 locked gates / 0 findings`.
 
+## 2026-07-12 Google OAuth Transport Deadline Addendum
+
+This label-only addendum records local/CI transport evidence without authorization codes, tokens, profile values, email addresses, parish ids, request ids, event ids, calendar ids, links, staff identities, database rows, credentials, or secrets.
+
+- Immutable implementation commit: `21fb3d4a0d26b4881a9ab936793a032ca64633fa`.
+- Release-source aggregate: `A8653C9DB5FCF3259B8F8A3E0031F59D41F8C2136D7BECAB13F547FBA0E65E5B` across `1,457` files.
+- Hidden Calendar refresh-token transport bounded at 15 seconds: `YES`.
+- OAuth callback code exchange bounded at 15 seconds: `YES`.
+- Optional Google profile lookup bounded at 15 seconds: `YES`.
+- Signed state, staff authentication, active-parish membership, redirect handling, token requirements, and selected-parish persistence preserved: `YES`.
+- Live provider transport rollout-verified: `NO`.
+- Production accessed: `NO`.
+- Google Calendar, OAuth, or profile endpoint called: `NO`.
+- Token, integration, event, request, or parish record mutated: `NO`.
+- Migration, operational RLS, production flag, provider scope, or redirect behavior changed: `NO`.
+
+Verification summary:
+
+- Calendar/OAuth regression slice: `36 files / 139 tests passed`.
+- Complete local release gate: `15 / 15 checks passed` in `269.5` seconds.
+- Full Vitest regression suite: `822 test files / 3,504 tests passed`.
+- Both TypeScript scopes, ESLint, all evidence gates, and the credential-free Next.js `16.2.10` build with `56` static pages: `PASS`.
+- Repository secret scan: `2,122 files / 17 binaries skipped / 0 findings`; secret values printed: `NO`.
+- Dependency audit: `0 vulnerabilities`.
+
 ## 2026-07-10 Dashboard Shell Server Context And Exact-Parish Admin Addendum
 
 This label-only addendum records the shell and Audit Events authorization boundary without recording staff email, staff roster rows, parish ids, audit event rows or metadata, request ids, database details, credentials, or secrets.
