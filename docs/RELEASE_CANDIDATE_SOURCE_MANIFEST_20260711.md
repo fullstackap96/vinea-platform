@@ -6,11 +6,11 @@ Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
 ## Manifest Identity
 
-- Parent/base commit before this duplicate-review client-recovery slice: `440788d3dec1941875c99914a916dfaee3d9aec6`
-- Immutable implementation commit: `ddf5ebfa8d626f9910fa8b17479ba2f1c55ce1ba`
-- Release-source aggregate SHA-256: `1DA7F37F606026BC8486F84484F9EC23B9B570B07E5677BBC30133B679EBDFD1`
-- Source file count: `1467`
-- Tracked or staged source files: `1467`
+- Parent/base commit before this Communications Center client-recovery slice: `970a844405444b346489d4d12fd89f5327e64acb`
+- Immutable implementation commit: `ca3488436906f5836e96ddabe4fb9e0ee14d328c`
+- Release-source aggregate SHA-256: `F9ED8FAC6AEAE72B94DD4F4CEDA513DED3A7C46D16EA353E7A020D33C73EA188`
+- Source file count: `1468`
+- Tracked or staged source files: `1468`
 - Untracked source files: `0`
 - Worktree dirty: `YES`
 - Production approval granted: `NO`
@@ -39,6 +39,6 @@ Environment files, ignored secrets, documentation, command output, file paths, a
 
 ## Limitation
 
-This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `ddf5ebfa8d626f9910fa8b17479ba2f1c55ce1ba` on `codex/release-candidate-20260711` is the immutable duplicate-review client-recovery implementation binding for this aggregate. The complete 15-check local release gate passed in `274.7` seconds with zero secret findings across `2,139` files, zero vulnerabilities, both TypeScript scopes, lint, `831` test files / `3,540` tests, and the credential-free `56`-page build. Clean-checkout GitHub Actions, actual PR check attribution, and a correctly configured protected-preview smoke remain pending. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
+This gives reviewers a tamper-evident identity for the exact release source surface, but the aggregate alone does not replace an immutable Git commit. Commit `ca3488436906f5836e96ddabe4fb9e0ee14d328c` on `codex/release-candidate-20260711` is the immutable Communications Center client-recovery implementation binding for this aggregate. The complete 15-check local release gate passed in `297.7` seconds with zero secret findings across `2,141` files, zero vulnerabilities, both TypeScript scopes, lint, `832` test files / `3,544` tests, and the credential-free `56`-page build. Clean-checkout GitHub Actions, actual PR check attribution, and a correctly configured protected-preview smoke remain pending. Before any production deployment, the manifest and release-readiness runner must pass again against the exact approved deployment commit. Excluded non-release artifacts may remain outside the commit and do not authorize production.
 
 No production access, deployment, migration, operational RLS change, record mutation, provider call, export, AI call, storage action, signed URL, communication, certificate generation, or public claim was performed.

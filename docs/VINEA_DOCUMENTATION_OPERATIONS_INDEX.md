@@ -77,6 +77,7 @@ Start with these index documents instead of opening individual approval packets 
 | Data import client recovery | [Data Import Client Recovery Boundary](DATA_IMPORT_CLIENT_RECOVERY_BOUNDARY_20260712.md) | Bounded history/preview/commit waits with confirm-before-retry protection; server import path unchanged |
 | Onboarding readiness client recovery | [Onboarding Readiness Client Recovery Boundary](ONBOARDING_READINESS_CLIENT_RECOVERY_BOUNDARY_20260712.md) | Bounded readiness waits with timeout-aware safe retry states; settings/staff APIs unchanged |
 | Duplicate review client recovery | [Duplicate Review Client Recovery Boundary](DUPLICATE_REVIEW_CLIENT_RECOVERY_BOUNDARY_20260712.md) | Bounded candidate/merge waits with mandatory refresh-before-retry; server merge path unchanged |
+| Communications Center client recovery | [Communications Center Client Recovery Boundary](COMMUNICATIONS_CENTER_CLIENT_RECOVERY_BOUNDARY_20260712.md) | Bounded touchpoint/follow-up writes with refresh-after-uncertainty protection; server API unchanged |
 
 The gate index tells you whether work may proceed. The evidence package tells you what reviewers need. An approval packet prepares a decision; it does not grant approval merely by existing.
 
