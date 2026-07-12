@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { openai } from '@/lib/openai'
 import { buildAiReplySafetyChainAdapter } from '@/lib/server/aiReplySafetyChainAdapter'
+import { createAiProviderRequestOptions } from '@/lib/server/aiProviderDeadline'
 import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
 import { getAiReplySafetyRuntimeGate } from '@/lib/server/aiReplyRuntimeGate'
 import { buildAiReplyRuntimeScaffold } from '@/lib/server/aiReplyRuntimeScaffold'
@@ -287,10 +288,13 @@ async function runLegacyStaffGatedReplyRoute(body: Record<string, unknown>) {
   const requestType = String(body?.requestType || 'baptism')
   const prompt = buildLegacyReplyPrompt(body, requestType)
 
-  const aiResponse = await openai.responses.create({
-    model: 'gpt-5-mini',
-    input: prompt,
-  })
+  const aiResponse = await openai.responses.create(
+    {
+      model: 'gpt-5-mini',
+      input: prompt,
+    },
+    createAiProviderRequestOptions(),
+  )
 
   return NextResponse.json({ reply: aiResponse.output_text })
 }

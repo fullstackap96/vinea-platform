@@ -380,10 +380,13 @@ describe('AI summary safety-chain generation approval gates', () => {
       metadata: safeSummaryFutureAuditEvent().metadata,
     })
     expect(openAiCreateMock).toHaveBeenCalledTimes(1)
-    expect(openAiCreateMock).toHaveBeenCalledWith({
-      model: 'gpt-5-mini',
-      input: 'Safe DTO-backed prompt.',
-    })
+    expect(openAiCreateMock).toHaveBeenCalledWith(
+      {
+        model: 'gpt-5-mini',
+        input: 'Safe DTO-backed prompt.',
+      },
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
   })
 
   it('fails closed before safe response exposure or OpenAI when audit persistence fails', async () => {

@@ -312,10 +312,13 @@ describe('AI summary non-production safety-chain QA gate execution', () => {
     expect(gate4.status).toBe(200)
     expect(writeAuditEventMock).toHaveBeenCalledTimes(3)
     expect(openAiCreateMock).toHaveBeenCalledTimes(1)
-    expect(openAiCreateMock).toHaveBeenLastCalledWith({
-      model: 'gpt-5-mini',
-      input: 'Permission-scoped DTO prompt from safe source references only.',
-    })
+    expect(openAiCreateMock).toHaveBeenLastCalledWith(
+      {
+        model: 'gpt-5-mini',
+        input: 'Permission-scoped DTO prompt from safe source references only.',
+      },
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
   })
 
   it('keeps cross-parish or forged active-parish denials generic before audit writes and OpenAI', async () => {

@@ -21,6 +21,7 @@ import {
   AI_SUMMARY_SAFE_RESPONSE_EXPOSURE_FLAG,
 } from '@/lib/server/aiSummarySafeResponseExposureAcceptance'
 import { buildAiSummarySafetyChainAdapter } from '@/lib/server/aiSummarySafetyChainAdapter'
+import { createAiProviderRequestOptions } from '@/lib/server/aiProviderDeadline'
 import { readBoundedJsonBody } from '@/lib/server/boundedJsonBody'
 import { getAiSummarySafetyRuntimeGate } from '@/lib/server/aiSummaryRuntimeGate'
 import { buildAiSummaryRuntimeScaffold } from '@/lib/server/aiSummaryRuntimeScaffold'
@@ -119,10 +120,13 @@ export async function POST(request: NextRequest) {
         return failClosedAiSummaryRetrieval(safetyChain.genericBlockedReason)
       }
 
-      const response = await openai.responses.create({
-        model: 'gpt-5-mini',
-        input: safetyChain.promptAssembly.prompt,
-      })
+      const response = await openai.responses.create(
+        {
+          model: 'gpt-5-mini',
+          input: safetyChain.promptAssembly.prompt,
+        },
+        createAiProviderRequestOptions(),
+      )
 
       if (
         !response ||
@@ -294,10 +298,13 @@ async function runLegacyStaffGatedSummaryRoute(body: Record<string, unknown>) {
   const requestType = String(body?.requestType || 'baptism')
   const prompt = buildLegacySummaryPrompt(body, requestType)
 
-  const response = await openai.responses.create({
-    model: 'gpt-5-mini',
-    input: prompt,
-  })
+  const response = await openai.responses.create(
+    {
+      model: 'gpt-5-mini',
+      input: prompt,
+    },
+    createAiProviderRequestOptions(),
+  )
 
   return NextResponse.json({ summary: response.output_text })
 }

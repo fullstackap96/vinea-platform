@@ -187,12 +187,14 @@ describe('AI reply disabled runtime gate and scaffold', () => {
       expect.objectContaining({
         model: 'gpt-5-mini',
         input: expect.stringContaining('You are helping a Catholic parish reply to a baptism request.'),
-      })
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
     expect(openAiCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.stringContaining('Child Name: Ana Garcia'),
-      })
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
   })
 

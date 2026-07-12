@@ -120,12 +120,14 @@ describe('AI summary route disabled runtime gate wiring', () => {
       expect.objectContaining({
         model: 'gpt-5-mini',
         input: expect.stringContaining('You are helping Catholic parish staff review a baptism request.'),
-      })
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
     expect(openAiCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.stringContaining('Child Name: Ana Garcia'),
-      })
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
     expect(buildAiSummarySafetyChainAdapterMock).not.toHaveBeenCalled()
   })
