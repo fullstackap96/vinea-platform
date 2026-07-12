@@ -31,6 +31,7 @@ const PILOT_ITEMS = [
   'Staff can see new requests in the dashboard',
   'Audit log shows settings and request activity',
 ]
+const ONBOARDING_READINESS_LOAD_TIMEOUT_MS = 15_000
 
 function ReadinessRing({ readiness }: { readiness: ParishReadinessResult }) {
   return (
@@ -70,6 +71,11 @@ export function ParishOnboardingPage() {
     const controller = new AbortController()
     loadAbortRef.current = controller
     const isLatestLoad = () => loadSequence === loadSequenceRef.current
+    let loadTimedOut = false
+    const timeoutId = window.setTimeout(() => {
+      loadTimedOut = true
+      controller.abort()
+    }, ONBOARDING_READINESS_LOAD_TIMEOUT_MS)
 
     setLoading(true)
     setError('')
@@ -103,9 +109,11 @@ export function ParishOnboardingPage() {
       setActiveParishName(nextParish.name)
       setStaffUsers(nextStaff)
     } catch (err) {
-      if (!isLatestLoad() || (err instanceof DOMException && err.name === 'AbortError')) return
+      if (!isLatestLoad()) return
+      if (err instanceof DOMException && err.name === 'AbortError' && !loadTimedOut) return
       setError(onboardingLoadErrorMessage(err))
     } finally {
+      window.clearTimeout(timeoutId)
       if (isLatestLoad()) setLoading(false)
       if (loadAbortRef.current === controller) loadAbortRef.current = null
     }

@@ -13,6 +13,7 @@ import { vineaSectionShellClassName } from '@/lib/vineaUi'
 
 type ParishPayload = Parameters<typeof buildParishOnboardingReadiness>[0]['parish']
 type StaffPayload = Parameters<typeof buildParishOnboardingReadiness>[0]['staffUsers']
+const ONBOARDING_READINESS_LOAD_TIMEOUT_MS = 15_000
 
 export function DashboardOnboardingCard() {
   const [parish, setParish] = useState<ParishPayload>(null)
@@ -35,6 +36,11 @@ export function DashboardOnboardingCard() {
     const controller = new AbortController()
     loadAbortRef.current = controller
     const isLatestLoad = () => loadSequence === loadSequenceRef.current
+    let loadTimedOut = false
+    const timeoutId = window.setTimeout(() => {
+      loadTimedOut = true
+      controller.abort()
+    }, ONBOARDING_READINESS_LOAD_TIMEOUT_MS)
 
     setLoading(true)
     setLoadFailed(false)
@@ -59,9 +65,11 @@ export function DashboardOnboardingCard() {
       setActiveParishName(nextParish.name)
       setStaffUsers(nextStaff)
     } catch (error: unknown) {
-      if (!isLatestLoad() || (error instanceof DOMException && error.name === 'AbortError')) return
+      if (!isLatestLoad()) return
+      if (error instanceof DOMException && error.name === 'AbortError' && !loadTimedOut) return
       setLoadFailed(true)
     } finally {
+      window.clearTimeout(timeoutId)
       if (isLatestLoad()) setLoading(false)
       if (loadAbortRef.current === controller) loadAbortRef.current = null
     }
