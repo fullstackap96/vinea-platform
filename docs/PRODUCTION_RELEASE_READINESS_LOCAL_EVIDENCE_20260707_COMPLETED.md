@@ -18,6 +18,20 @@ This file was refreshed later in the same session after dashboard error redactio
 
 This evidence is not a release approval, deployment record, production smoke record, production RLS approval, production export approval, production monitoring approval, public trust-center approval, or customer-facing claim.
 
+## 2026-07-11 Remote CI And Protected Preview Addendum
+
+- Immutable source commit: `495cb1dda70a039116927f89b818ffe0a195ee2a`.
+- Release-source aggregate: `07E172B228A7E055038454DE785178C0FF42D218A1BF4F94D3A0B2F29E44083B` across `1,439` files.
+- GitHub Actions run: `29178125486`; run number `6`; conclusion `success`; exact head matched: `YES`.
+- Clean Linux full Vitest: `809` test files and `3,441` tests passed.
+- Both TypeScript scopes, full lint, repository secret scan, dependency audit, and every release evidence gate: `PASS`.
+- Credential-free Linux Next.js `16.2.10` production build: `PASS`.
+- Matching Vercel preview deployment: `dpl_CmCcXTYqyz8D55w3KgA2ZkwB6wbu`; state `READY`; target `null`.
+- Protected preview `/api/health`: `NOT VERIFIED`; Vercel Deployment Protection returned a 302 SSO redirect.
+- Deployment Protection weakened or bypassed: `NO`.
+- Production deployment, production access, provider call, migration, record mutation, or public claim: `NO`.
+- Production approval granted by this addendum: `NO`.
+
 ## 2026-07-11 Full Lint Contract Alignment
 
 The active release-readiness contract now runs full ESLint output so local verification and GitHub CI enforce the same warning boundary. The historical quiet-lint evidence below remains unchanged.
