@@ -70,6 +70,29 @@ describe('Daily Work Hub latest-response boundary', () => {
     expect(block).not.toContain('AbortController')
   })
 
+  it('bounds the aggregate load and preserves confirmed data after silent refresh failure', () => {
+    const block = loadRequestsBlock()
+    const catchIndex = block.indexOf('} catch (unexpected) {')
+    const catchBlock = block.slice(catchIndex, block.indexOf('} finally {', catchIndex))
+
+    expect(dashboard).toContain('const DAILY_WORK_HUB_LOAD_TIMEOUT_MS = 15_000')
+    expect(block).toContain('AbortSignal.timeout(DAILY_WORK_HUB_LOAD_TIMEOUT_MS)')
+    expect(block).toContain('signal: timeoutSignal')
+    expect(catchBlock).toContain('if (!timeoutSignal.aborted)')
+    expect(catchBlock).toContain('The Daily Work Hub took too long to load. Try again.')
+    expect(catchBlock).toContain('if (!silent) {')
+    for (const destructiveUpdate of [
+      'setRequestsFetchFailed(true)',
+      'setRequests([])',
+      'setSuggestedActions([])',
+      'setDailyOperatingSignals(emptyDailyOperatingSystemSignals())',
+    ]) {
+      expect(catchBlock.indexOf(destructiveUpdate)).toBeGreaterThan(
+        catchBlock.indexOf('if (!silent) {'),
+      )
+    }
+  })
+
   it('documents the stale-response and safety boundary', () => {
     const doc = read('docs/DAILY_WORK_HUB_LATEST_RESPONSE_BOUNDARY_20260711.md')
     for (const phrase of [

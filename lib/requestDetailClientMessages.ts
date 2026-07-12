@@ -1,5 +1,6 @@
 export type RequestDetailClientAction =
   | 'verifyAccess'
+  | 'loadRequestTimeout'
   | 'loadActivity'
   | 'loadCommunications'
   | 'loadRequestNotes'
@@ -40,6 +41,7 @@ export type RequestDetailClientAction =
 
 const requestDetailFailureMessages: Record<RequestDetailClientAction, string> = {
   verifyAccess: 'Request not found.',
+  loadRequestTimeout: 'Request details took too long to load. Try again.',
   loadActivity: 'Could not load request activity. Please try again.',
   loadCommunications: 'Could not load communication history. Please try again.',
   loadRequestNotes: 'Could not load request notes. Please try again.',

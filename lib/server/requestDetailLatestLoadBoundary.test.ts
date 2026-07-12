@@ -68,6 +68,31 @@ describe('Request Detail latest full-load boundary', () => {
     expect(block.slice(currentGuard)).toContain('setLoading(false)')
   })
 
+  it('turns a current stalled load into a safe, retryable timeout state', () => {
+    const block = loadBoundary()
+    const timeoutGuard = block.indexOf(
+      'if (timedOut && requestLoadAbortRef.current === controller)',
+    )
+    const abortedGuard = block.indexOf('controller.signal.aborted ||')
+
+    expect(source).toContain('const REQUEST_DETAIL_LOAD_TIMEOUT_MS = 15_000')
+    expect(block).toContain('const timeoutId = window.setTimeout(() => {')
+    expect(block).toContain('timedOut = true')
+    expect(block).toContain('controller.abort()')
+    expect(timeoutGuard).toBeGreaterThanOrEqual(0)
+    expect(timeoutGuard).toBeLessThan(abortedGuard)
+    expect(block).toContain(
+      "setErrorMessage(requestDetailClientFailureMessage('loadRequestTimeout'))",
+    )
+    expect(block).toContain('window.clearTimeout(timeoutId)')
+    expect(block).toContain('function retryRequestLoad()')
+    expect(block).toContain("setErrorMessage('')")
+    expect(block).toContain('setLoading(true)')
+    expect(block).toContain('void loadRequest()')
+    expect(source).toContain('onClick={retryRequestLoad}')
+    expect(source).toContain('Try again')
+  })
+
   it('does not convert aborts into partial-data fallbacks', () => {
     const block = loadBoundary()
 

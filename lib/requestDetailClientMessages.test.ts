@@ -12,6 +12,7 @@ describe('requestDetailClientFailureMessage', () => {
   it('returns plain-English action messages for request detail failures', () => {
     const actions: RequestDetailClientAction[] = [
       'verifyAccess',
+      'loadRequestTimeout',
       'loadActivity',
       'aiSummary',
       'saveAiSummary',
@@ -120,6 +121,12 @@ describe('requestDetailClientFailureMessage', () => {
     expect(message).not.toContain('Bearer')
     expect(message).not.toContain('token')
     expect(message).not.toContain('@example.com')
+  })
+
+  it('provides a safe recovery message when the request workspace times out', () => {
+    expect(requestDetailClientFailureMessage('loadRequestTimeout')).toBe(
+      'Request details took too long to load. Try again.',
+    )
   })
 
   it('preserves expected request detail load API messages', () => {

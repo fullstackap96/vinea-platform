@@ -149,6 +149,8 @@ type GoogleCalendarMutationPayload = {
   conflicts?: GoogleCalendarConflictDto[]
 }
 
+const REQUEST_DETAIL_LOAD_TIMEOUT_MS = 15_000
+
 function nowDatetimeLocal() {
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -350,10 +352,19 @@ const [staffNotes, setStaffNotes] = useState('')
     requestLoadAbortRef.current?.abort()
     const controller = new AbortController()
     requestLoadAbortRef.current = controller
+    let timedOut = false
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, REQUEST_DETAIL_LOAD_TIMEOUT_MS)
 
     try {
       await loadRequestCore(controller.signal)
     } catch (error) {
+      if (timedOut && requestLoadAbortRef.current === controller) {
+        setErrorMessage(requestDetailClientFailureMessage('loadRequestTimeout'))
+        return
+      }
       if (
         controller.signal.aborted ||
         requestLoadAbortRef.current !== controller ||
@@ -367,11 +378,18 @@ const [staffNotes, setStaffNotes] = useState('')
       )
       setErrorMessage(requestDetailClientFailureMessage('verifyAccess'))
     } finally {
+      window.clearTimeout(timeoutId)
       if (requestLoadAbortRef.current === controller) {
         requestLoadAbortRef.current = null
         setLoading(false)
       }
     }
+  }
+
+  function retryRequestLoad() {
+    setErrorMessage('')
+    setLoading(true)
+    void loadRequest()
   }
 
   async function loadRequestCore(signal: AbortSignal) {
@@ -2250,9 +2268,13 @@ async function deleteGoogleCalendarEvent() {
         >
           {errorMessage}
         </div>
-        <p className="mt-4 text-sm text-gray-800">
-          <strong>Route ID:</strong> {String(routeId)}
-        </p>
+        <button
+          type="button"
+          className={`${primaryButtonMd} mt-4`}
+          onClick={retryRequestLoad}
+        >
+          Try again
+        </button>
       </main>
     )
   }

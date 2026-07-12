@@ -128,6 +128,7 @@ import {
 
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
+const DAILY_WORK_HUB_LOAD_TIMEOUT_MS = 15_000
 
 function commandCenterBucketTone(bucket: StaffCommandCenterRow['bucket']): string {
   switch (bucket) {
@@ -1537,6 +1538,7 @@ export function DashboardPageCore({
   async function loadRequests(silent = false) {
     const loadSequence = ++requestsLoadSequenceRef.current
     const isLatestLoad = () => loadSequence === requestsLoadSequenceRef.current
+    const timeoutSignal = AbortSignal.timeout(DAILY_WORK_HUB_LOAD_TIMEOUT_MS)
 
     if (!silent) setLoading(true)
     setRequestsLoadError(null)
@@ -1549,6 +1551,7 @@ export function DashboardPageCore({
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
+        signal: timeoutSignal,
         headers: activeParishId
           ? { 'X-Vinea-Active-Parish-Id': activeParishId }
           : undefined,
@@ -1606,12 +1609,20 @@ export function DashboardPageCore({
 
     } catch (unexpected) {
       if (!isLatestLoad()) return
-      logDashboardQueryError('dashboard work hub endpoint', unexpected)
-      setRequestsFetchFailed(true)
-      setRequestsLoadError('The Daily Work Hub could not be loaded.')
-      setRequests([])
-      setSuggestedActions([])
-      setDailyOperatingSignals(emptyDailyOperatingSystemSignals())
+      if (!timeoutSignal.aborted) {
+        logDashboardQueryError('dashboard work hub endpoint', unexpected)
+      }
+      setRequestsLoadError(
+        timeoutSignal.aborted
+          ? 'The Daily Work Hub took too long to load. Try again.'
+          : 'The Daily Work Hub could not be loaded.',
+      )
+      if (!silent) {
+        setRequestsFetchFailed(true)
+        setRequests([])
+        setSuggestedActions([])
+        setDailyOperatingSignals(emptyDailyOperatingSystemSignals())
+      }
     } finally {
       if (isLatestLoad()) {
         setSuggestedActionsLoading(false)

@@ -14,18 +14,22 @@ Aborted support reads rethrow cancellation instead of clearing visible data thro
 
 Standalone activity-history refreshes remain valid because their signal is optional.
 
+The current full workspace load now also has a 15-second browser deadline. A genuine stall settles into curated recovery guidance and a `Try again` action. The timeout is distinguished from route cleanup or a superseding refresh, so expected cancellation remains quiet and cannot overwrite a newer load.
+
 ## Plain English
 
 When two refreshes overlap, Vinea now stops listening to the older one. Staff see the freshest confirmed request workspace instead of an older response arriving late and making the screen appear to move backward.
 
 Expected cancellation is quiet and does not display a false error. Genuine current-load failures retain the existing safe guidance and partial-data behavior.
 
+A stalled current load now stops showing the loading skeleton after the deadline. Staff can retry the complete authorization-first read without navigating away or refreshing the browser.
+
 ## Preserved Boundaries
 
 - Request Detail APIs, response shapes, authentication, active-parish membership, and request ownership are unchanged.
 - No mutation or staff workflow behavior changed.
 - No production access, shared-QA access, record write, migration, operational RLS change, communication send, provider call, AI call, export, storage access, signed URL, certificate generation, sensitive flag change, or public trust claim occurred.
-- Browser cancellation does not claim server-side cancellation, transactional behavior, or durable idempotency.
+- Browser cancellation and timeout do not claim server-side cancellation, transactional behavior, or durable idempotency.
 
 ## Rollback
 
