@@ -94,8 +94,7 @@ async function ensureParishesReadPolicy() {
       for select
       to authenticated, service_role
       using (
-        auth.role() = 'service_role'
-        or public.is_authorized_for_parish(id)
+        public.is_authorized_for_parish(id)
       );
   `)
 }
