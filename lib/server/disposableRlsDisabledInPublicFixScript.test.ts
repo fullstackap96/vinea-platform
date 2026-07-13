@@ -41,7 +41,6 @@ describe('disposable rls_disabled_in_public fix script', () => {
       'ensureParishesReadPolicy',
       'parishes_select_authorized_staff',
       'to authenticated, service_role',
-      "auth.role() = 'service_role'",
       'public.is_authorized_for_parish(id)',
       'remainingRlsDisabledTables',
     ]) {
@@ -85,5 +84,11 @@ describe('disposable rls_disabled_in_public fix script', () => {
     ]) {
       expect(script).not.toContain(forbidden)
     }
+  })
+
+  it('does not reintroduce deprecated role predicates in the parishes policy', () => {
+    const script = readScript()
+
+    expect(script).not.toMatch(/\bauth\.role\s*\(/i)
   })
 })
