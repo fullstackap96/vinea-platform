@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -30,5 +30,25 @@ describe('Supabase security cleanup migration', () => {
     expect(sql).toContain(
       'REVOKE EXECUTE ON FUNCTION public.workflow_templates_touch_updated_at() FROM PUBLIC'
     )
+  })
+
+  it('keeps Supabase SQL policies off deprecated auth.role predicates', () => {
+    const searchableDirectories = [
+      join(process.cwd(), 'supabase', 'migrations'),
+      join(process.cwd(), 'scripts'),
+    ]
+    const findings = searchableDirectories.flatMap((directory) =>
+      readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        if (!entry.isFile() || !/\.(?:sql|mjs)$/.test(entry.name)) return []
+        const path = join(directory, entry.name)
+        const source = readFileSync(path, 'utf8')
+        return /\bauth\.role\s*\(/i.test(source) ? [path] : []
+      })
+    )
+
+    expect(
+      findings,
+      `Replace auth.role() predicates with policy TO role scoping: ${findings.join(', ')}`
+    ).toEqual([])
   })
 })
