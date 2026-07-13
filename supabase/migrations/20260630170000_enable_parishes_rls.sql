@@ -13,8 +13,7 @@ CREATE POLICY "parishes_select_authorized_staff"
   FOR SELECT
   TO authenticated, service_role
   USING (
-    auth.role() = 'service_role'
-    OR public.is_authorized_for_parish(id)
+    public.is_authorized_for_parish(id)
   );
 
 COMMENT ON POLICY "parishes_select_authorized_staff" ON public.parishes IS

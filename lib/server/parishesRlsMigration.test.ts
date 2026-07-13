@@ -30,11 +30,12 @@ describe('parishes RLS migration', () => {
       'ON public.parishes',
       'FOR SELECT',
       'TO authenticated, service_role',
-      "auth.role() = 'service_role'",
-      'OR public.is_authorized_for_parish(id)',
+      'public.is_authorized_for_parish(id)',
     ]) {
       expect(migration).toContain(expected)
     }
+
+    expect(migration).not.toMatch(/\bauth\.role\s*\(/i)
   })
 
   it('does not grant anonymous or broad write access to parishes', () => {
