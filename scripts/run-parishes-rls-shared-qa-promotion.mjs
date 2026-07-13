@@ -129,7 +129,8 @@ function summarizeParishesPolicies(rows) {
     cmd: row.cmd,
     roles: row.roles,
     isMembershipScoped: String(row.qual ?? '').includes('is_authorized_for_parish'),
-    hasServiceRoleBypass: String(row.qual ?? '').includes("auth.role() = 'service_role'"),
+    hasServiceRoleGrant: Array.isArray(row.roles) && row.roles.includes('service_role'),
+    hasDeprecatedRolePredicate: /auth\s*\.\s*role\s*\(/i.test(String(row.qual ?? '')),
   }))
 }
 
@@ -141,9 +142,9 @@ function verificationPassed(state, policies, remainingRlsDisabledTables) {
         policy.policyname === 'parishes_select_authorized_staff' &&
         policy.cmd === 'SELECT' &&
         policy.roles.includes('authenticated') &&
-        policy.roles.includes('service_role') &&
+        policy.hasServiceRoleGrant === true &&
         policy.isMembershipScoped === true &&
-        policy.hasServiceRoleBypass === true
+        policy.hasDeprecatedRolePredicate === false
     ) &&
     remainingRlsDisabledTables.length === 0
   )
