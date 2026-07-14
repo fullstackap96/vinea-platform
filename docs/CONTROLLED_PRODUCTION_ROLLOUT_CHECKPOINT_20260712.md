@@ -45,6 +45,8 @@ The final local release gate passed all 15 checks, including repository secret s
 
 ## Required Named Owners
 
+Collect these labels in `docs/CONTROLLED_PRODUCTION_ROLLOUT_HUMAN_INTAKE_20260714.md` and validate them with `node scripts/check-controlled-production-rollout-intake.mjs`. The checker currently returns `NO_GO_MISSING_HUMAN_INPUT`; even a future `READY_FOR_EXPLICIT_APPROVAL` result does not grant production approval.
+
 The future approval record must provide non-secret labels for each role:
 
 | Role | Required responsibility |
@@ -156,3 +158,4 @@ Approve the controlled Vinea base application production rollout at exact main c
 
 Until that exact language is intentionally supplied with all placeholders replaced by real non-secret values, the decision remains `NO-GO`.
 
+The human intake worksheet is the required source for those replacements. Do not infer owner availability, production-safe fixtures, or a rollout window from older evidence.
