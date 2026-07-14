@@ -28,6 +28,20 @@ The merged release identity above remains the authoritative record for `f134b598
 
 This checkpoint aggregate identifies the post-merge documentation guard branch only. It does not authorize promotion of the merged release or alter the rollback state recorded in `docs/CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260712.md`.
 
+## Post-Rollback Human Intake Gate Identity
+
+The controlled-rollout human intake gate adds one source-allowlisted checker and one focused source-allowlisted test. A clean temporary checkout of its immutable implementation commit produced this separate aggregate:
+
+- Intake implementation commit: `aa502b5760ce0666ba9ce527e9259c2240fa7c7a`
+- Release-source aggregate SHA-256: `35437CD5A8B1E8AA9428C77FF126A63D3C72E288AFAF423FCCC762EC07F8E402`
+- Source file count: `1471`
+- Tracked source files: `1471`
+- Untracked source files: `0`
+- Worktree dirty in clean verification checkout: `NO`
+- Production approval granted: `NO`
+
+The intake checker currently returns `NO_GO_MISSING_HUMAN_INPUT`. This aggregate identifies the committed intake validation source only; it does not treat unrelated user-owned workspace files as release source and does not authorize production promotion or smoke.
+
 ## Scope
 
 The aggregate covers the current Git-tracked and non-ignored untracked release source under:
