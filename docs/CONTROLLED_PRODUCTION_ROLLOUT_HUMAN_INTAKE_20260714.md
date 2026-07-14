@@ -121,6 +121,20 @@ Allowed decisions:
 
 `READY_FOR_EXPLICIT_APPROVAL` means only that the product owner may provide the exact separate approval language from the checkpoint. It does not promote a deployment or authorize production access.
 
+## Latest Repository Verification
+
+The complete 15-check local release runner passed on 2026-07-14 from an LF-preserving clean checkout of branch commit `d60c3a8e` with its own exact lockfile dependency install:
+
+- repository secret scan: `PASS` across `2,099` files with zero findings
+- dependency security audit: `PASS` with zero known vulnerabilities
+- release environment and every evidence gate: `PASS`
+- both TypeScript scopes and lint: `PASS`
+- complete tests: `834` files / `3,554` tests passed
+- credential-free Next.js build: `PASS` with `56` generated static pages
+- final decision: `LOCAL_RELEASE_READINESS_PASSED`
+
+This verification changes no intake field and grants no production approval. The checker still returns `NO_GO_MISSING_HUMAN_INPUT`.
+
 ## Explicit Approval Boundary
 
 After the checker returns `READY_FOR_EXPLICIT_APPROVAL`, the product owner must still provide a separate message that:

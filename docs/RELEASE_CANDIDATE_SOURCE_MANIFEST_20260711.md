@@ -42,6 +42,8 @@ The controlled-rollout human intake gate adds one source-allowlisted checker and
 
 The intake checker currently returns `NO_GO_MISSING_HUMAN_INPUT`. This aggregate identifies the committed intake validation source only; it does not treat unrelated user-owned workspace files as release source and does not authorize production promotion or smoke.
 
+The final physical-dependency, LF-preserving clean-checkout verification at docs-binding commit `d60c3a8e` passed all 15 local release checks: zero secret findings, zero dependency vulnerabilities, every evidence gate, both TypeScript scopes, lint, 834 test files / 3,554 tests, and the credential-free 56-page build. The final decision was `LOCAL_RELEASE_READINESS_PASSED`; production approval remained `NO`.
+
 ## Scope
 
 The aggregate covers the current Git-tracked and non-ignored untracked release source under:
