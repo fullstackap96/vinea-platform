@@ -48,8 +48,8 @@ The final physical-dependency, LF-preserving clean-checkout verification at docs
 
 After the product owner confirmed all non-secret intake labels and scope confirmations, a clean LF-preserving checkout of the immutable approval-readiness commit produced this release-source identity:
 
-- Approval-readiness implementation commit: `1f5d294ace366602801a7a1ab3cc85d9da17da30`
-- Release-source aggregate SHA-256: `6427DD79068C31FB88312F1B6F361EF14795D005F6B5B601EB2A985494DDF31C`
+- Approval-readiness implementation commit: `bdc3fdd157d413a44b26026b3bbcc376e6f53753`
+- Release-source aggregate SHA-256: `BAD7E2F3E348BF6835FBC8CF9C51F94D5E70B58789621253B3C53F55861499C0`
 - Source file count: `1472`
 - Tracked source files: `1472`
 - Untracked source files: `0`
