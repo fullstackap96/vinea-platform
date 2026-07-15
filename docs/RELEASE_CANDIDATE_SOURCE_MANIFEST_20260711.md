@@ -59,6 +59,8 @@ After the product owner confirmed all non-secret intake labels and scope confirm
 
 This aggregate adds the focused final-approval-prompt validation source and binds the confirmed intake state. The approval prompt remains a prepared document only; it does not authorize deployment, production access, smoke, migrations, flags, or any separately locked capability.
 
+The first complete release-gate attempt failed closed at the test stage because two checkpoint assertions still expected the pre-intake wording. After the assertions were updated to require `READY_FOR_EXPLICIT_APPROVAL` while preserving explicit production `NO-GO`, focused coverage passed `3` files / `12` tests. The corrected docs-binding commit `af3aef78` then passed all `15` local release checks in an LF-preserving clean checkout: zero secret findings across `2,101` files, zero dependency vulnerabilities, every evidence gate, both TypeScript scopes, lint, `835` test files / `3,558` tests, and the credential-free `56`-page build. Final decision: `LOCAL_RELEASE_READINESS_PASSED`; production approval remained `NO`.
+
 ## Scope
 
 The aggregate covers the current Git-tracked and non-ignored untracked release source under:
