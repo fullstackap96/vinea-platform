@@ -16,7 +16,7 @@ describe('controlled production rollout checkpoint', () => {
     const doc = readRepoFile(checkpointPath)
 
     for (const marker of [
-      'MAIN MERGED; PRODUCTION ROUTING RESTORED TO PRIOR DEPLOYMENT; CONTROLLED ROLLOUT REMAINS NO-GO',
+      'MAIN MERGED; PRODUCTION ROUTING RESTORED; INTAKE READY; EXPLICIT ROLLOUT APPROVAL STILL NO-GO',
       'f134b598308ddd78b5b6b81ee447bf5b1fb15937',
       'dpl_4xKH41v7z7dHTqwQEdTjfXbhzrqG',
       'dpl_FuhBvEBrbZjNzQ6dLp4qHbi5j7UW',
@@ -35,6 +35,7 @@ describe('controlled production rollout checkpoint', () => {
       'docs/PRODUCTION_RELEASE_READINESS_HANDOFF_INDEX_20260706.md',
       'docs/PRODUCTION_RELEASE_READINESS_HUMAN_REVIEW_PACKET_20260707.md',
       'docs/PRODUCTION_SENSITIVE_GATE_BOUNDARY_INDEX_20260706.md',
+      'docs/CONTROLLED_PRODUCTION_ROLLOUT_FINAL_APPROVAL_PROMPT_20260714.md',
     ]) {
       expect(doc).toContain(artifact)
       expect(existsSync(join(repoRoot, artifact))).toBe(true)
@@ -84,7 +85,7 @@ describe('controlled production rollout checkpoint', () => {
     }
 
     expect(doc).toContain(
-      'Until that exact language is intentionally supplied with all placeholders replaced by real non-secret values, the decision remains `NO-GO`.',
+      'Until the fully substituted exact language in `docs/CONTROLLED_PRODUCTION_ROLLOUT_FINAL_APPROVAL_PROMPT_20260714.md` is intentionally supplied in a new product-owner instruction, the decision remains `NO-GO`.',
     )
   })
 
@@ -109,4 +110,3 @@ describe('controlled production rollout checkpoint', () => {
     }
   })
 })
-
