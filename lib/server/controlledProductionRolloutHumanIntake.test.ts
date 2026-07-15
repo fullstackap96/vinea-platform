@@ -43,12 +43,12 @@ function runChecker(): Result {
 }
 
 describe('controlled production rollout human intake', () => {
-  it('binds the approved release identity and keeps rollout blocked today', () => {
+  it('binds the approved release identity and records intake readiness only', () => {
     const intake = readFileSync(intakePath, 'utf8')
     const result = runChecker()
 
     for (const marker of [
-      'Current decision state: `NO_GO_MISSING_HUMAN_INPUT`',
+      'Current decision state: `READY_FOR_EXPLICIT_APPROVAL`',
       'https://vineaplatform.com',
       'f134b598308ddd78b5b6b81ee447bf5b1fb15937',
       'dpl_4xKH41v7z7dHTqwQEdTjfXbhzrqG',
@@ -58,14 +58,14 @@ describe('controlled production rollout human intake', () => {
       expect(intake).toContain(marker)
     }
 
-    expect(result.decision).toBe('NO_GO_MISSING_HUMAN_INPUT')
+    expect(result.decision).toBe('READY_FOR_EXPLICIT_APPROVAL')
     expect(result.releaseIdentityMatches).toBe(true)
     expect(result.productionApproved).toBe(false)
     expect(result.productionAccessed).toBe(false)
     expect(result.deploymentPromoted).toBe(false)
   })
 
-  it('requires every owner, fixture, window, and confirmation category', () => {
+  it('records every confirmed owner, fixture, window, and confirmation category', () => {
     const intake = readFileSync(intakePath, 'utf8')
     const result = runChecker()
 
@@ -89,14 +89,24 @@ describe('controlled production rollout human intake', () => {
       'Communications Center read-only view',
       'Required Rollout Window',
       'Availability And Scope Confirmations',
+      'Alex Perez - Product Owner',
+      'Alex Perez - Rollback Owner',
+      'Production smoke staff account - password not recorded',
+      'Production smoke authorized parish A',
+      'Production smoke same-parish request - approved read-only fixture',
+      '2026-07-15',
+      '8:00 PM',
+      '8:30 PM',
+      'America/Chicago',
+      '9:00 PM',
     ]) {
       expect(intake).toContain(marker)
     }
 
     expect(result.requiredFieldCount).toBe(26)
     expect(result.confirmationFieldCount).toBe(7)
-    expect(result.missingHumanInputCount).toBe(26)
-    expect(result.invalidConfirmationCount).toBe(7)
+    expect(result.missingHumanInputCount).toBe(0)
+    expect(result.invalidConfirmationCount).toBe(0)
   })
 
   it('contains no embedded credentials or private fixture identifiers', () => {

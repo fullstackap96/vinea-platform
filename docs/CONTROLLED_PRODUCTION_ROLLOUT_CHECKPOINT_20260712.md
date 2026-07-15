@@ -1,6 +1,6 @@
 # Controlled Production Rollout Checkpoint
 
-Current decision state: `MAIN MERGED; PRODUCTION ROUTING RESTORED TO PRIOR DEPLOYMENT; CONTROLLED ROLLOUT REMAINS NO-GO`
+Current decision state: `MAIN MERGED; PRODUCTION ROUTING RESTORED; INTAKE READY; EXPLICIT ROLLOUT APPROVAL STILL NO-GO`
 
 Date prepared: 2026-07-12
 
@@ -45,7 +45,7 @@ The final local release gate passed all 15 checks, including repository secret s
 
 ## Required Named Owners
 
-Collect these labels in `docs/CONTROLLED_PRODUCTION_ROLLOUT_HUMAN_INTAKE_20260714.md` and validate them with `node scripts/check-controlled-production-rollout-intake.mjs`. The checker currently returns `NO_GO_MISSING_HUMAN_INPUT`; even a future `READY_FOR_EXPLICIT_APPROVAL` result does not grant production approval.
+The confirmed labels are recorded in `docs/CONTROLLED_PRODUCTION_ROLLOUT_HUMAN_INTAKE_20260714.md` and validated by `node scripts/check-controlled-production-rollout-intake.mjs`. The checker returns `READY_FOR_EXPLICIT_APPROVAL`; this readiness result does not grant production approval. The exact separate prompt is prepared in `docs/CONTROLLED_PRODUCTION_ROLLOUT_FINAL_APPROVAL_PROMPT_20260714.md` and must be intentionally supplied in a later product-owner instruction before any production action.
 
 The future approval record must provide non-secret labels for each role:
 
@@ -152,10 +152,12 @@ Each remains governed by `docs/PRODUCTION_SENSITIVE_GATE_BOUNDARY_INDEX_20260706
 
 ## Exact Future Approval Language
 
+The fully substituted, mechanically validated version is now prepared in `docs/CONTROLLED_PRODUCTION_ROLLOUT_FINAL_APPROVAL_PROMPT_20260714.md`. The template below remains historical checkpoint context only; use the prepared prompt for any future decision.
+
 ```text
 Approve the controlled Vinea base application production rollout at exact main commit f134b598308ddd78b5b6b81ee447bf5b1fb15937 during [EXACT DATE, START TIME, END TIME, TIMEZONE]. Promote only existing Vercel deployment dpl_4xKH41v7z7dHTqwQEdTjfXbhzrqG, with dpl_FuhBvEBrbZjNzQ6dLp4qHbi5j7UW as the approved rollback target. The named product, engineering, security/data, QA, monitoring, support, rollback, and evidence owners are available, and the production-safe fixture labels are complete. Run only the smoke checks approved in docs/CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260712.md. Do not apply migrations, change operational RLS, enable production-sensitive flags, send communications, run imports or merges, access storage or signed URLs, call Google Calendar or AI, run exports, generate certificates, mutate records, or make public trust claims. Roll back immediately if a documented stop criterion occurs.
 ```
 
-Until that exact language is intentionally supplied with all placeholders replaced by real non-secret values, the decision remains `NO-GO`.
+Until the fully substituted exact language in `docs/CONTROLLED_PRODUCTION_ROLLOUT_FINAL_APPROVAL_PROMPT_20260714.md` is intentionally supplied in a new product-owner instruction, the decision remains `NO-GO`.
 
-The human intake worksheet is the required source for those replacements. Do not infer owner availability, production-safe fixtures, or a rollout window from older evidence.
+The human intake worksheet is the required source for those replacements. The confirmed intake and prepared exact prompt grant no production approval. Do not infer approval from document existence, owner availability, production-safe fixtures, or the rollout window.

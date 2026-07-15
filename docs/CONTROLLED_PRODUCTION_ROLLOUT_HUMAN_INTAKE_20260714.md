@@ -1,6 +1,6 @@
 # Controlled Production Rollout Human Intake
 
-Current decision state: `NO_GO_MISSING_HUMAN_INPUT`
+Current decision state: `READY_FOR_EXPLICIT_APPROVAL`
 
 Date prepared: 2026-07-14
 
@@ -43,17 +43,17 @@ Replace every `PENDING_HUMAN_INPUT` value with a real non-secret label. One pers
 
 | Field | Required value |
 | --- | --- |
-| Product owner | `PENDING_HUMAN_INPUT` |
-| Engineering rollout owner | `PENDING_HUMAN_INPUT` |
-| Security/data owner | `PENDING_HUMAN_INPUT` |
-| QA owner | `PENDING_HUMAN_INPUT` |
-| Monitoring owner | `PENDING_HUMAN_INPUT` |
-| Monitoring channel | `PENDING_HUMAN_INPUT` |
-| Support owner | `PENDING_HUMAN_INPUT` |
-| Support channel | `PENDING_HUMAN_INPUT` |
-| Rollback owner | `PENDING_HUMAN_INPUT` |
-| Evidence owner | `PENDING_HUMAN_INPUT` |
-| Evidence storage label | `PENDING_HUMAN_INPUT` |
+| Product owner | `Alex Perez - Product Owner` |
+| Engineering rollout owner | `Alex Perez - Engineering Rollout Owner` |
+| Security/data owner | `Alex Perez - Security/Data Owner` |
+| QA owner | `Alex Perez - QA Owner` |
+| Monitoring owner | `Alex Perez - Monitoring Owner` |
+| Monitoring channel | `Vercel dashboards and this controlled rollout Codex task` |
+| Support owner | `Alex Perez - Support Owner` |
+| Support channel | `This controlled rollout Codex task` |
+| Rollback owner | `Alex Perez - Rollback Owner` |
+| Evidence owner | `Alex Perez - Evidence Owner` |
+| Evidence storage label | `Vinea controlled rollout repository evidence record` |
 
 ## Required Production-Safe Fixture Labels
 
@@ -61,16 +61,16 @@ All checks are read-only. Do not create fixtures during rollout unless a separat
 
 | Field | Required value |
 | --- | --- |
-| Safe staff account | `PENDING_HUMAN_INPUT` |
-| Authorized active parish A | `PENDING_HUMAN_INPUT` |
-| Authorized parish-switch target B | `PENDING_HUMAN_INPUT` |
-| Same-parish request | `PENDING_HUMAN_INPUT` |
-| Cross-parish or unauthorized denial request | `PENDING_HUMAN_INPUT` |
-| Onboarding read-only view | `PENDING_HUMAN_INPUT` |
-| Imports read-only history | `PENDING_HUMAN_INPUT` |
-| People duplicate-review page | `PENDING_HUMAN_INPUT` |
-| Household duplicate-review page | `PENDING_HUMAN_INPUT` |
-| Communications Center read-only view | `PENDING_HUMAN_INPUT` |
+| Safe staff account | `Production smoke staff account - password not recorded` |
+| Authorized active parish A | `Production smoke authorized parish A` |
+| Authorized parish-switch target B | `Production smoke authorized parish B` |
+| Same-parish request | `Production smoke same-parish request - approved read-only fixture` |
+| Cross-parish or unauthorized denial request | `Production smoke cross-parish request - generic denial expected` |
+| Onboarding read-only view | `Production smoke Parish A Onboarding view - read-only` |
+| Imports read-only history | `Production smoke Parish A Imports history - read-only, no upload or commit` |
+| People duplicate-review page | `Production smoke Parish A People duplicate review page - read-only, no discovery or merge` |
+| Household duplicate-review page | `Production smoke Parish A Household duplicate review page - read-only, no discovery or merge` |
+| Communications Center read-only view | `Production smoke Parish A Communications Center - read-only, no touchpoint, follow-up, email, or SMS mutation` |
 | Family portal denial fixture | `NOT_INCLUDED` |
 
 `NOT_INCLUDED` is allowed only for the family portal denial fixture. Family portal testing is outside the base smoke unless separately approved.
@@ -81,11 +81,11 @@ Use an exact low-traffic date and time. The rollback observation end must be no 
 
 | Field | Required value |
 | --- | --- |
-| Rollout date | `PENDING_HUMAN_INPUT` |
-| Rollout start time | `PENDING_HUMAN_INPUT` |
-| Rollout end time | `PENDING_HUMAN_INPUT` |
-| Timezone | `PENDING_HUMAN_INPUT` |
-| Rollback observation end | `PENDING_HUMAN_INPUT` |
+| Rollout date | `2026-07-15` |
+| Rollout start time | `8:00 PM` |
+| Rollout end time | `8:30 PM` |
+| Timezone | `America/Chicago` |
+| Rollback observation end | `9:00 PM` |
 
 Recommended format: `2026-07-15`, `8:00 PM`, `8:30 PM`, `America/Chicago`, and `9:00 PM`.
 
@@ -95,13 +95,13 @@ Replace each pending value with `YES` only after the named humans have confirmed
 
 | Field | Required value |
 | --- | --- |
-| All owners available for rollout and observation | `PENDING_HUMAN_INPUT` |
-| Fixtures approved as production-safe and read-only | `PENDING_HUMAN_INPUT` |
-| Health and staff smoke explicitly approved for the window | `PENDING_HUMAN_INPUT` |
-| Monitoring and support channels open before promotion | `PENDING_HUMAN_INPUT` |
-| Rollback owner can restore the fixed rollback deployment | `PENDING_HUMAN_INPUT` |
-| Separately locked production gates remain disabled | `PENDING_HUMAN_INPUT` |
-| Evidence will remain label-only and redacted | `PENDING_HUMAN_INPUT` |
+| All owners available for rollout and observation | `YES` |
+| Fixtures approved as production-safe and read-only | `YES` |
+| Health and staff smoke explicitly approved for the window | `YES` |
+| Monitoring and support channels open before promotion | `YES` |
+| Rollback owner can restore the fixed rollback deployment | `YES` |
+| Separately locked production gates remain disabled | `YES` |
+| Evidence will remain label-only and redacted | `YES` |
 
 ## Validation
 
@@ -133,7 +133,7 @@ The complete 15-check local release runner passed on 2026-07-14 from an LF-prese
 - credential-free Next.js build: `PASS` with `56` generated static pages
 - final decision: `LOCAL_RELEASE_READINESS_PASSED`
 
-This verification changes no intake field and grants no production approval. The checker still returns `NO_GO_MISSING_HUMAN_INPUT`.
+The product owner confirmed the non-secret owner labels, fixture labels, exact rollout window, and all seven availability/scope confirmations on 2026-07-14. This records intake readiness only and grants no production approval or production access. The checker now returns `READY_FOR_EXPLICIT_APPROVAL`.
 
 ## Explicit Approval Boundary
 
@@ -149,4 +149,4 @@ Until that separate approval is supplied, controlled production rollout remains 
 
 ## Plain-English Summary
 
-This worksheet gathers the people, safe test labels, and timing needed for a carefully controlled rollout. It contains no passwords or customer data, and filling it does not deploy anything. It simply makes the final human decision concrete and checkable.
+This worksheet now records the people, safe test labels, and timing for a carefully controlled rollout. It contains no passwords or customer data, and its completed state does not deploy or approve anything. It only makes a separate final production decision possible and checkable.
