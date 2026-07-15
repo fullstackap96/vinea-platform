@@ -40,9 +40,24 @@ The controlled-rollout human intake gate adds one source-allowlisted checker and
 - Worktree dirty in clean verification checkout: `NO`
 - Production approval granted: `NO`
 
-The intake checker currently returns `NO_GO_MISSING_HUMAN_INPUT`. This aggregate identifies the committed intake validation source only; it does not treat unrelated user-owned workspace files as release source and does not authorize production promotion or smoke.
+The intake checker's initial result was `NO_GO_MISSING_HUMAN_INPUT`. This aggregate identifies the committed intake validation source only; it does not treat unrelated user-owned workspace files as release source and does not authorize production promotion or smoke.
 
 The final physical-dependency, LF-preserving clean-checkout verification at docs-binding commit `d60c3a8e` passed all 15 local release checks: zero secret findings, zero dependency vulnerabilities, every evidence gate, both TypeScript scopes, lint, 834 test files / 3,554 tests, and the credential-free 56-page build. The final decision was `LOCAL_RELEASE_READINESS_PASSED`; production approval remained `NO`.
+
+## Confirmed Intake And Prepared Approval Prompt Identity
+
+After the product owner confirmed all non-secret intake labels and scope confirmations, a clean LF-preserving checkout of the immutable approval-readiness commit produced this release-source identity:
+
+- Approval-readiness implementation commit: `1f5d294ace366602801a7a1ab3cc85d9da17da30`
+- Release-source aggregate SHA-256: `6427DD79068C31FB88312F1B6F361EF14795D005F6B5B601EB2A985494DDF31C`
+- Source file count: `1472`
+- Tracked source files: `1472`
+- Untracked source files: `0`
+- Worktree dirty in clean verification checkout: `NO`
+- Intake decision: `READY_FOR_EXPLICIT_APPROVAL`
+- Production approval granted: `NO`
+
+This aggregate adds the focused final-approval-prompt validation source and binds the confirmed intake state. The approval prompt remains a prepared document only; it does not authorize deployment, production access, smoke, migrations, flags, or any separately locked capability.
 
 ## Scope
 
