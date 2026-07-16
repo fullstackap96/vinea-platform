@@ -1,8 +1,8 @@
 # Controlled Production Rollout Evidence - 2026-07-15
 
-Status: `APPROVED_WINDOW_PENDING`
+Status: `STOPPED_PRE_PROMOTION`
 
-Decision: `NOT_YET_EXECUTED`
+Decision: `ROLLBACK_NO_OP`
 
 This record contains control-plane identifiers, approved fixture labels, and pass/fail outcomes only. It must not contain credentials, tokens, customer content, parishioner details, raw production record identifiers, private documents, or raw audit metadata.
 
@@ -71,40 +71,42 @@ Complete only during the approved rollout and observation window.
 
 | Step | Result | Sanitized evidence |
 | --- | --- | --- |
-| Window and owner availability recheck | `PENDING` | |
-| Remote main and deployment identity recheck | `PENDING` | |
-| Locked production gate name/scope recheck | `PENDING` | |
-| Candidate promotion | `PENDING` | |
-| Production alias points to candidate | `PENDING` | |
-| `/api/health` HTTP 200 | `PENDING` | |
-| `/api/health` `checks.schema: true` | `PENDING` | |
-| Safe staff sign-in | `PENDING` | |
-| Authorized parish A/B switching | `PENDING` | |
-| Same-parish request read | `PENDING` | |
-| Cross-parish request generic denial | `PENDING` | |
-| Onboarding read-only view | `PENDING` | |
-| Imports history read-only view | `PENDING` | |
-| People duplicate review read-only view | `PENDING` | |
-| Household duplicate review read-only view | `PENDING` | |
-| Communications Center read-only view | `PENDING` | |
-| Forbidden-action review | `PENDING` | |
-| Runtime monitoring observation | `PENDING` | |
-| Rollback target remains ready | `PENDING` | |
+| Window and owner availability recheck | `PASS` | Execution began inside the approved promotion window; the approved owner and channel labels were unchanged. |
+| Remote main and deployment identity recheck | `PASS` | Remote `main`, candidate identity, candidate commit, and rollback identity matched the approval; both deployments were `READY`. |
+| Required commit status recheck | `PASS` | GitHub reported the Vercel status check as `success` for the exact approved commit. |
+| Locked production gate name/scope recheck | `PASS` | Production variable names contained no separately locked `VINEA_*` runtime gate variables; values were not read or printed. |
+| Approved staff-smoke session prerequisite | `FAIL` | No approved authenticated browser session was available. Dedicated `PRODUCTION_SMOKE_*` credential and fixture-selector variables were absent by name only. Existing QA variables were not reused. |
+| Candidate promotion | `NOT_RUN` | Fail-closed stop occurred before promotion. |
+| Production alias points to candidate | `NOT_RUN` | Candidate never received production traffic. |
+| `/api/health` HTTP 200 | `NOT_RUN` | Production application smoke was not allowed after the pre-promotion stop. |
+| `/api/health` `checks.schema: true` | `NOT_RUN` | Production application smoke was not allowed after the pre-promotion stop. |
+| Safe staff sign-in | `NOT_RUN` | Required approved session was unavailable. |
+| Authorized parish A/B switching | `NOT_RUN` | Required approved session was unavailable. |
+| Same-parish request read | `NOT_RUN` | Required approved session was unavailable. |
+| Cross-parish request generic denial | `NOT_RUN` | Required approved session was unavailable. |
+| Onboarding read-only view | `NOT_RUN` | Required approved session was unavailable. |
+| Imports history read-only view | `NOT_RUN` | Required approved session was unavailable. |
+| People duplicate review read-only view | `NOT_RUN` | Required approved session was unavailable. |
+| Household duplicate review read-only view | `NOT_RUN` | Required approved session was unavailable. |
+| Communications Center read-only view | `NOT_RUN` | Required approved session was unavailable. |
+| Forbidden-action review | `PASS` | No migration, RLS, flag, provider, export, storage, settings, routing, family-portal, or record action occurred. |
+| Runtime monitoring observation | `NOT_RUN` | No candidate traffic existed to observe. |
+| Rollback target remains ready | `PASS` | Vercel reported the rollback deployment `READY`. |
 
 ## Stop And Rollback Record
 
 | Field | Value |
 | --- | --- |
-| Stop criterion observed | `PENDING` |
-| Rollback invoked | `PENDING` |
-| Rollback control-plane result | `PENDING` |
-| Production alias after decision | `PENDING` |
+| Stop criterion observed | `Approved staff-smoke session/credentials and fixture selectors unavailable` |
+| Rollback invoked | `NO_OP` |
+| Rollback control-plane result | `No command required because promotion never occurred` |
+| Production alias after decision | `Approved rollback deployment remains live` |
 
 ## Final Decision
 
-Final outcome: `PENDING`
+Final outcome: `ROLLBACK`
 
-Allowed final values are `KEEP` or `ROLLBACK`. A decision is not valid before the approved observation is complete or a stop criterion requires immediate rollback.
+Decision recorded at `2026-07-15 20:03 America/Chicago`. This is a no-op rollback decision: the fail-closed prerequisite check stopped execution before promotion, and Vercel control-plane verification confirmed that `vineaplatform.com` remained on the approved rollback deployment. No production application route or production data was accessed.
 
 ## Forbidden Actions Confirmation
 
