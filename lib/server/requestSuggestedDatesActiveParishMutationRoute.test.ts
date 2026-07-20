@@ -48,7 +48,7 @@ describe('request suggested dates active parish mutation route', () => {
       source.indexOf('async function saveSuggestedDates'),
     )
     const block = source.slice(
-      source.indexOf(' async function saveSuggestedDates'),
+      source.indexOf('async function saveSuggestedDates'),
       source.indexOf('async function saveConfirmedBaptismDate'),
     )
 
