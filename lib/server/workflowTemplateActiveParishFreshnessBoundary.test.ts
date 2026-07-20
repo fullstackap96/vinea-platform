@@ -25,7 +25,9 @@ describe('Workflow Template active-parish freshness boundary', () => {
     expect(component).toContain('loadAbortRef.current?.abort()')
     expect(component).toContain('signal: controller.signal')
     expect(component).toContain('const isLatestLoad = () => loadSequence === loadSequenceRef.current')
-    expect(component).toContain("loadError instanceof DOMException && loadError.name === 'AbortError'")
+    expect(component).toContain('if (!isLatestLoad()) return')
+    expect(component).toContain('setLoadError(workflowTemplateLoadErrorMessage(loadError))')
+    expect(component).not.toContain("loadError instanceof DOMException && loadError.name === 'AbortError'")
     expect(component).toContain('if (isLatestLoad()) {')
   })
 

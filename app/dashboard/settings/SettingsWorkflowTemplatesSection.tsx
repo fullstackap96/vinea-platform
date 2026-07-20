@@ -30,6 +30,12 @@ const REQUEST_TYPE_LABELS: Record<string, string> = {
   ocia: 'OCIA',
 }
 
+const WORKFLOW_TEMPLATE_READ_TIMEOUT_MS = 15_000
+
+function startWorkflowTemplateReadDeadline(controller: AbortController): number {
+  return window.setTimeout(() => controller.abort(), WORKFLOW_TEMPLATE_READ_TIMEOUT_MS)
+}
+
 function requestTypeLabel(value: string): string {
   return REQUEST_TYPE_LABELS[value] ?? value
 }
@@ -62,6 +68,7 @@ export function SettingsWorkflowTemplatesSection({
     const controller = new AbortController()
     loadAbortRef.current = controller
     const isLatestLoad = () => loadSequence === loadSequenceRef.current
+    const readTimeoutId = startWorkflowTemplateReadDeadline(controller)
 
     setLoading(true)
     setLoadError('')
@@ -93,10 +100,10 @@ export function SettingsWorkflowTemplatesSection({
           : current
       )
     } catch (loadError: unknown) {
-      if (loadError instanceof DOMException && loadError.name === 'AbortError') return
       if (!isLatestLoad()) return
       setLoadError(workflowTemplateLoadErrorMessage(loadError))
     } finally {
+      window.clearTimeout(readTimeoutId)
       if (isLatestLoad()) {
         loadAbortRef.current = null
         setLoading(false)

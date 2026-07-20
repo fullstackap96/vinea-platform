@@ -21,7 +21,8 @@ describe('Parish Settings latest-response boundary', () => {
 
     expect(source.match(/new AbortController\(\)/g)?.length).toBeGreaterThanOrEqual(4)
     expect(source.match(/signal: controller\.signal/g)?.length).toBeGreaterThanOrEqual(4)
-    expect(source).toContain("error instanceof DOMException && error.name === 'AbortError'")
+    expect(source.match(/startParishSettingsReadDeadline\(controller\)/g)).toHaveLength(4)
+    expect(source).not.toContain("error instanceof DOMException && error.name === 'AbortError'")
   })
 
   it('starts supporting selected-parish reads together and permits only current results to settle', () => {

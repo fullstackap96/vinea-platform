@@ -63,6 +63,12 @@ const DEFAULT_SLA_RULES: WorkflowSlaRules = {
   ownerAssignmentDays: { funeral: 0, wedding: 1, baptism: 2, ocia: 2 },
 }
 
+const PARISH_SETTINGS_READ_TIMEOUT_MS = 15_000
+
+function startParishSettingsReadDeadline(controller: AbortController): number {
+  return window.setTimeout(() => controller.abort(), PARISH_SETTINGS_READ_TIMEOUT_MS)
+}
+
 function normalizeSlaRules(value: WorkflowSlaRules | null | undefined): WorkflowSlaRules {
   return {
     firstContactDays: { ...DEFAULT_SLA_RULES.firstContactDays, ...(value?.firstContactDays ?? {}) },
@@ -89,10 +95,6 @@ function formatDateTime(value: string | null | undefined): string {
   const date = new Date(value)
   if (!Number.isFinite(date.getTime())) return value
   return date.toLocaleString()
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 export function ParishSettingsPage({ activeParishId = null }: { activeParishId?: string | null }) {
@@ -178,6 +180,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
     const controller = new AbortController()
     staffAccessLoadAbortRef.current = controller
     const isLatestLoad = () => loadSequence === staffAccessLoadSequenceRef.current
+    const readTimeoutId = startParishSettingsReadDeadline(controller)
 
     setStaffAccessLoading(true)
     setStaffAccessError('')
@@ -202,9 +205,10 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
       setStaffAccess(parsed.staff)
       setCanManageStaff(parsed.canManage)
     } catch (error: unknown) {
-      if (isAbortError(error) || !isLatestLoad()) return
+      if (!isLatestLoad()) return
       setStaffAccessError(parishSettingsClientErrorMessage('loadStaffAccess', error))
     } finally {
+      window.clearTimeout(readTimeoutId)
       if (isLatestLoad()) {
         staffAccessLoadAbortRef.current = null
         setStaffAccessLoading(false)
@@ -218,6 +222,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
     const controller = new AbortController()
     recentAuditLoadAbortRef.current = controller
     const isLatestLoad = () => loadSequence === recentAuditLoadSequenceRef.current
+    const readTimeoutId = startParishSettingsReadDeadline(controller)
 
     setRecentAuditError('')
     try {
@@ -242,10 +247,11 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
       }
       setRecentAuditEvents(parsed)
     } catch (error: unknown) {
-      if (isAbortError(error) || !isLatestLoad()) return
+      if (!isLatestLoad()) return
       setRecentAuditEvents([])
       setRecentAuditError(parishSettingsClientErrorMessage('loadRecentActivity', error))
     } finally {
+      window.clearTimeout(readTimeoutId)
       if (isLatestLoad()) recentAuditLoadAbortRef.current = null
     }
   }, [])
@@ -263,6 +269,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
     const controller = new AbortController()
     publicRoutingLoadAbortRef.current = controller
     const isLatestLoad = () => loadSequence === publicRoutingLoadSequenceRef.current
+    const readTimeoutId = startParishSettingsReadDeadline(controller)
 
     setPublicIntakeRoutingError('')
     try {
@@ -289,12 +296,13 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
       }
       applyPublicIntakeRoutingSnapshot(routing)
     } catch (error: unknown) {
-      if (isAbortError(error) || !isLatestLoad()) return
+      if (!isLatestLoad()) return
       setPublicIntakeRouting(null)
       setPublicIntakeRoutingError(
         parishSettingsClientErrorMessage('loadPublicIntakeRouting', error)
       )
     } finally {
+      window.clearTimeout(readTimeoutId)
       if (isLatestLoad()) publicRoutingLoadAbortRef.current = null
     }
   }, [activeParishId, applyPublicIntakeRoutingSnapshot])
@@ -305,6 +313,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
     const controller = new AbortController()
     settingsLoadAbortRef.current = controller
     const isLatestLoad = () => loadSequence === settingsLoadSequenceRef.current
+    const readTimeoutId = startParishSettingsReadDeadline(controller)
 
     setLoading(true)
     setLoadError('')
@@ -344,9 +353,10 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
       setPriestText(directoryToMultilineText(Array.isArray(p.priest_names) ? p.priest_names : []))
       setGoogleCalendar(parsed.googleCalendar)
     } catch (error: unknown) {
-      if (isAbortError(error) || !isLatestLoad()) return
+      if (!isLatestLoad()) return
       setLoadError(parishSettingsClientErrorMessage('loadSettings', error))
     } finally {
+      window.clearTimeout(readTimeoutId)
       await supportingLoads
       if (isLatestLoad()) {
         settingsLoadAbortRef.current = null
