@@ -172,6 +172,59 @@ describe('loadStaffScopedRequestDocumentAccess', () => {
     expect(resolveActiveStaffParishContextMock).not.toHaveBeenCalled()
   })
 
+  it('uses the authenticated primary membership when the active parish cookie is absent', async () => {
+    const staffSupabase = { rpc: vi.fn(), from: vi.fn() }
+    const { admin, from } = adminFor({
+      primaryParishId: 'global-primary-parish',
+      requestParishionerId: 'parishioner-1',
+      parishionerParishId: 'staff-primary-parish',
+    })
+    resolveActiveStaffParishContextMock.mockResolvedValueOnce({
+      ok: true,
+      source: 'membership',
+      parishIds: ['staff-primary-parish'],
+      primaryParishId: 'staff-primary-parish',
+      activeParishId: 'staff-primary-parish',
+      activeParish: { id: 'staff-primary-parish', name: 'Staff Parish' },
+      parishes: [{ id: 'staff-primary-parish', name: 'Staff Parish' }],
+      requestedParishId: null,
+    })
+
+    const result = await loadStaffScopedRequestDocumentAccess(admin as never, 'request-1', {
+      staffSupabase: staffSupabase as never,
+      activeParishId: null,
+      allowPrimaryParishFallback: true,
+    })
+
+    expect(result).toEqual({ requestId: 'request-1', parishId: 'staff-primary-parish' })
+    expect(resolveActiveStaffParishContextMock).toHaveBeenCalledWith(staffSupabase)
+    expect(from).not.toHaveBeenCalledWith('parishes')
+  })
+
+  it('fails closed when cookie-free membership resolution fails', async () => {
+    const { admin, from } = adminFor({
+      primaryParishId: 'global-primary-parish',
+      requestParishionerId: 'parishioner-1',
+      parishionerParishId: 'global-primary-parish',
+    })
+    resolveActiveStaffParishContextMock.mockResolvedValueOnce({
+      ok: false,
+      source: 'membership',
+      error: 'Unable to resolve parish access.',
+      technicalDetail: null,
+      requestedParishId: null,
+    })
+
+    const result = await loadStaffScopedRequestDocumentAccess(admin as never, 'request-1', {
+      staffSupabase: { rpc: vi.fn(), from: vi.fn() } as never,
+      activeParishId: null,
+      allowPrimaryParishFallback: true,
+    })
+
+    expect(result).toBeNull()
+    expect(from).not.toHaveBeenCalled()
+  })
+
   it('fails closed when neither active parish nor explicit fallback is available', async () => {
     const { admin, from } = adminFor({
       primaryParishId: 'parish-1',

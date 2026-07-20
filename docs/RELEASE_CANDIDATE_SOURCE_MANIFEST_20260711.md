@@ -76,6 +76,20 @@ The 2026-07-20 repository-artifact hardening slice has a separate dirty-worktree
 
 This identity binds the current release-source allowlist while unrelated local generated/private artifacts remain excluded by the repository boundary. Both the secret scanner and source manifest now use an explicit 64 MiB Git-output buffer so large dirty worktrees fail only at a meaningful integrity boundary, not Node's default output limit. The current identity also includes the focused AI/operator-context consistency guard. The complete local 15-check release contract passed before these adjacent safeguards; focused manifest, secret-scan, and context checks passed afterward. Implementation commit `f3a7747f0dcddda8362e00f1e27a573694933d8b` makes the code/test boundary immutable; this follow-up record still does not substitute for clean-checkout remote CI, Preview, or separate production approval.
 
+## Membership-Primary Request Access Development Identity
+
+The 2026-07-20 membership-primary request and document access hardening has this pre-commit development identity:
+
+- Parent/base commit: `41607f5cae6bc8fe4b1476c7b1f849649bf0cc98`
+- Release-source aggregate SHA-256: `42F8D938E21E95C3177B624EB0F0A88BDF8E2A6007267193DC6E635CDD25A530`
+- Source file count: `1477`
+- Tracked source files: `1473`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+- Production approval granted: `NO`
+
+This identity binds the membership-first cookie-free fallback behavior and focused source/unit guards. It changes no migration or RLS policy and performs no external action. The complete 15-check local release contract passed against this aggregate in 329.1 seconds with 836 test files / 3,566 tests and the credential-free 56-page build. It remains development evidence until committed; remote CI, Preview, and production approval remain separate gates.
+
 ## Scope
 
 The aggregate covers the current Git-tracked and non-ignored untracked release source under:
