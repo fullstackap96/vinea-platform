@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release AI Client Confirmation Slice
+
+The 2026-07-20 AI client reliability slice gives Request Detail summary/reply generation and Daily Work Hub follow-up drafting a 40-second browser confirmation deadline over the existing 30-second provider deadline. Summary and reply dispatches now acquire synchronous client locks before network work, accept only non-empty structured provider responses, and never replay automatically. Generated-content persistence has a separate 60-second confirmation deadline; ambiguous transport or malformed-success results freeze related mutation controls until staff refresh and review, while explicit rejected writes remain safely retryable. The existing authentication, active-parish/request ownership, AI safety gates, provider implementation, staff-review requirements, and production-disabled boundaries remain unchanged.
+
+- Immutable implementation commit: `eb6a622db9e74eb0bd72dc8f05f01220f791186e`
+- Tracked-head aggregate SHA-256: `B6FA677F41018079FA23CE91DBD63025494B8D88DC46ED4722813A67F4312B7B`
+- Source mode: `tracked-head`
+- Source file count: `1501`
+- Tracked source files: `1501`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused AI confirmation, provider-deadline, safety-gate, active-parish persistence, same-origin, body-size, and Daily Work Hub coverage passed `17` files / `129` tests. After one stale source-contract assertion failed closed and was corrected to require the stronger refresh freeze, the complete release contract passed all `15` checks in `380.2` seconds with zero secret findings, zero vulnerabilities, both TypeScript scopes, lint, `858` test files / `3,685` tests, and the credential-free `56`-page build.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `2102EE1B06C0348B5AB1EB4CBA3647AD83FB766371BA74ABA08894EBF97C2CFE`
+- Source file count: `1505`
+- Tracked source files: `1501`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+This section records source identity only. It does not enable AI runtime gates, authorize provider calls, approve production, or replace live non-production QA.
+
 ## Post-Release Google Calendar Client Confirmation Slice
 
 The 2026-07-20 Google Calendar reliability slice gives Request Detail create, update, and delete calls a 25-second browser confirmation deadline, longer than the existing 15-second Google provider deadline. Once a provider mutation starts, a server failure reports only a safe refresh requirement; transport uncertainty, partial persistence, or failed post-success request refresh freezes every Calendar mutation control until staff refresh and review. Validation and conflict responses remain retryable, existing provider recovery remains authoritative, and no mutation is replayed automatically.
