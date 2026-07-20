@@ -72,6 +72,7 @@ describe('request access legacy fallback boundary', () => {
 
       expect(source).toContain('ACTIVE_STAFF_PARISH_COOKIE')
       expect(source).toContain('allowPrimaryParishFallback: !activeParishId')
+      expect(source).toContain('staff.supabase')
       expect(source).not.toContain(".from('parishes')")
       expect(source).not.toContain(".order('created_at', { ascending: true })")
       expect(source).not.toContain('.limit(1)')

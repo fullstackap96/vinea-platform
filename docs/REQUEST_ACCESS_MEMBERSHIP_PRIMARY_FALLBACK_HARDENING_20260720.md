@@ -22,6 +22,7 @@ Prevent cookie-free staff request and document access from selecting the globall
 - Focused request/detail/document access coverage passed 4 files / 22 tests before the source/documentation guard was added.
 - Added unit coverage proves membership-primary selection, no global-parish query when membership is available, and fail-closed behavior on membership-resolution errors for both request detail and request documents.
 - Added source-level assertions keep the legacy lookup behind the explicit compatibility option and membership-first branch.
+- The source guard also requires the core request detail, document collection, document item, and portal-token routes to supply `staff.supabase`, ensuring their cookie-free compatibility path can resolve authenticated membership.
 - The completed focused slice passed 5 files / 25 tests, and `npm.cmd run typecheck:all` plus lint passed.
 - The complete 15-check local release contract passed in 329.1 seconds: 0 secret findings across 2,842 text files, 0 dependency vulnerabilities, every evidence gate, both TypeScript scopes, lint, 836 test files / 3,566 tests, and the credential-free Next.js 16 56-page build.
 
