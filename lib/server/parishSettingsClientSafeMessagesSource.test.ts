@@ -87,20 +87,14 @@ describe('parish settings client safe messages', () => {
       "setPublicIntakeRoutingError(\n          parishSettingsClientErrorMessage('loadPublicIntakeRouting', data?.error)\n        )",
       "setPublicIntakeRoutingError(\n        parishSettingsClientErrorMessage('loadPublicIntakeRouting', error)\n      )",
       "setPublicIntakeRoutingSaveError(\n          parishSettingsClientErrorMessage('savePublicIntakeRouting', data?.error)\n        )",
-      "setPublicIntakeRoutingSaveError(\n        parishSettingsClientErrorMessage('savePublicIntakeRouting', error)\n      )",
       "parishSettingsClientErrorMessage('addPublicRoutingDomain', data?.error)",
-      "parishSettingsClientErrorMessage('addPublicRoutingDomain', error)",
       "parishSettingsClientErrorMessage('createPublicRoutingToken', data?.error)",
-      "parishSettingsClientErrorMessage('createPublicRoutingToken', error)",
       "parishSettingsClientErrorMessage('updatePublicRoutingToken', data?.error)",
-      "parishSettingsClientErrorMessage('updatePublicRoutingToken', error)",
       "parishSettingsClientErrorMessage('updatePublicRoutingDomain', data?.error)",
-      "parishSettingsClientErrorMessage('updatePublicRoutingDomain', error)",
       "parishSettingsClientErrorMessage('verifyPublicRoutingDomain', data?.error)",
-      "parishSettingsClientErrorMessage('verifyPublicRoutingDomain', error)",
       'publicRoutingDomainVerificationResultMessage(verification.error)',
       "parishSettingsClientErrorMessage(\n            'resetPublicRoutingDomainVerification',\n            data?.error\n          )",
-      "parishSettingsClientErrorMessage('resetPublicRoutingDomainVerification', error)",
+      'setError(PUBLIC_INTAKE_ROUTING_REFRESH_REQUIRED_MESSAGE)',
     ]) {
       expect(source).toContain(expected)
     }

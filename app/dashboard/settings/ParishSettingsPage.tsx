@@ -27,6 +27,10 @@ import {
   PARISH_SETTINGS_REFRESH_REQUIRED_MESSAGE,
   STAFF_ACCESS_REFRESH_REQUIRED_MESSAGE,
 } from '@/lib/parishSettingsClientConfirmation'
+import {
+  PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_TIMEOUT_MS,
+  PUBLIC_INTAKE_ROUTING_REFRESH_REQUIRED_MESSAGE,
+} from '@/lib/publicIntakeRoutingClientConfirmation'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 import { VineaConfirmDialog } from '@/app/dashboard/_components/VineaConfirmDialog'
 import {
@@ -153,6 +157,8 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
     useState<PublicIntakeRoutingSnapshot | null>(null)
   const [publicIntakeRoutingError, setPublicIntakeRoutingError] = useState('')
   const publicRoutingMutationInFlightRef = useRef(false)
+  const [publicRoutingMutationRequiresRefresh, setPublicRoutingMutationRequiresRefresh] =
+    useState(false)
   const [publicIntakeRoutingSaving, setPublicIntakeRoutingSaving] = useState(false)
   const [publicIntakeRoutingSaveMessage, setPublicIntakeRoutingSaveMessage] = useState('')
   const [publicIntakeRoutingSaveError, setPublicIntakeRoutingSaveError] = useState('')
@@ -291,13 +297,13 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         signal: controller.signal,
       })
       const data = await res.json().catch(() => ({}))
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return false
       if (!res.ok || !data?.ok) {
         setPublicIntakeRouting(null)
         setPublicIntakeRoutingError(
           parishSettingsClientErrorMessage('loadPublicIntakeRouting', data?.error)
         )
-        return
+        return false
       }
       const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
       if (!routing) {
@@ -305,15 +311,17 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         setPublicIntakeRoutingError(
           parishSettingsClientErrorMessage('loadPublicIntakeRouting', null)
         )
-        return
+        return false
       }
       applyPublicIntakeRoutingSnapshot(routing)
+      return true
     } catch (error: unknown) {
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return false
       setPublicIntakeRouting(null)
       setPublicIntakeRoutingError(
         parishSettingsClientErrorMessage('loadPublicIntakeRouting', error)
       )
+      return false
     } finally {
       window.clearTimeout(readTimeoutId)
       if (isLatestLoad()) publicRoutingLoadAbortRef.current = null
@@ -386,6 +394,8 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
       if (!cancelled) {
         setParishSettingsMutationRequiresRefresh(false)
         setStaffAccessMutationRequiresRefresh(false)
+        setPublicRoutingMutationRequiresRefresh(false)
+        setCreatedPublicRoutingToken(null)
         void load()
       }
     })
@@ -625,7 +635,9 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   }
 
   function beginPublicRoutingMutation(): boolean {
-    if (publicRoutingMutationInFlightRef.current) return false
+    if (publicRoutingMutationInFlightRef.current || publicRoutingMutationRequiresRefresh) {
+      return false
+    }
     publicRoutingLoadSequenceRef.current += 1
     publicRoutingLoadAbortRef.current?.abort()
     publicRoutingLoadAbortRef.current = null
@@ -637,9 +649,28 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
     publicRoutingMutationInFlightRef.current = false
   }
 
+  function requirePublicRoutingRefresh(setError: (message: string) => void) {
+    setPublicRoutingMutationRequiresRefresh(true)
+    setError(PUBLIC_INTAKE_ROUTING_REFRESH_REQUIRED_MESSAGE)
+  }
+
+  async function confirmPublicRoutingReload(
+    mutationParishId: string | null,
+    setError: (message: string) => void
+  ): Promise<boolean> {
+    const refreshed = await loadPublicIntakeRouting()
+    if (activeParishIdRef.current !== mutationParishId) return false
+    if (!refreshed) {
+      requirePublicRoutingRefresh(setError)
+      return false
+    }
+    return true
+  }
+
   async function savePublicIntakeRouting(e: React.FormEvent) {
     e.preventDefault()
     if (!beginPublicRoutingMutation()) return
+    const mutationParishId = activeParishIdRef.current
 
     setPublicIntakeRoutingSaving(true)
     setPublicIntakeRoutingSaveMessage('')
@@ -649,6 +680,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({
           public_display_name: publicRoutingDisplayName.trim(),
           public_slug: publicRoutingSlug.trim(),
@@ -656,25 +688,29 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== mutationParishId) return
+      if (!res.ok) {
         setPublicIntakeRoutingSaveError(
           parishSettingsClientErrorMessage('savePublicIntakeRouting', data?.error)
         )
         return
       }
-      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
-      if (!routing) {
-        setPublicIntakeRoutingSaveError(
-          parishSettingsClientErrorMessage('savePublicIntakeRouting', null)
-        )
+      if (!data?.ok) {
+        requirePublicRoutingRefresh(setPublicIntakeRoutingSaveError)
         return
       }
-      applyPublicIntakeRoutingSnapshot(routing)
+      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
+      if (!routing) {
+        requirePublicRoutingRefresh(setPublicIntakeRoutingSaveError)
+        return
+      }
+      if (!(await confirmPublicRoutingReload(mutationParishId, setPublicIntakeRoutingSaveError))) {
+        return
+      }
       setPublicIntakeRoutingSaveMessage('Public intake routing metadata saved.')
-    } catch (error: unknown) {
-      setPublicIntakeRoutingSaveError(
-        parishSettingsClientErrorMessage('savePublicIntakeRouting', error)
-      )
+    } catch {
+      if (activeParishIdRef.current !== mutationParishId) return
+      requirePublicRoutingRefresh(setPublicIntakeRoutingSaveError)
     } finally {
       finishPublicRoutingMutation()
       setPublicIntakeRoutingSaving(false)
@@ -684,6 +720,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   async function addPublicRoutingDomain(e: React.FormEvent) {
     e.preventDefault()
     if (!beginPublicRoutingMutation()) return
+    const mutationParishId = activeParishIdRef.current
 
     setPublicRoutingDomainSaving(true)
     setPublicRoutingDomainMessage('')
@@ -693,29 +730,34 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({ hostname: newPublicRoutingDomain.trim(), active: true }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== mutationParishId) return
+      if (!res.ok) {
         setPublicRoutingDomainError(
           parishSettingsClientErrorMessage('addPublicRoutingDomain', data?.error)
         )
         return
       }
-      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
-      if (!routing) {
-        setPublicRoutingDomainError(
-          parishSettingsClientErrorMessage('addPublicRoutingDomain', null)
-        )
+      if (!data?.ok) {
+        requirePublicRoutingRefresh(setPublicRoutingDomainError)
         return
       }
-      applyPublicIntakeRoutingSnapshot(routing)
+      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
+      if (!routing) {
+        requirePublicRoutingRefresh(setPublicRoutingDomainError)
+        return
+      }
+      if (!(await confirmPublicRoutingReload(mutationParishId, setPublicRoutingDomainError))) {
+        return
+      }
       setNewPublicRoutingDomain('')
       setPublicRoutingDomainMessage('Domain added.')
-    } catch (error: unknown) {
-      setPublicRoutingDomainError(
-        parishSettingsClientErrorMessage('addPublicRoutingDomain', error)
-      )
+    } catch {
+      if (activeParishIdRef.current !== mutationParishId) return
+      requirePublicRoutingRefresh(setPublicRoutingDomainError)
     } finally {
       finishPublicRoutingMutation()
       setPublicRoutingDomainSaving(false)
@@ -725,6 +767,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   async function addPublicRoutingToken(e: React.FormEvent) {
     e.preventDefault()
     if (!beginPublicRoutingMutation()) return
+    const mutationParishId = activeParishIdRef.current
 
     setPublicRoutingTokenSaving(true)
     setPublicRoutingTokenMessage('')
@@ -735,6 +778,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({
           kind: 'token',
           token_label: newPublicRoutingTokenLabel.trim(),
@@ -744,30 +788,34 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== mutationParishId) return
+      if (!res.ok) {
         setPublicRoutingTokenError(
           parishSettingsClientErrorMessage('createPublicRoutingToken', data?.error)
         )
         return
       }
+      if (!data?.ok) {
+        requirePublicRoutingRefresh(setPublicRoutingTokenError)
+        return
+      }
       const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
       const createdToken = parseCreatedPublicIntakeTokenResponse(data)
       if (!routing || !createdToken) {
-        setPublicRoutingTokenError(
-          parishSettingsClientErrorMessage('createPublicRoutingToken', null)
-        )
+        requirePublicRoutingRefresh(setPublicRoutingTokenError)
         return
       }
-      applyPublicIntakeRoutingSnapshot(routing)
       setCreatedPublicRoutingToken(createdToken)
+      if (!(await confirmPublicRoutingReload(mutationParishId, setPublicRoutingTokenError))) {
+        return
+      }
       setNewPublicRoutingTokenLabel('')
       setNewPublicRoutingTokenRequestType('')
       setNewPublicRoutingTokenExpiresOn('')
       setPublicRoutingTokenMessage('Token created. This is the only time the full token is shown.')
-    } catch (error: unknown) {
-      setPublicRoutingTokenError(
-        parishSettingsClientErrorMessage('createPublicRoutingToken', error)
-      )
+    } catch {
+      if (activeParishIdRef.current !== mutationParishId) return
+      requirePublicRoutingRefresh(setPublicRoutingTokenError)
     } finally {
       finishPublicRoutingMutation()
       setPublicRoutingTokenSaving(false)
@@ -776,6 +824,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
 
   async function updatePublicRoutingToken(tokenId: string, active: boolean) {
     if (!beginPublicRoutingMutation()) return
+    const mutationParishId = activeParishIdRef.current
 
     setPublicRoutingTokenSaving(true)
     setPublicRoutingTokenMessage('')
@@ -786,28 +835,33 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({ token_id: tokenId, active }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== mutationParishId) return
+      if (!res.ok) {
         setPublicRoutingTokenError(
           parishSettingsClientErrorMessage('updatePublicRoutingToken', data?.error)
         )
         return
       }
-      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
-      if (!routing) {
-        setPublicRoutingTokenError(
-          parishSettingsClientErrorMessage('updatePublicRoutingToken', null)
-        )
+      if (!data?.ok) {
+        requirePublicRoutingRefresh(setPublicRoutingTokenError)
         return
       }
-      applyPublicIntakeRoutingSnapshot(routing)
+      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
+      if (!routing) {
+        requirePublicRoutingRefresh(setPublicRoutingTokenError)
+        return
+      }
+      if (!(await confirmPublicRoutingReload(mutationParishId, setPublicRoutingTokenError))) {
+        return
+      }
       setPublicRoutingTokenMessage(active ? 'Token activated.' : 'Token deactivated.')
-    } catch (error: unknown) {
-      setPublicRoutingTokenError(
-        parishSettingsClientErrorMessage('updatePublicRoutingToken', error)
-      )
+    } catch {
+      if (activeParishIdRef.current !== mutationParishId) return
+      requirePublicRoutingRefresh(setPublicRoutingTokenError)
     } finally {
       finishPublicRoutingMutation()
       setPublicRoutingTokenSaving(false)
@@ -816,6 +870,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
 
   async function updatePublicRoutingDomain(domainId: string, active: boolean) {
     if (!beginPublicRoutingMutation()) return
+    const mutationParishId = activeParishIdRef.current
 
     setPublicRoutingDomainSaving(true)
     setPublicRoutingDomainMessage('')
@@ -825,28 +880,33 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({ domain_id: domainId, active }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== mutationParishId) return
+      if (!res.ok) {
         setPublicRoutingDomainError(
           parishSettingsClientErrorMessage('updatePublicRoutingDomain', data?.error)
         )
         return
       }
-      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
-      if (!routing) {
-        setPublicRoutingDomainError(
-          parishSettingsClientErrorMessage('updatePublicRoutingDomain', null)
-        )
+      if (!data?.ok) {
+        requirePublicRoutingRefresh(setPublicRoutingDomainError)
         return
       }
-      applyPublicIntakeRoutingSnapshot(routing)
+      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
+      if (!routing) {
+        requirePublicRoutingRefresh(setPublicRoutingDomainError)
+        return
+      }
+      if (!(await confirmPublicRoutingReload(mutationParishId, setPublicRoutingDomainError))) {
+        return
+      }
       setPublicRoutingDomainMessage(active ? 'Domain activated.' : 'Domain deactivated.')
-    } catch (error: unknown) {
-      setPublicRoutingDomainError(
-        parishSettingsClientErrorMessage('updatePublicRoutingDomain', error)
-      )
+    } catch {
+      if (activeParishIdRef.current !== mutationParishId) return
+      requirePublicRoutingRefresh(setPublicRoutingDomainError)
     } finally {
       finishPublicRoutingMutation()
       setPublicRoutingDomainSaving(false)
@@ -855,6 +915,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
 
   async function verifyPublicRoutingDomain(domainId: string) {
     if (!beginPublicRoutingMutation()) return
+    const mutationParishId = activeParishIdRef.current
 
     setPublicRoutingDomainSaving(true)
     setPublicRoutingDomainMessage('')
@@ -864,33 +925,38 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({ domain_id: domainId, domain_action: 'verify' }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== mutationParishId) return
+      if (!res.ok) {
         setPublicRoutingDomainError(
           parishSettingsClientErrorMessage('verifyPublicRoutingDomain', data?.error)
         )
         return
       }
+      if (!data?.ok) {
+        requirePublicRoutingRefresh(setPublicRoutingDomainError)
+        return
+      }
       const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
       const verification = parsePublicIntakeDomainVerificationResponse(data)
       if (!routing || !verification) {
-        setPublicRoutingDomainError(
-          parishSettingsClientErrorMessage('verifyPublicRoutingDomain', null)
-        )
+        requirePublicRoutingRefresh(setPublicRoutingDomainError)
         return
       }
-      applyPublicIntakeRoutingSnapshot(routing)
+      if (!(await confirmPublicRoutingReload(mutationParishId, setPublicRoutingDomainError))) {
+        return
+      }
       setPublicRoutingDomainMessage(
         verification.verified
           ? 'Domain verified.'
           : publicRoutingDomainVerificationResultMessage(verification.error)
       )
-    } catch (error: unknown) {
-      setPublicRoutingDomainError(
-        parishSettingsClientErrorMessage('verifyPublicRoutingDomain', error)
-      )
+    } catch {
+      if (activeParishIdRef.current !== mutationParishId) return
+      requirePublicRoutingRefresh(setPublicRoutingDomainError)
     } finally {
       finishPublicRoutingMutation()
       setPublicRoutingDomainSaving(false)
@@ -899,6 +965,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
 
   async function resetPublicRoutingDomainVerification(domainId: string) {
     if (!beginPublicRoutingMutation()) return
+    const mutationParishId = activeParishIdRef.current
 
     setPublicRoutingDomainSaving(true)
     setPublicRoutingDomainMessage('')
@@ -908,10 +975,12 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({ domain_id: domainId, domain_action: 'reset_verification' }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== mutationParishId) return
+      if (!res.ok) {
         setPublicRoutingDomainError(
           parishSettingsClientErrorMessage(
             'resetPublicRoutingDomainVerification',
@@ -920,19 +989,22 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         )
         return
       }
-      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
-      if (!routing) {
-        setPublicRoutingDomainError(
-          parishSettingsClientErrorMessage('resetPublicRoutingDomainVerification', null)
-        )
+      if (!data?.ok) {
+        requirePublicRoutingRefresh(setPublicRoutingDomainError)
         return
       }
-      applyPublicIntakeRoutingSnapshot(routing)
+      const routing = parsePublicIntakeRoutingResponse(data, activeParishId)
+      if (!routing) {
+        requirePublicRoutingRefresh(setPublicRoutingDomainError)
+        return
+      }
+      if (!(await confirmPublicRoutingReload(mutationParishId, setPublicRoutingDomainError))) {
+        return
+      }
       setPublicRoutingDomainMessage('Domain verification token reset.')
-    } catch (error: unknown) {
-      setPublicRoutingDomainError(
-        parishSettingsClientErrorMessage('resetPublicRoutingDomainVerification', error)
-      )
+    } catch {
+      if (activeParishIdRef.current !== mutationParishId) return
+      requirePublicRoutingRefresh(setPublicRoutingDomainError)
     } finally {
       finishPublicRoutingMutation()
       setPublicRoutingDomainSaving(false)
@@ -940,7 +1012,10 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   }
 
   const publicRoutingMutationBusy =
-    publicIntakeRoutingSaving || publicRoutingDomainSaving || publicRoutingTokenSaving
+    publicIntakeRoutingSaving ||
+    publicRoutingDomainSaving ||
+    publicRoutingTokenSaving ||
+    publicRoutingMutationRequiresRefresh
   const parishSettingsBusy =
     saving || dailyBriefSending || parishSettingsMutationRequiresRefresh
   const staffAccessBusy =
