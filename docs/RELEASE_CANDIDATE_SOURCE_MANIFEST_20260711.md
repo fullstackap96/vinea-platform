@@ -4,6 +4,24 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Record Certificate Client Confirmation Slice
+
+The 2026-07-20 certificate reliability slice gives the staff-reviewed Baptism certificate POST a 60-second browser confirmation deadline. Explicit server rejection remains retryable. Timeout, transport uncertainty, malformed PDF acknowledgement, or an empty PDF result freezes another generation attempt until staff refresh and review certificate activity. Synchronous single flight prevents duplicate dispatch, and no generation request replays automatically.
+
+- Immutable implementation commit: `b85ea09123fe4abc9d6cf45b999d455f38352bcb`
+- Tracked-head aggregate SHA-256: `BCE10A325BC6A9E48BBF8B324DFA691A5EA9C1F122189B2B630C48F6ADDDF60D`
+- Tracked source file count: `1518`
+- Working-tree aggregate SHA-256: `76028F59A97E8DC68CC22A81A633C055E8BD224DFBCC98E63AC6BAAD9063F082`
+- Source file count: `1522`
+- Tracked source files: `1518`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+- Production approval granted: `NO`
+
+Focused certificate confirmation, selected-parish route, safe-error, explicit-method, and audit-order coverage passed `6` files / `22` tests. TypeScript, lint, and diff hygiene passed. The complete release-readiness contract then passed all `15` checks with zero secret findings across `2,914` text files (`500` binaries skipped), zero vulnerabilities, both TypeScript scopes, lint, `869` test files / `3,721` tests, and the credential-free `56`-page build.
+
+The four untracked release-source files are unrelated user-owned scripts already present in the shared workspace. They remain outside this implementation commit. This section does not authorize certificate generation, a production action, deployment, migration, RLS change, production-sensitive feature, canonical or sacramental decision, or public trust claim.
+
 ## Post-Release Onboarding Completion Confirmation Slice
 
 The 2026-07-20 Onboarding reliability slice keys the client workspace to the server-selected active parish and gives the staff-reviewed completion PATCH a 60-second browser confirmation deadline. Explicit server rejection remains retryable. A timeout, malformed acknowledgement, wrong-parish read model, or failure to reload the same parish with a confirmed completion timestamp freezes another completion attempt until staff refresh and review. No write replays automatically.
