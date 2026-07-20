@@ -4,6 +4,28 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Audit Log Read Deadline Slice
+
+The 2026-07-20 governance reliability slice makes Audit Log reads abortable, latest-owned, and finite. Replacement, filter change, and unmount cancel old reads; a stalled current read reaches the existing curated retry state after 15 seconds. The surface remains authenticated, parish-admin-only, selected-parish scoped, and read-only.
+
+- Immutable implementation commit: `0c1b5341ed7df10772f564e79f53a1689cd20348`
+- Tracked-head aggregate SHA-256: `7FAF507FAAAA75BC8292643FB87A50092BB08B65BE28028DBBCDCD8AC5D7338F`
+- Source mode: `tracked-head`
+- Source file count: `1477`
+- Tracked source files: `1477`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused coverage passed `5` files / `18` tests. The complete `15`-check local release contract passed in `382.1` seconds with zero secret findings across `2,850` text files, zero dependency vulnerabilities, all governance/evidence gates, both TypeScript scopes, lint, `839` test files / `3,592` tests, and the credential-free `56`-page Next.js build. The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `512EA46B01BB94D60BF639DC7D3E68E2FB40D36ADE7EF4178F4954A020AC65B4`
+- Source file count: `1481`
+- Tracked source files: `1477`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/AUDIT_LOG_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Staff Auth Confirmation Deadline Slice
 
 The 2026-07-20 staff-auth reliability slice bounds browser confirmation waits for password sign-in and current-browser sign-out without changing provider, session, authorization, or navigation policy. Timeout is treated as uncertain: there is no automatic replay or assumed success, and staff receive refresh-before-retry guidance.
