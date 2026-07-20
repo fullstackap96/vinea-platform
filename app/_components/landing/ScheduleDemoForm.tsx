@@ -1,7 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { demoRequestClientErrorMessage } from '@/lib/demoRequestClientMessages'
+
+const DEMO_REQUEST_CONFIRMATION_TIMEOUT_MS = 20_000
+const demoRequestUnconfirmedMessage =
+  "We couldn't confirm your demo request. Please try once more without changing the form, or email us directly."
 
 export function ScheduleDemoForm({
   submitButtonClassName,
@@ -18,10 +22,18 @@ export function ScheduleDemoForm({
   const [statusMessage, setStatusMessage] = useState('')
   const [statusIsError, setStatusIsError] = useState(false)
   const submissionInFlightRef = useRef(false)
+  const submissionAbortRef = useRef<AbortController | null>(null)
   const deliveryAttemptRef = useRef<{
     fingerprint: string
     id: string
   } | null>(null)
+
+  useEffect(() => {
+    return () => {
+      submissionAbortRef.current?.abort()
+      submissionAbortRef.current = null
+    }
+  }, [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -57,11 +69,18 @@ export function ScheduleDemoForm({
 
     submissionInFlightRef.current = true
     setLoading(true)
+    const controller = new AbortController()
+    submissionAbortRef.current = controller
+    const confirmationTimeoutId = window.setTimeout(
+      () => controller.abort(),
+      DEMO_REQUEST_CONFIRMATION_TIMEOUT_MS,
+    )
 
     try {
       const res = await fetch('/api/demo-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           ...reviewedSubmission,
           deliveryAttemptId,
@@ -86,11 +105,20 @@ export function ScheduleDemoForm({
       setMessage('')
       deliveryAttemptRef.current = null
     } catch (err: unknown) {
+      if (submissionAbortRef.current !== controller) return
       setStatusIsError(true)
-      setStatusMessage(demoRequestClientErrorMessage(err))
+      setStatusMessage(
+        controller.signal.aborted
+          ? demoRequestUnconfirmedMessage
+          : demoRequestClientErrorMessage(err),
+      )
     } finally {
-      submissionInFlightRef.current = false
-      setLoading(false)
+      window.clearTimeout(confirmationTimeoutId)
+      if (submissionAbortRef.current === controller) {
+        submissionAbortRef.current = null
+        submissionInFlightRef.current = false
+        setLoading(false)
+      }
     }
   }
 
@@ -112,6 +140,7 @@ export function ScheduleDemoForm({
           className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           autoComplete="name"
           required
+          disabled={loading}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -127,6 +156,7 @@ export function ScheduleDemoForm({
           className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           autoComplete="organization"
           required
+          disabled={loading}
           value={parishName}
           onChange={(e) => setParishName(e.target.value)}
         />
@@ -143,6 +173,7 @@ export function ScheduleDemoForm({
           className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           autoComplete="email"
           required
+          disabled={loading}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -158,6 +189,7 @@ export function ScheduleDemoForm({
           className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           placeholder="e.g. Parish secretary, Pastor, OCIA coordinator"
           autoComplete="organization-title"
+          disabled={loading}
           value={role}
           onChange={(e) => setRole(e.target.value)}
         />
@@ -173,6 +205,7 @@ export function ScheduleDemoForm({
           className="w-full min-h-[120px] rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
           placeholder="Anything you'd like us to know (timeline, parish size, current process, etc.)"
           autoComplete="off"
+          disabled={loading}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />

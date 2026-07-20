@@ -40,7 +40,7 @@ describe('Schedule Demo form accessibility', () => {
 
   it('preserves the same API payload and no-repeat-submit boundary', () => {
     expect(source).toContain("fetch('/api/demo-request'")
-    expect(source).toContain("import { useRef, useState } from 'react'")
+    expect(source).toContain("import { useEffect, useRef, useState } from 'react'")
     expect(source).toContain('const submissionInFlightRef = useRef(false)')
     expect(source).toContain('if (submissionInFlightRef.current) return')
     expect(source).toContain('submissionInFlightRef.current = true')
@@ -66,5 +66,17 @@ describe('Schedule Demo form accessibility', () => {
     expect(source.indexOf('const fingerprint =')).toBeLessThan(
       source.indexOf("fetch('/api/demo-request'"),
     )
+  })
+
+  it('freezes every reviewed field while submission is unresolved', () => {
+    for (const id of [
+      'demo-name',
+      'demo-parish',
+      'demo-email',
+      'demo-role',
+      'demo-message',
+    ]) {
+      expect(controlById(id)).toContain('disabled={loading}')
+    }
   })
 })
