@@ -9,6 +9,10 @@ import {
   workflowTemplateSaveErrorMessage,
 } from '@/lib/workflowTemplateSettingsClientMessages'
 import {
+  WORKFLOW_TEMPLATE_REFRESH_REQUIRED_MESSAGE,
+  WORKFLOW_TEMPLATE_SAVE_CONFIRMATION_TIMEOUT_MS,
+} from '@/lib/workflowTemplateClientConfirmation'
+import {
   parseWorkflowTemplateStepResponse,
   parseWorkflowTemplatesResponse,
   type WorkflowTemplateReadModel,
@@ -49,6 +53,7 @@ export function SettingsWorkflowTemplatesSection({
   const [loading, setLoading] = useState(true)
   const [savingStepId, setSavingStepId] = useState('')
   const saveInFlightRef = useRef<string | null>(null)
+  const [mutationRequiresRefresh, setMutationRequiresRefresh] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -81,16 +86,16 @@ export function SettingsWorkflowTemplatesSection({
         signal: controller.signal,
       })
       const data = await res.json().catch(() => ({}))
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return false
       if (!res.ok || !data?.ok) {
         setLoadError(workflowTemplateLoadErrorMessage(data?.error))
-        return
+        return false
       }
       const parsed = parseWorkflowTemplatesResponse(data, activeParishId)
       if (!parsed) {
         setTemplates([])
         setLoadError(workflowTemplateLoadErrorMessage(null))
-        return
+        return false
       }
       const nextTemplates = parsed.templates
       setTemplates(nextTemplates)
@@ -99,9 +104,11 @@ export function SettingsWorkflowTemplatesSection({
           ? String(nextTemplates[0].request_type)
           : current
       )
+      return true
     } catch (loadError: unknown) {
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return false
       setLoadError(workflowTemplateLoadErrorMessage(loadError))
+      return false
     } finally {
       window.clearTimeout(readTimeoutId)
       if (isLatestLoad()) {
@@ -114,7 +121,10 @@ export function SettingsWorkflowTemplatesSection({
   useEffect(() => {
     let cancelled = false
     queueMicrotask(() => {
-      if (!cancelled) void loadTemplates()
+      if (!cancelled) {
+        setMutationRequiresRefresh(false)
+        void loadTemplates()
+      }
     })
     return () => {
       cancelled = true
@@ -134,7 +144,7 @@ export function SettingsWorkflowTemplatesSection({
   }
 
   async function saveStep(step: WorkflowStep) {
-    if (saveInFlightRef.current) return
+    if (saveInFlightRef.current || mutationRequiresRefresh) return
 
     const saveParishId = activeParishIdRef.current
     saveInFlightRef.current = step.id
@@ -146,6 +156,7 @@ export function SettingsWorkflowTemplatesSection({
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(WORKFLOW_TEMPLATE_SAVE_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({
           stepId: step.id,
           step: {
@@ -161,27 +172,40 @@ export function SettingsWorkflowTemplatesSection({
       })
       const data = await res.json().catch(() => ({}))
       if (activeParishIdRef.current !== saveParishId) return
-      if (!res.ok || !data?.ok) {
+      if (!res.ok) {
         setError(workflowTemplateSaveErrorMessage(data?.error))
+        return
+      }
+      if (!data?.ok) {
+        setMutationRequiresRefresh(true)
+        setError(WORKFLOW_TEMPLATE_REFRESH_REQUIRED_MESSAGE)
         return
       }
       const savedStep = parseWorkflowTemplateStepResponse(data, step.id)
       if (!savedStep) {
-        setError(workflowTemplateSaveErrorMessage(null))
+        setMutationRequiresRefresh(true)
+        setError(WORKFLOW_TEMPLATE_REFRESH_REQUIRED_MESSAGE)
         return
       }
-      updateStep(savedStep.id, savedStep)
-      setMessage('Workflow step saved.')
-    } catch (saveError: unknown) {
+      const refreshed = await loadTemplates()
       if (activeParishIdRef.current !== saveParishId) return
-      setError(workflowTemplateSaveErrorMessage(saveError))
+      if (!refreshed) {
+        setMutationRequiresRefresh(true)
+        setError(WORKFLOW_TEMPLATE_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
+      setMessage('Workflow step saved.')
+    } catch {
+      if (activeParishIdRef.current !== saveParishId) return
+      setMutationRequiresRefresh(true)
+      setError(WORKFLOW_TEMPLATE_REFRESH_REQUIRED_MESSAGE)
     } finally {
       saveInFlightRef.current = null
       setSavingStepId('')
     }
   }
 
-  const saving = savingStepId !== ''
+  const saving = savingStepId !== '' || mutationRequiresRefresh
 
   return (
     <section className={vineaSectionShellClassName} aria-busy={loading || saving}>
