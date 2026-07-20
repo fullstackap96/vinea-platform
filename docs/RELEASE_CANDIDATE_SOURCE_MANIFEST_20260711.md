@@ -4,6 +4,24 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Daily Brief Client Confirmation Slice
+
+The 2026-07-20 Daily Brief reliability slice gives the staff-initiated send a 30-second browser confirmation deadline over the existing bounded provider path. The client now captures the selected parish for the complete attempt, ignores stale settlement after a parish switch, requires an explicit positive provider message identifier before reporting success, and gives inbox-first guidance when delivery cannot be confirmed. Uncertain outcomes never replay automatically; a deliberate retry for the same selected parish reuses the existing opaque delivery attempt.
+
+- Immutable implementation commit: `fe0c75fbe6cdb674153282babf74f6e7573407a3`
+- Tracked-head aggregate SHA-256: `0AC717E566E754D32D5DC0C8779DA67661A00B1203179FEBCF390849EF396B72`
+- Tracked source file count: `1513`
+- Working-tree aggregate SHA-256: `D3A216473D26C7E393219C81E5FA0362FD78CA5F1FCB40EEA9E36A4E5349DA3C`
+- Source file count: `1517`
+- Tracked source files: `1513`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+- Production approval granted: `NO`
+
+Focused Daily Brief confirmation, provider reliability, single-flight, route, selected-parish, safe-message, and parish-settings compatibility coverage passed `9` files / `41` tests. TypeScript, lint, and diff hygiene passed. The first complete release-contract attempt correctly failed at the source-manifest evidence-binding test because this section did not yet exist; its partial result was not counted. After this exact identity was bound, the complete contract restarted from check 1 and passed all `15` checks with zero secret findings across `2,907` text files (`500` binaries skipped), zero vulnerabilities, both TypeScript scopes, lint, `866` test files / `3,710` tests, and the credential-free `56`-page build.
+
+The four untracked release-source files are unrelated user-owned scripts already present in the shared workspace. They remain outside this implementation commit. This section does not authorize a Daily Brief delivery, production action, deployment, migration, RLS change, production-sensitive feature, or public trust claim.
+
 ## Post-Release Public Intake Routing Confirmation Slice
 
 The 2026-07-20 Public Intake Routing Settings reliability slice gives metadata, domain, DNS verification, and one-time token mutations a 60-second browser confirmation deadline. Existing shared single-flight locking remains authoritative. Explicit server rejections remain safely retryable, while transport uncertainty, malformed-success acknowledgement, or failure to reload authoritative selected-parish routing state freezes the complete management surface until staff refresh and review. Active-parish changes discard stale results and clear any one-time token from the prior parish. An acknowledged newly created token remains visible if the follow-up reload fails so staff can secure it without creating a duplicate. No mutation replays automatically, and runtime public routing behavior is unchanged.
