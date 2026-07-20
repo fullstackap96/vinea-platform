@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Reports Read Deadline Slice
+
+The 2026-07-20 analytics reliability slice gives each current selected-parish Reports summary read a 15-second browser deadline. Selected-parish replacement still cancels old work quietly, and a stalled current read now reaches the existing unavailable-report state.
+
+- Immutable implementation commit: `1e7d0851965d33dff15a1615d0b59f94dc9e85c8`
+- Tracked-head aggregate SHA-256: `BF64664A9F75860CC2C25122E8B7137040DAED3BBA204E8D7A52549FE45E1B7B`
+- Source mode: `tracked-head`
+- Source file count: `1480`
+- Tracked source files: `1480`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused deadline, cancellation, selected-parish, route, and loader coverage passed `5` files / `19` tests. The complete `15`-check local release contract passed in `321.9` seconds with zero secret findings across `2,856` text files (`500` binaries skipped), zero dependency vulnerabilities, all governance/evidence gates, both TypeScript scopes, lint, `842` test files / `3,603` tests, and the credential-free Next.js 16.2.10 `56`-page build. Reports remain read-only and use only the existing staff-authenticated, active-parish-scoped API.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `97015390255C602E06F63E491D983C97C4AC6B6629D98E41D6B95EE61CDE5DDA`
+- Source file count: `1484`
+- Tracked source files: `1480`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/REPORTS_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Global Search Read Deadline Slice
 
 The 2026-07-20 staff-search reliability slice keeps the existing 300-millisecond debounce and adds a separate 15-second deadline to each current compact Global Search read. Replaced queries remain silently cancelled; a stalled current query now reaches the existing safe unavailable state.
