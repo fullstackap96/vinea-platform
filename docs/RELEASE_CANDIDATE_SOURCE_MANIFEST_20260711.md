@@ -4,6 +4,32 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Google Calendar Client Confirmation Slice
+
+The 2026-07-20 Google Calendar reliability slice gives Request Detail create, update, and delete calls a 25-second browser confirmation deadline, longer than the existing 15-second Google provider deadline. Once a provider mutation starts, a server failure reports only a safe refresh requirement; transport uncertainty, partial persistence, or failed post-success request refresh freezes every Calendar mutation control until staff refresh and review. Validation and conflict responses remain retryable, existing provider recovery remains authoritative, and no mutation is replayed automatically.
+
+- Immutable implementation commit: `10888255f20611dabc051aae0f9cd15750dd22ad`
+- Tracked-head aggregate SHA-256: `35E2C1DE34877B5186F7BD45CCED994C150AD93C87EFBD995A0B928F4D4B37B6`
+- Source mode: `tracked-head`
+- Source file count: `1498`
+- Tracked source files: `1498`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused provider-reliability, route-authorization, same-origin, audit-ownership, conflict, confirmation-dialog, safe-message, and client-deadline coverage passed `12` files / `81` tests. Existing staff authentication, selected active-parish membership, same-parish request ownership, selected-parish integration checks, deterministic create identity, provider deadlines, safe OAuth guidance, and audited request linkage remain authoritative.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `9C37D7E2B7787ACD96D1769EA19F2392881B7F45D4E9DB23F06E9A0D5CDF5DCF`
+- Source file count: `1502`
+- Tracked source files: `1498`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+The complete `15`-check release contract passed in `345` seconds with zero secret findings across `2,887` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `856` test files / `3,677` tests, and the credential-free Next.js 16.2.10 `56`-page build. The post-documentation source-bound suite passed `14` files / `89` tests, and the post-documentation secret scan passed across `2,888` text files with zero findings. This manifest records reviewed source identity and does not replace an immutable Git commit, authorize production, or permit a Google provider action.
+
+See `docs/GOOGLE_CALENDAR_CLIENT_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Staff Email Client Confirmation Slice
 
 The 2026-07-20 outbound-email reliability slice gives Request Detail and Daily Work Hub browser delivery confirmation a 20-second deadline, longer than the existing 12-second provider deadline, and gives post-send communication logging a 60-second deadline. Exact-content delivery retries retain the existing opaque provider-idempotent attempt. Once provider delivery is confirmed, any unconfirmed or rejected communication log freezes related mutation controls until staff refresh and review, preventing a second delivery from being used as a logging retry.
