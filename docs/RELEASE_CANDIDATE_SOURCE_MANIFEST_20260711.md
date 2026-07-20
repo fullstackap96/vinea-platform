@@ -4,6 +4,37 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Request Detail Pastoral Details Confirmation Slice
+
+The 2026-07-20 Request Detail reliability slice brings Funeral and Wedding pastoral-detail saves into the same finite 60-second request-type confirmation boundary as the nine schedule operations. Transport uncertainty, malformed success acknowledgement, or failed post-save refresh freezes every reviewed Funeral, Wedding, and schedule field until staff refresh and review. Explicit server rejections remain retryable, local values are retained until positive acknowledgement plus refresh, and no write is replayed automatically.
+
+- Primary implementation commit: `d2b42ea76e726198e5296671e2e7cfc8d7da3a12`
+- Immutable source-bound head: `45be97633a6d8f17cba2f08c0064a7cd0f086b38`
+- Tracked-head aggregate SHA-256: `9E70D7FB2CA8E5F8D9F1C907B0D045DD0A5EF1923A9F152F00ABCF136E55C1E7`
+- Source mode: `tracked-head`
+- Source file count: `1494`
+- Tracked source files: `1494`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused pastoral-detail, schedule-confirmation, persistence-order, safe-message, and active-parish route coverage passed `12` files / `46` tests before immutable source binding. Existing staff authentication, selected active-parish membership, same-parish request ownership, validation, checked persistence, safe audit behavior, and server-owned mutation routes remain authoritative.
+
+The first complete release-contract attempt failed closed because this manifest still held the preceding aggregate and one source guard depended on an accidental leading space before the suggested-date handler. The source guard was corrected without changing runtime behavior and both current source identities were rebound before restarting the complete release contract.
+
+The corrected complete `15`-check release contract passed in `362` seconds with zero secret findings across `2,881` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `854` test files / `3,668` tests, and the credential-free Next.js 16.2.10 `56`-page build. The final source-bound suite passed `13` files / `52` tests, and the post-documentation secret scan passed across `2,882` text files with zero findings.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `FDC0F4FB8FE90EC794C9C1B00EE2CE3C4D082B3B5DD14CB1E3A212594D50B830`
+- Source file count: `1498`
+- Tracked source files: `1494`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+This manifest records reviewed source identity and does not replace an immutable Git commit, authorize production, or permit a sensitive runtime capability.
+
+See `docs/REQUEST_DETAIL_PASTORAL_DETAILS_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Request Detail Schedule Confirmation Slice
 
 The 2026-07-20 Request Detail reliability slice gives suggested-date and confirmed Baptism, Funeral, Wedding, and OCIA schedule writes one shared 60-second confirmation boundary. Transport uncertainty, malformed success acknowledgement, or failed post-save refresh freezes every reviewed schedule control until staff refresh and review. Explicit server rejections remain retryable, confirmed clear actions retain their displayed value until acknowledgement and refresh both succeed, and no write is replayed automatically.
