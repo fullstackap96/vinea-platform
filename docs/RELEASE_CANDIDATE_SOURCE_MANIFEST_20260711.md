@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Notifications Center Read Deadline Slice
+
+The 2026-07-20 daily-operations reliability slice gives each Notifications Center read a 15-second browser deadline. Replacement and selected-parish remount still cancel old work, latest-request ownership still controls settlement, and a stalled current read now reaches the existing safe retry state.
+
+- Immutable implementation commit: `835e7004d982d6137ffa7f0c4ce82f4dc5924d67`
+- Tracked-head aggregate SHA-256: `76390841AFD500F790D4A0246BF063D5705F0C951F016F51CF462735B84209B9`
+- Source mode: `tracked-head`
+- Source file count: `1478`
+- Tracked source files: `1478`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused deadline, latest-response, safe-message, selected-parish, and safe-link coverage passed `5` files / `19` tests. The complete `15`-check local release contract passed in `384.2` seconds with zero secret findings across `2,852` text files (`500` binaries skipped), zero dependency vulnerabilities, all governance/evidence gates, both TypeScript scopes, lint, `840` test files / `3,595` tests, and the credential-free Next.js 16.2.10 `56`-page build. The client remains read-only and uses only the existing staff-authenticated, active-parish-scoped API.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `C448F63A0ED14BCB3E4A7ACF63E4611772B79EDADACCAB5247F50DEDB65A0C77`
+- Source file count: `1482`
+- Tracked source files: `1478`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/NOTIFICATIONS_CENTER_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Audit Log Read Deadline Slice
 
 The 2026-07-20 governance reliability slice makes Audit Log reads abortable, latest-owned, and finite. Replacement, filter change, and unmount cancel old reads; a stalled current read reaches the existing curated retry state after 15 seconds. The surface remains authenticated, parish-admin-only, selected-parish scoped, and read-only.
