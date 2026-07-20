@@ -125,6 +125,10 @@ import {
   vineaSectionShellClassName,
   vineaSpinnerClassName,
 } from '@/lib/vineaUi'
+import {
+  STAFF_EMAIL_LOG_CONFIRMATION_TIMEOUT_MS,
+  STAFF_EMAIL_SEND_CONFIRMATION_TIMEOUT_MS,
+} from '@/lib/staffEmailClientConfirmation'
 
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -1148,6 +1152,7 @@ export function DashboardPageCore({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
+          signal: AbortSignal.timeout(STAFF_EMAIL_SEND_CONFIRMATION_TIMEOUT_MS),
           body: JSON.stringify({
             requestId: id,
             deliveryAttemptId: deliveryAttempt.id,
@@ -1194,6 +1199,7 @@ export function DashboardPageCore({
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(STAFF_EMAIL_LOG_CONFIRMATION_TIMEOUT_MS),
           body: JSON.stringify({
             contactedAt: contactedAtIso,
             method: 'email',
@@ -1201,6 +1207,7 @@ export function DashboardPageCore({
           }),
         })
       } catch {
+        setWorkHubMutationRequiresRefresh(true)
         setFollowUpRowMessage(id, dashboardClientFailureMessage('logFollowUpEmail'))
         await loadRequests(true)
         return
@@ -1211,6 +1218,7 @@ export function DashboardPageCore({
       }
 
       if (!logRes.ok || !logData.ok) {
+        setWorkHubMutationRequiresRefresh(true)
         const summaryUpdateFailed =
           logData.error ===
           'Communication was logged, but Vinea could not update the request summary. Please refresh before closing this follow-up.'

@@ -19,7 +19,9 @@ describe('staff email send single-flight boundary', () => {
     const handler = requestDetail.slice(start, end)
 
     expect(requestDetail).toContain('const emailSendInFlightRef = useRef(false)')
-    expect(handler).toContain('if (emailSendInFlightRef.current) return')
+    expect(handler).toContain(
+      'if (emailSendInFlightRef.current || workflowMutationRequiresRefresh) return',
+    )
     expect(handler.indexOf('emailSendInFlightRef.current = true')).toBeLessThan(
       handler.indexOf("fetch('/api/email/send'"),
     )
@@ -31,9 +33,12 @@ describe('staff email send single-flight boundary', () => {
 
   it('freezes the visible Request Detail composer during delivery', () => {
     expect(sendSection).toContain('aria-busy={sending || applying}')
-    expect(sendSection).toContain('disabled={sending || applying}')
-    expect(sendSection).toContain('disabled={!selectedTemplateId || applying || sending}')
-    expect(sendSection.match(/disabled=\{sending\}/g)).toHaveLength(2)
+    expect(sendSection).toContain(
+      'const controlsDisabled = sending || applying || mutationDisabled',
+    )
+    expect(sendSection).toContain('disabled={controlsDisabled}')
+    expect(sendSection).toContain('disabled={!selectedTemplateId || controlsDisabled}')
+    expect(sendSection.match(/disabled=\{sending \|\| mutationDisabled\}/g)).toHaveLength(2)
     expect(sendSection).toContain('onClick={() => void onSend()}')
   })
 

@@ -116,6 +116,10 @@ import {
   awaitRequestDetailClientMutationConfirmation,
   REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS,
 } from '@/lib/requestDetailClientMutationConfirmation'
+import {
+  STAFF_EMAIL_LOG_CONFIRMATION_TIMEOUT_MS,
+  STAFF_EMAIL_SEND_CONFIRMATION_TIMEOUT_MS,
+} from '@/lib/staffEmailClientConfirmation'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 import {
   countIncompleteRequiredWorkflowSteps,
@@ -1729,7 +1733,7 @@ async function logCommunication() {
 }
 
 async function sendEmail() {
-  if (emailSendInFlightRef.current) return
+  if (emailSendInFlightRef.current || workflowMutationRequiresRefresh) return
 
   const to = String(parishioner?.email || '').trim()
   const subject = String(emailSubject || '').trim()
@@ -1765,6 +1769,7 @@ async function sendEmail() {
       res = await fetch('/api/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(STAFF_EMAIL_SEND_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({
           requestId: routeId,
           deliveryAttemptId: deliveryAttempt.id,
@@ -1805,6 +1810,7 @@ async function sendEmail() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(STAFF_EMAIL_LOG_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({
           contactedAt: contactedAtIso,
           method: 'email',
@@ -1812,6 +1818,7 @@ async function sendEmail() {
         }),
       })
     } catch {
+      setWorkflowMutationRequiresRefresh(true)
       setEmailMessage(requestDetailClientFailureMessage('logSentEmail'))
       loadRequest()
       return
@@ -1822,6 +1829,7 @@ async function sendEmail() {
       error?: unknown
     }
     if (!logRes.ok || !logData?.ok) {
+      setWorkflowMutationRequiresRefresh(true)
       const message =
         requestDetailClientApiErrorMessage('logCommunication', logData?.error) ===
         requestDetailClientFailureMessage('updateCommunicationSummary')
@@ -3059,6 +3067,7 @@ async function deleteGoogleCalendarEvent() {
                 onApplyTemplate={applyVineaEmailTemplate}
                 onSend={sendEmail}
                 sending={emailSending}
+                mutationDisabled={workflowMutationRequiresRefresh}
                 message={emailMessage}
               />
             </CommunicationHubSubsection>
