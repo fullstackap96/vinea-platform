@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Daily Work Hub Mutation Confirmation Slice
+
+The 2026-07-20 Daily Work Hub reliability slice gives mark-as-contacted and care-touchpoint browser writes a 60-second confirmation deadline. An unconfirmed result freezes related mutation controls until staff refresh and review; a sequential batch stops at the first uncertain item and never replays automatically.
+
+- Immutable implementation commit: `eba0ef498e77da53d4e4000b12323da76c7b47e8`
+- Tracked-head aggregate SHA-256: `4BF1F9F0A69FE8E3100D1EBB9546124EDD94FEDB3FAF5AB0B4426E438E6D68B5`
+- Source mode: `tracked-head`
+- Source file count: `1486`
+- Tracked source files: `1486`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused confirmation, single-flight, safe-message, request-route, and email-boundary coverage passed `6` files / `39` tests before immutable source binding. The source-bound suite then passed `7` files / `45` tests. The isolated complete `15`-check release contract passed in `366` seconds with zero secret findings across `2,869` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `848` test files / `3,638` tests, and the credential-free Next.js 16.2.10 `56`-page build. Existing staff authentication, active-parish membership, same-parish ownership, checked persistence, partial-success guidance, safe audit metadata, and provider behavior remain authoritative.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `6D84C96D1386AA0954C3E04B84D99F12E93D3825739E74038C91D8977EA0B719`
+- Source file count: `1490`
+- Tracked source files: `1486`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/DAILY_WORK_HUB_MUTATION_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Public Intake Client Confirmation Slice
 
 The 2026-07-20 public-intake reliability slice gives Baptism, Wedding, Funeral, OCIA, and Join Parish submissions a 60-second browser confirmation deadline and freezes every reviewed field while unresolved. An uncertain result retains the unchanged-payload opaque attempt and gives duplicate-aware retry guidance instead of leaving an indefinite spinner.
