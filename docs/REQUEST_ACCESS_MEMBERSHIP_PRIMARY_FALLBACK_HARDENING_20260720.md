@@ -2,6 +2,8 @@
 
 Status: Implemented and locally verified on 2026-07-20.
 
+Implementation commit: `ae00ccec89b24a30862dbb84c5b41c1fd6a4da8d`.
+
 ## Purpose
 
 Prevent cookie-free staff request and document access from selecting the globally oldest parish when an authenticated staff membership context is already available.
