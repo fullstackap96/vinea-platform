@@ -4,6 +4,35 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Request Detail Schedule Confirmation Slice
+
+The 2026-07-20 Request Detail reliability slice gives suggested-date and confirmed Baptism, Funeral, Wedding, and OCIA schedule writes one shared 60-second confirmation boundary. Transport uncertainty, malformed success acknowledgement, or failed post-save refresh freezes every reviewed schedule control until staff refresh and review. Explicit server rejections remain retryable, confirmed clear actions retain their displayed value until acknowledgement and refresh both succeed, and no write is replayed automatically.
+
+- Immutable source-bound head: `883a41a956bf90450f0359d06460c72ffab43a99`
+- Primary implementation commit: `995143bddf40d82b75f71e589858c35e4c1f0345`
+- Tracked-head aggregate SHA-256: `2842200303DAF7DBB29FB9320966831196714B9E2F748FBB919C8BBECB2DC5B7`
+- Source mode: `tracked-head`
+- Source file count: `1493`
+- Tracked source files: `1493`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused schedule-confirmation, persistence-order, safe-message, core-workflow, and active-parish route coverage passed `10` files / `36` tests before immutable source binding. Existing staff authentication, selected active-parish membership, same-parish request ownership, schedule validation, checked persistence, safe audit behavior, and server-owned mutation routes remain authoritative.
+
+The first complete release-contract attempt failed closed because an older notes/communication source test included the newly inserted schedule helper in its handler slice. After the test boundary was corrected without changing runtime behavior and the final source identities were rebound, the complete `15`-check release contract passed in `361.7` seconds with zero secret findings across `2,879` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `853` test files / `3,664` tests, and the credential-free Next.js 16.2.10 `56`-page build. The final source-bound suite passed `12` files / `47` tests, and the post-documentation secret scan passed across `2,880` text files with zero findings.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `A424D9E552A6A8AC3905C1E3AC0996D15A125D36AF9C63CAE8A04CF4DE5FEFD3`
+- Source file count: `1497`
+- Tracked source files: `1493`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+This manifest records reviewed source identity and does not replace an immutable Git commit, authorize production, or permit a sensitive runtime capability.
+
+See `docs/REQUEST_DETAIL_SCHEDULE_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Request Detail Notes And Communication Confirmation Slice
 
 The 2026-07-20 Request Detail reliability slice gives shared staff-notes and manual communication-log writes the shared 60-second confirmation boundary. Transport uncertainty, malformed success acknowledgement, or failed post-save refresh freezes the reviewed controls until staff refresh and review. Explicit server rejections remain retryable, the known partial-success communication path is protected from duplicate retry, and neither write is replayed automatically.
