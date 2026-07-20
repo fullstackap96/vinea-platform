@@ -218,8 +218,8 @@ const [staffNotes, setStaffNotes] = useState('')
   const [suggested3, setSuggested3] = useState('')
   const [suggestedSaving, setSuggestedSaving] = useState(false)
   const [suggestedMessage, setSuggestedMessage] = useState('')
-  const [scheduleMutationBusy, setScheduleMutationBusy] = useState(false)
-  const scheduleMutationInFlightRef = useRef(false)
+  const [requestTypeMutationBusy, setRequestTypeMutationBusy] = useState(false)
+  const requestTypeMutationInFlightRef = useRef(false)
 
   const [confirmedBaptismDate, setConfirmedBaptismDate] = useState('')
   const [confirmedSaving, setConfirmedSaving] = useState(false)
@@ -1329,7 +1329,7 @@ async function saveStaffNotes() {
   }
 }
 
-  async function runScheduleMutation({
+  async function runRequestTypeMutation({
     action,
     endpoint,
     body,
@@ -1350,10 +1350,10 @@ async function saveStaffNotes() {
     afterConfirmed?: () => void
     logLabel: string
   }) {
-    if (scheduleMutationInFlightRef.current || workflowMutationRequiresRefresh) return
+    if (requestTypeMutationInFlightRef.current || workflowMutationRequiresRefresh) return
 
-    scheduleMutationInFlightRef.current = true
-    setScheduleMutationBusy(true)
+    requestTypeMutationInFlightRef.current = true
+    setRequestTypeMutationBusy(true)
     setSaving(true)
     setMessage('')
 
@@ -1392,13 +1392,13 @@ async function saveStaffNotes() {
       setWorkflowMutationRequiresRefresh(true)
       setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
     } finally {
-      scheduleMutationInFlightRef.current = false
-      setScheduleMutationBusy(false)
+      requestTypeMutationInFlightRef.current = false
+      setRequestTypeMutationBusy(false)
       setSaving(false)
     }
   }
 
- async function saveSuggestedDates() {
+async function saveSuggestedDates() {
 
   const err1 = validateSuggestedDateNotPast(suggested1)
   const err2 = validateSuggestedDateNotPast(suggested2)
@@ -1409,21 +1409,21 @@ async function saveStaffNotes() {
     return
   }
 
-  await runScheduleMutation({
-      action: 'saveSuggestedDates',
-      endpoint: `/api/requests/${routeId}/suggested-dates`,
-      body: {
-        suggestedDate1: suggested1 || null,
-        suggestedDate2: suggested2 || null,
-        suggestedDate3: suggested3 || null,
-      },
-      setSaving: setSuggestedSaving,
-      setMessage: setSuggestedMessage,
-      successMessage: 'Suggested dates saved successfully.',
-      staleMessage:
-        'Suggested dates were saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
-      logLabel: 'SAVE SUGGESTED DATES ERROR',
-    })
+  await runRequestTypeMutation({
+    action: 'saveSuggestedDates',
+    endpoint: `/api/requests/${routeId}/suggested-dates`,
+    body: {
+      suggestedDate1: suggested1 || null,
+      suggestedDate2: suggested2 || null,
+      suggestedDate3: suggested3 || null,
+    },
+    setSaving: setSuggestedSaving,
+    setMessage: setSuggestedMessage,
+    successMessage: 'Suggested dates saved successfully.',
+    staleMessage:
+      'Suggested dates were saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'SAVE SUGGESTED DATES ERROR',
+  })
 }
 
 async function saveConfirmedBaptismDate() {
@@ -1433,23 +1433,23 @@ async function saveConfirmedBaptismDate() {
     return
   }
 
-  await runScheduleMutation({
-      action: 'saveConfirmedDate',
-      endpoint: `/api/requests/${routeId}/confirmed-baptism-date`,
-      body: {
-        confirmedBaptismDate: datetimeLocalToIso(confirmedBaptismDate),
-      },
-      setSaving: setConfirmedSaving,
-      setMessage: setConfirmedMessage,
-      successMessage: 'Confirmed date saved successfully.',
-      staleMessage:
-        'The confirmed date was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
-      logLabel: 'SAVE CONFIRMED BAPTISM DATE ERROR',
-    })
+  await runRequestTypeMutation({
+    action: 'saveConfirmedDate',
+    endpoint: `/api/requests/${routeId}/confirmed-baptism-date`,
+    body: {
+      confirmedBaptismDate: datetimeLocalToIso(confirmedBaptismDate),
+    },
+    setSaving: setConfirmedSaving,
+    setMessage: setConfirmedMessage,
+    successMessage: 'Confirmed date saved successfully.',
+    staleMessage:
+      'The confirmed date was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'SAVE CONFIRMED BAPTISM DATE ERROR',
+  })
 }
 
 async function clearConfirmedBaptismDate() {
-  await runScheduleMutation({
+  await runRequestTypeMutation({
     action: 'clearConfirmedDate',
     endpoint: `/api/requests/${routeId}/confirmed-baptism-date`,
     body: { confirmedBaptismDate: null },
@@ -1471,49 +1471,30 @@ async function saveFuneralDetails() {
     return
   }
 
-  setFuneralSaving(true)
-  setFuneralMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/funeral-details`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        deceasedName: name,
-        familyRelationship: funeralFamilyRelationship,
-        dateOfDeath: funeralDateOfDeath,
-        funeralHomeOrLocation: funeralHome,
-        funeralDirectorContact,
-        serviceLocation: funeralServiceLocation,
-        visitationDetails: funeralVisitationDetails,
-        cemeteryOrCommittal: funeralCemeteryOrCommittal,
-        readingsMusicNotes: funeralReadingsMusicNotes,
-        obituaryProgramNotes: funeralObituaryProgramNotes,
-        postFuneralFollowUpDate: funeralPostFollowUpDate,
-        preferredServiceNotes: funeralPreferredNotes,
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setFuneralMessage(requestDetailClientApiErrorMessage('saveFuneralDetails', data?.error))
-      setFuneralSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE FUNERAL DETAILS ERROR',
-      new Error(requestDetailClientFailureMessage('saveFuneralDetails'), { cause: error })
-    )
-    setFuneralMessage(requestDetailClientFailureMessage('saveFuneralDetails'))
-    setFuneralSaving(false)
-    return
-  }
-
-  setFuneralMessage('Funeral details saved.')
-  setFuneralSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'saveFuneralDetails',
+    endpoint: `/api/requests/${routeId}/funeral-details`,
+    body: {
+      deceasedName: name,
+      familyRelationship: funeralFamilyRelationship,
+      dateOfDeath: funeralDateOfDeath,
+      funeralHomeOrLocation: funeralHome,
+      funeralDirectorContact,
+      serviceLocation: funeralServiceLocation,
+      visitationDetails: funeralVisitationDetails,
+      cemeteryOrCommittal: funeralCemeteryOrCommittal,
+      readingsMusicNotes: funeralReadingsMusicNotes,
+      obituaryProgramNotes: funeralObituaryProgramNotes,
+      postFuneralFollowUpDate: funeralPostFollowUpDate,
+      preferredServiceNotes: funeralPreferredNotes,
+    },
+    setSaving: setFuneralSaving,
+    setMessage: setFuneralMessage,
+    successMessage: 'Funeral details saved.',
+    staleMessage:
+      'The funeral details were saved, but the refreshed request could not load. Refresh the page before editing these details again.',
+    logLabel: 'SAVE FUNERAL DETAILS ERROR',
+  })
 }
 
 async function saveConfirmedFuneralService() {
@@ -1525,25 +1506,25 @@ async function saveConfirmedFuneralService() {
     return
   }
 
-  await runScheduleMutation({
-      action: 'saveFuneralService',
-      endpoint: `/api/requests/${routeId}/confirmed-funeral-service`,
-      body: {
-        confirmedServiceAt: datetimeLocalToIso(confirmedFuneralService),
-      },
-      setSaving: setFuneralConfirmedSaving,
-      setMessage: setFuneralConfirmedMessage,
-      successMessage: 'Confirmed service time saved.',
-      staleMessage:
-        'The confirmed funeral time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
-      logLabel: 'SAVE CONFIRMED FUNERAL SERVICE ERROR',
-    })
+  await runRequestTypeMutation({
+    action: 'saveFuneralService',
+    endpoint: `/api/requests/${routeId}/confirmed-funeral-service`,
+    body: {
+      confirmedServiceAt: datetimeLocalToIso(confirmedFuneralService),
+    },
+    setSaving: setFuneralConfirmedSaving,
+    setMessage: setFuneralConfirmedMessage,
+    successMessage: 'Confirmed service time saved.',
+    staleMessage:
+      'The confirmed funeral time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'SAVE CONFIRMED FUNERAL SERVICE ERROR',
+  })
 }
 
 async function clearConfirmedFuneralService() {
   if (!request || request.request_type !== 'funeral') return
 
-  await runScheduleMutation({
+  await runRequestTypeMutation({
     action: 'clearFuneralService',
     endpoint: `/api/requests/${routeId}/confirmed-funeral-service`,
     body: { confirmedServiceAt: null },
@@ -1565,41 +1546,22 @@ async function saveWeddingDetails() {
     return
   }
 
-  setWeddingSaving(true)
-  setWeddingMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/wedding-details`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        partnerOneName: name,
-        partnerTwoName: weddingPartnerTwo,
-        proposedWeddingDate: weddingProposedDate,
-        ceremonyNotes: weddingCeremonyNotes,
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setWeddingMessage(requestDetailClientApiErrorMessage('saveWeddingDetails', data?.error))
-      setWeddingSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE WEDDING DETAILS ERROR',
-      new Error(requestDetailClientFailureMessage('saveWeddingDetails'), { cause: error })
-    )
-    setWeddingMessage(requestDetailClientFailureMessage('saveWeddingDetails'))
-    setWeddingSaving(false)
-    return
-  }
-
-  setWeddingMessage('Wedding details saved.')
-  setWeddingSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'saveWeddingDetails',
+    endpoint: `/api/requests/${routeId}/wedding-details`,
+    body: {
+      partnerOneName: name,
+      partnerTwoName: weddingPartnerTwo,
+      proposedWeddingDate: weddingProposedDate,
+      ceremonyNotes: weddingCeremonyNotes,
+    },
+    setSaving: setWeddingSaving,
+    setMessage: setWeddingMessage,
+    successMessage: 'Wedding details saved.',
+    staleMessage:
+      'The wedding details were saved, but the refreshed request could not load. Refresh the page before editing these details again.',
+    logLabel: 'SAVE WEDDING DETAILS ERROR',
+  })
 }
 
 async function saveConfirmedWeddingCeremony() {
@@ -1611,25 +1573,25 @@ async function saveConfirmedWeddingCeremony() {
     return
   }
 
-  await runScheduleMutation({
-      action: 'saveWeddingCeremony',
-      endpoint: `/api/requests/${routeId}/confirmed-wedding-ceremony`,
-      body: {
-        confirmedCeremonyAt: datetimeLocalToIso(confirmedWeddingCeremony),
-      },
-      setSaving: setWeddingConfirmedSaving,
-      setMessage: setWeddingConfirmedMessage,
-      successMessage: 'Confirmed ceremony time saved.',
-      staleMessage:
-        'The confirmed wedding time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
-      logLabel: 'confirmed wedding ceremony save',
-    })
+  await runRequestTypeMutation({
+    action: 'saveWeddingCeremony',
+    endpoint: `/api/requests/${routeId}/confirmed-wedding-ceremony`,
+    body: {
+      confirmedCeremonyAt: datetimeLocalToIso(confirmedWeddingCeremony),
+    },
+    setSaving: setWeddingConfirmedSaving,
+    setMessage: setWeddingConfirmedMessage,
+    successMessage: 'Confirmed ceremony time saved.',
+    staleMessage:
+      'The confirmed wedding time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'confirmed wedding ceremony save',
+  })
 }
 
 async function clearConfirmedWeddingCeremony() {
   if (!request || request.request_type !== 'wedding') return
 
-  await runScheduleMutation({
+  await runRequestTypeMutation({
     action: 'clearWeddingCeremony',
     endpoint: `/api/requests/${routeId}/confirmed-wedding-ceremony`,
     body: { confirmedCeremonyAt: null },
@@ -1652,25 +1614,25 @@ async function saveConfirmedOciaSession() {
     return
   }
 
-  await runScheduleMutation({
-      action: 'saveOciaSession',
-      endpoint: `/api/requests/${routeId}/confirmed-ocia-session`,
-      body: {
-        confirmedSessionAt: datetimeLocalToIso(confirmedOciaSession),
-      },
-      setSaving: setOciaSessionSaving,
-      setMessage: setOciaSessionMessage,
-      successMessage: 'Confirmed OCIA meeting time saved.',
-      staleMessage:
-        'The confirmed OCIA time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
-      logLabel: 'confirmed OCIA session save',
-    })
+  await runRequestTypeMutation({
+    action: 'saveOciaSession',
+    endpoint: `/api/requests/${routeId}/confirmed-ocia-session`,
+    body: {
+      confirmedSessionAt: datetimeLocalToIso(confirmedOciaSession),
+    },
+    setSaving: setOciaSessionSaving,
+    setMessage: setOciaSessionMessage,
+    successMessage: 'Confirmed OCIA meeting time saved.',
+    staleMessage:
+      'The confirmed OCIA time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'confirmed OCIA session save',
+  })
 }
 
 async function clearConfirmedOciaSession() {
   if (!request || request.request_type !== 'ocia') return
 
-  await runScheduleMutation({
+  await runRequestTypeMutation({
     action: 'clearOciaSession',
     endpoint: `/api/requests/${routeId}/confirmed-ocia-session`,
     body: { confirmedSessionAt: null },
@@ -2771,6 +2733,9 @@ async function deleteGoogleCalendarEvent() {
                   setPreferredServiceNotes={setFuneralPreferredNotes}
                   onSave={saveFuneralDetails}
                   saving={funeralSaving}
+                  mutationDisabled={
+                    requestTypeMutationBusy || workflowMutationRequiresRefresh
+                  }
                   message={funeralMessage}
                 />
               </div>
@@ -2789,6 +2754,9 @@ async function deleteGoogleCalendarEvent() {
                   setCeremonyNotes={setWeddingCeremonyNotes}
                   onSave={saveWeddingDetails}
                   saving={weddingSaving}
+                  mutationDisabled={
+                    requestTypeMutationBusy || workflowMutationRequiresRefresh
+                  }
                   message={weddingMessage}
                 />
               </div>
@@ -2887,7 +2855,7 @@ async function deleteGoogleCalendarEvent() {
                   setSuggested3={setSuggested3}
                   onSaveSuggestedDates={saveSuggestedDates}
                   saving={suggestedSaving}
-                  mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
+                  mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                   message={suggestedMessage}
                 />
                 <div className="mt-6 border-t border-gray-100 pt-5" />
@@ -2907,7 +2875,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedBaptismDate}
                     onClear={() => setPendingConfirmedScheduleClear('baptism')}
                     saving={confirmedSaving}
-                    mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
+                    mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                     message={confirmedMessage}
                   />
                 ) : isFuneral ? (
@@ -2918,7 +2886,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedFuneralService}
                     onClear={() => setPendingConfirmedScheduleClear('funeral')}
                     saving={funeralConfirmedSaving}
-                    mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
+                    mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                     message={funeralConfirmedMessage}
                   />
                 ) : isWedding ? (
@@ -2929,7 +2897,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedWeddingCeremony}
                     onClear={() => setPendingConfirmedScheduleClear('wedding')}
                     saving={weddingConfirmedSaving}
-                    mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
+                    mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                     message={weddingConfirmedMessage}
                   />
                 ) : (
@@ -2940,7 +2908,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedOciaSession}
                     onClear={() => setPendingConfirmedScheduleClear('ocia')}
                     saving={ociaSessionSaving}
-                    mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
+                    mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                     message={ociaSessionMessage}
                   />
                 )}

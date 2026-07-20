@@ -45,7 +45,7 @@ describe('request confirmed baptism date active parish mutation route', () => {
   it('keeps the Request Detail confirmed baptism date save and clear off browser-side Supabase mutations', () => {
     const source = read('app/dashboard/requests/[id]/page.tsx')
     const helper = source.slice(
-      source.indexOf('async function runScheduleMutation'),
+      source.indexOf('async function runRequestTypeMutation'),
       source.indexOf('async function saveSuggestedDates'),
     )
     const block = source.slice(
@@ -53,7 +53,7 @@ describe('request confirmed baptism date active parish mutation route', () => {
       source.indexOf('async function saveFuneralDetails'),
     )
 
-    expect(block.match(/await runScheduleMutation\(\{/g)).toHaveLength(2)
+    expect(block.match(/await runRequestTypeMutation\(\{/g)).toHaveLength(2)
     expect(block).toContain("action: 'saveConfirmedDate'")
     expect(block).toContain("action: 'clearConfirmedDate'")
     expect(block.match(/endpoint: `\/api\/requests\/\$\{routeId\}\/confirmed-baptism-date`/g)).toHaveLength(2)

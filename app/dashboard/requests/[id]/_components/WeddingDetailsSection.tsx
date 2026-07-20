@@ -14,6 +14,7 @@ export function WeddingDetailsSection({
   setCeremonyNotes,
   onSave,
   saving,
+  mutationDisabled = false,
   message,
 }: {
   partnerOneName: string
@@ -26,8 +27,10 @@ export function WeddingDetailsSection({
   setCeremonyNotes: (v: string) => void
   onSave: () => void
   saving: boolean
+  mutationDisabled?: boolean
   message: string
 }) {
+  const mutationBusy = saving || mutationDisabled
   return (
     <div>
       <h2 className={sectionHeadingClassName}>Wedding details</h2>
@@ -36,6 +39,7 @@ export function WeddingDetailsSection({
           className="w-full border p-3 rounded"
           placeholder="Partner name"
           value={partnerOneName}
+          disabled={mutationBusy}
           onChange={(e) => setPartnerOneName(e.target.value)}
           required
         />
@@ -43,6 +47,7 @@ export function WeddingDetailsSection({
           className="w-full border p-3 rounded"
           placeholder="Partner name (optional)"
           value={partnerTwoName}
+          disabled={mutationBusy}
           onChange={(e) => setPartnerTwoName(e.target.value)}
         />
         <label className="block text-sm text-gray-800">Proposed wedding date (optional)</label>
@@ -50,18 +55,20 @@ export function WeddingDetailsSection({
           className="w-full border p-3 rounded"
           type="date"
           value={proposedWeddingDate}
+          disabled={mutationBusy}
           onChange={(e) => setProposedWeddingDate(e.target.value)}
         />
         <textarea
           className="w-full border p-3 rounded min-h-[80px]"
           placeholder="Ceremony notes"
           value={ceremonyNotes}
+          disabled={mutationBusy}
           onChange={(e) => setCeremonyNotes(e.target.value)}
         />
         <button
           type="button"
           onClick={onSave}
-          disabled={saving || !partnerOneName.trim()}
+          disabled={mutationBusy || !partnerOneName.trim()}
           className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
         >
           {saving ? 'Saving...' : 'Save wedding details'}

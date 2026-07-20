@@ -20,7 +20,7 @@ function block(startMarker: string, endMarker: string) {
 
 describe('Request Detail notes and communication confirmation deadline boundary', () => {
   it('bounds staff-notes and manual-communication writes at 60 seconds', () => {
-    const notes = block('async function saveStaffNotes', 'async function runScheduleMutation')
+    const notes = block('async function saveStaffNotes', 'async function runRequestTypeMutation')
     const log = block('async function logCommunication', 'async function sendEmail')
 
     for (const handler of [notes, log]) {
@@ -47,7 +47,7 @@ describe('Request Detail notes and communication confirmation deadline boundary'
   })
 
   it('requires positive acknowledgement and a confirmed refresh before success', () => {
-    const notes = block('async function saveStaffNotes', 'async function runScheduleMutation')
+    const notes = block('async function saveStaffNotes', 'async function runRequestTypeMutation')
     const log = block('async function logCommunication', 'async function sendEmail')
 
     expect(notes.indexOf('data?.ok !== true')).toBeLessThan(
@@ -78,7 +78,7 @@ describe('Request Detail notes and communication confirmation deadline boundary'
   })
 
   it('never automatically replays either write', () => {
-    const notes = block('async function saveStaffNotes', 'async function runScheduleMutation')
+    const notes = block('async function saveStaffNotes', 'async function runRequestTypeMutation')
     const log = block('async function logCommunication', 'async function sendEmail')
 
     expect(notes.match(/fetch\(/g)).toHaveLength(1)

@@ -39,7 +39,7 @@ const cases = [
 ] as const
 
 describe('request confirmed schedule clear persistence UI boundary', () => {
-  const helperStart = source.indexOf('async function runScheduleMutation')
+  const helperStart = source.indexOf('async function runRequestTypeMutation')
   const helperEnd = source.indexOf('async function saveSuggestedDates', helperStart)
   const helper = source.slice(helperStart, helperEnd)
 
@@ -64,7 +64,7 @@ describe('request confirmed schedule clear persistence UI boundary', () => {
       const block = source.slice(start, end)
       expect(start).toBeGreaterThan(-1)
       expect(end).toBeGreaterThan(start)
-      expect(block).toContain('await runScheduleMutation({')
+      expect(block).toContain('await runRequestTypeMutation({')
       expect(block).toContain(testCase.action)
       expect(block).toContain(`afterConfirmed: () => ${testCase.stateClear}`)
       expect(block).toContain(testCase.successMessage)

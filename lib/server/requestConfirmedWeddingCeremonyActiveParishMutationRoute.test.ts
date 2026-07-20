@@ -46,7 +46,7 @@ describe('request confirmed wedding ceremony active parish mutation route', () =
   it('keeps the Request Detail confirmed wedding ceremony save and clear off browser-side Supabase mutations', () => {
     const source = read('app/dashboard/requests/[id]/page.tsx')
     const helper = source.slice(
-      source.indexOf('async function runScheduleMutation'),
+      source.indexOf('async function runRequestTypeMutation'),
       source.indexOf('async function saveSuggestedDates'),
     )
     const block = source.slice(
@@ -54,7 +54,7 @@ describe('request confirmed wedding ceremony active parish mutation route', () =
       source.indexOf('async function saveConfirmedOciaSession'),
     )
 
-    expect(block.match(/await runScheduleMutation\(\{/g)).toHaveLength(2)
+    expect(block.match(/await runRequestTypeMutation\(\{/g)).toHaveLength(2)
     expect(block).toContain("action: 'saveWeddingCeremony'")
     expect(block).toContain("action: 'clearWeddingCeremony'")
     expect(block.match(/endpoint: `\/api\/requests\/\$\{routeId\}\/confirmed-wedding-ceremony`/g)).toHaveLength(2)

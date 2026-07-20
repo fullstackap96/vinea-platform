@@ -25,10 +25,10 @@ function block(startMarker: string, endMarker: string) {
 
 describe('Request Detail schedule confirmation deadline boundary', () => {
   it('owns every schedule write through one finite confirmation helper', () => {
-    const helper = block('async function runScheduleMutation', 'async function saveSuggestedDates')
+    const helper = block('async function runRequestTypeMutation', 'async function saveSuggestedDates')
 
     expect(helper).toContain(
-      'if (scheduleMutationInFlightRef.current || workflowMutationRequiresRefresh) return',
+      'if (requestTypeMutationInFlightRef.current || workflowMutationRequiresRefresh) return',
     )
     expect(helper).toContain(
       'signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS)',
@@ -43,15 +43,17 @@ describe('Request Detail schedule confirmation deadline boundary', () => {
     expect(helper).not.toContain('while (')
   })
 
-  it('routes all nine proposal, save, and clear operations through the helper', () => {
+  it('routes all request-type detail, proposal, save, and clear operations through the helper', () => {
     const scheduleArea = block('async function saveSuggestedDates', 'function confirmConfirmedScheduleClear')
 
     for (const action of [
       'saveSuggestedDates',
       'saveConfirmedDate',
       'clearConfirmedDate',
+      'saveFuneralDetails',
       'saveFuneralService',
       'clearFuneralService',
+      'saveWeddingDetails',
       'saveWeddingCeremony',
       'clearWeddingCeremony',
       'saveOciaSession',
@@ -60,24 +62,24 @@ describe('Request Detail schedule confirmation deadline boundary', () => {
       expect(scheduleArea).toContain(`action: '${action}'`)
     }
 
-    expect(scheduleArea.match(/await runScheduleMutation\(\{/g)).toHaveLength(9)
+    expect(scheduleArea.match(/await runRequestTypeMutation\(\{/g)).toHaveLength(11)
   })
 
   it('uses one synchronous lock and releases it only in finally', () => {
-    const helper = block('async function runScheduleMutation', 'async function saveSuggestedDates')
+    const helper = block('async function runRequestTypeMutation', 'async function saveSuggestedDates')
 
-    expect(page).toContain('const scheduleMutationInFlightRef = useRef(false)')
-    expect(page).toContain('const [scheduleMutationBusy, setScheduleMutationBusy] = useState(false)')
-    expect(helper.indexOf('scheduleMutationInFlightRef.current = true')).toBeLessThan(
+    expect(page).toContain('const requestTypeMutationInFlightRef = useRef(false)')
+    expect(page).toContain('const [requestTypeMutationBusy, setRequestTypeMutationBusy] = useState(false)')
+    expect(helper.indexOf('requestTypeMutationInFlightRef.current = true')).toBeLessThan(
       helper.indexOf('const res = await fetch(endpoint'),
     )
     expect(helper).toContain('finally {')
-    expect(helper).toContain('scheduleMutationInFlightRef.current = false')
-    expect(helper).toContain('setScheduleMutationBusy(false)')
+    expect(helper).toContain('requestTypeMutationInFlightRef.current = false')
+    expect(helper).toContain('setRequestTypeMutationBusy(false)')
   })
 
   it('freezes each reviewed schedule field without mislabeling inactive buttons as saving', () => {
-    expect(page.match(/mutationDisabled=\{scheduleMutationBusy \|\| workflowMutationRequiresRefresh\}/g)).toHaveLength(5)
+    expect(page.match(/mutationDisabled=\{requestTypeMutationBusy \|\| workflowMutationRequiresRefresh\}/g)).toHaveLength(5)
 
     for (const component of components) {
       expect(component).toContain('const mutationBusy = saving || mutationDisabled')
@@ -87,7 +89,7 @@ describe('Request Detail schedule confirmation deadline boundary', () => {
   })
 
   it('clears local confirmed values only after positive acknowledgement and refresh', () => {
-    const helper = block('async function runScheduleMutation', 'async function saveSuggestedDates')
+    const helper = block('async function runRequestTypeMutation', 'async function saveSuggestedDates')
     const scheduleArea = block('async function saveSuggestedDates', 'function confirmConfirmedScheduleClear')
 
     expect(helper.indexOf('data?.ok !== true')).toBeLessThan(helper.indexOf('afterConfirmed?.()'))
