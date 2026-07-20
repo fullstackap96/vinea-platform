@@ -24,6 +24,7 @@
     "check:release-handoff": "node scripts/check-release-readiness-handoff.mjs",
     "check:release-local-evidence": "node scripts/check-release-local-evidence.mjs",
     "check:release-source-manifest": "node scripts/build-release-candidate-source-manifest.mjs",
+    "check:release-source-manifest:head": "node scripts/build-release-candidate-source-manifest.mjs --tracked-head",
     "check:release-commit-scope": "node scripts/prepare-release-candidate-commit-scope.mjs",
     "stage:release-candidate": "node scripts/stage-release-candidate-scope.mjs",
     "check:release-local": "node scripts/run-release-readiness-local.mjs",
