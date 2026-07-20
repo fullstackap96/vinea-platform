@@ -48,7 +48,9 @@ describe('daily queue mutation single-flight boundary', () => {
       ['async function saveMassIntentionTriage', '\n  return ('],
     ] as const) {
       const block = handler(intake, start, end)
-      expect(block).toContain('if (mutationInFlightRef.current) return')
+      expect(block).toContain(
+        'if (mutationInFlightRef.current || mutationRequiresRefresh) return',
+      )
       expect(block.indexOf('mutationInFlightRef.current = true')).toBeLessThan(
         block.indexOf('postIntakeTriage('),
       )
@@ -66,6 +68,13 @@ describe('daily queue mutation single-flight boundary', () => {
         source.match(/disabled=\{mutationBusy(?: \|\| mutationRequiresRefresh)?\}/g)?.length ?? 0,
       ).toBeGreaterThanOrEqual(6)
     }
+  })
+
+  it('keeps ambiguous intake triage outcomes blocked until staff refreshes', () => {
+    expect(intake).toContain('const [mutationRequiresRefresh, setMutationRequiresRefresh]')
+    expect(intake).toContain('setMutationRequiresRefresh(true)')
+    expect(intake).toContain('UNCERTAIN_INTAKE_TRIAGE_MESSAGE')
+    expect(intake).toContain('savingItemId !== null || mutationRequiresRefresh')
   })
 
   it('preserves the existing authenticated request route callers', () => {
