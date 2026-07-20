@@ -4,6 +4,28 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Staff Auth Confirmation Deadline Slice
+
+The 2026-07-20 staff-auth reliability slice bounds browser confirmation waits for password sign-in and current-browser sign-out without changing provider, session, authorization, or navigation policy. Timeout is treated as uncertain: there is no automatic replay or assumed success, and staff receive refresh-before-retry guidance.
+
+- Immutable implementation commit: `d73c08f9ed9ed730696271824bd60aebf9e2c8f5`
+- Tracked-head aggregate SHA-256: `054AAF1150A12148E3BC886A87E574B9E88432CCAD585764A8FEACDC995FB19B`
+- Source mode: `tracked-head`
+- Source file count: `1476`
+- Tracked source files: `1476`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused coverage passed `5` files / `23` tests. The first complete release run failed closed on a missing canonical count label in this evidence section; after restoring that standard label, the complete local `15`-check release contract passed in `387.4` seconds with zero secret findings across `2,848` text files, zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `838` test files / `3,589` tests, and the credential-free Next.js 16 `56`-page build. The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `EE1EFAC641BAD65E35186173CD695EE11B52D8EC6B38EA9D944518FAE42F5057`
+- Source file count: `1480`
+- Tracked source files: `1476`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/STAFF_AUTH_CLIENT_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Tracked-Head Manifest Tooling
 
 The 2026-07-20 release-integrity slice adds `npm run check:release-source-manifest:head`, which hashes release-source blobs directly from exact committed `HEAD` through a bounded Git batch operation. It rejects unknown modes and malformed, incomplete, non-blob, or extra batch output. It excludes untracked workspace source without copying the repository or creating a temporary worktree, and it continues to print no paths, source contents, environment values, or secrets.
