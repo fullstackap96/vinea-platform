@@ -5,6 +5,7 @@ import {
   dashboardShellClientErrorMessage,
   type DashboardShellClientAction,
 } from './dashboardShellClientMessages'
+import { ClientOperationTimeoutError } from './clientOperationDeadline'
 
 const actions: DashboardShellClientAction[] = [
   'parishSwitcher',
@@ -57,5 +58,11 @@ describe('dashboard shell client messages', () => {
     expect(dashboardGlobalSearchWarningMessage('private query detail')).toBe(
       'Some search results may be missing. Please try again if you do not see what you expected.',
     )
+  })
+
+  it('gives uncertain logout confirmation refresh-before-retry guidance', () => {
+    expect(
+      dashboardShellClientErrorMessage('logout', new ClientOperationTimeoutError()),
+    ).toBe('Vinea could not confirm sign-out in time. Refresh this page before trying again.')
   })
 })

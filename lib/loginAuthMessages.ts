@@ -1,3 +1,5 @@
+import { ClientOperationTimeoutError } from './clientOperationDeadline'
+
 export const staffLoginGenericErrorMessage =
   'We could not sign you in. Check your email and password, then try again.'
 
@@ -10,7 +12,14 @@ export const staffLoginNetworkErrorMessage =
 export const staffLoginEmailConfirmationMessage =
   'This account needs email confirmation before staff sign-in can continue. Ask a parish administrator for help if you are unsure.'
 
+export const staffLoginTimeoutErrorMessage =
+  'Vinea could not confirm sign-in in time. Refresh this page before trying again.'
+
 export function safeStaffLoginErrorMessage(error: unknown): string {
+  if (error instanceof ClientOperationTimeoutError) {
+    return staffLoginTimeoutErrorMessage
+  }
+
   const rawMessage =
     typeof error === 'string'
       ? error

@@ -47,6 +47,8 @@ describe('dashboard shell client safe-message boundary', () => {
     const helper = read('lib/dashboardShellClientMessages.ts')
 
     expect(source).toContain("supabase.auth.signOut({ scope: 'local' })")
+    expect(source).toContain('STAFF_SIGN_OUT_CONFIRMATION_TIMEOUT_MS = 15_000')
+    expect(source).toContain('await withClientOperationDeadline(')
     expect(source).toContain("dashboardShellClientErrorMessage('logout', error)")
     expect(source).toContain("router.replace('/login')")
     expect(source.indexOf("router.replace('/login')")).toBeGreaterThan(
@@ -55,6 +57,9 @@ describe('dashboard shell client safe-message boundary', () => {
     expect(source).toContain('role="alert"')
     expect(source).toContain("isSigningOut ? 'Signing out...' : 'Logout'")
     expect(helper).toContain('Could not sign out. Check your connection and try again.')
+    expect(helper).toContain(
+      'Vinea could not confirm sign-out in time. Refresh this page before trying again.',
+    )
     expect(source).not.toContain('setLogoutMessage(error.message)')
   })
 

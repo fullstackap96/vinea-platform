@@ -57,6 +57,11 @@ describe('staff login safe errors and accessible labels', () => {
     expect(page.indexOf('signInInFlightRef.current = true')).toBeLessThan(
       page.indexOf('supabase.auth.signInWithPassword({'),
     )
+    expect(page).toContain('STAFF_SIGN_IN_CONFIRMATION_TIMEOUT_MS = 30_000')
+    expect(page).toContain('await withClientOperationDeadline(')
+    expect(page.indexOf('await withClientOperationDeadline(')).toBeLessThan(
+      page.indexOf('supabase.auth.signInWithPassword({'),
+    )
   })
 
   it('prevents credentials from falling back into a pre-hydration GET submission', () => {

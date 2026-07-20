@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { primaryButtonLg } from '@/lib/buttonStyles'
+import { withClientOperationDeadline } from '@/lib/clientOperationDeadline'
 import { safeStaffLoginErrorMessage } from '@/lib/loginAuthMessages'
 import { safeDashboardHrefOrFallback } from '@/lib/safeDashboardHref'
 import {
@@ -51,6 +52,7 @@ function LoginShell({ children }: { children: React.ReactNode }) {
 }
 
 const subscribeToHydration = () => () => {}
+const STAFF_SIGN_IN_CONFIRMATION_TIMEOUT_MS = 30_000
 
 export default function LoginPage() {
   return (
@@ -132,10 +134,13 @@ function LoginForm() {
 
     try {
       const supabase = getSupabaseBrowserClient()
-      const result = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const result = await withClientOperationDeadline(
+        supabase.auth.signInWithPassword({
+          email,
+          password,
+        }),
+        STAFF_SIGN_IN_CONFIRMATION_TIMEOUT_MS,
+      )
       error = result.error
     } catch (err) {
       error = err
