@@ -28,6 +28,8 @@ const EMPTY_REPORTS_SUMMARY: ReportsSummary = {
   staffWorkloadRows: [],
 }
 
+const REPORTS_READ_TIMEOUT_MS = 15_000
+
 export function DashboardReportsPage({
   activeParishId = null,
   activeParishName = null,
@@ -43,6 +45,7 @@ export function DashboardReportsPage({
   useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
+    let readTimeoutId: number | undefined
 
     async function load() {
       setLoading(true)
@@ -55,6 +58,11 @@ export function DashboardReportsPage({
         setLoading(false)
         return
       }
+
+      readTimeoutId = window.setTimeout(
+        () => controller.abort(),
+        REPORTS_READ_TIMEOUT_MS,
+      )
 
       try {
         const response = await fetch('/api/dashboard/reports-summary', {
@@ -89,12 +97,13 @@ export function DashboardReportsPage({
           payload.warnings.join(' | ') || null,
         )
       } catch (error: unknown) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (cancelled && error instanceof DOMException && error.name === 'AbortError') return
         if (cancelled) return
         setSummary(EMPTY_REPORTS_SUMMARY)
         setFetchFailed(true)
         setLoadError(null)
       } finally {
+        if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
         if (!cancelled) setLoading(false)
       }
     }
@@ -102,6 +111,7 @@ export function DashboardReportsPage({
     void load()
     return () => {
       cancelled = true
+      if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
       controller.abort()
     }
   }, [activeParishId])
