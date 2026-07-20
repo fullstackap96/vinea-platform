@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Public Intake Client Confirmation Slice
+
+The 2026-07-20 public-intake reliability slice gives Baptism, Wedding, Funeral, OCIA, and Join Parish submissions a 60-second browser confirmation deadline and freezes every reviewed field while unresolved. An uncertain result retains the unchanged-payload opaque attempt and gives duplicate-aware retry guidance instead of leaving an indefinite spinner.
+
+- Immutable implementation commit: `602caf91024fe98af52ddd6769ab2da9a0a98d92`
+- Tracked-head aggregate SHA-256: `BED359B9A0E8F1489654E7CF428FA317D1041D6119B45B8B30C2D53C72D28E5C`
+- Source mode: `tracked-head`
+- Source file count: `1485`
+- Tracked source files: `1485`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused confirmation, frozen-form, retry-identity, safe-message, persistence, recovery, and native-form coverage passed `8` files / `39` tests before immutable source binding. The source-bound suite then passed `9` files / `45` tests. The isolated complete `15`-check release contract passed in `327.1` seconds with zero secret findings across `2,867` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `847` test files / `3,633` tests, and the credential-free Next.js 16.2.10 `56`-page build. Existing attempt identity, exact recovery agreement, durable rate limiting, bounded parsing, routing gates, checked persistence/cleanup, and post-success notification boundary remain authoritative.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `76C88EEA8E5BC582D495FB99805C44368B1E63AA467BADE707BF1549B30D1F3E`
+- Source file count: `1489`
+- Tracked source files: `1485`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/PUBLIC_INTAKE_CLIENT_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Intake Queue Client Confirmation Slice
 
 The 2026-07-20 Intake reliability slice gives staff-reviewed Request and Mass Intention quick-triage commands a 60-second browser confirmation deadline. Transport uncertainty freezes all Intake mutation controls until staff refresh and review the item; obsolete work is aborted on unmount and never auto-replayed.
