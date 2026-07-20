@@ -48,16 +48,18 @@ describe('Request Header and intake details single-flight boundary', () => {
     const persist = header.slice(persistStart, persistEnd)
 
     expect(header).toContain('const saveInFlightRef = useRef(false)')
-    expect(persist).toContain('if (saveInFlightRef.current) return')
-    expect(persist.indexOf('saveInFlightRef.current = true')).toBeLessThan(
-      persist.indexOf('await onSave(next)'),
+    expect(persist).toContain(
+      'if (saveInFlightRef.current || mutationRequiresRefresh) return',
     )
-    expect(persist.indexOf('await onSave(next)')).toBeLessThan(
+    expect(persist.indexOf('saveInFlightRef.current = true')).toBeLessThan(
+      persist.indexOf('awaitRequestDetailClientMutationConfirmation(onSave(next))'),
+    )
+    expect(persist.indexOf('awaitRequestDetailClientMutationConfirmation(onSave(next))')).toBeLessThan(
       persist.indexOf("if (next === null) setValue('')"),
     )
     expect(header).toContain("requestDetailClientFailureMessage('saveWaitingOn')")
     expect(header).toContain("requestDetailClientFailureMessage('clearWaitingOn')")
-    expect(header).toContain('aria-busy={saving}')
+    expect(header).toContain('aria-busy={mutationBusy}')
   })
 
   it('locks multi-field intake detail persistence and preserves post-save guidance', () => {
@@ -75,7 +77,7 @@ describe('Request Header and intake details single-flight boundary', () => {
 
   it('keeps waiting-on post-save activity failure separate from persistence', () => {
     expect(page).toContain(
-      'The request was updated, but activity history could not refresh.',
+      "throw new Error('Request refresh failed after waiting-on update.')",
     )
   })
 

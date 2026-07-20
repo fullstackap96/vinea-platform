@@ -111,6 +111,10 @@ import {
   requestDetailClientFailureMessage,
   requestDetailClientServerActionErrorMessage,
 } from '@/lib/requestDetailClientMessages'
+import {
+  awaitRequestDetailClientMutationConfirmation,
+  REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS,
+} from '@/lib/requestDetailClientMutationConfirmation'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 import {
   countIncompleteRequiredWorkflowSteps,
@@ -150,30 +154,6 @@ type GoogleCalendarMutationPayload = {
 }
 
 const REQUEST_DETAIL_LOAD_TIMEOUT_MS = 15_000
-const REQUEST_DETAIL_WORKFLOW_MUTATION_CONFIRMATION_TIMEOUT_MS = 60_000
-
-type RequestDetailMutationConfirmation<T> =
-  | { confirmed: true; value: T }
-  | { confirmed: false }
-
-async function awaitRequestDetailMutationConfirmation<T>(
-  operation: Promise<T>,
-): Promise<RequestDetailMutationConfirmation<T>> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  try {
-    return await Promise.race([
-      operation.then((value) => ({ confirmed: true as const, value })),
-      new Promise<{ confirmed: false }>((resolve) => {
-        timeoutId = setTimeout(
-          () => resolve({ confirmed: false }),
-          REQUEST_DETAIL_WORKFLOW_MUTATION_CONFIRMATION_TIMEOUT_MS,
-        )
-      }),
-    ])
-  } finally {
-    if (timeoutId !== undefined) clearTimeout(timeoutId)
-  }
-}
 
 function nowDatetimeLocal() {
   const d = new Date()
@@ -391,24 +371,25 @@ const [staffNotes, setStaffNotes] = useState('')
     }, REQUEST_DETAIL_LOAD_TIMEOUT_MS)
 
     try {
-      await loadRequestCore(controller.signal)
+      return await loadRequestCore(controller.signal)
     } catch (error) {
       if (timedOut && requestLoadAbortRef.current === controller) {
         setErrorMessage(requestDetailClientFailureMessage('loadRequestTimeout'))
-        return
+        return false
       }
       if (
         controller.signal.aborted ||
         requestLoadAbortRef.current !== controller ||
         isRequestLoadAbort(error)
       ) {
-        return
+        return false
       }
       devDashboardConsoleError(
         'Error loading request detail',
         new Error(requestDetailClientFailureMessage('verifyAccess'), { cause: error })
       )
       setErrorMessage(requestDetailClientFailureMessage('verifyAccess'))
+      return false
     } finally {
       window.clearTimeout(timeoutId)
       if (requestLoadAbortRef.current === controller) {
@@ -428,7 +409,7 @@ const [staffNotes, setStaffNotes] = useState('')
     if (!routeId) {
       setErrorMessage('Route ID not found.')
       setLoading(false)
-      return
+      return false
     }
 
     const accessRes = await fetch(`/api/requests/${routeId}/detail-access`, {
@@ -447,7 +428,7 @@ const [staffNotes, setStaffNotes] = useState('')
         requestDetailClientApiErrorMessage('verifyAccess', accessPayloadRecord?.error),
       )
       setLoading(false)
-      return
+      return false
     }
 
     const requestData = accessData.request
@@ -456,7 +437,7 @@ const [staffNotes, setStaffNotes] = useState('')
     if (!requestData?.id) {
       setErrorMessage('Request not found.')
       setLoading(false)
-      return
+      return false
     }
 
     setRequest(requestData)
@@ -778,6 +759,7 @@ const [staffNotes, setStaffNotes] = useState('')
     const existingSacramentalRecord = requestTypeSupport.linkedSacramentalRecord
     setHasSacramentalRecord(Boolean(existingSacramentalRecord?.id))
     setLinkedSacramentalRecord(existingSacramentalRecord)
+    return true
   }
 
   async function toggleChecklistItem(itemId: string, currentValue: boolean) {
@@ -792,7 +774,7 @@ const [staffNotes, setStaffNotes] = useState('')
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isComplete: !currentValue }),
-        signal: AbortSignal.timeout(REQUEST_DETAIL_WORKFLOW_MUTATION_CONFIRMATION_TIMEOUT_MS),
+        signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS),
       })
       const data = await res.json().catch(() => ({}))
 
@@ -814,9 +796,8 @@ const [staffNotes, setStaffNotes] = useState('')
       }
 
       setChecklistMessage('Checklist item updated.')
-      try {
-        await loadRequest()
-      } catch {
+      const refreshed = await loadRequest()
+      if (!refreshed) {
         setWorkflowMutationRequiresRefresh(true)
         setChecklistMessage(
           'Checklist item updated, but the refreshed request could not load. Refresh the page before changing another item.'
@@ -844,7 +825,7 @@ async function updateRequestStatus(newStatus: string) {
   try {
     let result: Awaited<ReturnType<typeof updateRequestStatusAction>>
     try {
-      const confirmation = await awaitRequestDetailMutationConfirmation(
+      const confirmation = await awaitRequestDetailClientMutationConfirmation(
         updateRequestStatusAction({
           requestId: routeId,
           status: newStatus,
@@ -877,11 +858,7 @@ async function updateRequestStatus(newStatus: string) {
     } catch {
       refreshFailed = true
     }
-    try {
-      await loadRequest()
-    } catch {
-      refreshFailed = true
-    }
+    if (!(await loadRequest())) refreshFailed = true
     if (refreshFailed) {
       setWorkflowMutationRequiresRefresh(true)
       setRequestStatusMessage(
@@ -908,7 +885,7 @@ async function updateWorkflowStepStatus(
   try {
     let result: Awaited<ReturnType<typeof updateRequestWorkflowStepStatus>>
     try {
-      const confirmation = await awaitRequestDetailMutationConfirmation(
+      const confirmation = await awaitRequestDetailClientMutationConfirmation(
         updateRequestWorkflowStepStatus({
           requestId: routeId,
           stepId,
@@ -943,11 +920,7 @@ async function updateWorkflowStepStatus(
     } catch {
       refreshFailed = true
     }
-    try {
-      await loadRequest()
-    } catch {
-      refreshFailed = true
-    }
+    if (!(await loadRequest())) refreshFailed = true
     if (refreshFailed) {
       setWorkflowMutationRequiresRefresh(true)
       setWorkflowStepMessage(
@@ -967,18 +940,16 @@ async function updateWaitingOn(next: string | null) {
   })
 
   if (!result.ok) {
-    throw new Error(
-      requestDetailClientServerActionErrorMessage('updateWaitingOn', result.error)
-    )
+    return {
+      ok: false as const,
+      error: requestDetailClientServerActionErrorMessage('updateWaitingOn', result.error),
+    }
   }
-  try {
-    await loadActivityEvents(routeId)
-  } catch {
-    setActivityError(
-      'The request was updated, but activity history could not refresh. Refresh the page to try again.'
-    )
+  await loadActivityEvents(routeId)
+  if (!(await loadRequest())) {
+    throw new Error('Request refresh failed after waiting-on update.')
   }
-  loadRequest()
+  return { ok: true as const }
 }
 
 function isBlank(value: unknown) {
@@ -2672,7 +2643,12 @@ async function deleteGoogleCalendarEvent() {
 
           <RequestHandoffBriefCard brief={handoffBrief} />
 
-          <RequestCareCadenceCard cadence={careCadence} onSaved={loadRequest} />
+          <RequestCareCadenceCard
+            cadence={careCadence}
+            onSaved={loadRequest}
+            mutationRequiresRefresh={workflowMutationRequiresRefresh}
+            onMutationUnconfirmed={() => setWorkflowMutationRequiresRefresh(true)}
+          />
 
           <RequestCommunicationCommitmentCard commitment={communicationCommitment} />
 
@@ -2759,7 +2735,9 @@ async function deleteGoogleCalendarEvent() {
             request?.parishioner_id != null ? String(request.parishioner_id) : null
           }
           requestParishId={request?.parish_id != null ? String(request.parish_id) : null}
-          onLinked={loadRequest}
+          onLinked={() => {
+            void loadRequest()
+          }}
         />
 
         <RequestRelationshipSuggestions
@@ -2907,7 +2885,13 @@ async function deleteGoogleCalendarEvent() {
                 onUpdateStatus={updateRequestStatus}
                 updating={requestStatusUpdating || workflowMutationRequiresRefresh}
               />
-              <RequestWaitingOnSection request={request} onSave={updateWaitingOn} />
+              <RequestWaitingOnSection
+                request={request}
+                disabled={workflowMutationRequiresRefresh}
+                onSave={updateWaitingOn}
+                mutationRequiresRefresh={workflowMutationRequiresRefresh}
+                onMutationUnconfirmed={() => setWorkflowMutationRequiresRefresh(true)}
+              />
             </div>
         </WorkflowSectionCard>
         </div>
@@ -2932,6 +2916,8 @@ async function deleteGoogleCalendarEvent() {
               staffOptions={staffAssigneeOptions}
               priestOptions={priestAssigneeOptions}
               onSaved={loadRequest}
+              mutationRequiresRefresh={workflowMutationRequiresRefresh}
+              onMutationUnconfirmed={() => setWorkflowMutationRequiresRefresh(true)}
             />
         </WorkflowSectionCard>
 
@@ -2950,6 +2936,8 @@ async function deleteGoogleCalendarEvent() {
                 requestId={routeId}
                 nextFollowUpDate={request?.next_follow_up_date}
                 onSaved={loadRequest}
+                mutationRequiresRefresh={workflowMutationRequiresRefresh}
+                onMutationUnconfirmed={() => setWorkflowMutationRequiresRefresh(true)}
               />
             </div>
           </div>
@@ -3089,7 +3077,9 @@ async function deleteGoogleCalendarEvent() {
                     requestId={routeId}
                     requestType={request?.request_type}
                     checklistItems={checklistItems}
-                    onApplied={loadRequest}
+                    onApplied={() => {
+                      void loadRequest()
+                    }}
                   />
                 </div>
                 <div className="mt-4">
@@ -3213,7 +3203,13 @@ async function deleteGoogleCalendarEvent() {
           title="Internal note log"
           description="Timestamped staff-only notes — not visible to families."
         >
-          <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
+          <InternalNotesSection
+            requestId={routeId}
+            notes={requestNotes}
+            onAdded={() => {
+              void loadRequest()
+            }}
+          />
         </WorkflowSectionCard>
 
         <WorkflowSectionCard

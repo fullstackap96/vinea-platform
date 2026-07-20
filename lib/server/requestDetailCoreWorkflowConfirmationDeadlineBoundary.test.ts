@@ -11,6 +11,8 @@ const checklist = read('app/dashboard/requests/[id]/_components/ChecklistSection
 const workflow = read(
   'app/dashboard/requests/[id]/_components/RequestWorkflowStepsSection.tsx',
 )
+const confirmationHelper = read('lib/clientMutationConfirmation.ts')
+const requestDetailConfirmation = read('lib/requestDetailClientMutationConfirmation.ts')
 
 function block(startMarker: string, endMarker: string) {
   const start = page.indexOf(startMarker)
@@ -23,14 +25,16 @@ function block(startMarker: string, endMarker: string) {
 describe('Request Detail core workflow confirmation deadline boundary', () => {
   it('bounds checklist fetch and Server Action confirmation at 60 seconds', () => {
     expect(page).toContain(
-      'const REQUEST_DETAIL_WORKFLOW_MUTATION_CONFIRMATION_TIMEOUT_MS = 60_000',
+      'REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS,',
     )
-    expect(page).toContain('async function awaitRequestDetailMutationConfirmation<T>')
-    expect(page).toContain('return await Promise.race([')
+    expect(requestDetailConfirmation).toContain(
+      'export const REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS = 60_000',
+    )
+    expect(confirmationHelper).toContain('return await Promise.race([')
     expect(page).toContain(
-      'signal: AbortSignal.timeout(REQUEST_DETAIL_WORKFLOW_MUTATION_CONFIRMATION_TIMEOUT_MS)',
+      'signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS)',
     )
-    expect(page.match(/await awaitRequestDetailMutationConfirmation\(/g)).toHaveLength(2)
+    expect(page.match(/await awaitRequestDetailClientMutationConfirmation\(/g)).toHaveLength(2)
   })
 
   it('requires explicit acknowledgement and treats uncertain outcomes as review-required', () => {
@@ -59,7 +63,7 @@ describe('Request Detail core workflow confirmation deadline boundary', () => {
       'const [workflowMutationRequiresRefresh, setWorkflowMutationRequiresRefresh] =',
     )
     expect(page).toContain('updating={requestStatusUpdating || workflowMutationRequiresRefresh}')
-    expect(page.match(/mutationRequiresRefresh=\{workflowMutationRequiresRefresh\}/g)).toHaveLength(2)
+    expect(page.match(/mutationRequiresRefresh=\{workflowMutationRequiresRefresh\}/g)).toHaveLength(6)
     expect(checklist).toContain(
       'const mutationBusy = Boolean(updatingItemId) || mutationRequiresRefresh',
     )

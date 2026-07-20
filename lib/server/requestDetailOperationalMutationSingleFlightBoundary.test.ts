@@ -36,14 +36,15 @@ describe('Request Detail operational mutation single-flight boundary', () => {
     const source = readComponent('AssignmentSection.tsx')
 
     expect(source).toContain('const saveInFlightRef = useRef(false)')
-    expect(source).toContain('if (saveInFlightRef.current) return')
+    expect(source).toContain(
+      'if (saveInFlightRef.current || mutationRequiresRefresh) return',
+    )
     expect(source.indexOf('saveInFlightRef.current = true')).toBeLessThan(
       source.indexOf('updateRequestAssignment({'),
     )
-    expect(source).toContain("'updateAssignment', error")
     expect(source).toContain("'updateAssignment', result.error")
-    expect(source).toContain('aria-busy={saving}')
-    expect(source.match(/disabled=\{saving\}/g)).toHaveLength(5)
+    expect(source).toContain('aria-busy={mutationBusy}')
+    expect(source.match(/disabled=\{mutationBusy\}/g)).toHaveLength(5)
   })
 
   it('mutually excludes follow-up save and clear through one immediate lock', () => {
@@ -55,28 +56,30 @@ describe('Request Detail operational mutation single-flight boundary', () => {
 
     expect(source).toContain('const saveInFlightRef = useRef(false)')
     for (const handler of [save, clear]) {
-      expect(handler).toContain('if (saveInFlightRef.current) return')
+      expect(handler).toContain(
+        'if (saveInFlightRef.current || mutationRequiresRefresh) return',
+      )
       expect(handler.indexOf('saveInFlightRef.current = true')).toBeLessThan(
         handler.indexOf('updateRequestNextFollowUpDate({'),
       )
-      expect(handler).toContain("'updateFollowUp', error")
       expect(handler).toContain("'updateFollowUp', result.error")
     }
-    expect(source).toContain('aria-busy={saving}')
-    expect(source).toContain('disabled={saving}')
+    expect(source).toContain('aria-busy={mutationBusy}')
+    expect(source).toContain('disabled={mutationBusy}')
   })
 
   it('locks care-cadence acceptance before follow-up persistence', () => {
     const source = readComponent('RequestCareCadenceCard.tsx')
 
     expect(source).toContain('const saveInFlightRef = useRef(false)')
-    expect(source).toContain('if (saveInFlightRef.current || !cadence) return')
+    expect(source).toContain(
+      'if (saveInFlightRef.current || mutationRequiresRefresh || !cadence) return',
+    )
     expect(source.indexOf('saveInFlightRef.current = true')).toBeLessThan(
       source.indexOf('updateRequestNextFollowUpDate({'),
     )
-    expect(source).toContain("'updateFollowUp', error")
     expect(source).toContain("'updateFollowUp', result.error")
-    expect(source).toContain('aria-busy={saving}')
+    expect(source).toContain('aria-busy={mutationBusy}')
   })
 
   it('documents the selected-parish, retry, and no-automation boundary', () => {
