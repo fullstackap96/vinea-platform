@@ -4,6 +4,34 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Staff Email Client Confirmation Slice
+
+The 2026-07-20 outbound-email reliability slice gives Request Detail and Daily Work Hub browser delivery confirmation a 20-second deadline, longer than the existing 12-second provider deadline, and gives post-send communication logging a 60-second deadline. Exact-content delivery retries retain the existing opaque provider-idempotent attempt. Once provider delivery is confirmed, any unconfirmed or rejected communication log freezes related mutation controls until staff refresh and review, preventing a second delivery from being used as a logging retry.
+
+- Immutable implementation commit: `f7de8a6eeb320737987f6aa0332a0176fa535215`
+- Tracked-head aggregate SHA-256: `3253FED2D2F7113513EAC1E28D465D19E153FDCF1ABD8A63055BC071917D850E`
+- Source mode: `tracked-head`
+- Source file count: `1496`
+- Tracked source files: `1496`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused client-deadline, single-flight, provider-deadline, partial-success, safe-message, and route coverage passed `7` files / `43` tests. Existing staff authentication, selected active-parish membership, same-parish request ownership, stored-recipient authority, staff-reviewed subject/body, provider idempotency, communication API scope, and safe partial-success guidance remain authoritative.
+
+The complete `15`-check release contract passed in `351` seconds with zero secret findings across `2,884` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `855` test files / `3,673` tests, and the credential-free Next.js 16.2.10 `56`-page build. The post-documentation source-bound suite passed `8` files / `49` tests, and the post-documentation secret scan passed across `2,885` text files with zero findings.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `A7692192F181492657C8B55D1495AD7DAF2002EC9DC80ABB0D798E7C88277F99`
+- Source file count: `1500`
+- Tracked source files: `1496`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+This manifest records reviewed source identity and does not replace an immutable Git commit, authorize production, or permit an external send.
+
+See `docs/STAFF_EMAIL_CLIENT_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Request Detail Pastoral Details Confirmation Slice
 
 The 2026-07-20 Request Detail reliability slice brings Funeral and Wedding pastoral-detail saves into the same finite 60-second request-type confirmation boundary as the nine schedule operations. Transport uncertainty, malformed success acknowledgement, or failed post-save refresh freezes every reviewed Funeral, Wedding, and schedule field until staff refresh and review. Explicit server rejections remain retryable, local values are retained until positive acknowledgement plus refresh, and no write is replayed automatically.
