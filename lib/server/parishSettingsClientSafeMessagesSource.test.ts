@@ -21,9 +21,7 @@ describe('parish settings client safe messages', () => {
     expect(source).toContain(
       "setSaveError(parishSettingsClientErrorMessage('saveSettings', data?.error))"
     )
-    expect(source).toContain(
-      "setSaveError(parishSettingsClientErrorMessage('saveSettings', error))"
-    )
+    expect(source).toContain('setSaveError(PARISH_SETTINGS_REFRESH_REQUIRED_MESSAGE)')
     expect(source).toContain(
       "setDailyBriefMessage(parishSettingsClientErrorMessage('sendDailyBrief', data?.error))"
     )
@@ -56,15 +54,11 @@ describe('parish settings client safe messages', () => {
     expect(source).toContain(
       "setStaffAccessError(parishSettingsClientErrorMessage('addStaffAccess', data?.error))"
     )
-    expect(source).toContain(
-      "setStaffAccessError(parishSettingsClientErrorMessage('addStaffAccess', error))"
-    )
+    expect(source).toContain('setStaffAccessError(STAFF_ACCESS_REFRESH_REQUIRED_MESSAGE)')
     expect(source).toContain(
       "setStaffAccessError(parishSettingsClientErrorMessage('updateStaffAccess', data?.error))"
     )
-    expect(source).toContain(
-      "setStaffAccessError(parishSettingsClientErrorMessage('updateStaffAccess', error))"
-    )
+    expect(source).toContain("from '@/lib/parishSettingsClientConfirmation'")
     expect(source).toContain(
       "setRecentAuditError(parishSettingsClientErrorMessage('loadRecentActivity', data?.error))"
     )

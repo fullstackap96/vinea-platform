@@ -22,6 +22,11 @@ import {
   parishSettingsClientErrorMessage,
   publicRoutingDomainVerificationResultMessage,
 } from '@/lib/parishSettingsClientMessages'
+import {
+  PARISH_SETTINGS_MUTATION_CONFIRMATION_TIMEOUT_MS,
+  PARISH_SETTINGS_REFRESH_REQUIRED_MESSAGE,
+  STAFF_ACCESS_REFRESH_REQUIRED_MESSAGE,
+} from '@/lib/parishSettingsClientConfirmation'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 import { VineaConfirmDialog } from '@/app/dashboard/_components/VineaConfirmDialog'
 import {
@@ -98,6 +103,8 @@ function formatDateTime(value: string | null | undefined): string {
 }
 
 export function ParishSettingsPage({ activeParishId = null }: { activeParishId?: string | null }) {
+  const activeParishIdRef = useRef(activeParishId)
+  activeParishIdRef.current = activeParishId
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -114,6 +121,8 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   const [dailyBriefSending, setDailyBriefSending] = useState(false)
   const parishSettingsMutationInFlightRef =
     useRef<'settings-save' | 'daily-brief-send' | null>(null)
+  const [parishSettingsMutationRequiresRefresh, setParishSettingsMutationRequiresRefresh] =
+    useState(false)
   const dailyBriefDeliveryAttemptRef = useRef<{
     parishId: string | null
     id: string
@@ -130,6 +139,8 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   const [staffAccessAdding, setStaffAccessAdding] = useState(false)
   const [staffAccessUpdatingId, setStaffAccessUpdatingId] = useState<string | null>(null)
   const staffAccessMutationInFlightRef = useRef<string | null>(null)
+  const [staffAccessMutationRequiresRefresh, setStaffAccessMutationRequiresRefresh] =
+    useState(false)
   const [staffAccessMessage, setStaffAccessMessage] = useState('')
   const [staffAccessError, setStaffAccessError] = useState('')
   const [pendingStaffDeactivation, setPendingStaffDeactivation] =
@@ -190,23 +201,25 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         signal: controller.signal,
       })
       const data = await res.json().catch(() => ({}))
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return false
       if (!res.ok || !data?.ok) {
         setStaffAccessError(parishSettingsClientErrorMessage('loadStaffAccess', data?.error))
-        return
+        return false
       }
       const parsed = parseStaffAccessResponse(data)
       if (!parsed) {
         setStaffAccess([])
         setCanManageStaff(false)
         setStaffAccessError(parishSettingsClientErrorMessage('loadStaffAccess', null))
-        return
+        return false
       }
       setStaffAccess(parsed.staff)
       setCanManageStaff(parsed.canManage)
+      return true
     } catch (error: unknown) {
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return false
       setStaffAccessError(parishSettingsClientErrorMessage('loadStaffAccess', error))
+      return false
     } finally {
       window.clearTimeout(readTimeoutId)
       if (isLatestLoad()) {
@@ -329,15 +342,15 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         signal: controller.signal,
       })
       const data = await res.json().catch(() => ({}))
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return false
       if (!res.ok || !data?.ok) {
         setLoadError(parishSettingsClientErrorMessage('loadSettings', data?.error))
-        return
+        return false
       }
       const parsed = parseParishSettingsResponse(data, activeParishId)
       if (!parsed) {
         setLoadError(parishSettingsClientErrorMessage('loadSettings', null))
-        return
+        return false
       }
       const p = parsed.parish
       setParishName(p.name)
@@ -352,9 +365,11 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
       setStaffText(directoryToMultilineText(Array.isArray(p.staff_names) ? p.staff_names : []))
       setPriestText(directoryToMultilineText(Array.isArray(p.priest_names) ? p.priest_names : []))
       setGoogleCalendar(parsed.googleCalendar)
+      return true
     } catch (error: unknown) {
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return false
       setLoadError(parishSettingsClientErrorMessage('loadSettings', error))
+      return false
     } finally {
       window.clearTimeout(readTimeoutId)
       await supportingLoads
@@ -368,7 +383,11 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   useEffect(() => {
     let cancelled = false
     queueMicrotask(() => {
-      if (!cancelled) void load()
+      if (!cancelled) {
+        setParishSettingsMutationRequiresRefresh(false)
+        setStaffAccessMutationRequiresRefresh(false)
+        void load()
+      }
     })
     return () => {
       cancelled = true
@@ -389,7 +408,9 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    if (parishSettingsMutationInFlightRef.current) return
+    if (parishSettingsMutationInFlightRef.current || parishSettingsMutationRequiresRefresh) return
+
+    const saveParishId = activeParishIdRef.current
 
     parishSettingsMutationInFlightRef.current = 'settings-save'
     setSaving(true)
@@ -402,6 +423,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PARISH_SETTINGS_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({
           name: parishName.trim(),
           default_notification_email: notificationEmail.trim(),
@@ -414,14 +436,28 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== saveParishId) return
+      if (!res.ok) {
         setSaveError(parishSettingsClientErrorMessage('saveSettings', data?.error))
         return
       }
+      if (!data?.ok) {
+        setParishSettingsMutationRequiresRefresh(true)
+        setSaveError(PARISH_SETTINGS_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
+      const refreshed = await load()
+      if (activeParishIdRef.current !== saveParishId) return
+      if (!refreshed) {
+        setParishSettingsMutationRequiresRefresh(true)
+        setSaveError(PARISH_SETTINGS_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
       setSaveMessage('Settings saved.')
-      await load()
-    } catch (error: unknown) {
-      setSaveError(parishSettingsClientErrorMessage('saveSettings', error))
+    } catch {
+      if (activeParishIdRef.current !== saveParishId) return
+      setParishSettingsMutationRequiresRefresh(true)
+      setSaveError(PARISH_SETTINGS_REFRESH_REQUIRED_MESSAGE)
     } finally {
       parishSettingsMutationInFlightRef.current = null
       setSaving(false)
@@ -440,8 +476,9 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
 
   async function addStaffAccess(e: React.FormEvent) {
     e.preventDefault()
-    if (staffAccessMutationInFlightRef.current) return
+    if (staffAccessMutationInFlightRef.current || staffAccessMutationRequiresRefresh) return
 
+    const saveParishId = activeParishIdRef.current
     staffAccessMutationInFlightRef.current = 'new-staff-access'
     setStaffAccessAdding(true)
     setStaffAccessMessage('')
@@ -451,20 +488,35 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PARISH_SETTINGS_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({ email: newStaffEmail.trim(), role: newStaffRole }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== saveParishId) return
+      if (!res.ok) {
         setStaffAccessError(parishSettingsClientErrorMessage('addStaffAccess', data?.error))
+        return
+      }
+      if (!data?.ok) {
+        setStaffAccessMutationRequiresRefresh(true)
+        setStaffAccessError(STAFF_ACCESS_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
+      const refreshed = await loadStaffAccess()
+      if (activeParishIdRef.current !== saveParishId) return
+      if (!refreshed) {
+        setStaffAccessMutationRequiresRefresh(true)
+        setStaffAccessError(STAFF_ACCESS_REFRESH_REQUIRED_MESSAGE)
         return
       }
       setNewStaffEmail('')
       setNewStaffRole('staff')
       setStaffAccessMessage('Staff access saved.')
-      await loadStaffAccess()
       await loadRecentAuditEvents()
-    } catch (error: unknown) {
-      setStaffAccessError(parishSettingsClientErrorMessage('addStaffAccess', error))
+    } catch {
+      if (activeParishIdRef.current !== saveParishId) return
+      setStaffAccessMutationRequiresRefresh(true)
+      setStaffAccessError(STAFF_ACCESS_REFRESH_REQUIRED_MESSAGE)
     } finally {
       staffAccessMutationInFlightRef.current = null
       setStaffAccessAdding(false)
@@ -472,8 +524,9 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   }
 
   async function updateStaffAccess(row: StaffAccessRow, patch: Partial<StaffAccessRow>) {
-    if (staffAccessMutationInFlightRef.current) return
+    if (staffAccessMutationInFlightRef.current || staffAccessMutationRequiresRefresh) return
 
+    const saveParishId = activeParishIdRef.current
     staffAccessMutationInFlightRef.current = row.id
     setStaffAccessUpdatingId(row.id)
     setStaffAccessMessage('')
@@ -484,18 +537,33 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(PARISH_SETTINGS_MUTATION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({ id: row.id, role: next.role, active: next.active }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== saveParishId) return
+      if (!res.ok) {
         setStaffAccessError(parishSettingsClientErrorMessage('updateStaffAccess', data?.error))
         return
       }
+      if (!data?.ok) {
+        setStaffAccessMutationRequiresRefresh(true)
+        setStaffAccessError(STAFF_ACCESS_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
+      const refreshed = await loadStaffAccess()
+      if (activeParishIdRef.current !== saveParishId) return
+      if (!refreshed) {
+        setStaffAccessMutationRequiresRefresh(true)
+        setStaffAccessError(STAFF_ACCESS_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
       setStaffAccessMessage('Staff access updated.')
-      await loadStaffAccess()
       await loadRecentAuditEvents()
-    } catch (error: unknown) {
-      setStaffAccessError(parishSettingsClientErrorMessage('updateStaffAccess', error))
+    } catch {
+      if (activeParishIdRef.current !== saveParishId) return
+      setStaffAccessMutationRequiresRefresh(true)
+      setStaffAccessError(STAFF_ACCESS_REFRESH_REQUIRED_MESSAGE)
     } finally {
       staffAccessMutationInFlightRef.current = null
       setStaffAccessUpdatingId(null)
@@ -519,7 +587,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   }
 
   async function sendDailyBriefNow() {
-    if (parishSettingsMutationInFlightRef.current) return
+    if (parishSettingsMutationInFlightRef.current || parishSettingsMutationRequiresRefresh) return
 
     if (dailyBriefDeliveryAttemptRef.current?.parishId !== activeParishId) {
       dailyBriefDeliveryAttemptRef.current = {
@@ -873,7 +941,10 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
 
   const publicRoutingMutationBusy =
     publicIntakeRoutingSaving || publicRoutingDomainSaving || publicRoutingTokenSaving
-  const parishSettingsBusy = saving || dailyBriefSending
+  const parishSettingsBusy =
+    saving || dailyBriefSending || parishSettingsMutationRequiresRefresh
+  const staffAccessBusy =
+    staffAccessAdding || staffAccessUpdatingId !== null || staffAccessMutationRequiresRefresh
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
@@ -1194,12 +1265,12 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
               <form
                 method="post"
                 onSubmit={addStaffAccess}
-                aria-busy={staffAccessAdding}
+                aria-busy={staffAccessBusy}
                 className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto_auto]"
               >
                 <input
                   type="email"
-                  disabled={staffAccessAdding || staffAccessUpdatingId !== null}
+                  disabled={staffAccessBusy}
                   className={vineaInputFieldClassName}
                   value={newStaffEmail}
                   onChange={(e) => setNewStaffEmail(e.target.value)}
@@ -1209,7 +1280,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
                 />
                 <select
                   value={newStaffRole}
-                  disabled={staffAccessAdding || staffAccessUpdatingId !== null}
+                  disabled={staffAccessBusy}
                   onChange={(e) => setNewStaffRole(e.target.value === 'admin' ? 'admin' : 'staff')}
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-ring"
                   aria-label="Staff role"
@@ -1219,7 +1290,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
                 </select>
                 <button
                   type="submit"
-                  disabled={staffAccessAdding || staffAccessUpdatingId !== null}
+                  disabled={staffAccessBusy}
                   className={`${primaryButtonMd} justify-center`}
                 >
                   {staffAccessAdding ? 'Adding...' : 'Add access'}
@@ -1238,7 +1309,9 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
                 staffAccess.map((row) => (
                   <div
                     key={row.id}
-                    aria-busy={staffAccessUpdatingId === row.id}
+                    aria-busy={
+                      staffAccessUpdatingId === row.id || staffAccessMutationRequiresRefresh
+                    }
                     className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
@@ -1251,7 +1324,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
                       <div className="flex flex-wrap items-center gap-2">
                         <select
                           value={row.role}
-                          disabled={staffAccessAdding || staffAccessUpdatingId !== null}
+                          disabled={staffAccessBusy}
                           onChange={(e) => {
                             const nextRole = e.target.value === 'admin' ? 'admin' : 'staff'
                             if (row.role === 'admin' && nextRole === 'staff') {
@@ -1268,7 +1341,7 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
                         </select>
                         <button
                           type="button"
-                          disabled={staffAccessAdding || staffAccessUpdatingId !== null}
+                          disabled={staffAccessBusy}
                           onClick={() => {
                             if (row.active) {
                               setPendingStaffDeactivation(row)

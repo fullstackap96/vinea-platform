@@ -18,7 +18,9 @@ describe('Staff Access single-flight mutation boundary', () => {
     const addSource = source.slice(addStart, addEnd)
 
     expect(addStart).toBeGreaterThan(-1)
-    expect(addSource).toContain('if (staffAccessMutationInFlightRef.current) return')
+    expect(addSource).toContain(
+      'if (staffAccessMutationInFlightRef.current || staffAccessMutationRequiresRefresh) return',
+    )
     expect(addSource).toContain("staffAccessMutationInFlightRef.current = 'new-staff-access'")
     expect(addSource).toContain('setStaffAccessAdding(true)')
     expect(addSource).toContain("method: 'POST'")
@@ -34,7 +36,9 @@ describe('Staff Access single-flight mutation boundary', () => {
     const updateSource = source.slice(updateStart, updateEnd)
 
     expect(updateStart).toBeGreaterThan(-1)
-    expect(updateSource).toContain('if (staffAccessMutationInFlightRef.current) return')
+    expect(updateSource).toContain(
+      'if (staffAccessMutationInFlightRef.current || staffAccessMutationRequiresRefresh) return',
+    )
     expect(updateSource).toContain('staffAccessMutationInFlightRef.current = row.id')
     expect(updateSource).toContain('setStaffAccessUpdatingId(row.id)')
     expect(updateSource).toContain("method: 'PATCH'")
@@ -46,11 +50,9 @@ describe('Staff Access single-flight mutation boundary', () => {
   it('makes the affected row visibly busy and disables competing row controls', () => {
     const source = readFileSync(settingsPath, 'utf8')
 
-    expect(source).toContain('aria-busy={staffAccessUpdatingId === row.id}')
-    expect(
-      source.match(/disabled=\{staffAccessAdding \|\| staffAccessUpdatingId !== null\}/g),
-    ).toHaveLength(5)
-    expect(source).toContain('aria-busy={staffAccessAdding}')
+    expect(source).toContain('staffAccessUpdatingId === row.id || staffAccessMutationRequiresRefresh')
+    expect(source.match(/disabled=\{staffAccessBusy\}/g)).toHaveLength(5)
+    expect(source).toContain('aria-busy={staffAccessBusy}')
     expect(source).toContain("staffAccessAdding ? 'Adding...' : 'Add access'")
     expect(source).toContain("? 'Updating...'\n")
     expect(source).toContain('const staffAccessMutationInFlightRef = useRef<string | null>(null)')

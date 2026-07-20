@@ -19,7 +19,9 @@ describe('Daily Brief manual send single-flight boundary', () => {
     expect(settings).toContain(
       "useRef<'settings-save' | 'daily-brief-send' | null>(null)",
     )
-    expect(handler).toContain('if (parishSettingsMutationInFlightRef.current) return')
+    expect(handler).toContain(
+      'if (parishSettingsMutationInFlightRef.current || parishSettingsMutationRequiresRefresh) return',
+    )
     expect(
       handler.indexOf(
         "parishSettingsMutationInFlightRef.current = 'daily-brief-send'",
