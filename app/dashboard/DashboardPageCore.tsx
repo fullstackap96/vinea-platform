@@ -129,6 +129,7 @@ import {
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 const DAILY_WORK_HUB_LOAD_TIMEOUT_MS = 15_000
+const DAILY_WORK_HUB_MUTATION_CONFIRMATION_TIMEOUT_MS = 60_000
 
 function commandCenterBucketTone(bucket: StaffCommandCenterRow['bucket']): string {
   switch (bucket) {
@@ -237,6 +238,8 @@ export function DashboardPageCore({
   const [carePlanCompletingId, setCarePlanCompletingId] = useState<string | null>(null)
   const careTouchpointInFlightRef = useRef(false)
   const [carePlanMessages, setCarePlanMessages] = useState<Record<string, string>>({})
+  const [workHubMutationRequiresRefresh, setWorkHubMutationRequiresRefresh] =
+    useState(false)
   const [requestsLoadError, setRequestsLoadError] = useState<string | null>(null)
   const [requestsFetchFailed, setRequestsFetchFailed] = useState(false)
   const requestsLoadSequenceRef = useRef(0)
@@ -1042,7 +1045,7 @@ export function DashboardPageCore({
 
   async function runMarkFollowUpAsContactedCore(request: DashboardWorkHubRequest): Promise<
     | { ok: true }
-    | { ok: false; error: string; historyInserted?: boolean }
+    | { ok: false; error: string; historyInserted?: boolean; uncertain?: boolean }
   > {
     const id = String(request.id)
     try {
@@ -1052,10 +1055,19 @@ export function DashboardPageCore({
         headers: activeParishId
           ? { 'X-Vinea-Active-Parish-Id': activeParishId }
           : undefined,
+        signal: AbortSignal.timeout(DAILY_WORK_HUB_MUTATION_CONFIRMATION_TIMEOUT_MS),
       })
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean
         completed?: { communicationLogged?: boolean }
+      }
+
+      if (res.ok && data.ok !== true) {
+        return {
+          ok: false,
+          error: dashboardClientFailureMessage('confirmWorkHubMutation'),
+          uncertain: true,
+        }
       }
 
       if (!res.ok || !data.ok) {
@@ -1070,11 +1082,17 @@ export function DashboardPageCore({
 
       return { ok: true }
     } catch {
-      return { ok: false, error: dashboardClientFailureMessage('markFollowUpContacted') }
+      return {
+        ok: false,
+        error: dashboardClientFailureMessage('confirmWorkHubMutation'),
+        uncertain: true,
+      }
     }
   }
 
   async function draftFollowUpEmail(request: DashboardWorkHubRequest) {
+    if (workHubMutationRequiresRefresh) return
+
     const id = String(request.id)
     setFollowUpDraftingId(id)
     setFollowUpRowMessage(id, '')
@@ -1098,7 +1116,7 @@ export function DashboardPageCore({
   }
 
   async function sendFollowUpEmail(request: DashboardWorkHubRequest) {
-    if (followUpEmailInFlightRef.current) return
+    if (followUpEmailInFlightRef.current || workHubMutationRequiresRefresh) return
 
     const id = String(request.id)
     const to = String(request.parishioner?.email || '').trim()
@@ -1216,7 +1234,7 @@ export function DashboardPageCore({
   }
 
   async function markFollowUpAsContacted(request: DashboardWorkHubRequest) {
-    if (followUpMarkContactedInFlightRef.current) return
+    if (followUpMarkContactedInFlightRef.current || workHubMutationRequiresRefresh) return
 
     const id = String(request.id)
     followUpMarkContactedInFlightRef.current = true
@@ -1226,6 +1244,11 @@ export function DashboardPageCore({
       const result = await runMarkFollowUpAsContactedCore(request)
 
       if (!result.ok) {
+        if (result.uncertain) {
+          setWorkHubMutationRequiresRefresh(true)
+          setFollowUpRowMessage(id, result.error)
+          return
+        }
         if (result.historyInserted) {
           setFollowUpRowMessage(
             id,
@@ -1260,6 +1283,12 @@ export function DashboardPageCore({
   }: CompleteCarePlanTouchpointInput): Promise<
     { ok: true } | { ok: false; error: string }
   > {
+    if (workHubMutationRequiresRefresh) {
+      return {
+        ok: false,
+        error: dashboardClientFailureMessage('confirmWorkHubMutation'),
+      }
+    }
     if (careTouchpointInFlightRef.current) {
       return { ok: false, error: 'A care touchpoint is already being saved.' }
     }
@@ -1303,10 +1332,18 @@ export function DashboardPageCore({
           nextFollowUpDate,
           careCycleComplete,
         }),
+        signal: AbortSignal.timeout(DAILY_WORK_HUB_MUTATION_CONFIRMATION_TIMEOUT_MS),
       })
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean
         partialStep?: 'funeral_care_date' | 'request_summary'
+      }
+
+      if (res.ok && data.ok !== true) {
+        const message = dashboardClientFailureMessage('confirmWorkHubMutation')
+        setWorkHubMutationRequiresRefresh(true)
+        setCarePlanMessage(id, message)
+        return { ok: false, error: message }
       }
 
       if (!res.ok || !data.ok) {
@@ -1330,7 +1367,8 @@ export function DashboardPageCore({
       await loadRequests(true)
       return { ok: true }
     } catch {
-      const message = dashboardClientFailureMessage('saveCareTouchpoint')
+      const message = dashboardClientFailureMessage('confirmWorkHubMutation')
+      setWorkHubMutationRequiresRefresh(true)
       setCarePlanMessage(id, message)
       return { ok: false, error: message }
     } finally {
@@ -1342,6 +1380,7 @@ export function DashboardPageCore({
   function followUpQueueRow(request: DashboardWorkHubRequest) {
     const id = String(request.id)
     const followUpGlobalBusy =
+      workHubMutationRequiresRefresh ||
       followUpBatchBusy !== null ||
       followUpDraftingId !== null ||
       followUpMarkingId !== null ||
@@ -1942,12 +1981,15 @@ export function DashboardPageCore({
 
   const followUpToolbarLocked =
     loading ||
+    workHubMutationRequiresRefresh ||
     followUpBatchBusy !== null ||
     followUpDraftingId !== null ||
     followUpMarkingId !== null ||
     followUpSendingId !== null
 
   async function batchDraftFollowUpEmails() {
+    if (workHubMutationRequiresRefresh) return
+
     const ids = Array.from(selectedFollowUpIds)
     if (ids.length === 0) return
 
@@ -1980,7 +2022,7 @@ export function DashboardPageCore({
   }
 
   async function batchMarkFollowUpAsContacted() {
-    if (followUpMarkContactedInFlightRef.current) return
+    if (followUpMarkContactedInFlightRef.current || workHubMutationRequiresRefresh) return
 
     const ids = Array.from(selectedFollowUpIds)
     if (ids.length === 0) return
@@ -1991,27 +2033,39 @@ export function DashboardPageCore({
     try {
       const failedIds: string[] = []
       let ok = 0
+      let uncertain = false
 
-      for (const id of ids) {
+      for (const [index, id] of ids.entries()) {
         const request = requests.find((r) => String(r.id) === id)
         if (!request) {
           failedIds.push(id)
           continue
         }
         const result = await runMarkFollowUpAsContactedCore(request)
-        if (result.ok) ok++
-        else failedIds.push(id)
+        if (result.ok) {
+          ok++
+        } else {
+          failedIds.push(id)
+          if (result.uncertain) {
+            uncertain = true
+            setWorkHubMutationRequiresRefresh(true)
+            failedIds.push(...ids.slice(index + 1))
+            break
+          }
+        }
       }
 
-      let msg = `Batch mark finished: ${ok} updated`
-      if (failedIds.length > 0) {
+      let msg = uncertain
+        ? dashboardClientFailureMessage('confirmWorkHubMutation')
+        : `Batch mark finished: ${ok} updated`
+      if (!uncertain && failedIds.length > 0) {
         msg += `, ${failedIds.length} failed. Failed items remain selected for individual review.`
-      } else {
+      } else if (!uncertain) {
         msg += '.'
       }
       setFollowUpBatchMessage(msg)
       setSelectedFollowUpIds(new Set(failedIds))
-      await loadRequests(true)
+      if (!uncertain) await loadRequests(true)
     } finally {
       followUpMarkContactedInFlightRef.current = false
       setFollowUpBatchBusy(null)
@@ -2196,6 +2250,7 @@ export function DashboardPageCore({
             loading={loading}
             dataUnavailable={requestsFetchFailed}
             completingPlanId={carePlanCompletingId}
+            mutationRequiresRefresh={workHubMutationRequiresRefresh}
             messages={carePlanMessages}
             onCompleteTouchpoint={completeCarePlanTouchpoint}
           />

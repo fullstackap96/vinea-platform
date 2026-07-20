@@ -43,7 +43,9 @@ describe('staff email send single-flight boundary', () => {
     const handler = workHub.slice(start, end)
 
     expect(workHub).toContain('const followUpEmailInFlightRef = useRef(false)')
-    expect(handler).toContain('if (followUpEmailInFlightRef.current) return')
+    expect(handler).toContain(
+      'if (followUpEmailInFlightRef.current || workHubMutationRequiresRefresh) return',
+    )
     expect(handler.indexOf('followUpEmailInFlightRef.current = true')).toBeLessThan(
       handler.indexOf("fetch('/api/email/send'"),
     )

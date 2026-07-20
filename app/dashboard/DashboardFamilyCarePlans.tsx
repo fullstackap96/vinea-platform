@@ -23,6 +23,7 @@ type Props = {
   loading: boolean
   dataUnavailable?: boolean
   completingPlanId?: string | null
+  mutationRequiresRefresh?: boolean
   messages?: Record<string, string>
   onCompleteTouchpoint?: (
     input: CompleteCarePlanTouchpointInput
@@ -77,6 +78,7 @@ export function DashboardFamilyCarePlans({
   loading,
   dataUnavailable = false,
   completingPlanId = null,
+  mutationRequiresRefresh = false,
   messages = {},
   onCompleteTouchpoint,
 }: Props) {
@@ -87,7 +89,7 @@ export function DashboardFamilyCarePlans({
   const [notesByPlanId, setNotesByPlanId] = useState<Record<string, string>>({})
   const [nextDateByPlanId, setNextDateByPlanId] = useState<Record<string, string>>({})
   const [careCompleteByPlanId, setCareCompleteByPlanId] = useState<Record<string, boolean>>({})
-  const careTouchpointBusy = Boolean(completingPlanId)
+  const careTouchpointBusy = Boolean(completingPlanId) || mutationRequiresRefresh
 
   async function submitCarePlan(plan: CarePlan) {
     if (!onCompleteTouchpoint) return

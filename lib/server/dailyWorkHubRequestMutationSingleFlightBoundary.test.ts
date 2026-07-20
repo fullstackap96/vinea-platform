@@ -25,7 +25,9 @@ describe('Daily Work Hub request mutation single-flight boundary', () => {
     )
 
     expect(dashboard).toContain('const followUpMarkContactedInFlightRef = useRef(false)')
-    expect(handler).toContain('if (followUpMarkContactedInFlightRef.current) return')
+    expect(handler).toContain(
+      'if (followUpMarkContactedInFlightRef.current || workHubMutationRequiresRefresh) return',
+    )
     expect(handler.indexOf('followUpMarkContactedInFlightRef.current = true')).toBeLessThan(
       handler.indexOf('runMarkFollowUpAsContactedCore(request)'),
     )
@@ -40,7 +42,9 @@ describe('Daily Work Hub request mutation single-flight boundary', () => {
       'function selectAllFollowUpVisible()',
     )
 
-    expect(handler).toContain('if (followUpMarkContactedInFlightRef.current) return')
+    expect(handler).toContain(
+      'if (followUpMarkContactedInFlightRef.current || workHubMutationRequiresRefresh) return',
+    )
     expect(handler.indexOf('followUpMarkContactedInFlightRef.current = true')).toBeLessThan(
       handler.indexOf('runMarkFollowUpAsContactedCore(request)'),
     )
