@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Demo Request Client Confirmation Slice
+
+The 2026-07-20 public conversion reliability slice gives Schedule Demo a 20-second browser confirmation deadline, freezes the reviewed payload while unresolved, and distinguishes an unconfirmed result from an ordinary failure. Same-payload retries retain the existing opaque provider-idempotent delivery attempt; unmount cancellation remains quiet.
+
+- Immutable implementation commit: `3f34153d99bcb90fe659fd08fadc4753aa034e18`
+- Tracked-head aggregate SHA-256: `44988A2FE5E122391718249761BACAF6784FBEBF8F0CC22D0832E87553F19587`
+- Source mode: `tracked-head`
+- Source file count: `1484`
+- Tracked source files: `1484`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused client deadline, accessibility, native-form, safe-message, same-origin, route-error, and provider-delivery coverage passed `8` files / `32` tests before immutable source binding. The source-bound suite then passed `9` files / `38` tests. The isolated complete `15`-check release contract passed in `350.8` seconds with zero secret findings across `2,864` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `846` test files / `3,623` tests, and the credential-free Next.js 16.2.10 `56`-page build. The server's durable limit, bounded parsing, validation, 12-second provider deadline, idempotency key, and provider acknowledgement requirement remain unchanged.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `4D1042588E532392B6B97011D35F287D75E2DCD4CFEFD11E205134A9E7CD35E2`
+- Source file count: `1488`
+- Tracked source files: `1484`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/DEMO_REQUEST_CLIENT_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Parish Settings Read Deadline Slice
 
 The 2026-07-20 Settings reliability slice gives parish configuration, Staff Access, recent audit activity, public-intake routing metadata, and Workflow Templates a 15-second browser deadline. Selected-parish replacement still invalidates and aborts obsolete generations quietly, while a current stall reaches existing safe error guidance.
