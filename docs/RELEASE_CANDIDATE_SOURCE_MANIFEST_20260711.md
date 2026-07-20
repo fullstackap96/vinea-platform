@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Global Search Read Deadline Slice
+
+The 2026-07-20 staff-search reliability slice keeps the existing 300-millisecond debounce and adds a separate 15-second deadline to each current compact Global Search read. Replaced queries remain silently cancelled; a stalled current query now reaches the existing safe unavailable state.
+
+- Immutable implementation commit: `95e3991c0f4b291af5dfb06370ceb3daed59ef6c`
+- Tracked-head aggregate SHA-256: `8DE4BB9673747C4FBD7836109A0B2787047B879201BB08FFA57D5F8E1B234B87`
+- Source mode: `tracked-head`
+- Source file count: `1479`
+- Tracked source files: `1479`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused deadline, cancellation, safe-message, selected-parish, and safe-link coverage passed `5` files / `20` tests. The complete `15`-check local release contract passed in `339.2` seconds with zero secret findings across `2,854` text files (`500` binaries skipped), zero dependency vulnerabilities, all governance/evidence gates, both TypeScript scopes, lint, `841` test files / `3,599` tests, and the credential-free Next.js 16.2.10 `56`-page build. Search remains read-only and uses only the existing staff-authenticated, active-parish-scoped API.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `5EA05231B305C144013826153BF3DF859B75B555DD5CE40D0C16C0A65028859B`
+- Source file count: `1483`
+- Tracked source files: `1479`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/GLOBAL_SEARCH_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Notifications Center Read Deadline Slice
 
 The 2026-07-20 daily-operations reliability slice gives each Notifications Center read a 15-second browser deadline. Replacement and selected-parish remount still cancel old work, latest-request ownership still controls settlement, and a stalled current read now reaches the existing safe retry state.
