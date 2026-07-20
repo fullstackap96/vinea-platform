@@ -21,6 +21,8 @@ const EMPTY_RESULTS: GlobalSearchGroupedResults = {
   records: [],
 }
 
+const GLOBAL_SEARCH_READ_TIMEOUT_MS = 15_000
+
 export function DashboardGlobalSearch() {
   const router = useRouter()
   const inputId = useId()
@@ -63,10 +65,15 @@ export function DashboardGlobalSearch() {
 
     let cancelled = false
     const controller = new AbortController()
+    let readTimeoutId: number | undefined
     const timer = window.setTimeout(async () => {
       setLoading(true)
       setErrorMessage('')
       setWarningMessage('')
+      readTimeoutId = window.setTimeout(
+        () => controller.abort(),
+        GLOBAL_SEARCH_READ_TIMEOUT_MS,
+      )
 
       try {
         const response = await fetch(`/api/dashboard/search?q=${encodeURIComponent(trimmed)}`, {
@@ -105,7 +112,7 @@ export function DashboardGlobalSearch() {
           setTotalCount(0)
         }
       } catch (error: unknown) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (cancelled && error instanceof DOMException && error.name === 'AbortError') return
         if (!cancelled) {
           setErrorMessage('Search is temporarily unavailable.')
           setWarningMessage('')
@@ -113,6 +120,7 @@ export function DashboardGlobalSearch() {
           setTotalCount(0)
         }
       } finally {
+        if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
         if (!cancelled) {
           setLoading(false)
         }
@@ -122,6 +130,7 @@ export function DashboardGlobalSearch() {
     return () => {
       cancelled = true
       window.clearTimeout(timer)
+      if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
       controller.abort()
     }
   }, [query])
