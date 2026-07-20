@@ -22,6 +22,8 @@ const FILTERS = [
   { key: 'request.', label: 'Requests' },
 ]
 
+const AUDIT_LOG_LOAD_TIMEOUT_MS = 15_000
+
 function formatDateTime(value: string): string {
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
@@ -51,9 +53,14 @@ export function AuditLogPage() {
   const [filter, setFilter] = useState('')
   const [activeParishName, setActiveParishName] = useState('')
   const loadSequenceRef = useRef(0)
+  const loadAbortRef = useRef<AbortController | null>(null)
 
   const load = useCallback(async () => {
     const loadSequence = ++loadSequenceRef.current
+    loadAbortRef.current?.abort()
+    const controller = new AbortController()
+    loadAbortRef.current = controller
+    const timeoutId = window.setTimeout(() => controller.abort(), AUDIT_LOG_LOAD_TIMEOUT_MS)
     const isLatestLoad = () => loadSequence === loadSequenceRef.current
 
     setLoading(true)
@@ -63,6 +70,7 @@ export function AuditLogPage() {
       if (filter) params.set('actionPrefix', filter)
       const res = await fetch(`/api/audit-events?${params.toString()}`, {
         credentials: 'include',
+        signal: controller.signal,
       })
       const data = await res.json().catch(() => ({}))
       if (!isLatestLoad()) return
@@ -80,13 +88,16 @@ export function AuditLogPage() {
       setEvents([])
       setActiveParishName('')
     } finally {
+      window.clearTimeout(timeoutId)
       if (isLatestLoad()) setLoading(false)
+      if (loadAbortRef.current === controller) loadAbortRef.current = null
     }
   }, [filter])
 
   function selectFilter(nextFilter: string) {
     if (nextFilter === filter) return
     loadSequenceRef.current += 1
+    loadAbortRef.current?.abort()
     setFilter(nextFilter)
   }
 
@@ -97,6 +108,9 @@ export function AuditLogPage() {
     })
     return () => {
       cancelled = true
+      loadSequenceRef.current += 1
+      loadAbortRef.current?.abort()
+      loadAbortRef.current = null
     }
   }, [load])
 
