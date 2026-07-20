@@ -13,9 +13,12 @@ import {
 import { massIntentionDetailHref } from '@/lib/dashboardEntityNavigation'
 import { coreRecordClientErrorMessage } from '@/lib/coreRecordClientMessages'
 import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
+import { parseParishSettingsResponse } from '@/lib/parishSettingsReadModels'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
 import type { MassIntentionRow } from '@/lib/types/massIntentions'
+
+const PRIEST_DIRECTORY_READ_TIMEOUT_MS = 15_000
 
 export function EditMassIntentionPage({
   intention,
@@ -49,22 +52,38 @@ export function EditMassIntentionPage({
 
     const assignedPriestName = intention.assigned_priest_name
     let cancelled = false
+    const controller = new AbortController()
+    let readTimeoutId: number | undefined
 
     async function loadPriests() {
       try {
-        const settingsRes = await fetch('/api/parish/settings', { credentials: 'include' })
+        readTimeoutId = window.setTimeout(
+          () => controller.abort(),
+          PRIEST_DIRECTORY_READ_TIMEOUT_MS,
+        )
+        const settingsRes = await fetch('/api/parish/settings', {
+          credentials: 'include',
+          signal: controller.signal,
+        })
         if (!settingsRes.ok) return
-        const settings = (await settingsRes.json()) as { priest_names?: string[] }
+        const settings = parseParishSettingsResponse(await settingsRes.json(), null)
+        if (!settings) return
         if (cancelled) return
-        setPriestOptions(mergeAssigneeDirectoryOptions(settings.priest_names, assignedPriestName))
+        setPriestOptions(
+          mergeAssigneeDirectoryOptions(settings.parish.priest_names, assignedPriestName),
+        )
       } catch {
         // Priest directory is optional; free-text fallback remains available.
+      } finally {
+        if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
       }
     }
 
     void loadPriests()
     return () => {
       cancelled = true
+      controller.abort()
+      if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
     }
   }, [intention])
 

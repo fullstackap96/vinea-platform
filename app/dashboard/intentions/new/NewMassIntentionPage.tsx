@@ -12,8 +12,11 @@ import {
 import { massIntentionDetailHref } from '@/lib/dashboardEntityNavigation'
 import { coreRecordClientErrorMessage } from '@/lib/coreRecordClientMessages'
 import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
+import { parseParishSettingsResponse } from '@/lib/parishSettingsReadModels'
 import { sectionHeadingClassName } from '@/lib/sectionHeader'
 import { vineaSectionShellClassName } from '@/lib/vineaUi'
+
+const PRIEST_DIRECTORY_READ_TIMEOUT_MS = 15_000
 
 const initialValues: MassIntentionFormValues = {
   requesterName: '',
@@ -41,22 +44,36 @@ export function NewMassIntentionPage() {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
+    let readTimeoutId: number | undefined
 
     async function loadPriests() {
       try {
-        const res = await fetch('/api/parish/settings', { credentials: 'include' })
+        readTimeoutId = window.setTimeout(
+          () => controller.abort(),
+          PRIEST_DIRECTORY_READ_TIMEOUT_MS,
+        )
+        const res = await fetch('/api/parish/settings', {
+          credentials: 'include',
+          signal: controller.signal,
+        })
         if (!res.ok) return
-        const data = (await res.json()) as { priest_names?: string[] }
+        const parsed = parseParishSettingsResponse(await res.json(), null)
+        if (!parsed) return
         if (cancelled) return
-        setPriestOptions(mergeAssigneeDirectoryOptions(data.priest_names))
+        setPriestOptions(mergeAssigneeDirectoryOptions(parsed.parish.priest_names))
       } catch {
         // Priest directory is optional; free-text fallback remains available.
+      } finally {
+        if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
       }
     }
 
     void loadPriests()
     return () => {
       cancelled = true
+      controller.abort()
+      if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
     }
   }, [])
 
