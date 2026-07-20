@@ -4,6 +4,24 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Onboarding Completion Confirmation Slice
+
+The 2026-07-20 Onboarding reliability slice keys the client workspace to the server-selected active parish and gives the staff-reviewed completion PATCH a 60-second browser confirmation deadline. Explicit server rejection remains retryable. A timeout, malformed acknowledgement, wrong-parish read model, or failure to reload the same parish with a confirmed completion timestamp freezes another completion attempt until staff refresh and review. No write replays automatically.
+
+- Immutable implementation commit: `1b916e4ede7252ecf322f9400fd794086fbd6f5c`
+- Tracked-head aggregate SHA-256: `7C585EA51C38C96591719C7D90C977C0C607D6C80104ADBE6583F469E00F76A3`
+- Tracked source file count: `1516`
+- Working-tree aggregate SHA-256: `86AA8B4C648EEC4C9B6A2000551B82CD4E7A46131D1A2FCF9BD8DD230FBAE41E`
+- Source file count: `1520`
+- Tracked source files: `1516`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+- Production approval granted: `NO`
+
+Focused Onboarding confirmation, single-flight, latest-response, readiness, safe-message, selected-parish, and go-live coverage passed `10` files / `38` tests. TypeScript, lint, and diff hygiene passed. The complete release-readiness contract then passed all `15` checks with zero secret findings across `2,911` text files (`500` binaries skipped), zero vulnerabilities, both TypeScript scopes, lint, `868` test files / `3,717` tests, and the credential-free `56`-page build.
+
+The four untracked release-source files are unrelated user-owned scripts already present in the shared workspace. They remain outside this implementation commit. This section does not authorize an Onboarding write, production action, deployment, migration, RLS change, production-sensitive feature, or public trust claim.
+
 ## Post-Release Daily Brief Client Confirmation Slice
 
 The 2026-07-20 Daily Brief reliability slice gives the staff-initiated send a 30-second browser confirmation deadline over the existing bounded provider path. The client now captures the selected parish for the complete attempt, ignores stale settlement after a parish switch, requires an explicit positive provider message identifier before reporting success, and gives inbox-first guidance when delivery cannot be confirmed. Uncertain outcomes never replay automatically; a deliberate retry for the same selected parish reuses the existing opaque delivery attempt.
