@@ -4,6 +4,32 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Public Intake Routing Confirmation Slice
+
+The 2026-07-20 Public Intake Routing Settings reliability slice gives metadata, domain, DNS verification, and one-time token mutations a 60-second browser confirmation deadline. Existing shared single-flight locking remains authoritative. Explicit server rejections remain safely retryable, while transport uncertainty, malformed-success acknowledgement, or failure to reload authoritative selected-parish routing state freezes the complete management surface until staff refresh and review. Active-parish changes discard stale results and clear any one-time token from the prior parish. An acknowledged newly created token remains visible if the follow-up reload fails so staff can secure it without creating a duplicate. No mutation replays automatically, and runtime public routing behavior is unchanged.
+
+- Immutable implementation commit: `f0b7d6201657785cfe731527e09dd6a7ce698d79`
+- Tracked-head aggregate SHA-256: `9610711F2CA49207F321D827B95719F6E859C7A318289DA9B1FE9430600DA92D`
+- Source mode: `tracked-head`
+- Source file count: `1510`
+- Tracked source files: `1510`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused mutation-deadline, single-flight, routing-route, selected-parish, validated-read-model, safe-message, and browser-evidence coverage passed `15` files / `74` tests. After an initial process was interrupted by a tool-session transition during the final build and was not counted, the complete resumable release contract passed all `15` checks in `382` seconds with zero secret findings across `2,903` text files (`500` binaries skipped), zero vulnerabilities, both TypeScript scopes, lint, `864` test files / `3,704` tests, and the credential-free `56`-page build. The post-documentation focused suite passed `15` files / `74` tests, and the post-documentation secret scan passed across `2,904` text files with zero findings.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `84B12A24F3353EB0735BA2C9B76BB3C83F9C8B2319E638610C0BA30232A93AC3`
+- Source file count: `1514`
+- Tracked source files: `1510`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+This section records source identity only. It does not enable runtime public intake routing, authorize a routing mutation, expose a token hash, or authorize a production action, migration, RLS change, or production-sensitive capability.
+
+See `docs/PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Workflow Template Save Confirmation Slice
 
 The 2026-07-20 Workflow Template reliability slice gives each reviewed step save a 60-second browser confirmation deadline. Existing synchronous single-flight locking remains authoritative. Explicit server rejections remain safely retryable, while transport uncertainty, malformed-success acknowledgement, or failure to reload the authoritative selected-parish template state freezes the editor until staff refresh and review. Active-parish changes discard stale results and establish a fresh scoped read. No save replays automatically.
