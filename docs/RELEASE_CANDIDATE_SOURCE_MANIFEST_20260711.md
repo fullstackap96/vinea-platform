@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Parish Settings Mutation Confirmation Slice
+
+The 2026-07-20 Settings reliability slice gives parish-details and Staff Access writes a 60-second browser confirmation deadline. Existing synchronous locks still prevent duplicate dispatch. Explicit server rejections remain safely retryable, while transport uncertainty, malformed-success acknowledgement, or failure to reload the authoritative selected-parish state freezes the related controls until staff refresh and review. An active-parish change discards stale results and establishes a fresh scoped read. Daily Brief delivery and public-intake routing mutation behavior are unchanged, except that Daily Brief cannot begin while parish configuration is awaiting refresh. No operation replays automatically.
+
+- Immutable implementation commit: `9c0912ebdf3d7299b9d7c8c126e23ff61a9d232d`
+- Tracked-head aggregate SHA-256: `600289C1E5C6C64E09B77243D756A01CFCC9DE1064724A7B55BE20CB22F6EBDE`
+- Source mode: `tracked-head`
+- Source file count: `1504`
+- Tracked source files: `1504`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused deadline, single-flight, selected-parish, authorization, confirmation-dialog, read-model, safe-message, and Daily Brief compatibility coverage passed `18` files / `73` tests. The complete release contract passed all `15` checks in `389.9` seconds with zero secret findings, zero vulnerabilities, both TypeScript scopes, lint, `860` test files / `3,692` tests, and the credential-free `56`-page build.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `DB53CA7C8CC2904F6C5C8AD0879D6286F4AD00DC635F73432512D0F36F602B97`
+- Source file count: `1508`
+- Tracked source files: `1504`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+This section records source identity only. It does not authorize a settings write, Staff Access change, Daily Brief delivery, public-intake routing change, production action, or production-sensitive capability.
+
 ## Post-Release AI Client Confirmation Slice
 
 The 2026-07-20 AI client reliability slice gives Request Detail summary/reply generation and Daily Work Hub follow-up drafting a 40-second browser confirmation deadline over the existing 30-second provider deadline. Summary and reply dispatches now acquire synchronous client locks before network work, accept only non-empty structured provider responses, and never replay automatically. Generated-content persistence has a separate 60-second confirmation deadline; ambiguous transport or malformed-success results freeze related mutation controls until staff refresh and review, while explicit rejected writes remain safely retryable. The existing authentication, active-parish/request ownership, AI safety gates, provider implementation, staff-review requirements, and production-disabled boundaries remain unchanged.
