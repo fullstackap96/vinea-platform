@@ -129,6 +129,10 @@ import {
   STAFF_EMAIL_LOG_CONFIRMATION_TIMEOUT_MS,
   STAFF_EMAIL_SEND_CONFIRMATION_TIMEOUT_MS,
 } from '@/lib/staffEmailClientConfirmation'
+import {
+  AI_CLIENT_GENERATION_CONFIRMATION_TIMEOUT_MS,
+  AI_CLIENT_PERSISTENCE_CONFIRMATION_TIMEOUT_MS,
+} from '@/lib/aiClientConfirmation'
 
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -224,6 +228,7 @@ export function DashboardPageCore({
   >('urgency')
 
   const [followUpDraftingId, setFollowUpDraftingId] = useState<string | null>(null)
+  const followUpDraftInFlightRef = useRef(false)
   const [followUpMarkingId, setFollowUpMarkingId] = useState<string | null>(null)
   const followUpMarkContactedInFlightRef = useRef(false)
   const [followUpSendingId, setFollowUpSendingId] = useState<string | null>(null)
@@ -964,11 +969,13 @@ export function DashboardPageCore({
 
   async function runDraftFollowUpCore(
     request: DashboardWorkHubRequest
-  ): Promise<{ ok: true } | { ok: false; error: string }> {
+  ): Promise<{ ok: true } | { ok: false; error: string; uncertain?: boolean }> {
     const id = String(request.id)
+    let persistenceStarted = false
     try {
       const requestType = String(request.request_type || 'baptism')
       const payload: Record<string, unknown> = {
+        requestId: id,
         requestType,
         fullName: request.parishioner?.full_name ?? '',
         email: request.parishioner?.email ?? '',
@@ -1016,6 +1023,7 @@ export function DashboardPageCore({
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(AI_CLIENT_GENERATION_CONFIRMATION_TIMEOUT_MS),
       })
 
       if (!res.ok) {
@@ -1023,27 +1031,43 @@ export function DashboardPageCore({
         return { ok: false, error: dashboardClientFailureMessage('draftFollowUp') }
       }
 
-      const data = await res.json()
-      const replyText = data.reply || 'No reply returned.'
-      if (typeof replyText !== 'string' || !replyText.trim()) {
+      const data = (await res.json().catch(() => null)) as { reply?: unknown } | null
+      if (typeof data?.reply !== 'string' || !data.reply.trim()) {
         return { ok: false, error: 'Empty response.' }
       }
+      const replyText = data.reply
 
+      persistenceStarted = true
       const saveRes = await fetch(`/api/requests/${encodeURIComponent(id)}/reply-draft`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ replyDraft: replyText }),
+        signal: AbortSignal.timeout(AI_CLIENT_PERSISTENCE_CONFIRMATION_TIMEOUT_MS),
       })
+      const saveData = (await saveRes.json().catch(() => null)) as { ok?: boolean } | null
+
+      if (saveRes.ok && saveData?.ok !== true) {
+        return {
+          ok: false,
+          error: dashboardClientFailureMessage('confirmWorkHubMutation'),
+          uncertain: true,
+        }
+      }
 
       if (!saveRes.ok) {
-        await saveRes.text().catch(() => '')
         return { ok: false, error: dashboardClientFailureMessage('saveFollowUpDraft') }
       }
 
       return { ok: true }
     } catch {
-      return { ok: false, error: dashboardClientFailureMessage('draftFollowUp') }
+      return persistenceStarted
+        ? {
+            ok: false,
+            error: dashboardClientFailureMessage('confirmWorkHubMutation'),
+            uncertain: true,
+          }
+        : { ok: false, error: dashboardClientFailureMessage('draftFollowUp') }
     }
   }
 
@@ -1095,14 +1119,20 @@ export function DashboardPageCore({
   }
 
   async function draftFollowUpEmail(request: DashboardWorkHubRequest) {
-    if (workHubMutationRequiresRefresh) return
+    if (followUpDraftInFlightRef.current || workHubMutationRequiresRefresh) return
 
     const id = String(request.id)
+    followUpDraftInFlightRef.current = true
     setFollowUpDraftingId(id)
     setFollowUpRowMessage(id, '')
     try {
       const result = await runDraftFollowUpCore(request)
       if (!result.ok) {
+        if (result.uncertain) {
+          setWorkHubMutationRequiresRefresh(true)
+          setFollowUpRowMessage(id, result.error)
+          return
+        }
         setFollowUpRowMessage(id, dashboardClientErrorMessage('draftFollowUp', result.error))
         return
       }
@@ -1115,6 +1145,7 @@ export function DashboardPageCore({
     } catch {
       setFollowUpRowMessage(id, dashboardClientFailureMessage('draftFollowUp'))
     } finally {
+      followUpDraftInFlightRef.current = false
       setFollowUpDraftingId(null)
     }
   }
@@ -1996,37 +2027,52 @@ export function DashboardPageCore({
     followUpSendingId !== null
 
   async function batchDraftFollowUpEmails() {
-    if (workHubMutationRequiresRefresh) return
+    if (followUpDraftInFlightRef.current || workHubMutationRequiresRefresh) return
 
     const ids = Array.from(selectedFollowUpIds)
     if (ids.length === 0) return
 
+    followUpDraftInFlightRef.current = true
     setFollowUpBatchBusy('draft')
     setFollowUpBatchMessage('')
-    const failedIds: string[] = []
-    let ok = 0
+    try {
+      const failedIds: string[] = []
+      let ok = 0
+      let uncertain = false
 
-    for (const id of ids) {
-      const request = requests.find((r) => String(r.id) === id)
-      if (!request) {
+      for (const [index, id] of ids.entries()) {
+        const request = requests.find((r) => String(r.id) === id)
+        if (!request) {
+          failedIds.push(id)
+          continue
+        }
+        const result = await runDraftFollowUpCore(request)
+        if (result.ok) {
+          ok++
+          continue
+        }
+
         failedIds.push(id)
-        continue
+        if (result.uncertain) {
+          uncertain = true
+          setWorkHubMutationRequiresRefresh(true)
+          failedIds.push(...ids.slice(index + 1))
+          break
+        }
       }
-      const result = await runDraftFollowUpCore(request)
-      if (result.ok) ok++
-      else failedIds.push(id)
-    }
 
-    let msg = `Batch drafts finished: ${ok} saved`
-    if (failedIds.length > 0) {
-      msg += `, ${failedIds.length} failed. Failed items remain selected for individual review.`
-    } else {
-      msg += '.'
+      const msg = uncertain
+        ? dashboardClientFailureMessage('confirmWorkHubMutation')
+        : failedIds.length > 0
+          ? `Batch drafts finished: ${ok} saved, ${failedIds.length} failed. Failed items remain selected for individual review.`
+          : `Batch drafts finished: ${ok} saved.`
+      setFollowUpBatchMessage(msg)
+      setSelectedFollowUpIds(new Set(failedIds))
+      if (!uncertain) await loadRequests(true)
+    } finally {
+      followUpDraftInFlightRef.current = false
+      setFollowUpBatchBusy(null)
     }
-    setFollowUpBatchMessage(msg)
-    setSelectedFollowUpIds(new Set(failedIds))
-    await loadRequests(true)
-    setFollowUpBatchBusy(null)
   }
 
   async function batchMarkFollowUpAsContacted() {

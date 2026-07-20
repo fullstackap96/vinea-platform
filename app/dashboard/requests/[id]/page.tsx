@@ -124,6 +124,12 @@ import {
   STAFF_EMAIL_LOG_CONFIRMATION_TIMEOUT_MS,
   STAFF_EMAIL_SEND_CONFIRMATION_TIMEOUT_MS,
 } from '@/lib/staffEmailClientConfirmation'
+import {
+  AI_CLIENT_GENERATION_CONFIRMATION_TIMEOUT_MS,
+  AI_CLIENT_GENERATION_UNCONFIRMED_MESSAGE,
+  AI_CLIENT_PERSISTENCE_CONFIRMATION_TIMEOUT_MS,
+  AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE,
+} from '@/lib/aiClientConfirmation'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 import {
   countIncompleteRequiredWorkflowSteps,
@@ -220,6 +226,8 @@ export default function RequestDetailPage() {
   const [aiSummary, setAiSummary] = useState('')
 const [replyDraft, setReplyDraft] = useState('')
 const [aiLoading, setAiLoading] = useState(false)
+const aiGenerationInFlightRef = useRef(false)
+const aiPersistenceInFlightRef = useRef(false)
 const [copyMessage, setCopyMessage] = useState('')
 const [staffNotes, setStaffNotes] = useState('')
   const [staffNotesMessage, setStaffNotesMessage] = useState('')
@@ -996,8 +1004,17 @@ function hasHashOverride(): boolean {
 }
 
 async function generateSummary() {
-  if (!request || !parishioner) return
+  if (
+    !request ||
+    !parishioner ||
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
 
+  aiGenerationInFlightRef.current = true
   try {
     setAiLoading(true)
     setAiSummary('')
@@ -1086,6 +1103,7 @@ async function generateSummary() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(AI_CLIENT_GENERATION_CONFIRMATION_TIMEOUT_MS),
     })
 
     if (!res.ok) {
@@ -1094,74 +1112,126 @@ async function generateSummary() {
       return
     }
 
-    const data = await res.json()
-    const summaryText = data.summary || 'No summary returned.'
+    const data = (await res.json().catch(() => null)) as { summary?: unknown } | null
+    if (typeof data?.summary !== 'string' || !data.summary.trim()) {
+      setAiSummary(requestDetailClientFailureMessage('aiSummary'))
+      return
+    }
+    const summaryText = data.summary
 
     setAiSummary(summaryText)
 
     await saveAiSummaryToRequest(summaryText)
   } catch {
-    setAiSummary(requestDetailClientFailureMessage('aiSummary'))
+    setAiSummary(AI_CLIENT_GENERATION_UNCONFIRMED_MESSAGE)
   } finally {
+    aiGenerationInFlightRef.current = false
     setAiLoading(false)
   }
 }
 
-async function saveAiSummaryToRequest(summaryText: string): Promise<boolean> {
+async function saveAiSummaryToRequest(
+  summaryText: string
+): Promise<{ ok: true } | { ok: false; uncertain: boolean }> {
+  if (aiPersistenceInFlightRef.current || workflowMutationRequiresRefresh) {
+    return { ok: false, uncertain: false }
+  }
+
+  aiPersistenceInFlightRef.current = true
   try {
     const res = await fetch(`/api/requests/${routeId}/ai-summary`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ aiSummary: summaryText }),
+      signal: AbortSignal.timeout(AI_CLIENT_PERSISTENCE_CONFIRMATION_TIMEOUT_MS),
     })
-    const data = await res.json().catch(() => ({}))
+    const data = (await res.json().catch(() => null)) as
+      | { ok?: boolean; error?: unknown }
+      | null
 
-    if (!res.ok || !data?.ok) {
-      setAiSummary(requestDetailClientApiErrorMessage('saveAiSummary', data?.error))
-      return false
+    if (res.ok && data?.ok !== true) {
+      setWorkflowMutationRequiresRefresh(true)
+      setAiSummary(AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE)
+      return { ok: false, uncertain: true }
     }
 
-    return true
+    if (!res.ok) {
+      setAiSummary(requestDetailClientApiErrorMessage('saveAiSummary', data?.error))
+      return { ok: false, uncertain: false }
+    }
+
+    return { ok: true }
   } catch (error) {
     devDashboardConsoleError(
       'AI SUMMARY SAVE ERROR',
       new Error(requestDetailClientFailureMessage('saveAiSummary'), { cause: error })
     )
-    setAiSummary(requestDetailClientFailureMessage('saveAiSummary'))
-    return false
+    setWorkflowMutationRequiresRefresh(true)
+    setAiSummary(AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE)
+    return { ok: false, uncertain: true }
+  } finally {
+    aiPersistenceInFlightRef.current = false
   }
 }
 
-async function saveReplyDraftToRequest(replyDraftBody: string): Promise<boolean> {
+async function saveReplyDraftToRequest(
+  replyDraftBody: string
+): Promise<{ ok: true } | { ok: false; uncertain: boolean }> {
+  if (aiPersistenceInFlightRef.current || workflowMutationRequiresRefresh) {
+    return { ok: false, uncertain: false }
+  }
+
+  aiPersistenceInFlightRef.current = true
   try {
     const res = await fetch(`/api/requests/${routeId}/reply-draft`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ replyDraft: replyDraftBody }),
+      signal: AbortSignal.timeout(AI_CLIENT_PERSISTENCE_CONFIRMATION_TIMEOUT_MS),
     })
-    const data = await res.json().catch(() => ({}))
+    const data = (await res.json().catch(() => null)) as
+      | { ok?: boolean; error?: unknown }
+      | null
 
-    if (!res.ok || !data?.ok) {
-      setEmailMessage(requestDetailClientApiErrorMessage('saveReplyDraft', data?.error))
-      return false
+    if (res.ok && data?.ok !== true) {
+      setWorkflowMutationRequiresRefresh(true)
+      setEmailMessage(AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE)
+      return { ok: false, uncertain: true }
     }
 
-    return true
+    if (!res.ok) {
+      setEmailMessage(requestDetailClientApiErrorMessage('saveReplyDraft', data?.error))
+      return { ok: false, uncertain: false }
+    }
+
+    return { ok: true }
   } catch (error) {
     devDashboardConsoleError(
       'reply_draft save',
       new Error(requestDetailClientFailureMessage('saveReplyDraft'), { cause: error })
     )
-    setEmailMessage(requestDetailClientFailureMessage('saveReplyDraft'))
-    return false
+    setWorkflowMutationRequiresRefresh(true)
+    setEmailMessage(AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE)
+    return { ok: false, uncertain: true }
+  } finally {
+    aiPersistenceInFlightRef.current = false
   }
 }
 
 async function generateReplyDraft() {
-  if (!request || !parishioner) return
+  if (
+    !request ||
+    !parishioner ||
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
 
+  aiGenerationInFlightRef.current = true
   try {
     setAiLoading(true)
     setReplyDraft('')
@@ -1169,6 +1239,7 @@ async function generateReplyDraft() {
 
     const requestType = String(request.request_type || 'baptism')
     const replyBody: Record<string, unknown> = {
+      requestId: routeId,
       requestType,
       fullName: parishioner.full_name,
       email: parishioner.email,
@@ -1223,6 +1294,7 @@ async function generateReplyDraft() {
       },
       credentials: 'include',
       body: JSON.stringify(replyBody),
+      signal: AbortSignal.timeout(AI_CLIENT_GENERATION_CONFIRMATION_TIMEOUT_MS),
     })
 
     if (!res.ok) {
@@ -1231,8 +1303,12 @@ async function generateReplyDraft() {
       return
     }
 
-    const data = await res.json()
-    const replyText = data.reply || 'No reply returned.'
+    const data = (await res.json().catch(() => null)) as { reply?: unknown } | null
+    if (typeof data?.reply !== 'string' || !data.reply.trim()) {
+      setReplyDraft(requestDetailClientFailureMessage('aiReply'))
+      return
+    }
+    const replyText = data.reply
     const parsed = parseAiEmailDraft(replyText)
     if (parsed.hadSubjectLine) {
       setEmailSubject(parsed.subject)
@@ -1243,8 +1319,9 @@ async function generateReplyDraft() {
       await saveReplyDraftToRequest(replyText)
     }
   } catch {
-    setReplyDraft(requestDetailClientFailureMessage('aiReply'))
+    setReplyDraft(AI_CLIENT_GENERATION_UNCONFIRMED_MESSAGE)
   } finally {
+    aiGenerationInFlightRef.current = false
     setAiLoading(false)
   }
 }
@@ -1262,6 +1339,14 @@ async function copyReplyDraft() {
 }
 
 async function applyVineaEmailTemplateNow(templateId: VineaEmailTemplateId) {
+  if (
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
+
   const ctx = buildVineaEmailTemplateContext({
     parishioner,
     request,
@@ -1280,6 +1365,14 @@ async function applyVineaEmailTemplateNow(templateId: VineaEmailTemplateId) {
 }
 
 async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
+  if (
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
+
   const hasExisting =
     String(emailSubject || '').trim() || String(replyDraft || '').trim()
   if (hasExisting) {
@@ -1291,7 +1384,15 @@ async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
 }
 
 async function confirmVineaEmailTemplate() {
-  if (!pendingEmailTemplateId || emailTemplateApplying) return
+  if (
+    !pendingEmailTemplateId ||
+    emailTemplateApplying ||
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
   setEmailTemplateApplying(true)
   try {
     await applyVineaEmailTemplateNow(pendingEmailTemplateId)
@@ -3093,6 +3194,7 @@ async function deleteGoogleCalendarEvent() {
             >
               <AiToolsSection
                 aiLoading={aiLoading}
+                mutationDisabled={workflowMutationRequiresRefresh}
                 aiSummary={aiSummary}
                 replyDraft={replyDraft}
                 copyMessage={copyMessage}

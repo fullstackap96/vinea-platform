@@ -9,6 +9,7 @@ import {
 
 export function AiToolsSection({
   aiLoading,
+  mutationDisabled,
   aiSummary,
   replyDraft,
   copyMessage,
@@ -17,6 +18,7 @@ export function AiToolsSection({
   onCopyReplyDraft,
 }: {
   aiLoading: boolean
+  mutationDisabled?: boolean
   aiSummary: string
   replyDraft: string
   copyMessage: string
@@ -25,10 +27,11 @@ export function AiToolsSection({
   onCopyReplyDraft: () => void
 }) {
   return (
-    <div>
+    <div aria-busy={aiLoading}>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
           type="button"
+          disabled={aiLoading || mutationDisabled}
           onClick={onGenerateSummary}
           className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
         >
@@ -37,6 +40,7 @@ export function AiToolsSection({
 
         <button
           type="button"
+          disabled={aiLoading || mutationDisabled}
           onClick={onGenerateReplyDraft}
           className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
         >
