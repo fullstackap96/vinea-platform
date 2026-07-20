@@ -26,6 +26,7 @@ const EMPTY_RESPONSE: NotificationsResponse = {
 }
 
 const NOTIFICATION_GROUPS = new Set(['overdue', 'due_today', 'new_requests', 'recommended'])
+const NOTIFICATIONS_LOAD_TIMEOUT_MS = 15_000
 
 function parseNotificationsResponse(value: unknown): NotificationsResponse | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
@@ -93,6 +94,10 @@ export function DashboardNotificationsCenter({
     loadAbortRef.current?.abort()
     const controller = new AbortController()
     loadAbortRef.current = controller
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      NOTIFICATIONS_LOAD_TIMEOUT_MS,
+    )
     const isLatestLoad = () => loadSequence === loadSequenceRef.current
 
     setLoading(true)
@@ -132,13 +137,14 @@ export function DashboardNotificationsCenter({
           ? dashboardShellClientErrorMessage('notifications', json.errorMessage)
           : '',
       })
-    } catch (error: unknown) {
-      if (!isLatestLoad() || (error instanceof DOMException && error.name === 'AbortError')) return
+    } catch {
+      if (!isLatestLoad()) return
       setData({
         ...EMPTY_RESPONSE,
         errorMessage: 'Could not load items needing attention.',
       })
     } finally {
+      window.clearTimeout(timeoutId)
       if (isLatestLoad()) setLoading(false)
       if (loadAbortRef.current === controller) loadAbortRef.current = null
     }

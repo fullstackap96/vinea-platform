@@ -23,7 +23,7 @@ describe('Notifications Center latest-response boundary', () => {
     expect(source).toContain('loadSequenceRef.current += 1')
     expect(source).toContain('loadAbortRef.current?.abort()')
     expect(source).toContain('loadAbortRef.current = null')
-    expect(source).toContain("error instanceof DOMException && error.name === 'AbortError'")
+    expect(source).toContain('if (!isLatestLoad()) return')
   })
 
   it('validates safe read-model fields and dashboard-internal hrefs before rendering', () => {
