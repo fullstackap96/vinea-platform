@@ -44,4 +44,41 @@ describe('record certificate generation confirmation boundary', () => {
     expect(source).toContain('does not determine sacramental eligibility')
     expect(source).toContain('make a canonical decision')
   })
+
+  it('bounds browser confirmation and freezes retry after an ambiguous result', () => {
+    expect(source).toContain('const generationInFlightRef = useRef(false)')
+    expect(source).toContain(
+      'if (generationInFlightRef.current || generationRequiresRefresh) return',
+    )
+    expect(source).toContain(
+      'signal: AbortSignal.timeout(RECORD_CERTIFICATE_CONFIRMATION_TIMEOUT_MS)',
+    )
+    expect(source).toContain('setGenerationRequiresRefresh(true)')
+    expect(source).toContain('setErrorMessage(RECORD_CERTIFICATE_REFRESH_REQUIRED_MESSAGE)')
+    expect(source).toContain('disabled={isGenerating || generationRequiresRefresh}')
+    expect(source).toContain("? 'Refresh required'")
+    expect(source).not.toContain('setTimeout(generateCertificate')
+  })
+
+  it('keeps explicit server rejection retryable and validates the returned PDF', () => {
+    const rejectionIndex = source.indexOf('if (!response.ok)')
+    const contentTypeIndex = source.indexOf(
+      "response.headers.get('content-type') !== 'application/pdf'",
+    )
+    const blobIndex = source.indexOf('const certificateBlob = await response.blob()')
+    const emptyBlobIndex = source.indexOf('if (certificateBlob.size <= 0)')
+    const objectUrlIndex = source.indexOf('URL.createObjectURL(certificateBlob)')
+
+    expect(rejectionIndex).toBeGreaterThan(-1)
+    expect(source.slice(rejectionIndex, contentTypeIndex)).toContain(
+      'RECORD_CERTIFICATE_RETRYABLE_ERROR_MESSAGE',
+    )
+    expect(source.slice(rejectionIndex, contentTypeIndex)).not.toContain(
+      'setGenerationRequiresRefresh(true)',
+    )
+    expect(contentTypeIndex).toBeGreaterThan(rejectionIndex)
+    expect(blobIndex).toBeGreaterThan(contentTypeIndex)
+    expect(emptyBlobIndex).toBeGreaterThan(blobIndex)
+    expect(objectUrlIndex).toBeGreaterThan(emptyBlobIndex)
+  })
 })
