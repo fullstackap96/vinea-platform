@@ -4,6 +4,10 @@ export type PublicIntakeSubmissionResult =
   | { ok: true; requestId: string }
   | { ok: false; error: string }
 
+const PUBLIC_INTAKE_CONFIRMATION_TIMEOUT_MS = 60_000
+const PUBLIC_INTAKE_UNCONFIRMED_MESSAGE =
+  "We couldn't confirm your request. Please try once more without changing the form, or contact the parish office."
+
 let pendingSubmissionAttempt: { fingerprint: string; id: string } | null = null
 
 function submissionAttemptFor(payload: Record<string, unknown>) {
@@ -26,6 +30,7 @@ export async function submitPublicIntake(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...payload, submissionAttemptId: attempt.id }),
+      signal: AbortSignal.timeout(PUBLIC_INTAKE_CONFIRMATION_TIMEOUT_MS),
     })
     const data = (await response.json().catch(() => null)) as {
       ok?: unknown
@@ -44,12 +49,14 @@ export async function submitPublicIntake(
 
     pendingSubmissionAttempt = null
     return { ok: true, requestId }
-  } catch (error: unknown) {
-    return { ok: false, error: publicIntakeClientErrorMessage(error) }
+  } catch {
+    return { ok: false, error: PUBLIC_INTAKE_UNCONFIRMED_MESSAGE }
   }
 }
 
 export const publicIntakeSubmissionClientTestInternals = {
+  confirmationTimeoutMs: PUBLIC_INTAKE_CONFIRMATION_TIMEOUT_MS,
+  unconfirmedMessage: PUBLIC_INTAKE_UNCONFIRMED_MESSAGE,
   resetPendingSubmissionAttempt() {
     pendingSubmissionAttempt = null
   },

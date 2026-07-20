@@ -36,9 +36,23 @@ describe('public intake same-page single-flight submission boundary', () => {
     const source = read(path)
 
     expect(source).toContain('aria-busy={loading}')
+    expect(source).toContain('<fieldset disabled={loading}')
+    expect(source).toContain('m-0 min-w-0 space-y-4 border-0 p-0')
     expect(source).toContain('disabled={loading}')
     expect(source.match(/setLoading\(false\)/g)).toHaveLength(1)
     expect(source).toContain('submissionInFlightRef.current = false')
+  })
+
+  it.each(intakeForms)('%s freezes the reviewed payload while confirmation is pending', (path) => {
+    const source = read(path)
+    const formStart = source.indexOf('<form')
+    const formEnd = source.indexOf('</form>', formStart)
+    const form = source.slice(formStart, formEnd)
+
+    expect(formStart).toBeGreaterThanOrEqual(0)
+    expect(form).toContain('<fieldset disabled={loading}')
+    expect(form.indexOf('<fieldset disabled={loading}')).toBeLessThan(form.indexOf('<input'))
+    expect(form.lastIndexOf('</fieldset>')).toBeGreaterThan(form.lastIndexOf('</button>'))
   })
 
   it('documents the exact protection and durable-idempotency boundary', () => {

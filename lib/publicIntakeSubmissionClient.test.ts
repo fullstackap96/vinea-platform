@@ -8,6 +8,7 @@ describe('public intake submission client', () => {
   afterEach(() => {
     publicIntakeSubmissionClientTestInternals.resetPendingSubmissionAttempt()
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
   it('returns the confirmed request id and preserves the JSON payload', async () => {
@@ -28,6 +29,7 @@ describe('public intake submission client', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     })
+    expect(options.signal).toBeInstanceOf(AbortSignal)
     expect(JSON.parse(String(options.body))).toMatchObject({
       requestType: 'baptism',
       fullName: 'Safe family',
@@ -61,6 +63,20 @@ describe('public intake submission client', () => {
     expect(bodies[2].submissionAttemptId).not.toBe(bodies[1].submissionAttemptId)
   })
 
+  it('bounds browser confirmation while preserving one safe attempt for retry', async () => {
+    const signal = new AbortController().signal
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(signal)
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('response lost')))
+
+    await expect(submitPublicIntake({ requestType: 'ocia' })).resolves.toEqual({
+      ok: false,
+      error:
+        "We couldn't confirm your request. Please try once more without changing the form, or contact the parish office.",
+    })
+    expect(timeoutSpy).toHaveBeenCalledWith(60_000)
+    expect(publicIntakeSubmissionClientTestInternals.confirmationTimeoutMs).toBe(60_000)
+  })
+
   it('preserves allowlisted public validation guidance', async () => {
     vi.stubGlobal(
       'fetch',
@@ -78,7 +94,6 @@ describe('public intake submission client', () => {
   })
 
   it.each([
-    ['network rejection', () => Promise.reject(new Error('private network detail'))],
     ['malformed response', () => Promise.resolve(new Response('<html>', { status: 502 }))],
     [
       'successful response without a request id',

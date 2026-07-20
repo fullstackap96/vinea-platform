@@ -135,6 +135,7 @@ export default function OciaRequestPage() {
         aria-label="OCIA inquiry"
         aria-busy={loading}
       >
+        <fieldset disabled={loading} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <h2 className={intakeSectionHeadingClass}>Your contact information</h2>
         <input
           className={intakeInputClass}
@@ -281,6 +282,7 @@ export default function OciaRequestPage() {
         <button type="submit" disabled={loading} className={primaryButtonLg}>
           {loading ? 'Submitting...' : 'Submit request'}
         </button>
+        </fieldset>
       </form>
 
       {message ? (
