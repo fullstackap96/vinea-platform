@@ -31,6 +31,10 @@ import {
   PUBLIC_INTAKE_ROUTING_MUTATION_CONFIRMATION_TIMEOUT_MS,
   PUBLIC_INTAKE_ROUTING_REFRESH_REQUIRED_MESSAGE,
 } from '@/lib/publicIntakeRoutingClientConfirmation'
+import {
+  DAILY_BRIEF_CLIENT_CONFIRMATION_TIMEOUT_MS,
+  DAILY_BRIEF_DELIVERY_UNCONFIRMED_MESSAGE,
+} from '@/lib/dailyBriefClientConfirmation'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 import { VineaConfirmDialog } from '@/app/dashboard/_components/VineaConfirmDialog'
 import {
@@ -599,9 +603,10 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
   async function sendDailyBriefNow() {
     if (parishSettingsMutationInFlightRef.current || parishSettingsMutationRequiresRefresh) return
 
-    if (dailyBriefDeliveryAttemptRef.current?.parishId !== activeParishId) {
+    const sendParishId = activeParishIdRef.current
+    if (dailyBriefDeliveryAttemptRef.current?.parishId !== sendParishId) {
       dailyBriefDeliveryAttemptRef.current = {
-        parishId: activeParishId,
+        parishId: sendParishId,
         id: crypto.randomUUID(),
       }
     }
@@ -615,18 +620,28 @@ export function ParishSettingsPage({ activeParishId = null }: { activeParishId?:
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(DAILY_BRIEF_CLIENT_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({ deliveryAttemptId }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (activeParishIdRef.current !== sendParishId) return
+      if (!res.ok) {
         setDailyBriefMessage(parishSettingsClientErrorMessage('sendDailyBrief', data?.error))
         return
       }
-      setDailyBriefMessage(`Daily brief sent to ${String(data.to || '').trim() || 'the parish inbox'}.`)
+      const providerMessageId = String(data?.id ?? '').trim()
+      if (!data?.ok || !providerMessageId) {
+        setDailyBriefMessage(DAILY_BRIEF_DELIVERY_UNCONFIRMED_MESSAGE)
+        return
+      }
+      const recipient = String(data.to || '').trim() || 'the parish inbox'
       dailyBriefDeliveryAttemptRef.current = null
       await load()
-    } catch (error: unknown) {
-      setDailyBriefMessage(parishSettingsClientErrorMessage('sendDailyBrief', error))
+      if (activeParishIdRef.current !== sendParishId) return
+      setDailyBriefMessage(`Daily brief sent to ${recipient}.`)
+    } catch {
+      if (activeParishIdRef.current !== sendParishId) return
+      setDailyBriefMessage(DAILY_BRIEF_DELIVERY_UNCONFIRMED_MESSAGE)
     } finally {
       parishSettingsMutationInFlightRef.current = null
       setDailyBriefSending(false)

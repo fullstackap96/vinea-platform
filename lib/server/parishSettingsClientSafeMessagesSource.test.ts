@@ -25,9 +25,7 @@ describe('parish settings client safe messages', () => {
     expect(source).toContain(
       "setDailyBriefMessage(parishSettingsClientErrorMessage('sendDailyBrief', data?.error))"
     )
-    expect(source).toContain(
-      "setDailyBriefMessage(parishSettingsClientErrorMessage('sendDailyBrief', error))"
-    )
+    expect(source).toContain('setDailyBriefMessage(DAILY_BRIEF_DELIVERY_UNCONFIRMED_MESSAGE)')
 
     for (const rawPattern of [
       'setLoadError(String(data?.error || `Could not load settings (${res.status})`))',
