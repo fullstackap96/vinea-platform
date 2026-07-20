@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Parish Settings Read Deadline Slice
+
+The 2026-07-20 Settings reliability slice gives parish configuration, Staff Access, recent audit activity, public-intake routing metadata, and Workflow Templates a 15-second browser deadline. Selected-parish replacement still invalidates and aborts obsolete generations quietly, while a current stall reaches existing safe error guidance.
+
+- Immutable implementation commit: `0f0af9cdd663b84e02d375e663ec70ae7f40223d`
+- Tracked-head aggregate SHA-256: `096F00926A4F42AB5F3EF2DF757ED8EA22A7053465EB1D6EDC0044C99CBB8910`
+- Source mode: `tracked-head`
+- Source file count: `1483`
+- Tracked source files: `1483`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused deadline, latest-generation, response-parser, safe-message, selected-parish, and Workflow Template coverage passed `8` files / `33` tests. The complete `15`-check local release contract passed in an isolated flag-disabled verification process in `350.1` seconds with zero secret findings across `2,862` text files (`500` binaries skipped), zero dependency vulnerabilities, all governance/evidence gates, both TypeScript scopes, lint, `845` test files / `3,617` tests, and the credential-free Next.js 16.2.10 `56`-page build. The bounded surfaces remain credentialed reads against existing staff-authenticated, active-parish-scoped APIs.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `4130E30BC2CFBE4C2AB2B7586B09E17300C567C1FA6FBCFFF9D953BE63DF5C13`
+- Source file count: `1487`
+- Tracked source files: `1483`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/PARISH_SETTINGS_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Mass Intention Priest Directory Read Slice
 
 The 2026-07-20 Mass Intention reliability slice restores configured priest suggestions on New and Edit forms by consuming the validated nested `parish.priest_names` response instead of the nonexistent response-root field. Both optional directory reads now have a 15-second deadline, while free-text entry and existing persistence behavior remain available.
