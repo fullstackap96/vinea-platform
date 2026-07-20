@@ -4,6 +4,32 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Workflow Template Save Confirmation Slice
+
+The 2026-07-20 Workflow Template reliability slice gives each reviewed step save a 60-second browser confirmation deadline. Existing synchronous single-flight locking remains authoritative. Explicit server rejections remain safely retryable, while transport uncertainty, malformed-success acknowledgement, or failure to reload the authoritative selected-parish template state freezes the editor until staff refresh and review. Active-parish changes discard stale results and establish a fresh scoped read. No save replays automatically.
+
+- Immutable implementation commit: `405c7b28f7a229602b036b9f9641ada6f5e71d44`
+- Tracked-head aggregate SHA-256: `B165A167D3D5343F8C61E18B592ABB779965D0C99A3729AEA672AE7ED90E56FE`
+- Source mode: `tracked-head`
+- Source file count: `1507`
+- Tracked source files: `1507`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused deadline, single-flight, selected-parish, route, safe-message, and browser-evidence coverage passed `10` files / `36` tests. The complete release contract passed all `15` checks in `387.7` seconds with zero secret findings across `2,899` text files (`500` binaries skipped), zero vulnerabilities, both TypeScript scopes, lint, `862` test files / `3,698` tests, and the credential-free `56`-page build. The post-documentation focused suite passed `10` files / `36` tests, and the post-documentation secret scan passed across `2,900` text files with zero findings.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `DBD466C8F90A1BEBD76D5CB1233C83A95C3B8B4225ACF07BD6B998CD561B73EE`
+- Source file count: `1511`
+- Tracked source files: `1507`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+This section records source identity only. It does not authorize a Workflow Template write, production action, migration, RLS change, or production-sensitive capability.
+
+See `docs/WORKFLOW_TEMPLATE_SAVE_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Parish Settings Mutation Confirmation Slice
 
 The 2026-07-20 Settings reliability slice gives parish-details and Staff Access writes a 60-second browser confirmation deadline. Existing synchronous locks still prevent duplicate dispatch. Explicit server rejections remain safely retryable, while transport uncertainty, malformed-success acknowledgement, or failure to reload the authoritative selected-parish state freezes the related controls until staff refresh and review. An active-parish change discards stale results and establishes a fresh scoped read. Daily Brief delivery and public-intake routing mutation behavior are unchanged, except that Daily Brief cannot begin while parish configuration is awaiting refresh. No operation replays automatically.
