@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Mass Intention Priest Directory Read Slice
+
+The 2026-07-20 Mass Intention reliability slice restores configured priest suggestions on New and Edit forms by consuming the validated nested `parish.priest_names` response instead of the nonexistent response-root field. Both optional directory reads now have a 15-second deadline, while free-text entry and existing persistence behavior remain available.
+
+- Immutable implementation commit: `be04005d922cb3d2a0876b366104ee85a1f3d447`
+- Tracked-head aggregate SHA-256: `C4B203E92F3A083BCC6D3E98719A0A5484C0A6AA86D1BB557CD3FDDB01882010`
+- Source mode: `tracked-head`
+- Source file count: `1482`
+- Tracked source files: `1482`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused parser, option-merge, deadline, active-parish detail scope, form persistence, and single-flight coverage passed `7` files / `34` tests. The first complete release run correctly stopped at its environment gate because this process inherited enabled non-production AI-summary QA residue. An isolated child process removed those variable names without changing saved values, then the complete `15`-check local release contract passed in `388.3` seconds with zero secret findings across `2,860` text files (`500` binaries skipped), zero dependency vulnerabilities, all governance/evidence gates, both TypeScript scopes, lint, `844` test files / `3,612` tests, and the credential-free Next.js 16.2.10 `56`-page build. The clients remain read-only and use only the existing staff-authenticated, active-parish-scoped settings API.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `82A976BF1997E1875909B3FB1C63379067CB0DA061E399D8491D6776611DC27B`
+- Source file count: `1486`
+- Tracked source files: `1482`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/MASS_INTENTION_PRIEST_DIRECTORY_CLIENT_READ_BOUNDARY_20260720.md`.
+
 ## Post-Release Request Relationship Read Deadline Slice
 
 The 2026-07-20 Request Detail reliability slice gives both People-directory and suggested-connection reads a 15-second deadline. Obsolete request reads remain silently cancelled, while a timeout on the current request now reaches the existing unavailable guidance instead of being mistaken for navigation cancellation.
