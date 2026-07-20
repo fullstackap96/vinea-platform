@@ -7,6 +7,7 @@ import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import {
   formatRequestDocumentFileSize,
   normalizeRequestDocumentRow,
+  REQUEST_DOCUMENT_ACCEPT_ATTRIBUTE,
   requestDocumentStatusLabel,
   type RequestDocument,
   type RequestDocumentStatus,
@@ -331,6 +332,7 @@ export function RequestDocumentsSection({
             <input
               ref={fileInputRef}
               type="file"
+              accept={REQUEST_DOCUMENT_ACCEPT_ATTRIBUTE}
               disabled={mutationBusy}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />

@@ -4,6 +4,7 @@ import {
   requestDocumentStatusLabel,
   REQUEST_DOCUMENTS_BUCKET,
   REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
+  safeRequestDocumentFilename,
 } from '@/lib/requestDocuments'
 import { ACTIVE_STAFF_PARISH_COOKIE } from '@/lib/server/activeStaffParishContext'
 import { writeAuditEvent } from '@/lib/server/auditLog'
@@ -81,9 +82,10 @@ export async function GET(request: NextRequest, context: RouteParams) {
     }
 
     const bucket = text(document.storage_bucket) || REQUEST_DOCUMENTS_BUCKET
+    const downloadFilename = safeRequestDocumentFilename(document.original_filename)
     const { data, error } = await admin.storage
       .from(bucket)
-      .createSignedUrl(String(document.storage_path), 60)
+      .createSignedUrl(String(document.storage_path), 60, { download: downloadFilename })
 
     const signedUrl = confirmedRequestDocumentSignedUrl(data)
     if (error || !signedUrl) {

@@ -82,6 +82,8 @@ describe('request document route active parish authorization wiring', () => {
     expect(source).toContain("import { logServerError } from '@/lib/server/safeErrorLogging'")
     expect(source).toContain("logServerError('[request-document] signed-url failed'")
     expect(source).toContain('const signedUrl = confirmedRequestDocumentSignedUrl(data)')
+    expect(source).toContain('safeRequestDocumentFilename(document.original_filename)')
+    expect(source).toContain('{ download: downloadFilename }')
     expect(source).toContain('if (error || !signedUrl)')
     expect(source).toContain('return NextResponse.json({ ok: true, url: signedUrl })')
     expect(source).not.toContain('url: data.signedUrl')
@@ -98,6 +100,32 @@ describe('request document route active parish authorization wiring', () => {
     expect(source).not.toContain('error: message')
     expect(source).not.toContain('signedUrl:')
     expect(source).not.toContain('storagePath:')
+  })
+
+  it('validates staff and family uploads before storage and exposes matching picker hints', () => {
+    for (const routePath of [
+      'app/api/requests/[id]/documents/route.ts',
+      'app/api/family/request-portal/[token]/documents/route.ts',
+    ]) {
+      const source = readRoute(routePath)
+      const validationIndex = source.indexOf('validateRequestDocumentUpload({')
+      const denialIndex = source.indexOf('if (!uploadType.ok)', validationIndex)
+      const uploadIndex = source.indexOf('.upload(storagePath, buffer', denialIndex)
+
+      expect(validationIndex).toBeGreaterThan(-1)
+      expect(denialIndex).toBeGreaterThan(validationIndex)
+      expect(uploadIndex).toBeGreaterThan(denialIndex)
+      expect(source).toContain('const contentType = uploadType.contentType')
+    }
+
+    for (const componentPath of [
+      'app/dashboard/requests/[id]/_components/RequestDocumentsSection.tsx',
+      'app/family/request/[token]/FamilyRequestDocumentsPortal.tsx',
+    ]) {
+      const source = readRoute(componentPath)
+      expect(source).toContain('REQUEST_DOCUMENT_ACCEPT_ATTRIBUTE')
+      expect(source).toContain('accept={REQUEST_DOCUMENT_ACCEPT_ATTRIBUTE}')
+    }
   })
 
   it('documents the portal-token safe error logging boundary', () => {

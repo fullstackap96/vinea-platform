@@ -19,6 +19,7 @@ import {
   REQUEST_DOCUMENTS_BUCKET,
   REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
   safeRequestDocumentFilename,
+  validateRequestDocumentUpload,
 } from '@/lib/requestDocuments'
 import { createSupabaseServiceRoleClient } from '@/lib/supabaseServiceServer'
 
@@ -151,8 +152,16 @@ export async function POST(request: NextRequest, context: RouteParams) {
       access.requestId,
       `${crypto.randomUUID()}-${originalFilename}`,
     ].join('/')
-    const contentType = text(file.type) || 'application/octet-stream'
     const buffer = Buffer.from(await file.arrayBuffer())
+    const uploadType = validateRequestDocumentUpload({
+      filename: file.name,
+      declaredContentType: file.type,
+      bytes: buffer,
+    })
+    if (!uploadType.ok) {
+      return NextResponse.json({ ok: false, error: uploadType.error }, { status: 400 })
+    }
+    const contentType = uploadType.contentType
     const { data: uploaded, error: uploadError } = await admin.storage
       .from(REQUEST_DOCUMENTS_BUCKET)
       .upload(storagePath, buffer, { contentType, upsert: false })
