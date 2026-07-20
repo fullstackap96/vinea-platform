@@ -21,6 +21,7 @@ export function ConfirmedOciaSessionSection({
   onSave,
   onClear,
   saving,
+  mutationDisabled = false,
   message,
 }: {
   confirmedValue: string
@@ -29,8 +30,10 @@ export function ConfirmedOciaSessionSection({
   onSave: () => void
   onClear: () => void
   saving: boolean
+  mutationDisabled?: boolean
   message: string
 }) {
+  const mutationBusy = saving || mutationDisabled
   const canClear = Boolean(confirmedValue || confirmedIso)
   const showPastNote = isPastConfirmedIso(confirmedIso)
   const min = minNowDatetimeLocal()
@@ -53,6 +56,7 @@ export function ConfirmedOciaSessionSection({
           type="datetime-local"
           min={min}
           value={confirmedValue}
+          disabled={mutationBusy}
           onChange={(e) => setConfirmedValue(e.target.value)}
         />
 
@@ -60,7 +64,7 @@ export function ConfirmedOciaSessionSection({
           <button
             type="button"
             onClick={onSave}
-            disabled={saving}
+            disabled={mutationBusy}
             className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
           >
             {saving ? 'Saving…' : 'Save confirmed time'}
@@ -69,7 +73,7 @@ export function ConfirmedOciaSessionSection({
           <button
             type="button"
             onClick={onClear}
-            disabled={saving || !canClear}
+            disabled={mutationBusy || !canClear}
             className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
           >
             Clear

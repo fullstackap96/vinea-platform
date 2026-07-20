@@ -45,17 +45,21 @@ describe('request confirmed wedding ceremony active parish mutation route', () =
 
   it('keeps the Request Detail confirmed wedding ceremony save and clear off browser-side Supabase mutations', () => {
     const source = read('app/dashboard/requests/[id]/page.tsx')
+    const helper = source.slice(
+      source.indexOf('async function runScheduleMutation'),
+      source.indexOf('async function saveSuggestedDates'),
+    )
     const block = source.slice(
       source.indexOf('async function saveConfirmedWeddingCeremony'),
-      source.indexOf('async function saveConfirmedOciaSession')
+      source.indexOf('async function saveConfirmedOciaSession'),
     )
 
-    expect(block).toContain("fetch(`/api/requests/${routeId}/confirmed-wedding-ceremony`")
-    expect(block).toContain("method: 'PATCH'")
-    expect(block).toContain("requestDetailClientApiErrorMessage('saveWeddingCeremony'")
-    expect(block).toContain("requestDetailClientApiErrorMessage('clearWeddingCeremony'")
-    expect(block).toContain("requestDetailClientFailureMessage('saveWeddingCeremony')")
-    expect(block).toContain("requestDetailClientFailureMessage('clearWeddingCeremony')")
+    expect(block.match(/await runScheduleMutation\(\{/g)).toHaveLength(2)
+    expect(block).toContain("action: 'saveWeddingCeremony'")
+    expect(block).toContain("action: 'clearWeddingCeremony'")
+    expect(block.match(/endpoint: `\/api\/requests\/\$\{routeId\}\/confirmed-wedding-ceremony`/g)).toHaveLength(2)
+    expect(helper).toContain("method: 'PATCH'")
+    expect(helper).toContain('requestDetailClientApiErrorMessage(action, data?.error)')
     expect(block).not.toContain(".from('wedding_request_details')")
     expect(block).not.toContain('confirmed_ceremony_at:')
   })

@@ -110,6 +110,7 @@ import {
   requestDetailClientApiErrorMessage,
   requestDetailClientFailureMessage,
   requestDetailClientServerActionErrorMessage,
+  type RequestDetailClientApiAction,
 } from '@/lib/requestDetailClientMessages'
 import {
   awaitRequestDetailClientMutationConfirmation,
@@ -217,6 +218,8 @@ const [staffNotes, setStaffNotes] = useState('')
   const [suggested3, setSuggested3] = useState('')
   const [suggestedSaving, setSuggestedSaving] = useState(false)
   const [suggestedMessage, setSuggestedMessage] = useState('')
+  const [scheduleMutationBusy, setScheduleMutationBusy] = useState(false)
+  const scheduleMutationInFlightRef = useRef(false)
 
   const [confirmedBaptismDate, setConfirmedBaptismDate] = useState('')
   const [confirmedSaving, setConfirmedSaving] = useState(false)
@@ -1326,9 +1329,76 @@ async function saveStaffNotes() {
   }
 }
 
+  async function runScheduleMutation({
+    action,
+    endpoint,
+    body,
+    setSaving,
+    setMessage,
+    successMessage,
+    staleMessage,
+    afterConfirmed,
+    logLabel,
+  }: {
+    action: RequestDetailClientApiAction
+    endpoint: string
+    body: Record<string, unknown>
+    setSaving: (value: boolean) => void
+    setMessage: (value: string) => void
+    successMessage: string
+    staleMessage: string
+    afterConfirmed?: () => void
+    logLabel: string
+  }) {
+    if (scheduleMutationInFlightRef.current || workflowMutationRequiresRefresh) return
+
+    scheduleMutationInFlightRef.current = true
+    setScheduleMutationBusy(true)
+    setSaving(true)
+    setMessage('')
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (res.ok && data?.ok !== true) {
+        setWorkflowMutationRequiresRefresh(true)
+        setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+        return
+      }
+      if (!res.ok || !data?.ok) {
+        setMessage(requestDetailClientApiErrorMessage(action, data?.error))
+        return
+      }
+      if (!(await loadRequest())) {
+        setWorkflowMutationRequiresRefresh(true)
+        setMessage(staleMessage)
+        return
+      }
+
+      afterConfirmed?.()
+      setMessage(successMessage)
+    } catch (error) {
+      devDashboardConsoleError(
+        logLabel,
+        new Error(requestDetailClientFailureMessage('confirmWorkflowMutation'), { cause: error })
+      )
+      setWorkflowMutationRequiresRefresh(true)
+      setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+    } finally {
+      scheduleMutationInFlightRef.current = false
+      setScheduleMutationBusy(false)
+      setSaving(false)
+    }
+  }
+
  async function saveSuggestedDates() {
-  setSuggestedSaving(true)
-  setSuggestedMessage('')
 
   const err1 = validateSuggestedDateNotPast(suggested1)
   const err2 = validateSuggestedDateNotPast(suggested2)
@@ -1336,117 +1406,61 @@ async function saveStaffNotes() {
   const firstError = err1 || err2 || err3
   if (firstError) {
     setSuggestedMessage(firstError)
-    setSuggestedSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/suggested-dates`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+  await runScheduleMutation({
+      action: 'saveSuggestedDates',
+      endpoint: `/api/requests/${routeId}/suggested-dates`,
+      body: {
         suggestedDate1: suggested1 || null,
         suggestedDate2: suggested2 || null,
         suggestedDate3: suggested3 || null,
-      }),
+      },
+      setSaving: setSuggestedSaving,
+      setMessage: setSuggestedMessage,
+      successMessage: 'Suggested dates saved successfully.',
+      staleMessage:
+        'Suggested dates were saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+      logLabel: 'SAVE SUGGESTED DATES ERROR',
     })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setSuggestedMessage(requestDetailClientApiErrorMessage('saveSuggestedDates', data?.error))
-      setSuggestedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE SUGGESTED DATES ERROR',
-      new Error(requestDetailClientFailureMessage('saveSuggestedDates'), { cause: error })
-    )
-    setSuggestedMessage(requestDetailClientFailureMessage('saveSuggestedDates'))
-    setSuggestedSaving(false)
-    return
-  }
-
-  setSuggestedMessage('Suggested dates saved successfully.')
-  setSuggestedSaving(false)
-  loadRequest()
 }
 
 async function saveConfirmedBaptismDate() {
-  setConfirmedSaving(true)
-  setConfirmedMessage('')
-
   const validationError = validateConfirmedDateTimeNotPast(confirmedBaptismDate)
   if (validationError) {
     setConfirmedMessage(validationError)
-    setConfirmedSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-baptism-date`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+  await runScheduleMutation({
+      action: 'saveConfirmedDate',
+      endpoint: `/api/requests/${routeId}/confirmed-baptism-date`,
+      body: {
         confirmedBaptismDate: datetimeLocalToIso(confirmedBaptismDate),
-      }),
+      },
+      setSaving: setConfirmedSaving,
+      setMessage: setConfirmedMessage,
+      successMessage: 'Confirmed date saved successfully.',
+      staleMessage:
+        'The confirmed date was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+      logLabel: 'SAVE CONFIRMED BAPTISM DATE ERROR',
     })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setConfirmedMessage(requestDetailClientApiErrorMessage('saveConfirmedDate', data?.error))
-      setConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE CONFIRMED BAPTISM DATE ERROR',
-      new Error(requestDetailClientFailureMessage('saveConfirmedDate'), { cause: error })
-    )
-    setConfirmedMessage(requestDetailClientFailureMessage('saveConfirmedDate'))
-    setConfirmedSaving(false)
-    return
-  }
-
-  setConfirmedMessage('Confirmed date saved successfully.')
-  setConfirmedSaving(false)
-  loadRequest()
 }
 
 async function clearConfirmedBaptismDate() {
-  setConfirmedSaving(true)
-  setConfirmedMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-baptism-date`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmedBaptismDate: null }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setConfirmedMessage(requestDetailClientApiErrorMessage('clearConfirmedDate', data?.error))
-      setConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'CLEAR CONFIRMED BAPTISM DATE ERROR',
-      new Error(requestDetailClientFailureMessage('clearConfirmedDate'), { cause: error })
-    )
-    setConfirmedMessage(requestDetailClientFailureMessage('clearConfirmedDate'))
-    setConfirmedSaving(false)
-    return
-  }
-
-  setConfirmedBaptismDate('')
-  setConfirmedMessage('Confirmed date cleared.')
-  setConfirmedSaving(false)
-  loadRequest()
+  await runScheduleMutation({
+    action: 'clearConfirmedDate',
+    endpoint: `/api/requests/${routeId}/confirmed-baptism-date`,
+    body: { confirmedBaptismDate: null },
+    setSaving: setConfirmedSaving,
+    setMessage: setConfirmedMessage,
+    successMessage: 'Confirmed date cleared.',
+    staleMessage:
+      'The confirmed date was cleared, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    afterConfirmed: () => setConfirmedBaptismDate(''),
+    logLabel: 'CLEAR CONFIRMED BAPTISM DATE ERROR',
+  })
 }
 
 async function saveFuneralDetails() {
@@ -1505,85 +1519,42 @@ async function saveFuneralDetails() {
 async function saveConfirmedFuneralService() {
   if (!request || request.request_type !== 'funeral') return
 
-  setFuneralConfirmedSaving(true)
-  setFuneralConfirmedMessage('')
-
   const validationError = validateConfirmedDateTimeNotPast(confirmedFuneralService)
   if (validationError) {
     setFuneralConfirmedMessage(validationError)
-    setFuneralConfirmedSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-funeral-service`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+  await runScheduleMutation({
+      action: 'saveFuneralService',
+      endpoint: `/api/requests/${routeId}/confirmed-funeral-service`,
+      body: {
         confirmedServiceAt: datetimeLocalToIso(confirmedFuneralService),
-      }),
+      },
+      setSaving: setFuneralConfirmedSaving,
+      setMessage: setFuneralConfirmedMessage,
+      successMessage: 'Confirmed service time saved.',
+      staleMessage:
+        'The confirmed funeral time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+      logLabel: 'SAVE CONFIRMED FUNERAL SERVICE ERROR',
     })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setFuneralConfirmedMessage(
-        requestDetailClientApiErrorMessage('saveFuneralService', data?.error)
-      )
-      setFuneralConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE CONFIRMED FUNERAL SERVICE ERROR',
-      new Error(requestDetailClientFailureMessage('saveFuneralService'), { cause: error })
-    )
-    setFuneralConfirmedMessage(requestDetailClientFailureMessage('saveFuneralService'))
-    setFuneralConfirmedSaving(false)
-    return
-  }
-
-  setFuneralConfirmedMessage('Confirmed service time saved.')
-  setFuneralConfirmedSaving(false)
-  loadRequest()
 }
 
 async function clearConfirmedFuneralService() {
   if (!request || request.request_type !== 'funeral') return
 
-  setFuneralConfirmedSaving(true)
-  setFuneralConfirmedMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-funeral-service`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmedServiceAt: null }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setFuneralConfirmedMessage(
-        requestDetailClientApiErrorMessage('clearFuneralService', data?.error)
-      )
-      setFuneralConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'CLEAR CONFIRMED FUNERAL SERVICE ERROR',
-      new Error(requestDetailClientFailureMessage('clearFuneralService'), { cause: error })
-    )
-    setFuneralConfirmedMessage(requestDetailClientFailureMessage('clearFuneralService'))
-    setFuneralConfirmedSaving(false)
-    return
-  }
-
-  setConfirmedFuneralService('')
-  setFuneralConfirmedMessage('Cleared.')
-  setFuneralConfirmedSaving(false)
-  loadRequest()
+  await runScheduleMutation({
+    action: 'clearFuneralService',
+    endpoint: `/api/requests/${routeId}/confirmed-funeral-service`,
+    body: { confirmedServiceAt: null },
+    setSaving: setFuneralConfirmedSaving,
+    setMessage: setFuneralConfirmedMessage,
+    successMessage: 'Cleared.',
+    staleMessage:
+      'The confirmed funeral time was cleared, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    afterConfirmed: () => setConfirmedFuneralService(''),
+    logLabel: 'CLEAR CONFIRMED FUNERAL SERVICE ERROR',
+  })
 }
 
 async function saveWeddingDetails() {
@@ -1634,165 +1605,83 @@ async function saveWeddingDetails() {
 async function saveConfirmedWeddingCeremony() {
   if (!request || request.request_type !== 'wedding') return
 
-  setWeddingConfirmedSaving(true)
-  setWeddingConfirmedMessage('')
-
   const validationError = validateConfirmedDateTimeNotPast(confirmedWeddingCeremony)
   if (validationError) {
     setWeddingConfirmedMessage(validationError)
-    setWeddingConfirmedSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-wedding-ceremony`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+  await runScheduleMutation({
+      action: 'saveWeddingCeremony',
+      endpoint: `/api/requests/${routeId}/confirmed-wedding-ceremony`,
+      body: {
         confirmedCeremonyAt: datetimeLocalToIso(confirmedWeddingCeremony),
-      }),
+      },
+      setSaving: setWeddingConfirmedSaving,
+      setMessage: setWeddingConfirmedMessage,
+      successMessage: 'Confirmed ceremony time saved.',
+      staleMessage:
+        'The confirmed wedding time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+      logLabel: 'confirmed wedding ceremony save',
     })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setWeddingConfirmedMessage(
-        requestDetailClientApiErrorMessage('saveWeddingCeremony', data?.error)
-      )
-      setWeddingConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'confirmed wedding ceremony save',
-      new Error(requestDetailClientFailureMessage('saveWeddingCeremony'), { cause: error })
-    )
-    setWeddingConfirmedMessage(requestDetailClientFailureMessage('saveWeddingCeremony'))
-    setWeddingConfirmedSaving(false)
-    return
-  }
-
-  setWeddingConfirmedMessage('Confirmed ceremony time saved.')
-  setWeddingConfirmedSaving(false)
-  loadRequest()
 }
 
 async function clearConfirmedWeddingCeremony() {
   if (!request || request.request_type !== 'wedding') return
 
-  setWeddingConfirmedSaving(true)
-  setWeddingConfirmedMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-wedding-ceremony`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmedCeremonyAt: null }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setWeddingConfirmedMessage(
-        requestDetailClientApiErrorMessage('clearWeddingCeremony', data?.error)
-      )
-      setWeddingConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'confirmed wedding ceremony clear',
-      new Error(requestDetailClientFailureMessage('clearWeddingCeremony'), { cause: error })
-    )
-    setWeddingConfirmedMessage(requestDetailClientFailureMessage('clearWeddingCeremony'))
-    setWeddingConfirmedSaving(false)
-    return
-  }
-
-  setConfirmedWeddingCeremony('')
-  setWeddingConfirmedMessage('Cleared.')
-  setWeddingConfirmedSaving(false)
-  loadRequest()
+  await runScheduleMutation({
+    action: 'clearWeddingCeremony',
+    endpoint: `/api/requests/${routeId}/confirmed-wedding-ceremony`,
+    body: { confirmedCeremonyAt: null },
+    setSaving: setWeddingConfirmedSaving,
+    setMessage: setWeddingConfirmedMessage,
+    successMessage: 'Cleared.',
+    staleMessage:
+      'The confirmed wedding time was cleared, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    afterConfirmed: () => setConfirmedWeddingCeremony(''),
+    logLabel: 'confirmed wedding ceremony clear',
+  })
 }
 
 async function saveConfirmedOciaSession() {
   if (!request || request.request_type !== 'ocia') return
 
-  setOciaSessionSaving(true)
-  setOciaSessionMessage('')
-
   const validationError = validateConfirmedDateTimeNotPast(confirmedOciaSession)
   if (validationError) {
     setOciaSessionMessage(validationError)
-    setOciaSessionSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-ocia-session`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+  await runScheduleMutation({
+      action: 'saveOciaSession',
+      endpoint: `/api/requests/${routeId}/confirmed-ocia-session`,
+      body: {
         confirmedSessionAt: datetimeLocalToIso(confirmedOciaSession),
-      }),
+      },
+      setSaving: setOciaSessionSaving,
+      setMessage: setOciaSessionMessage,
+      successMessage: 'Confirmed OCIA meeting time saved.',
+      staleMessage:
+        'The confirmed OCIA time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+      logLabel: 'confirmed OCIA session save',
     })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setOciaSessionMessage(requestDetailClientApiErrorMessage('saveOciaSession', data?.error))
-      setOciaSessionSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'confirmed OCIA session save',
-      new Error(requestDetailClientFailureMessage('saveOciaSession'), { cause: error })
-    )
-    setOciaSessionMessage(requestDetailClientFailureMessage('saveOciaSession'))
-    setOciaSessionSaving(false)
-    return
-  }
-
-  setOciaSessionMessage('Confirmed OCIA meeting time saved.')
-  setOciaSessionSaving(false)
-  loadRequest()
 }
 
 async function clearConfirmedOciaSession() {
   if (!request || request.request_type !== 'ocia') return
 
-  setOciaSessionSaving(true)
-  setOciaSessionMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-ocia-session`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmedSessionAt: null }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setOciaSessionMessage(requestDetailClientApiErrorMessage('clearOciaSession', data?.error))
-      setOciaSessionSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'confirmed OCIA session clear',
-      new Error(requestDetailClientFailureMessage('clearOciaSession'), { cause: error })
-    )
-    setOciaSessionMessage(requestDetailClientFailureMessage('clearOciaSession'))
-    setOciaSessionSaving(false)
-    return
-  }
-
-  setConfirmedOciaSession('')
-  setOciaSessionMessage('Cleared.')
-  setOciaSessionSaving(false)
-  loadRequest()
+  await runScheduleMutation({
+    action: 'clearOciaSession',
+    endpoint: `/api/requests/${routeId}/confirmed-ocia-session`,
+    body: { confirmedSessionAt: null },
+    setSaving: setOciaSessionSaving,
+    setMessage: setOciaSessionMessage,
+    successMessage: 'Cleared.',
+    staleMessage:
+      'The confirmed OCIA time was cleared, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    afterConfirmed: () => setConfirmedOciaSession(''),
+    logLabel: 'confirmed OCIA session clear',
+  })
 }
 
 function confirmConfirmedScheduleClear() {
@@ -2998,6 +2887,7 @@ async function deleteGoogleCalendarEvent() {
                   setSuggested3={setSuggested3}
                   onSaveSuggestedDates={saveSuggestedDates}
                   saving={suggestedSaving}
+                  mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
                   message={suggestedMessage}
                 />
                 <div className="mt-6 border-t border-gray-100 pt-5" />
@@ -3017,6 +2907,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedBaptismDate}
                     onClear={() => setPendingConfirmedScheduleClear('baptism')}
                     saving={confirmedSaving}
+                    mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
                     message={confirmedMessage}
                   />
                 ) : isFuneral ? (
@@ -3027,6 +2918,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedFuneralService}
                     onClear={() => setPendingConfirmedScheduleClear('funeral')}
                     saving={funeralConfirmedSaving}
+                    mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
                     message={funeralConfirmedMessage}
                   />
                 ) : isWedding ? (
@@ -3037,6 +2929,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedWeddingCeremony}
                     onClear={() => setPendingConfirmedScheduleClear('wedding')}
                     saving={weddingConfirmedSaving}
+                    mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
                     message={weddingConfirmedMessage}
                   />
                 ) : (
@@ -3047,6 +2940,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedOciaSession}
                     onClear={() => setPendingConfirmedScheduleClear('ocia')}
                     saving={ociaSessionSaving}
+                    mutationDisabled={scheduleMutationBusy || workflowMutationRequiresRefresh}
                     message={ociaSessionMessage}
                   />
                 )}

@@ -24,6 +24,7 @@ export function ConfirmedBaptismDateSection({
   onSave,
   onClear,
   saving,
+  mutationDisabled = false,
   message,
 }: {
   confirmedValue: string
@@ -35,8 +36,10 @@ export function ConfirmedBaptismDateSection({
   onSave: () => void
   onClear: () => void
   saving: boolean
+  mutationDisabled?: boolean
   message: string
 }) {
+  const mutationBusy = saving || mutationDisabled
   const canClear = Boolean(confirmedValue || confirmedIso)
   const showPastNote = isPastConfirmedIso(confirmedIso)
   const min = minNowDatetimeLocal()
@@ -59,6 +62,7 @@ export function ConfirmedBaptismDateSection({
           type="datetime-local"
           min={min}
           value={confirmedValue}
+          disabled={mutationBusy}
           onChange={(e) => setConfirmedValue(e.target.value)}
         />
 
@@ -66,7 +70,7 @@ export function ConfirmedBaptismDateSection({
           <button
             type="button"
             onClick={onSave}
-            disabled={saving}
+            disabled={mutationBusy}
             className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
           >
             {saving ? 'Saving...' : 'Save Confirmed Date'}
@@ -75,7 +79,7 @@ export function ConfirmedBaptismDateSection({
           <button
             type="button"
             onClick={onClear}
-            disabled={saving || !canClear}
+            disabled={mutationBusy || !canClear}
             className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
           >
             Clear
@@ -87,7 +91,7 @@ export function ConfirmedBaptismDateSection({
             type="button"
             className={`${secondaryButtonSm} w-full justify-center sm:w-auto`}
             onClick={() => setConfirmedValue(suggested1)}
-            disabled={!suggested1}
+            disabled={mutationBusy || !suggested1}
           >
             Use Suggested #1
           </button>
@@ -95,7 +99,7 @@ export function ConfirmedBaptismDateSection({
             type="button"
             className={`${secondaryButtonSm} w-full justify-center sm:w-auto`}
             onClick={() => setConfirmedValue(suggested2)}
-            disabled={!suggested2}
+            disabled={mutationBusy || !suggested2}
           >
             Use Suggested #2
           </button>
@@ -103,7 +107,7 @@ export function ConfirmedBaptismDateSection({
             type="button"
             className={`${secondaryButtonSm} w-full justify-center sm:w-auto`}
             onClick={() => setConfirmedValue(suggested3)}
-            disabled={!suggested3}
+            disabled={mutationBusy || !suggested3}
           >
             Use Suggested #3
           </button>

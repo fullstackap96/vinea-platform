@@ -14,6 +14,7 @@ export function SuggestedDatesSection({
   setSuggested3,
   onSaveSuggestedDates,
   saving,
+  mutationDisabled = false,
   message,
 }: {
   suggested1: string
@@ -24,8 +25,10 @@ export function SuggestedDatesSection({
   setSuggested3: (value: string) => void
   onSaveSuggestedDates: () => void
   saving: boolean
+  mutationDisabled?: boolean
   message: string
 }) {
+  const mutationBusy = saving || mutationDisabled
   const pastBadgeClass = `${chipBase} border border-amber-200 bg-amber-50 text-amber-950`
   const min = minTodayDatetimeLocal()
   return (
@@ -41,6 +44,7 @@ export function SuggestedDatesSection({
             min={min}
             placeholder="Suggested date/time 1"
             value={suggested1}
+            disabled={mutationBusy}
             onChange={(e) => setSuggested1(e.target.value)}
           />
           {isPastSuggestedDate(suggested1) ? (
@@ -55,6 +59,7 @@ export function SuggestedDatesSection({
             min={min}
             placeholder="Suggested date/time 2"
             value={suggested2}
+            disabled={mutationBusy}
             onChange={(e) => setSuggested2(e.target.value)}
           />
           {isPastSuggestedDate(suggested2) ? (
@@ -69,6 +74,7 @@ export function SuggestedDatesSection({
             min={min}
             placeholder="Suggested date/time 3"
             value={suggested3}
+            disabled={mutationBusy}
             onChange={(e) => setSuggested3(e.target.value)}
           />
           {isPastSuggestedDate(suggested3) ? (
@@ -80,7 +86,7 @@ export function SuggestedDatesSection({
       <button
         type="button"
         onClick={onSaveSuggestedDates}
-        disabled={saving}
+        disabled={mutationBusy}
         className={`${primaryButtonMd} mt-3 w-full justify-center sm:w-auto`}
       >
         {saving ? 'Saving...' : 'Save Suggested Dates'}

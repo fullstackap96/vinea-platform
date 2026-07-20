@@ -93,7 +93,7 @@ export function requestDetailClientFailureMessage(action: RequestDetailClientAct
   return requestDetailFailureMessages[action]
 }
 
-const requestDetailAllowedApiMessages: Record<
+export type RequestDetailClientApiAction =
   | 'verifyAccess'
   | 'loadActivity'
   | 'loadCommunications'
@@ -115,9 +115,9 @@ const requestDetailAllowedApiMessages: Record<
   | 'clearWeddingCeremony'
   | 'saveOciaSession'
   | 'clearOciaSession'
-  | 'logCommunication',
-  Set<string>
-> = {
+  | 'logCommunication'
+
+const requestDetailAllowedApiMessages: Record<RequestDetailClientApiAction, Set<string>> = {
   verifyAccess: new Set([
     'Unauthorized',
     'This login is not authorized for parish staff access.',
@@ -339,29 +339,7 @@ const requestDetailAllowedApiMessages: Record<
 }
 
 export function requestDetailClientApiErrorMessage(
-  action:
-    | 'verifyAccess'
-    | 'loadActivity'
-    | 'loadCommunications'
-    | 'loadRequestNotes'
-    | 'loadWorkflowSupport'
-    | 'loadRequestTypeSupport'
-    | 'updateChecklistItem'
-    | 'updateStaffNotes'
-    | 'saveAiSummary'
-    | 'saveSuggestedDates'
-    | 'saveConfirmedDate'
-    | 'clearConfirmedDate'
-    | 'saveReplyDraft'
-    | 'saveFuneralDetails'
-    | 'saveFuneralService'
-    | 'clearFuneralService'
-    | 'saveWeddingDetails'
-    | 'saveWeddingCeremony'
-    | 'clearWeddingCeremony'
-    | 'saveOciaSession'
-    | 'clearOciaSession'
-    | 'logCommunication',
+  action: RequestDetailClientApiAction,
   error: unknown
 ): string {
   const message = typeof error === 'string' ? error.trim() : ''

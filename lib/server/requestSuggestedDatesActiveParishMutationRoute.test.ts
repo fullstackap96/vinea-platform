@@ -43,15 +43,20 @@ describe('request suggested dates active parish mutation route', () => {
 
   it('keeps the Request Detail suggested date save off browser-side Supabase mutations', () => {
     const source = read('app/dashboard/requests/[id]/page.tsx')
+    const helper = source.slice(
+      source.indexOf('async function runScheduleMutation'),
+      source.indexOf('async function saveSuggestedDates'),
+    )
     const block = source.slice(
       source.indexOf(' async function saveSuggestedDates'),
-      source.indexOf('async function saveConfirmedBaptismDate')
+      source.indexOf('async function saveConfirmedBaptismDate'),
     )
 
-    expect(block).toContain("fetch(`/api/requests/${routeId}/suggested-dates`")
-    expect(block).toContain("method: 'PATCH'")
-    expect(block).toContain("requestDetailClientApiErrorMessage('saveSuggestedDates'")
-    expect(block).toContain("requestDetailClientFailureMessage('saveSuggestedDates')")
+    expect(block).toContain('await runScheduleMutation({')
+    expect(block).toContain("action: 'saveSuggestedDates'")
+    expect(block).toContain("endpoint: `/api/requests/${routeId}/suggested-dates`")
+    expect(helper).toContain("method: 'PATCH'")
+    expect(helper).toContain('requestDetailClientApiErrorMessage(action, data?.error)')
     expect(block).not.toContain(".from('requests')")
     expect(block).not.toContain('suggested_date_1:')
   })

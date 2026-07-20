@@ -31,17 +31,8 @@ describe('request detail client safe messages', () => {
       'aiSummary',
       'aiReply',
       'saveReplyDraft',
-      'saveSuggestedDates',
-      'saveConfirmedDate',
-      'clearConfirmedDate',
       'saveFuneralDetails',
-      'saveFuneralService',
-      'clearFuneralService',
       'saveWeddingDetails',
-      'saveWeddingCeremony',
-      'clearWeddingCeremony',
-      'saveOciaSession',
-      'clearOciaSession',
       'updateCommunicationSummary',
       'sendEmail',
       'logSentEmail',
@@ -55,7 +46,22 @@ describe('request detail client safe messages', () => {
 
     expect(source).toContain("requestDetailClientApiErrorMessage('updateStaffNotes', data?.error)")
     expect(source).toContain("requestDetailClientApiErrorMessage('logCommunication', data?.error)")
+    expect(source).toContain('requestDetailClientApiErrorMessage(action, data?.error)')
     expect(source).toContain("requestDetailClientFailureMessage('confirmWorkflowMutation')")
+
+    for (const action of [
+      'saveSuggestedDates',
+      'saveConfirmedDate',
+      'clearConfirmedDate',
+      'saveFuneralService',
+      'clearFuneralService',
+      'saveWeddingCeremony',
+      'clearWeddingCeremony',
+      'saveOciaSession',
+      'clearOciaSession',
+    ]) {
+      expect(source).toContain(`action: '${action}'`)
+    }
 
     expect(source).not.toContain('setActivityError(error instanceof Error ? error.message')
     expect(source).not.toContain("setActivityError(String(data?.error || 'Could not load request activity.'))")
