@@ -82,6 +82,7 @@ The 2026-07-20 membership-primary request and document access hardening has this
 
 - Parent/base commit: `41607f5cae6bc8fe4b1476c7b1f849649bf0cc98`
 - Implementation commit: `ae00ccec89b24a30862dbb84c5b41c1fd6a4da8d`
+- Source-guard commit: `3d76cc7c26828294f844e903a8b04fcddddc6f90`
 - Release-source aggregate SHA-256: `E0EB5EDADC41F36767557B9BDEDD3C88EDB6B0A1D2D12D8AB6731836637291DE`
 - Source file count: `1477`
 - Tracked source files: `1473`
@@ -89,7 +90,7 @@ The 2026-07-20 membership-primary request and document access hardening has this
 - Worktree dirty: `YES`
 - Production approval granted: `NO`
 
-This identity binds the membership-first cookie-free fallback behavior and focused source/unit guards. It changes no migration or RLS policy and performs no external action. The complete 15-check local release contract passed against the runtime implementation in 329.1 seconds with 836 test files / 3,566 tests and the credential-free 56-page build. The current aggregate adds only the route call-site source guard, which passed 1 file / 5 tests after that release run. Implementation commit `ae00ccec89b24a30862dbb84c5b41c1fd6a4da8d` makes the runtime behavior immutable; remote CI, Preview, and production approval remain separate gates.
+This identity binds the membership-first cookie-free fallback behavior and focused source/unit guards. It changes no migration or RLS policy and performs no external action. The complete 15-check local release contract passed against the runtime implementation in 329.1 seconds with 836 test files / 3,566 tests and the credential-free 56-page build. The current aggregate adds only the route call-site source guard, which passed 1 file / 5 tests after that release run. Implementation commit `ae00ccec89b24a30862dbb84c5b41c1fd6a4da8d` makes the runtime behavior immutable; source-guard commit `3d76cc7c26828294f844e903a8b04fcddddc6f90` reached non-production Vercel `READY`. Authenticated Preview health, GitHub PR checks, and production approval remain separate gates.
 
 ## Scope
 
