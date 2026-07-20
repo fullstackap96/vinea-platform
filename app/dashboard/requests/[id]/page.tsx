@@ -150,6 +150,30 @@ type GoogleCalendarMutationPayload = {
 }
 
 const REQUEST_DETAIL_LOAD_TIMEOUT_MS = 15_000
+const REQUEST_DETAIL_WORKFLOW_MUTATION_CONFIRMATION_TIMEOUT_MS = 60_000
+
+type RequestDetailMutationConfirmation<T> =
+  | { confirmed: true; value: T }
+  | { confirmed: false }
+
+async function awaitRequestDetailMutationConfirmation<T>(
+  operation: Promise<T>,
+): Promise<RequestDetailMutationConfirmation<T>> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      operation.then((value) => ({ confirmed: true as const, value })),
+      new Promise<{ confirmed: false }>((resolve) => {
+        timeoutId = setTimeout(
+          () => resolve({ confirmed: false }),
+          REQUEST_DETAIL_WORKFLOW_MUTATION_CONFIRMATION_TIMEOUT_MS,
+        )
+      }),
+    ])
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
+  }
+}
 
 function nowDatetimeLocal() {
   const d = new Date()
@@ -189,6 +213,8 @@ export default function RequestDetailPage() {
   const [checklistUpdatingId, setChecklistUpdatingId] = useState('')
   const [checklistMessage, setChecklistMessage] = useState('')
   const checklistMutationInFlightRef = useRef(false)
+  const [workflowMutationRequiresRefresh, setWorkflowMutationRequiresRefresh] =
+    useState(false)
   const [loading, setLoading] = useState(true)
   const requestLoadAbortRef = useRef<AbortController | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
@@ -755,7 +781,7 @@ const [staffNotes, setStaffNotes] = useState('')
   }
 
   async function toggleChecklistItem(itemId: string, currentValue: boolean) {
-    if (checklistMutationInFlightRef.current) return
+    if (checklistMutationInFlightRef.current || workflowMutationRequiresRefresh) return
 
     checklistMutationInFlightRef.current = true
     setChecklistUpdatingId(itemId)
@@ -766,8 +792,16 @@ const [staffNotes, setStaffNotes] = useState('')
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isComplete: !currentValue }),
+        signal: AbortSignal.timeout(REQUEST_DETAIL_WORKFLOW_MUTATION_CONFIRMATION_TIMEOUT_MS),
       })
       const data = await res.json().catch(() => ({}))
+
+      if (res.ok && data?.ok !== true) {
+        const message = requestDetailClientFailureMessage('confirmWorkflowMutation')
+        setWorkflowMutationRequiresRefresh(true)
+        setChecklistMessage(message)
+        return
+      }
 
       if (!res.ok || !data?.ok) {
         const failureMessage = requestDetailClientApiErrorMessage('updateChecklistItem', data?.error)
@@ -783,12 +817,14 @@ const [staffNotes, setStaffNotes] = useState('')
       try {
         await loadRequest()
       } catch {
+        setWorkflowMutationRequiresRefresh(true)
         setChecklistMessage(
           'Checklist item updated, but the refreshed request could not load. Refresh the page before changing another item.'
         )
       }
     } catch (error) {
-      const failureMessage = requestDetailClientFailureMessage('updateChecklistItem')
+      const failureMessage = requestDetailClientFailureMessage('confirmWorkflowMutation')
+      setWorkflowMutationRequiresRefresh(true)
       setChecklistMessage(failureMessage)
       devDashboardConsoleError(
         'Error updating checklist item',
@@ -800,7 +836,7 @@ const [staffNotes, setStaffNotes] = useState('')
     }
   }
 async function updateRequestStatus(newStatus: string) {
-  if (requestStatusInFlightRef.current) return
+  if (requestStatusInFlightRef.current || workflowMutationRequiresRefresh) return
 
   requestStatusInFlightRef.current = true
   setRequestStatusUpdating(true)
@@ -808,14 +844,23 @@ async function updateRequestStatus(newStatus: string) {
   try {
     let result: Awaited<ReturnType<typeof updateRequestStatusAction>>
     try {
-      result = await updateRequestStatusAction({
-        requestId: routeId,
-        status: newStatus,
-      })
-    } catch (error: unknown) {
-      setRequestStatusMessage(
-        requestDetailClientServerActionErrorMessage('updateStatus', error)
+      const confirmation = await awaitRequestDetailMutationConfirmation(
+        updateRequestStatusAction({
+          requestId: routeId,
+          status: newStatus,
+        }),
       )
+      if (!confirmation.confirmed) {
+        setWorkflowMutationRequiresRefresh(true)
+        setRequestStatusMessage(
+          requestDetailClientFailureMessage('confirmWorkflowMutation')
+        )
+        return
+      }
+      result = confirmation.value
+    } catch {
+      setWorkflowMutationRequiresRefresh(true)
+      setRequestStatusMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
       return
     }
 
@@ -826,15 +871,25 @@ async function updateRequestStatus(newStatus: string) {
       return
     }
 
-    setRequestStatusMessage('Request status updated.')
+    let refreshFailed = false
     try {
       await loadActivityEvents(routeId)
     } catch {
-      setRequestStatusMessage(
-        'Request status updated, but activity history could not refresh. Refresh the page before changing status again.'
-      )
+      refreshFailed = true
     }
-    loadRequest()
+    try {
+      await loadRequest()
+    } catch {
+      refreshFailed = true
+    }
+    if (refreshFailed) {
+      setWorkflowMutationRequiresRefresh(true)
+      setRequestStatusMessage(
+        'Request status updated, but the refreshed request could not fully load. Refresh the page before changing status again.'
+      )
+    } else {
+      setRequestStatusMessage('Request status updated.')
+    }
   } finally {
     requestStatusInFlightRef.current = false
     setRequestStatusUpdating(false)
@@ -845,7 +900,7 @@ async function updateWorkflowStepStatus(
   stepId: string,
   status: RequestWorkflowStepStatus
 ) {
-  if (workflowStepMutationInFlightRef.current) return
+  if (workflowStepMutationInFlightRef.current || workflowMutationRequiresRefresh) return
 
   workflowStepMutationInFlightRef.current = true
   setWorkflowStepUpdatingId(stepId)
@@ -853,15 +908,24 @@ async function updateWorkflowStepStatus(
   try {
     let result: Awaited<ReturnType<typeof updateRequestWorkflowStepStatus>>
     try {
-      result = await updateRequestWorkflowStepStatus({
-        requestId: routeId,
-        stepId,
-        status,
-      })
-    } catch (error: unknown) {
-      setWorkflowStepMessage(
-        requestDetailClientServerActionErrorMessage('updateWorkflowStep', error)
+      const confirmation = await awaitRequestDetailMutationConfirmation(
+        updateRequestWorkflowStepStatus({
+          requestId: routeId,
+          stepId,
+          status,
+        }),
       )
+      if (!confirmation.confirmed) {
+        setWorkflowMutationRequiresRefresh(true)
+        setWorkflowStepMessage(
+          requestDetailClientFailureMessage('confirmWorkflowMutation')
+        )
+        return
+      }
+      result = confirmation.value
+    } catch {
+      setWorkflowMutationRequiresRefresh(true)
+      setWorkflowStepMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
       return
     }
 
@@ -885,6 +949,7 @@ async function updateWorkflowStepStatus(
       refreshFailed = true
     }
     if (refreshFailed) {
+      setWorkflowMutationRequiresRefresh(true)
       setWorkflowStepMessage(
         'Workflow step updated, but the refreshed request could not fully load. Refresh the page before changing another step.'
       )
@@ -2123,6 +2188,8 @@ async function deleteGoogleCalendarEvent() {
       setEmailSubject('')
       setStaffNotesMessage('')
       setEditingIntake(false)
+      setWorkflowMutationRequiresRefresh(false)
+      setConfirmMarkCompleteOpen(false)
     })
     return () => {
       cancelled = true
@@ -2480,9 +2547,12 @@ async function deleteGoogleCalendarEvent() {
 
   const missingCompletionItems = completionRequirements.filter((r) => !r.ok)
   const canMarkComplete = Boolean(request) && missingCompletionItems.length === 0
+  const canConfirmMarkComplete = canMarkComplete && !workflowMutationRequiresRefresh
 
   const markCompleteDisabledReason =
-    missingCompletionItems.length === 0
+    workflowMutationRequiresRefresh
+      ? requestDetailClientFailureMessage('confirmWorkflowMutation')
+      : missingCompletionItems.length === 0
       ? ''
       : `To mark complete, review: ${missingCompletionItems
           .map((m) => m.jumpTo.replace('-', ' '))
@@ -2560,6 +2630,15 @@ async function deleteGoogleCalendarEvent() {
       />
 
       <RequestDetailTabNav activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {workflowMutationRequiresRefresh ? (
+        <div className="mt-4">
+          <InlineFormMessage
+            message={requestDetailClientFailureMessage('confirmWorkflowMutation')}
+            className="!mt-0"
+          />
+        </div>
+      ) : null}
 
       <div className="rounded-b-xl border border-gray-200 bg-white shadow-sm">
         <div
@@ -2826,7 +2905,7 @@ async function deleteGoogleCalendarEvent() {
                 request={request}
                 scheduleRow={scheduleRowForProgress}
                 onUpdateStatus={updateRequestStatus}
-                updating={requestStatusUpdating}
+                updating={requestStatusUpdating || workflowMutationRequiresRefresh}
               />
               <RequestWaitingOnSection request={request} onSave={updateWaitingOn} />
             </div>
@@ -2985,6 +3064,7 @@ async function deleteGoogleCalendarEvent() {
                 steps={workflowSteps}
                 updatingStepId={workflowStepUpdatingId}
                 onUpdateStatus={updateWorkflowStepStatus}
+                mutationRequiresRefresh={workflowMutationRequiresRefresh}
               />
             </div>
             {workflowStepMessage ? (
@@ -3017,6 +3097,7 @@ async function deleteGoogleCalendarEvent() {
                     checklistItems={checklistItems}
                     onToggleChecklistItem={toggleChecklistItem}
                     updatingItemId={checklistUpdatingId}
+                    mutationRequiresRefresh={workflowMutationRequiresRefresh}
                   />
                 </div>
                 {checklistMessage ? (
@@ -3193,7 +3274,7 @@ async function deleteGoogleCalendarEvent() {
           <ReadyToCompleteCard
             items={readyToCompleteItems}
             isAlreadyComplete={isRequestComplete}
-            canMarkComplete={canMarkComplete}
+            canMarkComplete={canConfirmMarkComplete}
             markCompleteDisabledReason={markCompleteDisabledReason}
             onRequestMarkComplete={() => setConfirmMarkCompleteOpen(true)}
           />
@@ -3214,12 +3295,12 @@ async function deleteGoogleCalendarEvent() {
                 intake.
               </p>
             </div>
-            <div className="w-full sm:w-auto" title={!canMarkComplete ? markCompleteDisabledReason : undefined}>
+            <div className="w-full sm:w-auto" title={!canConfirmMarkComplete ? markCompleteDisabledReason : undefined}>
               <button
                 type="button"
-                disabled={!canMarkComplete}
+                disabled={!canConfirmMarkComplete}
                 onClick={() => {
-                  if (!canMarkComplete) return
+                  if (!canConfirmMarkComplete) return
                   setConfirmMarkCompleteOpen(true)
                 }}
                 className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
@@ -3294,6 +3375,7 @@ async function deleteGoogleCalendarEvent() {
         confirmLabel="Mark complete"
         onCancel={() => setConfirmMarkCompleteOpen(false)}
         onConfirm={() => {
+          if (!canConfirmMarkComplete) return
           setConfirmMarkCompleteOpen(false)
           updateRequestStatus('complete')
         }}

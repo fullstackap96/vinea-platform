@@ -51,10 +51,12 @@ export function RequestWorkflowStepsSection({
   steps,
   updatingStepId,
   onUpdateStatus,
+  mutationRequiresRefresh = false,
 }: {
   steps: RequestWorkflowStep[]
   updatingStepId: string
   onUpdateStatus: (stepId: string, status: RequestWorkflowStepStatus) => Promise<void> | void
+  mutationRequiresRefresh?: boolean
 }) {
   if (steps.length === 0) {
     return (
@@ -66,7 +68,7 @@ export function RequestWorkflowStepsSection({
   }
 
   const groups = groupRequestWorkflowSteps(steps)
-  const mutationBusy = Boolean(updatingStepId)
+  const mutationBusy = Boolean(updatingStepId) || mutationRequiresRefresh
 
   return (
     <div className="space-y-5" aria-busy={mutationBusy}>

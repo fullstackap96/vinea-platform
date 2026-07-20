@@ -6,6 +6,7 @@ export type RequestDetailClientAction =
   | 'loadRequestNotes'
   | 'loadWorkflowSupport'
   | 'loadRequestTypeSupport'
+  | 'confirmWorkflowMutation'
   | 'updateChecklistItem'
   | 'updateStaffNotes'
   | 'aiSummary'
@@ -47,6 +48,8 @@ const requestDetailFailureMessages: Record<RequestDetailClientAction, string> = 
   loadRequestNotes: 'Could not load request notes. Please try again.',
   loadWorkflowSupport: 'Could not load request checklist and workflow steps. Please try again.',
   loadRequestTypeSupport: 'Could not load request-specific details. Please try again.',
+  confirmWorkflowMutation:
+    'Could not confirm whether this workflow change finished. Refresh the request and review its status before trying again.',
   updateChecklistItem: 'Could not update the checklist item. Please try again.',
   updateStaffNotes: 'Could not save staff notes. Please try again.',
   aiSummary: 'Could not generate the summary right now. Please try again.',

@@ -14,6 +14,7 @@ describe('requestDetailClientFailureMessage', () => {
       'verifyAccess',
       'loadRequestTimeout',
       'loadActivity',
+      'confirmWorkflowMutation',
       'aiSummary',
       'saveAiSummary',
       'aiReply',
