@@ -4,6 +4,32 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Request Detail Core Workflow Confirmation Slice
+
+The 2026-07-20 Request Detail reliability slice gives checklist, request-status, and workflow-step browser writes a 60-second confirmation deadline. An unconfirmed result freezes those workflow controls, including Mark complete, until staff refresh and review; explicit server rejections remain retryable and no write is replayed automatically.
+
+- Immutable implementation commit: `e87e6b863f0cbc7c1f5b19bacce442993fd5010b`
+- Tracked-head aggregate SHA-256: `8F6585E9FC44F8601F22EABBFA2387F9CA6977DFD31A1981CF8CF39061569F84`
+- Source mode: `tracked-head`
+- Source file count: `1487`
+- Tracked source files: `1487`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused confirmation, single-flight, safe-message, active-parish route, and Server Action coverage passed `7` files / `34` tests before immutable source binding. Existing staff authentication, selected active-parish membership, same-parish request ownership, validation, checked persistence, and safe audit behavior remain authoritative.
+
+The source-bound suite passed `8` files / `40` tests. The isolated complete `15`-check release contract passed in `393` seconds with zero secret findings across `2,870` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `849` test files / `3,644` tests, and the credential-free Next.js 16.2.10 `56`-page build.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `FE0F845CC72DE8C71CF8DFC6B3C811A48AC6323AB34725307ECB1C635FE22AC9`
+- Source file count: `1491`
+- Tracked source files: `1487`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+This manifest records reviewed source identity and does not replace an immutable Git commit, authorize production, or permit a sensitive runtime capability.
+
 ## Post-Release Daily Work Hub Mutation Confirmation Slice
 
 The 2026-07-20 Daily Work Hub reliability slice gives mark-as-contacted and care-touchpoint browser writes a 60-second confirmation deadline. An unconfirmed result freezes related mutation controls until staff refresh and review; a sequential batch stops at the first uncertain item and never replays automatically.
