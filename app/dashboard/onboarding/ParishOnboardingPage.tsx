@@ -9,6 +9,10 @@ import {
   onboardingSaveErrorMessage,
 } from '@/lib/onboardingClientMessages'
 import {
+  ONBOARDING_COMPLETION_CONFIRMATION_TIMEOUT_MS,
+  ONBOARDING_COMPLETION_REFRESH_REQUIRED_MESSAGE,
+} from '@/lib/onboardingClientConfirmation'
+import {
   parseOnboardingSettingsResponse,
   parseOnboardingStaffResponse,
   type OnboardingParishReadModel,
@@ -44,12 +48,14 @@ function ReadinessRing({ readiness }: { readiness: ParishReadinessResult }) {
   )
 }
 
-export function ParishOnboardingPage() {
+export function ParishOnboardingPage({ activeParishId = null }: { activeParishId?: string | null }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const completionInFlightRef = useRef(false)
+  const mountedRef = useRef(false)
   const loadSequenceRef = useRef(0)
   const loadAbortRef = useRef<AbortController | null>(null)
+  const [completionRequiresRefresh, setCompletionRequiresRefresh] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [parish, setParish] = useState<OnboardingParishReadModel | null>(null)
@@ -65,7 +71,7 @@ export function ParishOnboardingPage() {
     [readiness]
   )
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<OnboardingParishReadModel | null> => {
     const loadSequence = ++loadSequenceRef.current
     loadAbortRef.current?.abort()
     const controller = new AbortController()
@@ -89,39 +95,47 @@ export function ParishOnboardingPage() {
       ])
       const settingsData = await settingsRes.json().catch(() => ({}))
       const staffData = await staffRes.json().catch(() => ({}))
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return null
 
       if (!settingsRes.ok || !settingsData?.ok) {
         setError(onboardingLoadErrorMessage(settingsData?.error))
-        return
+        return null
       }
       if (!staffRes.ok || !staffData?.ok) {
         setError(onboardingLoadErrorMessage(staffData?.error))
-        return
+        return null
       }
       const nextParish = parseOnboardingSettingsResponse(settingsData)
       const nextStaff = parseOnboardingStaffResponse(staffData)
       if (!nextParish || !nextStaff) {
         setError(onboardingLoadErrorMessage(null))
-        return
+        return null
+      }
+      if (activeParishId && nextParish.id !== activeParishId) {
+        setError(onboardingLoadErrorMessage(null))
+        return null
       }
       setParish(nextParish)
       setActiveParishName(nextParish.name)
       setStaffUsers(nextStaff)
+      return nextParish
     } catch (err) {
-      if (!isLatestLoad()) return
-      if (err instanceof DOMException && err.name === 'AbortError' && !loadTimedOut) return
+      if (!isLatestLoad()) return null
+      if (err instanceof DOMException && err.name === 'AbortError' && !loadTimedOut) return null
       setError(onboardingLoadErrorMessage(err))
+      return null
     } finally {
       window.clearTimeout(timeoutId)
       if (isLatestLoad()) setLoading(false)
       if (loadAbortRef.current === controller) loadAbortRef.current = null
     }
-  }, [])
+  }, [activeParishId])
 
   useEffect(() => {
+    mountedRef.current = true
     void load()
     return () => {
+      mountedRef.current = false
       loadSequenceRef.current += 1
       loadAbortRef.current?.abort()
       loadAbortRef.current = null
@@ -129,7 +143,19 @@ export function ParishOnboardingPage() {
   }, [load])
 
   async function markComplete() {
-    if (completionInFlightRef.current || !parish || !readiness.readyToComplete) return
+    if (
+      completionInFlightRef.current ||
+      completionRequiresRefresh ||
+      !parish ||
+      !readiness.readyToComplete
+    ) return
+
+    const completionParishId = parish.id
+    if (activeParishId && activeParishId !== completionParishId) {
+      setCompletionRequiresRefresh(true)
+      setError(ONBOARDING_COMPLETION_REFRESH_REQUIRED_MESSAGE)
+      return
+    }
 
     completionInFlightRef.current = true
     setSaving(true)
@@ -140,6 +166,7 @@ export function ParishOnboardingPage() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(ONBOARDING_COMPLETION_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({
           name: parish.name,
           default_notification_email: parish.default_notification_email ?? '',
@@ -152,14 +179,32 @@ export function ParishOnboardingPage() {
         }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok) {
+      if (!mountedRef.current) return
+      if (!res.ok) {
         setError(onboardingSaveErrorMessage(data?.error))
         return
       }
+      if (!data?.ok) {
+        setCompletionRequiresRefresh(true)
+        setError(ONBOARDING_COMPLETION_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
+      const refreshedParish = await load()
+      if (!mountedRef.current) return
+      if (
+        !refreshedParish ||
+        refreshedParish.id !== completionParishId ||
+        !refreshedParish.onboarding_completed_at
+      ) {
+        setCompletionRequiresRefresh(true)
+        setError(ONBOARDING_COMPLETION_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
       setMessage('Parish onboarding marked complete.')
-      await load()
-    } catch (err) {
-      setError(onboardingSaveErrorMessage(err))
+    } catch {
+      if (!mountedRef.current) return
+      setCompletionRequiresRefresh(true)
+      setError(ONBOARDING_COMPLETION_REFRESH_REQUIRED_MESSAGE)
     } finally {
       completionInFlightRef.current = false
       setSaving(false)
@@ -226,11 +271,22 @@ export function ParishOnboardingPage() {
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
                   <button
                     type="button"
-                    disabled={!readiness.readyToComplete || readiness.onboardingComplete || saving}
+                    disabled={
+                      !readiness.readyToComplete ||
+                      readiness.onboardingComplete ||
+                      saving ||
+                      completionRequiresRefresh
+                    }
                     onClick={() => void markComplete()}
                     className={`${primaryButtonMd} justify-center`}
                   >
-                    {saving ? 'Saving...' : readiness.onboardingComplete ? 'Setup complete' : 'Mark setup complete'}
+                    {saving
+                      ? 'Saving...'
+                      : completionRequiresRefresh
+                        ? 'Refresh required'
+                        : readiness.onboardingComplete
+                          ? 'Setup complete'
+                          : 'Mark setup complete'}
                   </button>
                   <Link
                     href="/dashboard/settings"

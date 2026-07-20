@@ -18,7 +18,7 @@ describe('onboarding client safe messages', () => {
     expect(source).toContain('setError(onboardingLoadErrorMessage(settingsData?.error))')
     expect(source).toContain('setError(onboardingLoadErrorMessage(err))')
     expect(source).toContain('setError(onboardingSaveErrorMessage(data?.error))')
-    expect(source).toContain('setError(onboardingSaveErrorMessage(err))')
+    expect(source).toContain('setError(ONBOARDING_COMPLETION_REFRESH_REQUIRED_MESSAGE)')
     expect(source).not.toContain("String(settingsData?.error || 'Could not load parish setup.')")
     expect(source).not.toContain("String(data?.error || 'Could not mark onboarding complete.')")
     expect(source).not.toContain('function messageFromUnknown')
