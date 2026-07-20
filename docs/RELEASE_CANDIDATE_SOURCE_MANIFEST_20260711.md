@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Intake Queue Client Confirmation Slice
+
+The 2026-07-20 Intake reliability slice gives staff-reviewed Request and Mass Intention quick-triage commands a 60-second browser confirmation deadline. Transport uncertainty freezes all Intake mutation controls until staff refresh and review the item; obsolete work is aborted on unmount and never auto-replayed.
+
+- Immutable implementation commit: `821c17db941bfdf7232ffeb6cd492876e58fe64c`
+- Tracked-head aggregate SHA-256: `EC98887E46E0973173B69C3CEF8DFBB540CB330406E39582227A1E7E8AC9D7C4`
+- Source mode: `tracked-head`
+- Source file count: `1485`
+- Tracked source files: `1485`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused client confirmation, shared single-flight, safe-message, and active-parish route coverage passed `6` files / `28` tests before immutable source binding. The source-bound suite then passed `7` files / `34` tests. The isolated complete `15`-check release contract passed in `379.9` seconds with zero secret findings across `2,866` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `847` test files / `3,628` tests, and the credential-free Next.js 16.2.10 `56`-page build. Existing staff authentication, active-parish membership, same-parish ownership, validation, checked persistence, partial-success guidance, and safe audit metadata remain authoritative.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `0370B81A819CFA5E0386B7E6F905520FB0EF7BA77FD785E1265C1548ADEC44CD`
+- Source file count: `1489`
+- Tracked source files: `1485`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/INTAKE_QUEUE_CLIENT_CONFIRMATION_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Demo Request Client Confirmation Slice
 
 The 2026-07-20 public conversion reliability slice gives Schedule Demo a 20-second browser confirmation deadline, freezes the reviewed payload while unresolved, and distinguishes an unconfirmed result from an ordinary failure. Same-payload retries retain the existing opaque provider-idempotent delivery attempt; unmount cancellation remains quiet.
