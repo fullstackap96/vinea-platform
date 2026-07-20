@@ -61,6 +61,20 @@ This aggregate adds the focused final-approval-prompt validation source and bind
 
 The first complete release-gate attempt failed closed at the test stage because two checkpoint assertions still expected the pre-intake wording. After the assertions were updated to require `READY_FOR_EXPLICIT_APPROVAL` while preserving explicit production `NO-GO`, focused coverage passed `3` files / `12` tests. The corrected docs-binding commit `af3aef78` then passed all `15` local release checks in an LF-preserving clean checkout: zero secret findings across `2,101` files, zero dependency vulnerabilities, every evidence gate, both TypeScript scopes, lint, `835` test files / `3,558` tests, and the credential-free `56`-page build. Final decision: `LOCAL_RELEASE_READINESS_PASSED`; production approval remained `NO`.
 
+## Repository Artifact Boundary Development Identity
+
+The 2026-07-20 repository-artifact hardening slice has a separate dirty-worktree development identity. It does not replace any immutable release record above:
+
+- Parent/base commit: `c70487a0030ad0924fc1602370090e39065fd6d3`
+- Release-source aggregate SHA-256: `BDF5CD4F1326CBFA86B6FCDC32B7AE0E4FE7A1A6CD3C7B7267756F3B65BB31DC`
+- Source file count: `1477`
+- Tracked source files: `1472`
+- Untracked source files: `5`
+- Worktree dirty: `YES`
+- Production approval granted: `NO`
+
+This identity binds the current release-source allowlist while unrelated local generated/private artifacts remain excluded by the repository boundary. Both the secret scanner and source manifest now use an explicit 64 MiB Git-output buffer so large dirty worktrees fail only at a meaningful integrity boundary, not Node's default output limit. The current identity also includes the focused AI/operator-context consistency guard. The complete local 15-check release contract passed before these adjacent safeguards; focused manifest, secret-scan, and context checks passed afterward. This remains development evidence only; an immutable commit, clean-checkout gate, remote CI, Preview, and separate production approval would still be required before any release action.
+
 ## Scope
 
 The aggregate covers the current Git-tracked and non-ignored untracked release source under:

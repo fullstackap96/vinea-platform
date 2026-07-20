@@ -4,6 +4,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, resolve } from 'node:path'
 
 const repoRoot = process.cwd()
+const gitOutputMaxBufferBytes = 64 * 1024 * 1024
 
 const includedPrefixes = [
   '.github/workflows/',
@@ -57,6 +58,7 @@ function gitLines(args) {
   return execFileSync('git', args, {
     cwd: repoRoot,
     encoding: 'utf8',
+    maxBuffer: gitOutputMaxBufferBytes,
   })
     .split('\0')
     .filter(Boolean)
@@ -110,12 +112,14 @@ for (const path of sourcePaths) {
 const baseCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
   cwd: repoRoot,
   encoding: 'utf8',
+  maxBuffer: gitOutputMaxBufferBytes,
 }).trim()
 
 const worktreeDirty =
   execFileSync('git', ['status', '--porcelain'], {
     cwd: repoRoot,
     encoding: 'utf8',
+    maxBuffer: gitOutputMaxBufferBytes,
   }).trim().length > 0
 
 console.log(

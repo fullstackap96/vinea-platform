@@ -83,6 +83,8 @@ describe('release candidate source manifest', () => {
     expect(source).toContain('function canonicalSourceBytes(path, bytes)')
     expect(source).toContain("replaceAll('\\r\\n', '\\n')")
     expect(source).toContain('binaryExtensions.has(extname(path).toLowerCase())')
+    expect(source).toContain('const gitOutputMaxBufferBytes = 64 * 1024 * 1024')
+    expect(source).toContain('maxBuffer: gitOutputMaxBufferBytes')
   })
 
   it('binds the current aggregate into the human-review evidence record', () => {

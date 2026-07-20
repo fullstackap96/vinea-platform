@@ -43,7 +43,11 @@ next-env.d.ts
 
 # local Vinea QA/runtime artifacts
 /tmp/
+/.tmp/
 /tmp-*.log
 /tmp-*.pid
 /.tmp-*.log
 /.codex-*.log
+
+# local mailbox exports may contain private message bodies and signed tracking links
+/docs/sales/VINEA_MAILBOX_SNAPSHOT_*.json
