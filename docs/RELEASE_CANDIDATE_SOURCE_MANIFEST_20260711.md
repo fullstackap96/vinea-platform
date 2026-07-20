@@ -4,6 +4,32 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Request Detail Ownership And Follow-Up Confirmation Slice
+
+The 2026-07-20 Request Detail reliability slice gives assignment, waiting-on, follow-up date, and care-cadence shortcut writes the shared 60-second confirmation boundary. Transport uncertainty or failed post-save refresh freezes the related Request Detail workflow controls until staff refresh and review; explicit Server Action rejections remain retryable and no write is replayed automatically. The request loader now returns a positive refresh result so callers cannot mistake a displayed load failure for refreshed data.
+
+- Immutable implementation commit: `e6f184b45104b2e23936bd37e07bb28c7b20b282`
+- Tracked-head aggregate SHA-256: `2F18FF4EB0EAC4A4648A4728F89D3567E6325C878F2B332F161DEAA48EA1CE02`
+- Source mode: `tracked-head`
+- Source file count: `1491`
+- Tracked source files: `1491`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused confirmation-helper, ownership/follow-up, single-flight, safe-message, and core-workflow coverage passed `8` files / `44` tests before immutable source binding. Existing staff authentication, selected active-parish membership, same-parish request ownership, validation, checked persistence, and safe audit behavior remain authoritative.
+
+The source-bound suite passed `9` files / `50` tests. The isolated complete `15`-check release contract passed in `339.1` seconds with zero secret findings across `2,875` text files (`500` binaries skipped), zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `851` test files / `3,653` tests, and the credential-free Next.js 16.2.10 `56`-page build.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `71D7650EA8DE278383ADF48F89EE179EA0079B3D1B4D438C5A20C1A001C9906B`
+- Source file count: `1495`
+- Tracked source files: `1491`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+This manifest records reviewed source identity and does not replace an immutable Git commit, authorize production, or permit a sensitive runtime capability.
+
 ## Post-Release Request Detail Core Workflow Confirmation Slice
 
 The 2026-07-20 Request Detail reliability slice gives checklist, request-status, and workflow-step browser writes a 60-second confirmation deadline. An unconfirmed result freezes those workflow controls, including Mark complete, until staff refresh and review; explicit server rejections remain retryable and no write is replayed automatically.
