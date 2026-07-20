@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Request Relationship Read Deadline Slice
+
+The 2026-07-20 Request Detail reliability slice gives both People-directory and suggested-connection reads a 15-second deadline. Obsolete request reads remain silently cancelled, while a timeout on the current request now reaches the existing unavailable guidance instead of being mistaken for navigation cancellation.
+
+- Immutable implementation commit: `6515b931bcc5ec1ee0bb0da6b3483b56788aff57`
+- Tracked-head aggregate SHA-256: `D7DE9F4F31FEE2C8393DDDACA5F073A86AD37C30A07AB38B000335BD2FB8121A`
+- Source mode: `tracked-head`
+- Source file count: `1481`
+- Tracked source files: `1481`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused deadline, fail-closed, selected-parish, and safe-link coverage passed `6` files / `21` tests. The complete `15`-check local release contract passed in `358.8` seconds with zero secret findings across `2,858` text files (`500` binaries skipped), zero dependency vulnerabilities, all governance/evidence gates, both TypeScript scopes, lint, `843` test files / `3,607` tests, and the credential-free Next.js 16.2.10 `56`-page build. The clients remain read-only and use only the existing staff-authenticated, active-parish/request-scoped API.
+
+The shared workspace normal mode remains separate because it includes four unrelated user-owned untracked scripts:
+
+- Working-tree aggregate SHA-256: `D100D98B7E69C7FB7DAEF48B12F0FC6534F90085A5C0405FB1228F7967A7CB57`
+- Source file count: `1485`
+- Tracked source files: `1481`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+See `docs/REQUEST_RELATIONSHIP_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md`.
+
 ## Post-Release Reports Read Deadline Slice
 
 The 2026-07-20 analytics reliability slice gives each current selected-parish Reports summary read a 15-second browser deadline. Selected-parish replacement still cancels old work quietly, and a stalled current read now reaches the existing unavailable-report state.
