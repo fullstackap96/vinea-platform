@@ -2,6 +2,8 @@
 
 Status: Implemented and locally verified on 2026-07-20.
 
+Implementation commit: `f3a7747f0dcddda8362e00f1e27a573694933d8b`.
+
 ## Purpose
 
 Keep Vinea's release checks focused on tracked and genuinely pending source without weakening credential detection or accidentally staging private local artifacts.

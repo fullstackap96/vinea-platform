@@ -66,14 +66,15 @@ The first complete release-gate attempt failed closed at the test stage because 
 The 2026-07-20 repository-artifact hardening slice has a separate dirty-worktree development identity. It does not replace any immutable release record above:
 
 - Parent/base commit: `c70487a0030ad0924fc1602370090e39065fd6d3`
+- Implementation commit: `f3a7747f0dcddda8362e00f1e27a573694933d8b`
 - Release-source aggregate SHA-256: `BDF5CD4F1326CBFA86B6FCDC32B7AE0E4FE7A1A6CD3C7B7267756F3B65BB31DC`
 - Source file count: `1477`
-- Tracked source files: `1472`
-- Untracked source files: `5`
+- Tracked source files: `1473`
+- Untracked source files: `4`
 - Worktree dirty: `YES`
 - Production approval granted: `NO`
 
-This identity binds the current release-source allowlist while unrelated local generated/private artifacts remain excluded by the repository boundary. Both the secret scanner and source manifest now use an explicit 64 MiB Git-output buffer so large dirty worktrees fail only at a meaningful integrity boundary, not Node's default output limit. The current identity also includes the focused AI/operator-context consistency guard. The complete local 15-check release contract passed before these adjacent safeguards; focused manifest, secret-scan, and context checks passed afterward. This remains development evidence only; an immutable commit, clean-checkout gate, remote CI, Preview, and separate production approval would still be required before any release action.
+This identity binds the current release-source allowlist while unrelated local generated/private artifacts remain excluded by the repository boundary. Both the secret scanner and source manifest now use an explicit 64 MiB Git-output buffer so large dirty worktrees fail only at a meaningful integrity boundary, not Node's default output limit. The current identity also includes the focused AI/operator-context consistency guard. The complete local 15-check release contract passed before these adjacent safeguards; focused manifest, secret-scan, and context checks passed afterward. Implementation commit `f3a7747f0dcddda8362e00f1e27a573694933d8b` makes the code/test boundary immutable; this follow-up record still does not substitute for clean-checkout remote CI, Preview, or separate production approval.
 
 ## Scope
 
