@@ -14,7 +14,7 @@ describe('Request relationship suggestions failure state', () => {
   it('cancels obsolete selected-parish suggestion reads', () => {
     expect(source).toContain('const controller = new AbortController()')
     expect(source).toContain('signal: controller.signal')
-    expect(source).toContain('if (cancelled || controller.signal.aborted) return')
+    expect(source).toContain('if (cancelled) return')
     expect(source).toContain('controller.abort()')
   })
 
@@ -32,7 +32,7 @@ describe('Request relationship suggestions failure state', () => {
   it('always settles a current failed read without settling an obsolete one', () => {
     expect(source).toContain('} finally {')
     expect(source).toContain(
-      'if (!cancelled && !controller.signal.aborted) setLoading(false)',
+      'if (!cancelled) setLoading(false)',
     )
   })
 

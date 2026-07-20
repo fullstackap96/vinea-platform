@@ -31,6 +31,8 @@ type RelationshipSuggestionResponse =
     }
   | { ok: false; error: string }
 
+const RELATIONSHIP_SUGGESTIONS_READ_TIMEOUT_MS = 15_000
+
 export function RequestRelationshipSuggestions({
   requestId,
   personId,
@@ -50,6 +52,7 @@ export function RequestRelationshipSuggestions({
   useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
+    let readTimeoutId: number | undefined
 
     async function load() {
       setLoading(true)
@@ -64,6 +67,11 @@ export function RequestRelationshipSuggestions({
         return
       }
 
+      readTimeoutId = window.setTimeout(
+        () => controller.abort(),
+        RELATIONSHIP_SUGGESTIONS_READ_TIMEOUT_MS,
+      )
+
       try {
         const response = await fetch(`/api/requests/${requestId}/relationship-suggestions`, {
           credentials: 'include',
@@ -73,7 +81,7 @@ export function RequestRelationshipSuggestions({
           | RelationshipSuggestionResponse
           | null
 
-        if (cancelled || controller.signal.aborted) return
+        if (cancelled) return
 
         if (!response.ok || !payload?.ok) {
           setPersonMatches([])
@@ -85,18 +93,20 @@ export function RequestRelationshipSuggestions({
         setPersonMatches(payload.personMatches)
         setLinkedHouseholds(payload.linkedHouseholds)
       } catch {
-        if (cancelled || controller.signal.aborted) return
+        if (cancelled) return
         setPersonMatches([])
         setLinkedHouseholds([])
         setLoadUnavailable(true)
       } finally {
-        if (!cancelled && !controller.signal.aborted) setLoading(false)
+        if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
+        if (!cancelled) setLoading(false)
       }
     }
 
     void load()
     return () => {
       cancelled = true
+      if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
       controller.abort()
     }
   }, [requestId, resolvedPersonId, resolvedRequestParishId])
