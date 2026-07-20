@@ -4,15 +4,22 @@ export function StaffNotesSection({
   staffNotes,
   setStaffNotes,
   onSaveStaffNotes,
+  saving = false,
+  mutationRequiresRefresh = false,
 }: {
   staffNotes: string
   setStaffNotes: (value: string) => void
   onSaveStaffNotes: () => void
+  saving?: boolean
+  mutationRequiresRefresh?: boolean
 }) {
+  const mutationBusy = saving || mutationRequiresRefresh
+
   return (
     <div>
       <textarea
         value={staffNotes}
+        disabled={mutationBusy}
         onChange={(e) => setStaffNotes(e.target.value)}
         className="w-full border rounded p-3 min-h-[150px]"
         placeholder="Shared staff notes for this request (saved on the request record)…"
@@ -21,9 +28,10 @@ export function StaffNotesSection({
       <button
         type="button"
         onClick={onSaveStaffNotes}
+        disabled={mutationBusy}
         className={`${primaryButtonMd} mt-3 w-full justify-center sm:w-auto`}
       >
-        Save Notes
+        {saving ? 'Saving...' : 'Save Notes'}
       </button>
     </div>
   )

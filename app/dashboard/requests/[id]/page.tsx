@@ -205,6 +205,8 @@ const [aiLoading, setAiLoading] = useState(false)
 const [copyMessage, setCopyMessage] = useState('')
 const [staffNotes, setStaffNotes] = useState('')
   const [staffNotesMessage, setStaffNotesMessage] = useState('')
+  const [staffNotesSaving, setStaffNotesSaving] = useState(false)
+  const staffNotesSaveInFlightRef = useRef(false)
   const [requestNotes, setRequestNotes] = useState<
     Array<{ id: string; body: string; created_at: string }>
   >([])
@@ -225,6 +227,7 @@ const [staffNotes, setStaffNotes] = useState('')
   const [commContactedAt, setCommContactedAt] = useState(() => nowDatetimeLocal())
   const [commNotes, setCommNotes] = useState('')
   const [commSaving, setCommSaving] = useState(false)
+  const communicationMutationInFlightRef = useRef(false)
   const [commMessage, setCommMessage] = useState('')
 
   const [emailSubject, setEmailSubject] = useState('')
@@ -1277,6 +1280,10 @@ async function confirmVineaEmailTemplate() {
 }
 
 async function saveStaffNotes() {
+  if (staffNotesSaveInFlightRef.current || workflowMutationRequiresRefresh) return
+
+  staffNotesSaveInFlightRef.current = true
+  setStaffNotesSaving(true)
   setStaffNotesMessage('')
   try {
     const res = await fetch(`/api/requests/${routeId}/staff-notes`, {
@@ -1284,24 +1291,39 @@ async function saveStaffNotes() {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ staffNotes }),
+      signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS),
     })
     const data = await res.json().catch(() => ({}))
 
+    if (res.ok && data?.ok !== true) {
+      setWorkflowMutationRequiresRefresh(true)
+      setStaffNotesMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+      return
+    }
     if (!res.ok || !data?.ok) {
       setStaffNotesMessage(requestDetailClientApiErrorMessage('updateStaffNotes', data?.error))
       return
     }
+    if (!(await loadRequest())) {
+      setWorkflowMutationRequiresRefresh(true)
+      setStaffNotesMessage(
+        'Staff notes were saved, but the refreshed request could not load. Refresh the page before editing them again.',
+      )
+      return
+    }
+    setStaffNotesMessage('Staff notes saved.')
   } catch (error) {
     devDashboardConsoleError(
       'staff_notes save',
-      new Error(requestDetailClientFailureMessage('updateStaffNotes'), { cause: error })
+      new Error(requestDetailClientFailureMessage('confirmWorkflowMutation'), { cause: error })
     )
-    setStaffNotesMessage(requestDetailClientFailureMessage('updateStaffNotes'))
+    setWorkflowMutationRequiresRefresh(true)
+    setStaffNotesMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
     return
+  } finally {
+    staffNotesSaveInFlightRef.current = false
+    setStaffNotesSaving(false)
   }
-
-  setStaffNotesMessage('Staff notes saved.')
-  loadRequest()
 }
 
  async function saveSuggestedDates() {
@@ -1790,6 +1812,9 @@ function confirmConfirmedScheduleClear() {
 }
 
 async function logCommunication() {
+  if (communicationMutationInFlightRef.current || workflowMutationRequiresRefresh) return
+
+  communicationMutationInFlightRef.current = true
   setCommSaving(true)
   setCommMessage('')
 
@@ -1797,6 +1822,7 @@ async function logCommunication() {
   if (!contactedAtIso) {
     setCommMessage('Please choose a valid contacted date/time.')
     setCommSaving(false)
+    communicationMutationInFlightRef.current = false
     return
   }
 
@@ -1810,32 +1836,45 @@ async function logCommunication() {
         method: commMethod,
         notes: commNotes,
       }),
+      signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS),
     })
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: unknown }
 
+    if (res.ok && data?.ok !== true) {
+      setWorkflowMutationRequiresRefresh(true)
+      setCommMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+      return
+    }
     if (!res.ok || !data?.ok) {
       const message = requestDetailClientApiErrorMessage('logCommunication', data?.error)
       setCommMessage(message)
-      setCommSaving(false)
       if (message === requestDetailClientFailureMessage('updateCommunicationSummary')) {
-        loadRequest()
+        setWorkflowMutationRequiresRefresh(true)
+        await loadRequest()
       }
       return
     }
+    if (!(await loadRequest())) {
+      setWorkflowMutationRequiresRefresh(true)
+      setCommMessage(
+        'Communication was logged, but the refreshed request could not load. Refresh the page before logging another touchpoint.',
+      )
+      return
+    }
+    setCommNotes('')
+    setCommMessage('Communication logged.')
   } catch (error) {
     devDashboardConsoleError(
       'LOG COMMUNICATION ERROR',
-      new Error(requestDetailClientFailureMessage('logCommunication'), { cause: error })
+      new Error(requestDetailClientFailureMessage('confirmWorkflowMutation'), { cause: error })
     )
-    setCommMessage(requestDetailClientFailureMessage('logCommunication'))
-    setCommSaving(false)
+    setWorkflowMutationRequiresRefresh(true)
+    setCommMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
     return
+  } finally {
+    communicationMutationInFlightRef.current = false
+    setCommSaving(false)
   }
-
-  setCommNotes('')
-  setCommMessage('Communication logged.')
-  setCommSaving(false)
-  loadRequest()
 }
 
 async function sendEmail() {
@@ -3175,7 +3214,7 @@ async function deleteGoogleCalendarEvent() {
                 notes={commNotes}
                 setNotes={setCommNotes}
                 onLog={logCommunication}
-                saving={commSaving}
+                saving={commSaving || workflowMutationRequiresRefresh}
                 message={commMessage}
               />
             </CommunicationHubSubsection>
@@ -3221,6 +3260,8 @@ async function deleteGoogleCalendarEvent() {
             staffNotes={staffNotes}
             setStaffNotes={setStaffNotes}
             onSaveStaffNotes={() => void saveStaffNotes()}
+            saving={staffNotesSaving}
+            mutationRequiresRefresh={workflowMutationRequiresRefresh}
           />
           {staffNotesMessage ? (
             <InlineFormMessage message={staffNotesMessage} className="!mt-3" />

@@ -63,7 +63,7 @@ describe('Request Detail core workflow confirmation deadline boundary', () => {
       'const [workflowMutationRequiresRefresh, setWorkflowMutationRequiresRefresh] =',
     )
     expect(page).toContain('updating={requestStatusUpdating || workflowMutationRequiresRefresh}')
-    expect(page.match(/mutationRequiresRefresh=\{workflowMutationRequiresRefresh\}/g)).toHaveLength(6)
+    expect(page.match(/mutationRequiresRefresh=\{workflowMutationRequiresRefresh\}/g)).toHaveLength(7)
     expect(checklist).toContain(
       'const mutationBusy = Boolean(updatingItemId) || mutationRequiresRefresh',
     )

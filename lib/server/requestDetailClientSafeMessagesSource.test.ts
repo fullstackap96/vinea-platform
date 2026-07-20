@@ -31,7 +31,6 @@ describe('request detail client safe messages', () => {
       'aiSummary',
       'aiReply',
       'saveReplyDraft',
-      'updateStaffNotes',
       'saveSuggestedDates',
       'saveConfirmedDate',
       'clearConfirmedDate',
@@ -43,7 +42,6 @@ describe('request detail client safe messages', () => {
       'clearWeddingCeremony',
       'saveOciaSession',
       'clearOciaSession',
-      'logCommunication',
       'updateCommunicationSummary',
       'sendEmail',
       'logSentEmail',
@@ -54,6 +52,10 @@ describe('request detail client safe messages', () => {
     ]) {
       expect(source).toContain(`requestDetailClientFailureMessage('${action}')`)
     }
+
+    expect(source).toContain("requestDetailClientApiErrorMessage('updateStaffNotes', data?.error)")
+    expect(source).toContain("requestDetailClientApiErrorMessage('logCommunication', data?.error)")
+    expect(source).toContain("requestDetailClientFailureMessage('confirmWorkflowMutation')")
 
     expect(source).not.toContain('setActivityError(error instanceof Error ? error.message')
     expect(source).not.toContain("setActivityError(String(data?.error || 'Could not load request activity.'))")
