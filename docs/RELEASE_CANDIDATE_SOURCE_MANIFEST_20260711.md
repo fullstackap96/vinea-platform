@@ -4,6 +4,20 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Tracked-Head Manifest Tooling
+
+The 2026-07-20 release-integrity slice adds `npm run check:release-source-manifest:head`, which hashes release-source blobs directly from exact committed `HEAD` through a bounded Git batch operation. It rejects unknown modes and malformed, incomplete, non-blob, or extra batch output. It excludes untracked workspace source without copying the repository or creating a temporary worktree, and it continues to print no paths, source contents, environment values, or secrets.
+
+- Immutable implementation commit: `a30b47762eb4ad01ff2710004921227134a767a5`
+- Tracked-head aggregate SHA-256: `B3BBE5B194CF01E4A1D1662F40B5508E4BACFEE2DDE60316241BE69810C5B71E`
+- Source mode: `tracked-head`
+- Source file count: `1474`
+- Tracked source files: `1474`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+Focused coverage passed `1` file / `6` tests. The complete local `15`-check release contract passed in `357.2` seconds with zero secret findings across `2,845` text files, zero dependency vulnerabilities, every governance/evidence gate, both TypeScript scopes, lint, `837` test files / `3,582` tests, and the credential-free Next.js 16 `56`-page build. In the same shared workspace, normal working-tree mode reports aggregate `06D2801786330310DA5CF247F31BD3FD25D79D4DDC867436ADB7AA217D7F3104` across `1478` source files, including four unrelated user-owned untracked scripts. The two identities intentionally differ. See `docs/RELEASE_SOURCE_TRACKED_HEAD_MANIFEST_BOUNDARY_20260720.md`.
+
 ## Post-Release Request Document Content Safety Slice
 
 The 2026-07-20 request-document safety slice restricts new staff and family uploads to signature-matched PDF/JPEG/PNG content and requests attachment-only staff signed access. Its immutable commit and clean-checkout release-source aggregate are recorded after the complete local release gate. This additive branch work does not rewrite the merged release identity below and does not authorize production, storage access, migrations, operational RLS changes, or sensitive feature gates.
@@ -19,7 +33,7 @@ The 2026-07-20 request-document safety slice restricts new staff and family uplo
 
 Focused coverage passed `10` files / `59` tests. The complete local `15`-check release contract passed in `342.1` seconds with zero secret findings across `2,844` text files, zero dependency vulnerabilities, every evidence gate, both TypeScript scopes, lint, `837` test files / `3,580` tests, and the credential-free Next.js 16 `56`-page build. The clean aggregate does not replace the immutable Git commit; together they identify this additive branch slice without authorizing production or any separately locked capability.
 
-The current shared workspace remains dirty because four unrelated user-owned, untracked scripts are inside the broad release-source allowlist. Its development aggregate is `C2FF7AF2A69C23672920DED9E18657E6BC1AEEFAB85D2C88C6ED364C28CB6739`.
+Before the tracked-head tooling was committed, the same dirty shared workspace produced transient development aggregate `F3A062610108A48B1F1ED0B68A5BBB6D504AD857CE60C8F872AD9C37A8191F92` because four unrelated user-owned, untracked scripts remained inside the broad release-source allowlist.
 
 - Source file count: `1478`
 - Tracked source files: `1474`
