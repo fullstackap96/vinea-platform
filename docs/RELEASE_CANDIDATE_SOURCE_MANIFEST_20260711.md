@@ -4,6 +4,30 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Request Document Content Safety Slice
+
+The 2026-07-20 request-document safety slice restricts new staff and family uploads to signature-matched PDF/JPEG/PNG content and requests attachment-only staff signed access. Its immutable commit and clean-checkout release-source aggregate are recorded after the complete local release gate. This additive branch work does not rewrite the merged release identity below and does not authorize production, storage access, migrations, operational RLS changes, or sensitive feature gates.
+
+- Parent/base commit: `3033d6588d0a1f724555e84757c51d25d46d114c`
+- Immutable implementation commit: `39d239838bafbeca34ec90afc9a8ef82016327f8`
+- Release-source aggregate SHA-256: `BE71462D763C8026548286A756616F9287F94BF2FA1CECA5EA981ADCD9EF437C`
+- Source file count: `1474`
+- Tracked source files: `1474`
+- Untracked source files: `0`
+- Worktree dirty in clean verification checkout: `NO`
+- Production approval granted: `NO`
+
+Focused coverage passed `10` files / `59` tests. The complete local `15`-check release contract passed in `342.1` seconds with zero secret findings across `2,844` text files, zero dependency vulnerabilities, every evidence gate, both TypeScript scopes, lint, `837` test files / `3,580` tests, and the credential-free Next.js 16 `56`-page build. The clean aggregate does not replace the immutable Git commit; together they identify this additive branch slice without authorizing production or any separately locked capability.
+
+The current shared workspace remains dirty because four unrelated user-owned, untracked scripts are inside the broad release-source allowlist. Its development aggregate is `C2FF7AF2A69C23672920DED9E18657E6BC1AEEFAB85D2C88C6ED364C28CB6739`.
+
+- Source file count: `1478`
+- Tracked source files: `1474`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+
+That dirty-worktree identity is retained for deterministic local validation only and does not replace the immutable Git commit or the clean-checkout aggregate above.
+
 ## Manifest Identity
 
 - Parent/base commit before this Preview health origin-alignment slice: `9899f8e7fc6fed898e13a73f0beb522dcacd848b`

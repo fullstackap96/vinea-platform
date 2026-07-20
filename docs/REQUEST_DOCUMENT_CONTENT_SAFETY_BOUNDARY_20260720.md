@@ -27,7 +27,8 @@ Status: `REQUEST_DOCUMENT_CONTENT_SAFETY_BOUNDARY_IMPLEMENTED_20260720`
 
 ## Verification
 
-- Focused document validation, client-message, authorization, signed-URL, and compensation coverage passed.
-- TypeScript and ESLint passed before the complete release gate.
+- Immutable implementation commit: `39d239838bafbeca34ec90afc9a8ef82016327f8`.
+- Focused document validation, client-message, authorization, signed-URL, compensation, and manifest coverage passed: `10` files / `59` tests.
+- The complete `15`-check local release contract passed in `342.1` seconds: zero secret findings across `2,844` text files with `500` binaries skipped, zero dependency vulnerabilities, every evidence gate, both TypeScript scopes, lint, `837` test files / `3,580` tests, and the credential-free Next.js 16 `56`-page build.
+- A clean detached checkout of the implementation commit produced release-source aggregate `BE71462D763C8026548286A756616F9287F94BF2FA1CECA5EA981ADCD9EF437C` across `1,474` tracked files with zero untracked source files and a clean worktree.
 - Production-sensitive gates remain disabled and production rollout remains separately controlled.
-
