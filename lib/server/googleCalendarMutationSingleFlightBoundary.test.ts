@@ -89,10 +89,18 @@ describe('Google Calendar mutation single-flight boundary', () => {
   it('disables every visible mutation control while any operation is busy', () => {
     expect(calendarSection).toContain('const busy = creating || updating || deleting')
     expect(calendarSection).toContain('<div aria-busy={busy}>')
-    expect(calendarSection).toContain('const createDisabled = busy')
-    expect(calendarSection).toContain('const updateDisabled = busy')
-    expect(calendarSection).toContain('const deleteDisabled = busy')
-    expect(calendarSection).toContain('const forceCreateDisabled = busy')
+    expect(calendarSection).toContain(
+      'const createDisabled = busy || mutationDisabled',
+    )
+    expect(calendarSection).toContain(
+      'const updateDisabled = busy || mutationDisabled',
+    )
+    expect(calendarSection).toContain(
+      'const deleteDisabled = busy || mutationDisabled',
+    )
+    expect(calendarSection).toContain(
+      'busy || mutationDisabled || !hasConfirmed || synced || !hasConflicts',
+    )
   })
 
   it('documents immediate browser exclusion without claiming provider idempotency', () => {

@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
   if (originRejection) return originRejection
 
   let parishId: string | null = null
+  let providerMutationStarted = false
 
   try {
     const staff = await requireStaffFromRequest(request)
@@ -229,6 +230,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      providerMutationStarted = true
       const insertRes = await calendar.events.insert(
         {
           calendarId: usable.calendarId,
@@ -295,6 +297,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           error:
             'Event created in Google Calendar, but failed saving event info to request',
+          requiresRefresh: true,
         },
         { status: 500 }
       )
@@ -318,7 +321,11 @@ export async function POST(request: NextRequest) {
     logGoogleCalendarCreateEventError(error, parishId)
     await handleGoogleCalendarOAuthFailureIfNeeded(parishId, error)
     return NextResponse.json(
-      { ok: false, error: userFacingGoogleCalendarErrorMessage(error) },
+      {
+        ok: false,
+        error: userFacingGoogleCalendarErrorMessage(error),
+        requiresRefresh: providerMutationStarted,
+      },
       { status: 500 }
     )
   }

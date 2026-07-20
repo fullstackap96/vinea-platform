@@ -95,6 +95,10 @@ import {
   isGoogleOAuthReconnectError,
   userFacingGoogleCalendarErrorMessage,
 } from '@/lib/googleCalendarUserErrors'
+import {
+  GOOGLE_CALENDAR_CLIENT_CONFIRMATION_TIMEOUT_MS,
+  GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE,
+} from '@/lib/googleCalendarClientConfirmation'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { getRequestDetailSmartQuickActions } from '@/lib/requestDetailQuickActions'
 import { buildReadyToCompleteItems } from '@/lib/requestReadyToComplete'
@@ -156,9 +160,18 @@ type GoogleCalendarMutationPayload = {
   error?: unknown
   message?: unknown
   conflicts?: GoogleCalendarConflictDto[]
+  requiresRefresh?: boolean
 }
 
 const REQUEST_DETAIL_LOAD_TIMEOUT_MS = 15_000
+
+function googleCalendarUncertainResultMessage(error: unknown): string {
+  if (!isGoogleOAuthReconnectError(error)) {
+    return GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE
+  }
+
+  return `${userFacingGoogleCalendarErrorMessage(error)} ${GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE}`
+}
 
 function nowDatetimeLocal() {
   const d = new Date()
@@ -255,6 +268,8 @@ const [staffNotes, setStaffNotes] = useState('')
   const [gcalUpdating, setGcalUpdating] = useState(false)
   const [gcalDeleting, setGcalDeleting] = useState(false)
   const googleCalendarMutationInFlightRef = useRef(false)
+  const [googleCalendarMutationRequiresRefresh, setGoogleCalendarMutationRequiresRefresh] =
+    useState(false)
   const [gcalMessage, setGcalMessage] = useState('')
   const [gcalConflicts, setGcalConflicts] = useState<
     GoogleCalendarConflictDto[]
@@ -1858,6 +1873,10 @@ async function forceCreateGoogleCalendarEvent() {
 
 async function createGoogleCalendarEventInternal(forceCreate: boolean) {
   if (googleCalendarMutationInFlightRef.current) return
+  if (googleCalendarMutationRequiresRefresh) {
+    setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+    return
+  }
 
   const rt = String(request?.request_type || 'baptism')
   if (rt === 'funeral') {
@@ -1899,6 +1918,7 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId: routeId, forceCreate }),
+      signal: AbortSignal.timeout(GOOGLE_CALENDAR_CLIENT_CONFIRMATION_TIMEOUT_MS),
     })
 
     const payload = (await res.json().catch(() => ({}))) as GoogleCalendarMutationPayload
@@ -1912,20 +1932,27 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
       return
     }
     if (!res.ok || !payload?.ok) {
+      if (payload?.requiresRefresh) {
+        setGoogleCalendarMutationRequiresRefresh(true)
+        setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+        setGcalConflicts([])
+        return
+      }
       const err = payload?.error || `Create failed (${res.status})`
       setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
-    setGcalMessage('Calendar event saved. No conflicts found.')
     setGcalConflicts([])
-    loadRequest()
-  } catch (error: unknown) {
-    if (isGoogleOAuthReconnectError(error)) {
-      setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
-    } else {
-      setGcalMessage(requestDetailClientFailureMessage('createGoogleCalendarEvent'))
+    if (!(await loadRequest())) {
+      setGoogleCalendarMutationRequiresRefresh(true)
+      setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+      return
     }
+    setGcalMessage('Calendar event saved. No conflicts found.')
+  } catch (error: unknown) {
+    setGoogleCalendarMutationRequiresRefresh(true)
+    setGcalMessage(googleCalendarUncertainResultMessage(error))
     setGcalConflicts([])
   } finally {
     googleCalendarMutationInFlightRef.current = false
@@ -1935,6 +1962,10 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
 
 async function updateGoogleCalendarEvent() {
   if (googleCalendarMutationInFlightRef.current) return
+  if (googleCalendarMutationRequiresRefresh) {
+    setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+    return
+  }
 
   const rt = String(request?.request_type || 'baptism')
   if (rt === 'funeral') {
@@ -1976,6 +2007,7 @@ async function updateGoogleCalendarEvent() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId: routeId }),
+      signal: AbortSignal.timeout(GOOGLE_CALENDAR_CLIENT_CONFIRMATION_TIMEOUT_MS),
     })
 
     const payload = (await res.json().catch(() => ({}))) as GoogleCalendarMutationPayload
@@ -1989,20 +2021,27 @@ async function updateGoogleCalendarEvent() {
       return
     }
     if (!res.ok || !payload?.ok) {
+      if (payload?.requiresRefresh) {
+        setGoogleCalendarMutationRequiresRefresh(true)
+        setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+        setGcalConflicts([])
+        return
+      }
       const err = payload?.error || `Update failed (${res.status})`
       setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
-    setGcalMessage('Calendar event saved. No conflicts found.')
     setGcalConflicts([])
-    loadRequest()
-  } catch (error: unknown) {
-    if (isGoogleOAuthReconnectError(error)) {
-      setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
-    } else {
-      setGcalMessage(requestDetailClientFailureMessage('updateGoogleCalendarEvent'))
+    if (!(await loadRequest())) {
+      setGoogleCalendarMutationRequiresRefresh(true)
+      setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+      return
     }
+    setGcalMessage('Calendar event saved. No conflicts found.')
+  } catch (error: unknown) {
+    setGoogleCalendarMutationRequiresRefresh(true)
+    setGcalMessage(googleCalendarUncertainResultMessage(error))
     setGcalConflicts([])
   } finally {
     googleCalendarMutationInFlightRef.current = false
@@ -2012,6 +2051,10 @@ async function updateGoogleCalendarEvent() {
 
 async function deleteGoogleCalendarEvent() {
   if (googleCalendarMutationInFlightRef.current) return
+  if (googleCalendarMutationRequiresRefresh) {
+    setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+    return
+  }
 
   if (!request?.google_calendar_event_id) {
     setGcalMessage('No Google Calendar event is linked to this request.')
@@ -2027,23 +2070,30 @@ async function deleteGoogleCalendarEvent() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId: routeId }),
+      signal: AbortSignal.timeout(GOOGLE_CALENDAR_CLIENT_CONFIRMATION_TIMEOUT_MS),
     })
 
     const payload = (await res.json().catch(() => ({}))) as GoogleCalendarMutationPayload
     if (!res.ok || !payload?.ok) {
+      if (payload?.requiresRefresh) {
+        setGoogleCalendarMutationRequiresRefresh(true)
+        setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
       const err = payload?.error || `Delete failed (${res.status})`
       setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
-    setGcalMessage('Google Calendar event removed and link cleared.')
-    loadRequest()
-  } catch (error: unknown) {
-    if (isGoogleOAuthReconnectError(error)) {
-      setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
-    } else {
-      setGcalMessage(requestDetailClientFailureMessage('deleteGoogleCalendarEvent'))
+    if (!(await loadRequest())) {
+      setGoogleCalendarMutationRequiresRefresh(true)
+      setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+      return
     }
+    setGcalMessage('Google Calendar event removed and link cleared.')
+  } catch (error: unknown) {
+    setGoogleCalendarMutationRequiresRefresh(true)
+    setGcalMessage(googleCalendarUncertainResultMessage(error))
   } finally {
     googleCalendarMutationInFlightRef.current = false
     setGcalDeleting(false)
@@ -2058,6 +2108,7 @@ async function deleteGoogleCalendarEvent() {
       setStaffNotesMessage('')
       setEditingIntake(false)
       setWorkflowMutationRequiresRefresh(false)
+      setGoogleCalendarMutationRequiresRefresh(false)
       setConfirmMarkCompleteOpen(false)
     })
     return () => {
@@ -2942,6 +2993,7 @@ async function deleteGoogleCalendarEvent() {
                     creating={gcalCreating}
                     updating={gcalUpdating}
                     deleting={gcalDeleting}
+                    mutationDisabled={googleCalendarMutationRequiresRefresh}
                     message={gcalMessage}
                     conflicts={gcalConflicts}
                   />

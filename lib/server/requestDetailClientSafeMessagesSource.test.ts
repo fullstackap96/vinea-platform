@@ -35,12 +35,12 @@ describe('request detail client safe messages', () => {
       'sendEmail',
       'logSentEmail',
       'updateSentEmailSummary',
-      'createGoogleCalendarEvent',
-      'updateGoogleCalendarEvent',
-      'deleteGoogleCalendarEvent',
     ]) {
       expect(source).toContain(`requestDetailClientFailureMessage('${action}')`)
     }
+
+    expect(source).toContain('GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE')
+    expect(source).toContain('googleCalendarUncertainResultMessage(error)')
 
     expect(source).toContain("requestDetailClientApiErrorMessage('updateStaffNotes', data?.error)")
     expect(source).toContain("requestDetailClientApiErrorMessage('logCommunication', data?.error)")

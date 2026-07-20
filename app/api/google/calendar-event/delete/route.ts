@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
   if (originRejection) return originRejection
 
   let parishId: string | null = null
+  let providerMutationStarted = false
 
   try {
     const staff = await requireStaffFromRequest(request)
@@ -201,6 +202,7 @@ export async function POST(request: NextRequest) {
     )
 
     try {
+      providerMutationStarted = true
       await calendar.events.delete(
         {
           calendarId,
@@ -230,6 +232,7 @@ export async function POST(request: NextRequest) {
         {
           ok: false,
           error: 'Removed event from Google (or it was already gone), but failed clearing fields in database',
+          requiresRefresh: true,
         },
         { status: 500 }
       )
@@ -253,7 +256,11 @@ export async function POST(request: NextRequest) {
     logGoogleCalendarDeleteEventError(error, parishId)
     await handleGoogleCalendarOAuthFailureIfNeeded(parishId, error)
     return NextResponse.json(
-      { ok: false, error: userFacingGoogleCalendarErrorMessage(error) },
+      {
+        ok: false,
+        error: userFacingGoogleCalendarErrorMessage(error),
+        requiresRefresh: providerMutationStarted,
+      },
       { status: 500 }
     )
   }
