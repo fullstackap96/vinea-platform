@@ -4,6 +4,20 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Clean-Checkout Source Manifest Invariant
+
+GitHub Actions run `29791367802` correctly stopped at the test stage after the ten-commit publication because the human-review evidence assertion used the mutable working-tree manifest. Four unrelated local untracked scripts had supplied a matching `Source file count: 1522` line locally, while the clean checkout contained only the approved 1,518 tracked release-source files.
+
+- Immutable implementation commit: `9e15d6b2ba1788c39fc7bf8cf8bd82f0265cfccd`
+- Tracked-head aggregate SHA-256: `1AA7EC5167D88A91314CA3D2CF029C2CAB9111BD241FB599587A8F4B7AC7CEC7`
+- Tracked source file count: `1518`
+- Source mode: `tracked-head`
+- Production approval granted: `NO`
+
+The evidence-binding test now invokes the existing `--tracked-head` mode and requires the documented tracked-head count. This makes clean-checkout CI and a dirty developer workspace evaluate the same immutable source surface. Focused coverage passed `1` file / `6` tests. Complete release-contract verification is recorded in `docs/RELEASE_SOURCE_MANIFEST_CLEAN_CHECKOUT_INVARIANT_20260720.md`.
+
+This tracked-source identity does not replace an immutable Git commit and does not authorize a merge, deployment, migration, RLS change, production access, storage action, token creation, certificate generation, production-sensitive flag, or public trust claim.
+
 ## Post-Release Request Documents Confirmation Recovery Slice
 
 The 2026-07-20 Request Documents reliability slice keeps upload, staff review, and family-link creation behind one synchronous write lock and freezes further document writes after timeout, transport uncertainty, malformed success, or failed authoritative list reload. Explicit server rejection remains retryable. A confirmed family link remains visible when clipboard copying fails, and no document or token mutation replays automatically.

@@ -1,8 +1,10 @@
 # Vinea Documentation And Operations Index
 
-Last updated: 2026-07-14
+Last updated: 2026-07-20
 
 This is the front door to Vinea's repository documentation. Use it to find the source that answers a question; do not treat this index as a replacement for the linked source.
+
+Latest release-integrity evidence: [Release Source Manifest Clean-Checkout Invariant](RELEASE_SOURCE_MANIFEST_CLEAN_CHECKOUT_INVARIANT_20260720.md) records the exact-head CI failure, immutable tracked-head correction, verification boundary, and separate publication requirement.
 
 ## Start Here
 
