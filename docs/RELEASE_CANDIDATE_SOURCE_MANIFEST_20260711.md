@@ -4,6 +4,20 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Daily Work Hub Workflow Settings Scope Slice
+
+The 2026-07-20 selected-parish reliability slice bounds the Daily Work Hub's auxiliary workflow SLA settings read at 15 seconds, resets care-cadence rules to safe defaults on every parish transition, validates the returned parish id, and ignores stale or invalidated settlement. The path remains credentialed and read-only.
+
+- Immutable implementation commit: `0392f5110a3cdc4ff0040ebcbcd50db9751eaa52`
+- Tracked-head aggregate SHA-256: `B06BC97423E5C68DC1E0949CF6750906EEBD27CE4274BFE99706180084A68886`
+- Tracked source file count: `1519`
+- Source mode: `tracked-head`
+- Production approval granted: `NO`
+
+Focused Daily Work Hub source-dependent coverage passed `10` files / `54` tests. The complete release contract passed all `15` checks with zero secret findings across `2,919` text files (`500` binaries skipped), zero vulnerabilities, both TypeScript scopes, lint, `870` test files / `3,727` tests, and the credential-free `56`-page build. Complete evidence is recorded in `docs/DAILY_WORK_HUB_WORKFLOW_SETTINGS_SCOPE_BOUNDARY_20260720.md`.
+
+This tracked-source identity does not replace an immutable Git commit and does not authorize a merge, deployment, migration, RLS change, production access, record mutation, provider call, storage action, export, AI call, communication, certificate generation, production-sensitive flag, or public trust claim.
+
 ## Post-Release Clean-Checkout Source Manifest Invariant
 
 GitHub Actions run `29791367802` correctly stopped at the test stage after the ten-commit publication because the human-review evidence assertion used the mutable working-tree manifest. Four unrelated local untracked scripts had supplied a matching `Source file count: 1522` line locally, while the clean checkout contained only the approved 1,518 tracked release-source files.
