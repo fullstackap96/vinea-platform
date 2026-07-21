@@ -114,15 +114,18 @@ describe('release candidate source manifest', () => {
     expect(source).toContain('maxBuffer: gitOutputMaxBufferBytes')
   })
 
-  it('binds the current aggregate into the human-review evidence record', () => {
-    const manifest = runManifest()
+  it('binds the immutable tracked-head aggregate into the human-review evidence record', () => {
+    const manifest = runManifest(['--tracked-head'])
     const evidence = readFileSync(
       join(root, 'docs', 'RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711.md'),
       'utf8',
     )
 
+    expect(manifest.sourceMode).toBe('tracked-head')
     expect(evidence).toContain(manifest.aggregateSha256)
-    expect(evidence).toContain(`Source file count: \`${manifest.sourceFileCount}\``)
+    expect(evidence).toContain(
+      `Tracked source file count: \`${manifest.sourceFileCount}\``,
+    )
     expect(evidence).toContain('Production approval granted: `NO`')
     expect(evidence).toContain('does not replace an immutable Git commit')
   })
