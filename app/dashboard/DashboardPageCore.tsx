@@ -137,6 +137,7 @@ import {
 const FOLLOWUP_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 const DAILY_WORK_HUB_LOAD_TIMEOUT_MS = 15_000
+const PARISH_WORKFLOW_SETTINGS_LOAD_TIMEOUT_MS = 15_000
 const DAILY_WORK_HUB_MUTATION_CONFIRMATION_TIMEOUT_MS = 60_000
 
 function commandCenterBucketTone(bucket: StaffCommandCenterRow['bucket']): string {
@@ -252,6 +253,7 @@ export function DashboardPageCore({
   const [requestsLoadError, setRequestsLoadError] = useState<string | null>(null)
   const [requestsFetchFailed, setRequestsFetchFailed] = useState(false)
   const requestsLoadSequenceRef = useRef(0)
+  const parishWorkflowSettingsLoadSequenceRef = useRef(0)
   const [suggestedActions, setSuggestedActions] = useState<DashboardSuggestedAction[]>(
     []
   )
@@ -263,15 +265,46 @@ export function DashboardPageCore({
     useState<DailyOperatingSystemSignals>(() => emptyDailyOperatingSystemSignals())
   const [nowMs, setNowMs] = useState(() => Date.now())
 
-  async function loadParishWorkflowSettings() {
+  async function loadParishWorkflowSettings({
+    expectedParishId,
+    loadSequence,
+    signal,
+  }: {
+    expectedParishId: string
+    loadSequence: number
+    signal: AbortSignal
+  }) {
+    const isLatestLoad = () =>
+      loadSequence === parishWorkflowSettingsLoadSequenceRef.current
+
     try {
-      const res = await fetch('/api/parish/settings', { credentials: 'include' })
-      const data = await res.json().catch(() => ({}))
+      const res = await fetch('/api/parish/settings', {
+        credentials: 'include',
+        signal,
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: unknown
+        parish?: {
+          id?: unknown
+          workflow_sla_rules?: unknown
+        } | null
+      }
+      if (!isLatestLoad()) return
+
+      const responseParishId = String(data?.parish?.id ?? '').trim()
       const rules = data?.parish?.workflow_sla_rules
-      if (res.ok && data?.ok && rules && typeof rules === 'object') {
+      if (
+        res.ok &&
+        data?.ok === true &&
+        responseParishId === expectedParishId &&
+        rules &&
+        typeof rules === 'object' &&
+        !Array.isArray(rules)
+      ) {
         setCareCadenceSlaRules(rules as CareCadenceSlaRules)
       }
     } catch (error) {
+      if (!isLatestLoad()) return
       logDashboardQueryError('parish workflow settings', error)
     }
   }
@@ -1740,14 +1773,35 @@ export function DashboardPageCore({
 
   useEffect(() => {
     let cancelled = false
+    const loadSequence = ++parishWorkflowSettingsLoadSequenceRef.current
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      PARISH_WORKFLOW_SETTINGS_LOAD_TIMEOUT_MS,
+    )
+
     queueMicrotask(() => {
       if (cancelled) return
+      setCareCadenceSlaRules(DEFAULT_CARE_CADENCE_SLA_RULES)
       setNowMs(Date.now())
       loadRequests(false)
-      void loadParishWorkflowSettings()
+      if (!activeParishId) {
+        window.clearTimeout(timeoutId)
+        return
+      }
+      void loadParishWorkflowSettings({
+        expectedParishId: activeParishId,
+        loadSequence,
+        signal: controller.signal,
+      }).finally(() => window.clearTimeout(timeoutId))
     })
     return () => {
       cancelled = true
+      controller.abort()
+      window.clearTimeout(timeoutId)
+      if (parishWorkflowSettingsLoadSequenceRef.current === loadSequence) {
+        parishWorkflowSettingsLoadSequenceRef.current += 1
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- activeParishId is the server-validated parish scope trigger; loadRequests is intentionally not stable.
   }, [activeParishId])
