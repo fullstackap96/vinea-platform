@@ -56,6 +56,13 @@ describe('request document client recovery boundary', () => {
     expect(open).toContain('AbortSignal.timeout(REQUEST_DOCUMENT_READ_TIMEOUT_MS)')
     expect(portal).toContain('AbortSignal.timeout(REQUEST_DOCUMENT_WRITE_TIMEOUT_MS)')
     expect(portal).toContain("'createFamilyUploadLinkUnconfirmed'")
+    expect(component).toContain(
+      'const [mutationRequiresRefresh, setMutationRequiresRefresh] = useState(false)',
+    )
+    expect(component.match(/setMutationRequiresRefresh\(true\)/g)?.length).toBeGreaterThanOrEqual(6)
+    expect(component).toContain(
+      'uploading || Boolean(reviewingId) || creatingPortalLink || mutationRequiresRefresh',
+    )
   })
 
   it('preserves confirmed success while refreshing the scoped document list', () => {
@@ -63,9 +70,51 @@ describe('request document client recovery boundary', () => {
     const review = handler('reviewDocument', 'openDocument')
 
     expect(upload).toContain("setMessage('Document uploaded for staff review.')")
-    expect(upload).toContain('await loadDocuments({ preserveMessage: true })')
+    expect(upload).toContain('const refreshed = await loadDocuments({ preserveMessage: true })')
+    expect(upload.indexOf('if (!refreshed)')).toBeLessThan(
+      upload.indexOf("setMessage('Document uploaded for staff review.')"),
+    )
     expect(review).toContain("setMessage(status === 'approved' ? 'Document approved.' : 'Document rejected.')")
-    expect(review).toContain('await loadDocuments({ preserveMessage: true })')
+    expect(review).toContain('const refreshed = await loadDocuments({ preserveMessage: true })')
+    expect(review.indexOf('if (!refreshed)')).toBeLessThan(
+      review.indexOf("setMessage(status === 'approved' ? 'Document approved.' : 'Document rejected.')"),
+    )
+  })
+
+  it('keeps a confirmed family link visible when clipboard copying fails', () => {
+    const portal = component.slice(component.indexOf('async function createPortalLink'))
+
+    expect(portal).toContain('setPortalLink(payload.url)')
+    expect(portal).toContain('await navigator.clipboard.writeText(payload.url)')
+    expect(portal).toContain("setMessage('Family upload link created. Copy it below.')")
+    expect(portal.indexOf('setPortalLink(payload.url)')).toBeLessThan(
+      portal.indexOf('await navigator.clipboard.writeText(payload.url)'),
+    )
+  })
+
+  it('keeps confirmed server rejection retryable while malformed success fails closed', () => {
+    const upload = handler('uploadDocument', 'reviewDocument')
+    const review = handler('reviewDocument', 'openDocument')
+    const portal = component.slice(component.indexOf('async function createPortalLink'))
+
+    for (const [body, malformedSuccessCheck] of [
+      [upload, 'if (payload?.ok !== true)'],
+      [review, 'if (payload?.ok !== true)'],
+      [
+        portal,
+        "if (payload?.ok !== true || typeof payload.url !== 'string' || !payload.url.trim())",
+      ],
+    ] as const) {
+      const rejectionIndex = body.indexOf('if (!response.ok)')
+      const malformedIndex = body.indexOf(malformedSuccessCheck)
+
+      expect(rejectionIndex).toBeGreaterThan(-1)
+      expect(malformedIndex).toBeGreaterThan(rejectionIndex)
+      expect(body.slice(rejectionIndex, malformedIndex)).not.toContain(
+        'setMutationRequiresRefresh(true)',
+      )
+      expect(body.slice(malformedIndex)).toContain('setMutationRequiresRefresh(true)')
+    }
   })
 
   it('documents the exact non-production boundary without stronger claims', () => {

@@ -38,7 +38,7 @@ describe('request document mutation single-flight boundary', () => {
       [review, 'review', 'fetch(`/api/requests/${requestId}/documents/${documentId}`'],
       [portal, 'portal-link', 'fetch(`/api/requests/${requestId}/portal-token`'],
     ] as const) {
-      expect(body).toContain('if (mutationInFlightRef.current) return')
+      expect(body).toContain('if (mutationInFlightRef.current || mutationRequiresRefresh) return')
       expect(body).toContain(`mutationInFlightRef.current = '${kind}'`)
       expect(body.indexOf(`mutationInFlightRef.current = '${kind}'`)).toBeLessThan(
         body.indexOf(dispatch),
@@ -49,12 +49,14 @@ describe('request document mutation single-flight boundary', () => {
 
   it('disables every document mutation control while any write is active', () => {
     expect(source).toContain(
-      'const mutationBusy = uploading || Boolean(reviewingId) || creatingPortalLink',
+      'uploading || Boolean(reviewingId) || creatingPortalLink || mutationRequiresRefresh',
     )
     expect(source).toContain('aria-busy={mutationBusy}')
     expect(source.match(/disabled=\{mutationBusy\}/g)).toHaveLength(8)
-    expect(source).toContain("{uploading ? 'Uploading...' : 'Upload'}")
-    expect(source).toContain("{creatingPortalLink ? 'Creating link...' : 'Create family upload link'}")
+    expect(source).toContain(
+      "{uploading ? 'Uploading...' : mutationRequiresRefresh ? 'Refresh required' : 'Upload'}",
+    )
+    expect(source).toContain("? 'Refresh required'")
   })
 
   it('keeps read-only signed document opening outside the mutation lock', () => {

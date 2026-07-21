@@ -13,8 +13,10 @@ const actions: RequestDocumentClientAction[] = [
   'loadDocuments',
   'uploadDocument',
   'uploadDocumentUnconfirmed',
+  'uploadDocumentRefreshRequired',
   'reviewDocument',
   'reviewDocumentUnconfirmed',
+  'reviewDocumentRefreshRequired',
   'openDocument',
   'openDocumentPopupBlocked',
   'createFamilyUploadLink',
@@ -71,6 +73,12 @@ describe('request document client messages', () => {
     )
     expect(requestDocumentClientFailureMessage('createFamilyUploadLinkUnconfirmed')).toContain(
       'Check the Audit Log before creating another link'
+    )
+    expect(requestDocumentClientFailureMessage('uploadDocumentRefreshRequired')).toContain(
+      'could not refresh the document list'
+    )
+    expect(requestDocumentClientFailureMessage('reviewDocumentRefreshRequired')).toContain(
+      'Refresh this page'
     )
   })
 })
