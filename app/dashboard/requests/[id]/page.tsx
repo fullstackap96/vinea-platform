@@ -104,6 +104,7 @@ import { getRequestDetailSmartQuickActions } from '@/lib/requestDetailQuickActio
 import { buildReadyToCompleteItems } from '@/lib/requestReadyToComplete'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
+import { parseParishSettingsResponse } from '@/lib/parishSettingsReadModels'
 import { buildRequestHandoffBrief } from '@/lib/requestHandoffBrief'
 import { evaluateCareCadence } from '@/lib/careCadence'
 import { evaluateCommunicationCommitment } from '@/lib/communicationCommitments'
@@ -170,6 +171,7 @@ type GoogleCalendarMutationPayload = {
 }
 
 const REQUEST_DETAIL_LOAD_TIMEOUT_MS = 15_000
+const REQUEST_PARISH_DIRECTORY_LOAD_TIMEOUT_MS = 15_000
 
 function googleCalendarUncertainResultMessage(error: unknown): string {
   if (!isGoogleOAuthReconnectError(error)) {
@@ -2245,32 +2247,44 @@ async function deleteGoogleCalendarEvent() {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
+    const requestParishId = request?.parish_id ?? null
+    let readTimeoutId: number | undefined
 
     async function loadParishDirectories() {
       try {
-        const res = await fetch('/api/parish/settings', { credentials: 'include' })
+        readTimeoutId = window.setTimeout(
+          () => controller.abort(),
+          REQUEST_PARISH_DIRECTORY_LOAD_TIMEOUT_MS,
+        )
+        const res = await fetch('/api/parish/settings', {
+          credentials: 'include',
+          signal: controller.signal,
+        })
         if (!res.ok) return
-        const data = (await res.json()) as {
-          ok?: boolean
-          parish?: { staff_names?: unknown; priest_names?: unknown }
-        }
-        if (cancelled || !data?.ok || !data.parish) return
-        setParishStaffNames(
-          Array.isArray(data.parish.staff_names) ? data.parish.staff_names : []
-        )
-        setParishPriestNames(
-          Array.isArray(data.parish.priest_names) ? data.parish.priest_names : []
-        )
+        const parsed = parseParishSettingsResponse(await res.json(), requestParishId)
+        if (cancelled || !parsed) return
+        setParishStaffNames(parsed.parish.staff_names)
+        setParishPriestNames(parsed.parish.priest_names)
       } catch {
         // Directories are optional; assignment still works with preserved assignees.
+      } finally {
+        if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
       }
     }
 
-    void loadParishDirectories()
+    queueMicrotask(() => {
+      if (cancelled) return
+      setParishStaffNames([])
+      setParishPriestNames([])
+      if (requestParishId) void loadParishDirectories()
+    })
     return () => {
       cancelled = true
+      controller.abort()
+      if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
     }
-  }, [])
+  }, [request?.parish_id])
 
   // Derived workflow state (safe even while loading).
   const scheduleRowForProgress = useMemo(
