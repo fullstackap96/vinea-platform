@@ -4,6 +4,20 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Request Detail Parish Directory Scope Slice
+
+The 2026-07-20 selected-parish reliability slice bounds Request Detail's optional staff/priest assignment directory read at 15 seconds, clears prior-parish choices before replacement, validates the complete settings response and returned parish id against the loaded request's authoritative parish, and ignores obsolete settlement. The path remains credentialed and read-only.
+
+- Immutable implementation commit: `ca03a7cbdbfa5042006d0d482b335f6c1a018412`
+- Tracked-head aggregate SHA-256: `F9383B3D44A0ABD00DBBADCACAB1C2E4FDD3FDC6C04A4AC09274B8A3D8CB8FB6`
+- Tracked source file count: `1520`
+- Source mode: `tracked-head`
+- Production approval granted: `NO`
+
+Focused parser and new boundary coverage passed `3` files / `15` tests; existing Request Detail and parish-settings regression coverage passed `16` files / `74` tests. The complete release contract passed all `15` checks with zero secret findings across `2,921` text files (`500` binaries skipped), zero vulnerabilities, both TypeScript scopes, lint, `871` test files / `3,731` tests, and the credential-free `56`-page build. Complete evidence is recorded in `docs/REQUEST_DETAIL_PARISH_DIRECTORY_SCOPE_BOUNDARY_20260720.md`.
+
+This tracked-source identity does not replace an immutable Git commit and does not authorize a merge, deployment, migration, RLS change, production access, record mutation, assignment write, provider call, storage action, export, AI call, communication, certificate generation, production-sensitive flag, or public trust claim.
+
 ## Post-Release Daily Work Hub Workflow Settings Scope Slice
 
 The 2026-07-20 selected-parish reliability slice bounds the Daily Work Hub's auxiliary workflow SLA settings read at 15 seconds, resets care-cadence rules to safe defaults on every parish transition, validates the returned parish id, and ignores stale or invalidated settlement. The path remains credentialed and read-only.
