@@ -9,6 +9,8 @@ import {
   vineaSpinnerClassName,
 } from '@/lib/vineaUi'
 
+const EXPORT_AUDIT_REVIEWER_READ_TIMEOUT_MS = 15_000
+
 const savedFilterLabels: Record<string, string> = {
   exports_downloaded_recent: 'Downloaded',
   exports_denied_recent: 'Denied',
@@ -167,10 +169,18 @@ export function ExportAuditReviewerDashboardPrototype() {
   const [error, setError] = useState('')
   const [loadedAt, setLoadedAt] = useState('')
   const loadSequenceRef = useRef(0)
+  const loadAbortRef = useRef<AbortController | null>(null)
 
   const load = useCallback(async () => {
     const loadSequence = ++loadSequenceRef.current
+    loadAbortRef.current?.abort()
+    const controller = new AbortController()
+    loadAbortRef.current = controller
     const isLatestLoad = () => loadSequence === loadSequenceRef.current
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      EXPORT_AUDIT_REVIEWER_READ_TIMEOUT_MS,
+    )
 
     setLoading(true)
     setError('')
@@ -180,8 +190,10 @@ export function ExportAuditReviewerDashboardPrototype() {
       const response = await fetch(`/api/export-audit-reviewer?${params.toString()}`, {
         credentials: 'include',
         cache: 'no-store',
+        signal: controller.signal,
       })
       const body = (await response.json().catch(() => ({}))) as ReviewerResponse
+      controller.signal.throwIfAborted()
       if (!isLatestLoad()) return
       if (!response.ok || !body.ok) {
         setData(null)
@@ -195,13 +207,17 @@ export function ExportAuditReviewerDashboardPrototype() {
       setData(null)
       setError('Export audit reviewer is unavailable for this staff session.')
     } finally {
+      window.clearTimeout(timeoutId)
       if (isLatestLoad()) setLoading(false)
+      if (loadAbortRef.current === controller) loadAbortRef.current = null
     }
   }, [selectedFilter])
 
   function selectFilter(nextFilter: string) {
     if (nextFilter === selectedFilter) return
     loadSequenceRef.current += 1
+    loadAbortRef.current?.abort()
+    loadAbortRef.current = null
     setSelectedFilter(nextFilter)
   }
 
@@ -212,6 +228,9 @@ export function ExportAuditReviewerDashboardPrototype() {
     })
     return () => {
       cancelled = true
+      loadSequenceRef.current += 1
+      loadAbortRef.current?.abort()
+      loadAbortRef.current = null
     }
   }, [load])
 
