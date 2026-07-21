@@ -4,6 +4,8 @@ Last updated: 2026-07-20
 
 This is the front door to Vinea's repository documentation. Use it to find the source that answers a question; do not treat this index as a replacement for the linked source.
 
+Latest export-governance reliability evidence: [Export Audit Reviewer Dashboard Client Read Deadline Boundary](EXPORT_AUDIT_REVIEWER_DASHBOARD_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md) records the bounded protected-API read, obsolete-load cancellation, preserved read-only/no-go boundaries, and remaining non-production browser evidence.
+
 Latest Request Detail selected-parish reliability evidence: [Request Detail Parish Directory Scope Boundary](REQUEST_DETAIL_PARISH_DIRECTORY_SCOPE_BOUNDARY_20260720.md) records the bounded request-parish directory read, prior-parish reset, strict response validation, cancellation behavior, and remaining browser-evidence boundary.
 
 Latest selected-parish reliability evidence: [Daily Work Hub Workflow Settings Scope Boundary](DAILY_WORK_HUB_WORKFLOW_SETTINGS_SCOPE_BOUNDARY_20260720.md) records the bounded auxiliary settings read, safe-default reset, response-parish validation, latest-load ownership, and remaining browser-evidence boundary.

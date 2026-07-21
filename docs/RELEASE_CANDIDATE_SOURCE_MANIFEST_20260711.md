@@ -4,6 +4,20 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Export Audit Reviewer Dashboard Client Read Deadline Slice
+
+The 2026-07-20 export-governance reliability slice bounds the non-production reviewer dashboard's protected API read at 15 seconds and aborts obsolete work on replacement, saved-filter change, or unmount. Existing latest-response ownership, generic staff-safe errors, API-only data access, read-only behavior, and production `NO-GO` boundaries remain unchanged.
+
+- Immutable implementation commit: `91d39c2080cddc145acae1b2ada822291c746cfe`
+- Tracked-head aggregate SHA-256: `713C54768F43D49AC3ADB0BF78F5AC15DD849F958014C2897078ACC83B383C3A`
+- Tracked source file count: `1521`
+- Source mode: `tracked-head`
+- Production approval granted: `NO`
+
+Focused dashboard, route, read-model, prior QA evidence, and new deadline coverage passed `5` files / `28` tests. The complete release contract passed all `15` checks with zero secret findings across `2,923` text files (`500` binaries skipped), zero vulnerabilities, both TypeScript scopes, lint, `872` test files / `3,735` tests, and the credential-free `56`-page build. Complete evidence is recorded in `docs/EXPORT_AUDIT_REVIEWER_DASHBOARD_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md`.
+
+This tracked-source identity does not replace an immutable Git commit and does not authorize a merge, deployment, migration, RLS change, production access, dashboard exposure, export, raw metadata access, storage action, signed URL, provider call, AI call, communication, certificate generation, production-sensitive flag, or public trust claim.
+
 ## Post-Release Request Detail Parish Directory Scope Slice
 
 The 2026-07-20 selected-parish reliability slice bounds Request Detail's optional staff/priest assignment directory read at 15 seconds, clears prior-parish choices before replacement, validates the complete settings response and returned parish id against the loaded request's authoritative parish, and ignores obsolete settlement. The path remains credentialed and read-only.
