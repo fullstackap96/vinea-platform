@@ -4,6 +4,24 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Release Request Documents Confirmation Recovery Slice
+
+The 2026-07-20 Request Documents reliability slice keeps upload, staff review, and family-link creation behind one synchronous write lock and freezes further document writes after timeout, transport uncertainty, malformed success, or failed authoritative list reload. Explicit server rejection remains retryable. A confirmed family link remains visible when clipboard copying fails, and no document or token mutation replays automatically.
+
+- Immutable implementation commit: `8544263fd91691e6234d4111e71a703180c7fbdb`
+- Tracked-head aggregate SHA-256: `F7C1111468121579492A38F46D317997755AF0F13B06802226F2303F0C934007`
+- Tracked source file count: `1518`
+- Working-tree aggregate SHA-256: `E344C2F24788246D32CD16B8407DD7F4EC753B2C50AAAD6527B16A4A8536A60E`
+- Source file count: `1522`
+- Tracked source files: `1518`
+- Untracked source files: `4`
+- Worktree dirty: `YES`
+- Production approval granted: `NO`
+
+Focused document-message, client-recovery, single-flight, safe-message, route-authorization, cleanup, and compensation coverage passed `7` files / `34` tests. TypeScript, lint, and diff hygiene passed. The complete release-readiness contract then passed all `15` checks with zero secret findings across `2,915` text files (`500` binaries skipped), zero vulnerabilities, both TypeScript scopes, lint, `869` test files / `3,723` tests, and the credential-free `56`-page build.
+
+The four untracked release-source files are unrelated user-owned scripts already present in the shared workspace. They remain outside this implementation commit. This section does not authorize storage access, document upload or review, token creation, a production action, deployment, migration, RLS change, production-sensitive feature, or public trust claim.
+
 ## Post-Release Record Certificate Client Confirmation Slice
 
 The 2026-07-20 certificate reliability slice gives the staff-reviewed Baptism certificate POST a 60-second browser confirmation deadline. Explicit server rejection remains retryable. Timeout, transport uncertainty, malformed PDF acknowledgement, or an empty PDF result freezes another generation attempt until staff refresh and review certificate activity. Synchronous single flight prevents duplicate dispatch, and no generation request replays automatically.
