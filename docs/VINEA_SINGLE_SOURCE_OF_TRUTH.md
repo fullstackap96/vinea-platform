@@ -415,15 +415,18 @@ These principles guide engineering, product, sales, support, and AI-assisted wor
 
 Vinea is late prototype to early pilot-readiness. It has substantial product surface and strong safety/process documentation. It is not yet fully production-complete for diocesan or multi-parish scale.
 
-The current reviewed release head is `a92f6b82`. Exact-head GitHub CI passed the
+The reviewed release source head `c7626c46` is merged through PR `#8`; remote
+`main` is `46190a71`. Exact-head GitHub CI passed the
 repository secret scan, dependency audit, complete tests, both TypeScript scopes,
 release and production-boundary evidence gates, lint, and the Next.js 16.3.0
 production build. Its non-production Vercel Preview is `READY`; protected smoke
 passed staff authentication, authorized parish selection, same-parish Request
 Detail access, and generic cross-parish denial. Authenticated `vercel curl`
-confirmed exact-deployment health and all reported checks. Production-sensitive
-claims and capabilities still require their separate approvals and smoke
-evidence.
+confirmed exact-deployment health and all reported checks. Vercel's automatic
+main artifact is ready, but the public production domains remain on the approved
+rollback deployment and the controlled rollout checkpoint is `NO-GO`.
+Production-sensitive claims and capabilities still require their separate
+approvals and smoke evidence.
 
 ### Known Production Gates
 

@@ -1,5 +1,20 @@
 # Vinea Build Status
 
+Merged-main release checkpoint (2026-08-07): PR `#8` was marked ready and merged
+only after its head remained exactly
+`c7626c460714aae8dab459a79a30ad4a62f44486`, Vinea CI run `31215092349` remained
+successful, the Vercel check remained green, and GitHub reported the PR
+mergeable. Remote `main` is now
+`46190a71aa46146b4df0eb0a2e60cac8040572bd`, with the prior main and approved
+source head as its two parents. Vercel's Git integration automatically built
+ready main artifact `dpl_EBrGS8ErXLVqctTqikUNUFh4mwj3`; no operator deploy or
+promotion command was run, and Vercel control-plane metadata still maps the
+public production domains to approved rollback deployment
+`dpl_FuhBvEBrbZjNzQ6dLp4qHbi5j7UW`. Production application/data access,
+migrations, RLS, flags, providers, storage, exports, and record mutations were
+not performed. The controlled rollout remains `NO-GO`; see
+[`CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260807.md`](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260807.md).
+
 Exact-head publication and Preview verification (2026-08-07): the remote
 release-integrity branch was re-fetched at the approved base `b63bca3`, then
 advanced by exactly three reviewed commits to

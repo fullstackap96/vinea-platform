@@ -8,13 +8,12 @@ percentage estimates or dated evidence files.
 
 ## Release Identity
 
-- Working branch: `codex/release-integrity-20260720`.
-- Published reviewed head: `a92f6b82a26ef159b8e5e159b1db15594bca7e0f`.
-- The three reviewed dependency/database-security and evidence commits were
-  published from the unchanged approved base `b63bca3` using an exact lease.
-- Draft pull request: GitHub PR `#8`, open and mergeable into `main`.
-- Exact-head CI: GitHub Actions run `31211255259` passed.
-- Exact-head Preview: Vercel deployment `dpl_4XR99w6RUyC6MwsQq5mUZjPZdG8p` is
+- GitHub PR `#8` was marked ready and merged at the exact approved source head
+  `c7626c460714aae8dab459a79a30ad4a62f44486`.
+- Remote `main` is `46190a71aa46146b4df0eb0a2e60cac8040572bd`; its parents are the
+  prior main head and the approved source head.
+- Exact-head CI: GitHub Actions run `31215092349` passed.
+- Exact-head Preview: Vercel deployment `dpl_3USyZGXXyiQ5VQCn5Qixsixixd6i` is
   `READY`, Preview-only, and has no production target.
 - Protected Preview evidence passed deployment access, safe staff sign-in,
   authorized Parish A selection, same-parish Request Detail access, and generic
@@ -27,9 +26,13 @@ percentage estimates or dated evidence files.
   in an isolated flag-off process: 879 test files and 3,775 tests passed, both
   TypeScript scopes and lint passed, the dependency audit found zero known
   vulnerabilities, and the Next.js 16.3.0 build generated 56 pages.
-- Recorded rollback evidence restored the production aliases to the approved
-  rollback deployment at commit `c52d947b0f70ad01c8dc6920ad49979ca17d25d2`.
-  This status review did not access production or change aliases.
+- Vercel automatically built merged `main` as ready artifact
+  `dpl_EBrGS8ErXLVqctTqikUNUFh4mwj3`, but no operator promotion occurred and
+  the public production domains remain assigned to approved rollback deployment
+  `dpl_FuhBvEBrbZjNzQ6dLp4qHbi5j7UW` at commit
+  `c52d947b0f70ad01c8dc6920ad49979ca17d25d2`.
+- This merge verification did not access the production application or data,
+  apply migrations, change RLS, or enable production-sensitive flags.
 
 ## Current Readiness
 
@@ -85,9 +88,9 @@ Remaining approval-gated P0s:
 
 1. Approve or reject the prepared hash-pinned shared-QA migration-history repair
    and function-privilege application. Neither write has been run.
-2. Approve or reject merging draft PR `#8` at an explicitly reconfirmed exact
-   head after its required checks remain green. Merge approval does not approve a
-   production deployment.
+2. Complete the new fail-closed controlled rollout checkpoint for merged main;
+   the merge and ready artifact do not approve alias promotion or production
+   smoke.
 3. Complete production RLS, production monitoring, production-safe fixture, and
    controlled read-only smoke gates with their separate explicit approvals.
 
@@ -112,3 +115,6 @@ Shared-QA promotion approval packet:
 
 Exact-head publication and Preview evidence:
 [`RELEASE_INTEGRITY_EXACT_HEAD_PREVIEW_EVIDENCE_20260807.md`](RELEASE_INTEGRITY_EXACT_HEAD_PREVIEW_EVIDENCE_20260807.md).
+
+Merged-main rollout checkpoint:
+[`CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260807.md`](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260807.md).
