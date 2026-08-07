@@ -35,7 +35,7 @@ Latest Request Detail selected-parish reliability evidence: [Request Detail Pari
 
 Latest selected-parish reliability evidence: [Daily Work Hub Workflow Settings Scope Boundary](DAILY_WORK_HUB_WORKFLOW_SETTINGS_SCOPE_BOUNDARY_20260720.md) records the bounded auxiliary settings read, safe-default reset, response-parish validation, latest-load ownership, and remaining browser-evidence boundary.
 
-Latest release-integrity evidence: [Release Source Manifest Clean-Checkout Invariant](RELEASE_SOURCE_MANIFEST_CLEAN_CHECKOUT_INVARIANT_20260720.md) records the exact-head CI failure, immutable tracked-head correction, verification boundary, and separate publication requirement.
+Latest release-integrity evidence: [Release Source Manifest Clean-Checkout Invariant](RELEASE_SOURCE_MANIFEST_CLEAN_CHECKOUT_INVARIANT_20260720.md) records the exact-head CI failure, immutable tracked-head correction, verification boundary, and separate publication requirement. [Controlled Production Rollout Checkpoint](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260807.md) binds merged `main`, the ready but unpromoted artifact, the unchanged public-domain rollback target, and the remaining production `NO-GO` gates.
 
 ## Start Here
 

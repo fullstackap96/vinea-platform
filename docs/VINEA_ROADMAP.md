@@ -12,12 +12,15 @@ the known anonymous-execute drift. The next safe P0 is a non-applied guarded
 history-repair/shared-QA privilege application plan. That package is now prepared
 with a hash-pinned fail-closed runner, exact rollback candidate, and explicit
 approval boundary; no shared-QA write was run. The next autonomous P0 is
-release-branch reconciliation and local verification. The exact reviewed head
-`a92f6b82` is now published, CI is green, its Preview is `READY`, and protected
+release-branch reconciliation and local verification. The final reviewed head
+`c7626c46` is published, CI is green, its Preview is `READY`, and protected
 staff sign-in, Parish A selection, plus Request Detail allow/deny smoke passed.
 Authenticated `vercel curl` also confirmed exact-deployment health and all six
-reported checks. Shared-QA execution and the separately approved production RLS,
-monitoring, fixture, and controlled-smoke gates remain human-gated. Older
+reported checks. PR `#8` is merged and remote `main` is `46190a71`; Vercel built
+the matching main artifact but the public domains remain on the approved
+rollback deployment. The new controlled rollout checkpoint remains `NO-GO`.
+Shared-QA execution and the separately approved production RLS, monitoring,
+fixture, and controlled-smoke gates remain human-gated. Older
 `99.8% / 87.5%` estimates below are historical and are not the current launch
 decision.
 
