@@ -4,6 +4,33 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Post-Publication Exact-Head Preview Evidence Identity
+
+The 2026-08-07 release-integrity evidence slice records the published exact head,
+green clean-checkout CI, `READY` Preview identity, authenticated exact-deployment
+health, and protected staff Request Detail allow/deny smoke. It also refreshes the
+current roadmap, SSoT, build status, operations index, and approval-gated P0
+register without changing runtime behavior.
+
+- Immutable evidence implementation commit: `0d79d86f7d238900ec19d5b2c26f8be340d18d5e`
+- Tracked-head aggregate SHA-256: `FE96537917C96E96A22C52714B468E67885EE0E1BF7819BA1F808989B5C36AAA`
+- Tracked source file count: `1530`
+- Source mode: `tracked-head`
+- Production approval granted: `NO`
+
+The complete local 15-command release contract passed against the evidence-update
+working tree in an isolated flag-off process: zero secret findings, zero known
+dependency vulnerabilities, every evidence/gate check, both TypeScript scopes,
+lint, `879` test files / `3,775` tests, and the credential-free Next.js 16.3.0
+`56`-page build. The published reviewed head remains `a92f6b82`; this local
+evidence commit and its docs-only binding are not published, do not alter PR `#8`,
+and do not authorize a merge or production action.
+
+This tracked-source identity does not replace an immutable Git commit and does not
+authorize deployment, production access, migration, RLS change, record mutation,
+provider call, export, AI call, storage action, signed URL, communication,
+certificate generation, production-sensitive flag, or public trust claim.
+
 ## Post-Release Export Audit Reviewer Dashboard Client Read Deadline Slice
 
 The 2026-07-20 export-governance reliability slice bounds the non-production reviewer dashboard's protected API read at 15 seconds and aborts obsolete work on replacement, saved-filter change, or unmount. Existing latest-response ownership, generic staff-safe errors, API-only data access, read-only behavior, and production `NO-GO` boundaries remain unchanged.
