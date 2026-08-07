@@ -1,5 +1,25 @@
 # Vinea Build Status
 
+Exact-head publication and Preview verification (2026-08-07): the remote
+release-integrity branch was re-fetched at the approved base `b63bca3`, then
+advanced by exactly three reviewed commits to
+`a92f6b82a26ef159b8e5e159b1db15594bca7e0f` with an exact expected-base lease.
+Draft PR `#8` remains open, unmerged, and mergeable. GitHub Actions run
+`31211255259` passed repository secret scanning, dependency audit, the complete
+tests, both TypeScript scopes, release/production-boundary evidence gates, lint,
+and build. Preview deployment `dpl_4XR99w6RUyC6MwsQq5mUZjPZdG8p` is `READY`,
+bound to the exact head, and has no production target. Protected Preview smoke
+passed safe staff sign-in, authorized Parish A selection, same-parish Request
+Detail loading, and generic cross-parish denial without recording raw IDs or
+data. The supported authenticated `vercel curl` path confirmed `/api/health`
+returned `ok: true` with environment, Supabase, parish, schema, email, and Google
+OAuth checks all `true`. The post-publication 15-command local release contract
+also passed in an isolated flag-off process: zero known vulnerabilities, both
+TypeScript scopes, lint, 879 test files with 3,775 tests, all evidence/gate checks,
+and the 56-page Next.js 16.3.0 build. No merge, production, database, storage,
+provider, export, certificate, or sensitive-flag action occurred. Evidence:
+[`RELEASE_INTEGRITY_EXACT_HEAD_PREVIEW_EVIDENCE_20260807.md`](RELEASE_INTEGRITY_EXACT_HEAD_PREVIEW_EVIDENCE_20260807.md).
+
 Current shared-QA database-security promotion preparation (2026-08-07): source
 review found and corrected a disposable-validator blind spot: the original check
 proved two service RPCs remained but did not prove excess `service_role` grants
@@ -85,10 +105,11 @@ Current dependency-security and release-status update (2026-08-07): Next.js and
 `eslint-config-next` are now `16.3.0`, the reviewed PostCSS override is `8.5.23`,
 and Sharp is pinned at `0.35.0`. The complete-tree npm audit reports zero known
 vulnerabilities. Both TypeScript scopes, ESLint, the complete Vitest suite, and
-the Next.js 16.3.0 production build pass; the build generated all `56` pages. No
-deployment, production access, database action, or sensitive flag change occurred.
-The local remediation still requires publication, exact-head CI, and protected
-Preview verification. Evidence:
+the Next.js 16.3.0 production build pass; the build generated all `56` pages. The
+remediation is now published at exact head `a92f6b82`; CI, Preview health, staff
+authentication, authorized parish selection, and Request Detail allow/deny smoke
+pass. No production access, database action, or sensitive flag change occurred.
+Evidence:
 [`DEPENDENCY_SECURITY_REMEDIATION_20260807.md`](DEPENDENCY_SECURITY_REMEDIATION_20260807.md).
 
 Current release-status audit (2026-08-07):
@@ -96,7 +117,7 @@ Current release-status audit (2026-08-07):
 exact draft PR, green exact-head CI, green protected Preview read-only smoke,
 production rollback boundary, closed local dependency P0, shared-QA Supabase
 security-advisor findings, migration-history mismatch, and recalculated
-`94% / 74% / 86%` engineering, rollout, and overall readiness. This current audit
+`95% / 78% / 88%` engineering, rollout, and overall readiness. This current audit
 supersedes the historical percentages in the chronological entries below. No
 production action or database mutation occurred during the audit.
 

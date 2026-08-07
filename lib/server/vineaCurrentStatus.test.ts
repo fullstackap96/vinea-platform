@@ -9,13 +9,17 @@ const currentStatus = readFileSync(currentStatusPath, 'utf8')
 describe('Vinea current status register', () => {
   it('binds the reviewed branch, pull request, CI, and Preview identities', () => {
     expect(currentStatus).toContain('codex/release-integrity-20260720')
-    expect(currentStatus).toContain('b63bca33469a8e9bec80eb5be3d47f9b883e8ce6')
+    expect(currentStatus).toContain('a92f6b82a26ef159b8e5e159b1db15594bca7e0f')
     expect(currentStatus).toContain('GitHub PR `#8`')
-    expect(currentStatus).toContain('29819311074')
-    expect(currentStatus).toContain('dpl_7GN8YM279grMsFBHPUPi14LYkJTa')
+    expect(currentStatus).toContain('31211255259')
+    expect(currentStatus).toContain('dpl_4XR99w6RUyC6MwsQq5mUZjPZdG8p')
+    expect(currentStatus).toContain('exact-deployment `/api/health` returned')
   })
 
   it('keeps the launch decision and production-sensitive boundaries explicit', () => {
+    expect(currentStatus).toContain('Engineering completion estimate: `95%`')
+    expect(currentStatus).toContain('Production rollout readiness estimate: `78%`')
+    expect(currentStatus).toContain('Overall Vinea readiness estimate: `88%`')
     expect(currentStatus).toContain('Launch decision: `YELLOW`')
     expect(currentStatus).toContain('Production deployment')
     expect(currentStatus).toContain('production migrations')
@@ -34,9 +38,10 @@ describe('Vinea current status register', () => {
       'read-only shared-QA migration/catalog reconciliation',
     )
     expect(currentStatus).toContain('Do not replay the migrations')
-    expect(currentStatus).toContain(
-      'Prepare a non-applied, guarded migration-history repair plan',
-    )
+    expect(currentStatus).toContain('prepared hash-pinned shared-QA migration-history repair')
+    expect(currentStatus).toContain('Remaining approval-gated P0s')
+    expect(currentStatus).toContain('merging draft PR `#8`')
+    expect(currentStatus).toContain('Merge approval does not approve a')
   })
 
   it.each([

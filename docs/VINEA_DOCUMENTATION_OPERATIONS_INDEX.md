@@ -9,6 +9,11 @@ is the concise register for exact release identity, current CI/Preview evidence,
 verified Supabase state, recalculated readiness, P0 blockers, and the current
 `YELLOW` launch decision. Use it before dated build-status entries.
 
+Current exact-head publication evidence: [Release Integrity Exact-Head Preview Evidence](RELEASE_INTEGRITY_EXACT_HEAD_PREVIEW_EVIDENCE_20260807.md)
+records the leased three-commit publication, successful CI, `READY`
+non-production deployment identity, exact-deployment health, and protected
+Request Detail allow/deny smoke.
+
 Current dependency security evidence: [Dependency Security Remediation](DEPENDENCY_SECURITY_REMEDIATION_20260807.md)
 records the Next.js 16.3.0 baseline and zero-audit local evidence without granting
 publication or production approval.

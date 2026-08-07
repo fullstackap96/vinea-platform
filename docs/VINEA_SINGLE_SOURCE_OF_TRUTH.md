@@ -378,7 +378,7 @@ These principles guide engineering, product, sales, support, and AI-assisted wor
 
 ### Current Stack
 
-- Frontend and backend: Next.js 16.2.10 App Router, React 19.2.4, TypeScript, Tailwind CSS 4.
+- Frontend and backend: Next.js 16.3.0 App Router, React 19.2.4, TypeScript, Tailwind CSS 4.
 - Database, auth, storage, backend services: Supabase.
 - Hosting, deployments, runtime, observability path: Vercel.
 - Runtime AI integration in the app: OpenAI SDK and Responses API, currently staff-reviewed and gated.
@@ -415,7 +415,15 @@ These principles guide engineering, product, sales, support, and AI-assisted wor
 
 Vinea is late prototype to early pilot-readiness. It has substantial product surface and strong safety/process documentation. It is not yet fully production-complete for diocesan or multi-parish scale.
 
-Current build status records the latest runtime production-readiness slice as the 2026-07-10 Export Exact Selected-Parish Role Boundary. The full Vitest regression run passed 689 files and 2,725 tests; all-file TypeScript, quiet lint, and the Next.js 16.2.10 production build with 56 static pages also passed. Both gated export pilots now derive permission roles from the authenticated membership in the exact selected parish, deny missing/failed role scope before privileged reads, and send safe denials to the forged/cross-parish reviewer queue. Production exports remain disabled and separately approval-gated. The latest documentation operating-system slice remains the 2026-07-10 SSoT consolidation. Production-sensitive claims still require their separate approval and smoke-evidence gates.
+The current reviewed release head is `a92f6b82`. Exact-head GitHub CI passed the
+repository secret scan, dependency audit, complete tests, both TypeScript scopes,
+release and production-boundary evidence gates, lint, and the Next.js 16.3.0
+production build. Its non-production Vercel Preview is `READY`; protected smoke
+passed staff authentication, authorized parish selection, same-parish Request
+Detail access, and generic cross-parish denial. Authenticated `vercel curl`
+confirmed exact-deployment health and all reported checks. Production-sensitive
+claims and capabilities still require their separate approvals and smoke
+evidence.
 
 ### Known Production Gates
 

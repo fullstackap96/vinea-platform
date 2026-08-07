@@ -12,11 +12,12 @@ the known anonymous-execute drift. The next safe P0 is a non-applied guarded
 history-repair/shared-QA privilege application plan. That package is now prepared
 with a hash-pinned fail-closed runner, exact rollback candidate, and explicit
 approval boundary; no shared-QA write was run. The next autonomous P0 is
-release-branch reconciliation and local verification. That local work now passes
-the complete 15-check release contract at the new immutable source identity.
-Shared-QA execution, exact-head publication/CI/Preview rerun, and the separately
-approved production RLS, monitoring, fixture, and controlled-smoke gates remain
-human-gated. Older
+release-branch reconciliation and local verification. The exact reviewed head
+`a92f6b82` is now published, CI is green, its Preview is `READY`, and protected
+staff sign-in, Parish A selection, plus Request Detail allow/deny smoke passed.
+Authenticated `vercel curl` also confirmed exact-deployment health and all six
+reported checks. Shared-QA execution and the separately approved production RLS,
+monitoring, fixture, and controlled-smoke gates remain human-gated. Older
 `99.8% / 87.5%` estimates below are historical and are not the current launch
 decision.
 
