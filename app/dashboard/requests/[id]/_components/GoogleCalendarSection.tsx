@@ -25,6 +25,7 @@ export function GoogleCalendarSection({
   creating,
   updating,
   deleting,
+  mutationDisabled = false,
   message,
   conflicts,
 }: {
@@ -39,6 +40,7 @@ export function GoogleCalendarSection({
   creating: boolean
   updating: boolean
   deleting: boolean
+  mutationDisabled?: boolean
   message: string
   conflicts?: CalendarConflict[] | null
 }) {
@@ -46,12 +48,13 @@ export function GoogleCalendarSection({
   const synced = Boolean(eventId)
   const busy = creating || updating || deleting
 
-  const createDisabled = busy || !hasConfirmed || synced
-  const updateDisabled = busy || !hasConfirmed || !synced
-  const deleteDisabled = busy || !synced
+  const createDisabled = busy || mutationDisabled || !hasConfirmed || synced
+  const updateDisabled = busy || mutationDisabled || !hasConfirmed || !synced
+  const deleteDisabled = busy || mutationDisabled || !synced
 
   const hasConflicts = Boolean(conflicts?.length)
-  const forceCreateDisabled = busy || !hasConfirmed || synced || !hasConflicts
+  const forceCreateDisabled =
+    busy || mutationDisabled || !hasConfirmed || synced || !hasConflicts
   const safeEventLink = safeGoogleCalendarEventHref(eventLink)
 
   const formatRange = (startIso: string | null, endIso: string | null) => {

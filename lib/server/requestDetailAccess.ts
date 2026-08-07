@@ -66,6 +66,11 @@ async function resolveRequestDetailAccessParishId(
   }
 
   if (options.allowPrimaryParishFallback === true) {
+    if (options.staffSupabase) {
+      const context = await resolveActiveStaffParishContext(options.staffSupabase)
+      return context.ok ? context.activeParishId : null
+    }
+
     return primaryParishId(admin)
   }
 

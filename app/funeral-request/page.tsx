@@ -139,6 +139,7 @@ export default function FuneralRequestPage() {
         aria-label="Funeral or memorial request"
         aria-busy={loading}
       >
+        <fieldset disabled={loading} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <h2 className={intakeSectionHeadingClass}>Family contact</h2>
         <input
           className={intakeInputClass}
@@ -318,6 +319,7 @@ export default function FuneralRequestPage() {
         >
           {loading ? 'Submitting...' : 'Submit request'}
         </button>
+        </fieldset>
       </form>
 
       {message ? (

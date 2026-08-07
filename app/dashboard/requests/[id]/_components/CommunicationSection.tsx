@@ -89,6 +89,7 @@ export function CommunicationLogForm({
         <select
           className="w-full min-w-0 rounded border border-gray-200 p-3 sm:w-auto sm:min-w-[10rem]"
           value={method}
+          disabled={saving}
           onChange={(e) => setMethod(e.target.value as CommunicationMethod)}
         >
           <option value="email">Email</option>
@@ -103,6 +104,7 @@ export function CommunicationLogForm({
           className="w-full min-w-0 flex-1 rounded border border-gray-200 p-3 sm:min-w-[12rem]"
           type="datetime-local"
           value={contactedAtValue}
+          disabled={saving}
           onChange={(e) => setContactedAtValue(e.target.value)}
         />
       </div>
@@ -112,6 +114,7 @@ export function CommunicationLogForm({
         rows={4}
         placeholder="What was discussed, or the next step for the family…"
         value={notes}
+        disabled={saving}
         onChange={(e) => setNotes(e.target.value)}
       />
 

@@ -33,6 +33,8 @@ type Props = {
   onLinked: () => void | Promise<void>
 }
 
+const RELATIONSHIP_SUGGESTIONS_READ_TIMEOUT_MS = 15_000
+
 export function RequestPersonLinkSection({
   requestId,
   personId,
@@ -60,6 +62,7 @@ export function RequestPersonLinkSection({
   useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
+    let readTimeoutId: number | undefined
 
     async function loadPersonLinks() {
       setLookupStatus('loading')
@@ -73,6 +76,11 @@ export function RequestPersonLinkSection({
         return
       }
 
+      readTimeoutId = window.setTimeout(
+        () => controller.abort(),
+        RELATIONSHIP_SUGGESTIONS_READ_TIMEOUT_MS,
+      )
+
       try {
         const response = await fetch(`/api/requests/${requestId}/relationship-suggestions`, {
           credentials: 'include',
@@ -82,7 +90,7 @@ export function RequestPersonLinkSection({
           | RelationshipSuggestionResponse
           | null
 
-        if (cancelled || controller.signal.aborted) return
+        if (cancelled) return
 
         if (!response.ok || !payload?.ok) {
           setLinkedPerson(null)
@@ -95,16 +103,19 @@ export function RequestPersonLinkSection({
         setExistingForParishioner(payload.existingForParishioner)
         setLookupStatus('ready')
       } catch {
-        if (cancelled || controller.signal.aborted) return
+        if (cancelled) return
         setLinkedPerson(null)
         setExistingForParishioner(null)
         setLookupStatus('unavailable')
+      } finally {
+        if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
       }
     }
 
     void loadPersonLinks()
     return () => {
       cancelled = true
+      if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
       controller.abort()
     }
   }, [requestId, resolvedPersonId, resolvedParishionerId, resolvedRequestParishId])

@@ -48,7 +48,7 @@ describe('request checklist item active parish mutation route', () => {
     expect(block).toContain("fetch(`/api/requests/${routeId}/checklist-items/${itemId}`")
     expect(block).toContain("method: 'PATCH'")
     expect(block).toContain("requestDetailClientApiErrorMessage('updateChecklistItem'")
-    expect(block).toContain("requestDetailClientFailureMessage('updateChecklistItem')")
+    expect(block).toContain("requestDetailClientFailureMessage('confirmWorkflowMutation')")
     expect(block).not.toContain(".from('checklist_items')")
     expect(block).not.toContain(".update({ is_complete: !currentValue })")
   })

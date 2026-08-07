@@ -1,3 +1,5 @@
+import { ClientOperationTimeoutError } from './clientOperationDeadline'
+
 export type DashboardShellClientAction =
   | 'parishSwitcher'
   | 'globalSearch'
@@ -10,6 +12,9 @@ const failureMessages: Record<DashboardShellClientAction, string> = {
   notifications: 'Could not load items needing attention.',
   logout: 'Could not sign out. Check your connection and try again.',
 }
+
+const logoutTimeoutMessage =
+  'Vinea could not confirm sign-out in time. Refresh this page before trying again.'
 
 const signInMessages: Record<DashboardShellClientAction, string> = {
   parishSwitcher: 'Your staff session is no longer active. Sign in and try again.',
@@ -29,6 +34,10 @@ export function dashboardShellClientErrorMessage(
   action: DashboardShellClientAction,
   error: unknown,
 ): string {
+  if (action === 'logout' && error instanceof ClientOperationTimeoutError) {
+    return logoutTimeoutMessage
+  }
+
   const message = typeof error === 'string' ? error.trim() : ''
   if (message === 'Unauthorized') return signInMessages[action]
 

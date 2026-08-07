@@ -48,7 +48,7 @@ describe('request staff notes active parish mutation route', () => {
     expect(block).toContain("fetch(`/api/requests/${routeId}/staff-notes`")
     expect(block).toContain("method: 'PATCH'")
     expect(block).toContain("requestDetailClientApiErrorMessage('updateStaffNotes'")
-    expect(block).toContain("requestDetailClientFailureMessage('updateStaffNotes')")
+    expect(block).toContain("requestDetailClientFailureMessage('confirmWorkflowMutation')")
     expect(block).not.toContain(".from('requests')")
     expect(block).not.toContain('.update({ staff_notes: staffNotes })')
   })

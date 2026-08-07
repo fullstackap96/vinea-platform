@@ -8,6 +8,7 @@ export type DashboardClientAction =
   | 'logFollowUpContacted'
   | 'updateFollowUpContactedSummary'
   | 'markFollowUpContacted'
+  | 'confirmWorkHubMutation'
   | 'logCareTouchpoint'
   | 'updateFuneralCareDate'
   | 'updateCareRequest'
@@ -27,6 +28,8 @@ export const dashboardClientFailureMessages: Record<DashboardClientAction, strin
   updateFollowUpContactedSummary:
     'Communication was logged, but Vinea could not update the request summary. Please review the request.',
   markFollowUpContacted: 'Could not mark this request as contacted. Please try again.',
+  confirmWorkHubMutation:
+    'Could not confirm whether this change finished. Refresh the Daily Work Hub and review the request before trying again.',
   logCareTouchpoint: 'Could not log the care touchpoint. Please try again.',
   updateFuneralCareDate:
     'Care touchpoint was logged, but Vinea could not update the funeral care date. Please review the request.',

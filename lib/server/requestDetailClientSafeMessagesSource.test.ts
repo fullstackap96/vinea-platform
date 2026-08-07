@@ -31,7 +31,23 @@ describe('request detail client safe messages', () => {
       'aiSummary',
       'aiReply',
       'saveReplyDraft',
-      'updateStaffNotes',
+      'updateCommunicationSummary',
+      'sendEmail',
+      'logSentEmail',
+      'updateSentEmailSummary',
+    ]) {
+      expect(source).toContain(`requestDetailClientFailureMessage('${action}')`)
+    }
+
+    expect(source).toContain('GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE')
+    expect(source).toContain('googleCalendarUncertainResultMessage(error)')
+
+    expect(source).toContain("requestDetailClientApiErrorMessage('updateStaffNotes', data?.error)")
+    expect(source).toContain("requestDetailClientApiErrorMessage('logCommunication', data?.error)")
+    expect(source).toContain('requestDetailClientApiErrorMessage(action, data?.error)')
+    expect(source).toContain("requestDetailClientFailureMessage('confirmWorkflowMutation')")
+
+    for (const action of [
       'saveSuggestedDates',
       'saveConfirmedDate',
       'clearConfirmedDate',
@@ -43,16 +59,8 @@ describe('request detail client safe messages', () => {
       'clearWeddingCeremony',
       'saveOciaSession',
       'clearOciaSession',
-      'logCommunication',
-      'updateCommunicationSummary',
-      'sendEmail',
-      'logSentEmail',
-      'updateSentEmailSummary',
-      'createGoogleCalendarEvent',
-      'updateGoogleCalendarEvent',
-      'deleteGoogleCalendarEvent',
     ]) {
-      expect(source).toContain(`requestDetailClientFailureMessage('${action}')`)
+      expect(source).toContain(`action: '${action}'`)
     }
 
     expect(source).not.toContain('setActivityError(error instanceof Error ? error.message')

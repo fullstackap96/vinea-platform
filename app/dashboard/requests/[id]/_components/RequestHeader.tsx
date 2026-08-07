@@ -16,6 +16,7 @@ import { REQUEST_WAITING_ON_OPTIONS } from '@/lib/requestWaitingOn'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { requestDetailClientFailureMessage } from '@/lib/requestDetailClientMessages'
+import { awaitRequestDetailClientMutationConfirmation } from '@/lib/requestDetailClientMutationConfirmation'
 import type {
   RequestDetailParishionerDto,
   RequestDetailRequestDto,
@@ -331,16 +332,23 @@ export function RequestWaitingOnSection({
   request,
   disabled,
   onSave,
+  mutationRequiresRefresh = false,
+  onMutationUnconfirmed,
 }: {
   request: RequestDetailRequestDto
   disabled?: boolean
-  onSave: (value: string | null) => Promise<void> | void
+  onSave: (
+    value: string | null,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
+  mutationRequiresRefresh?: boolean
+  onMutationUnconfirmed?: () => void
 }) {
   const stored = String(request?.waiting_on ?? '').trim()
   const [value, setValue] = useState(stored)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const saveInFlightRef = useRef(false)
+  const mutationBusy = saving || mutationRequiresRefresh
 
   useEffect(() => {
     let cancelled = false
@@ -359,17 +367,27 @@ export function RequestWaitingOnSection({
     successMessage: string,
     failureMessage: string,
   ) {
-    if (saveInFlightRef.current) return
+    if (saveInFlightRef.current || mutationRequiresRefresh) return
 
     saveInFlightRef.current = true
     setSaving(true)
     setMessage('')
     try {
-      await onSave(next)
+      const confirmation = await awaitRequestDetailClientMutationConfirmation(onSave(next))
+      if (!confirmation.confirmed) {
+        onMutationUnconfirmed?.()
+        setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+        return
+      }
+      if (!confirmation.value.ok) {
+        setMessage(confirmation.value.error || failureMessage)
+        return
+      }
       if (next === null) setValue('')
       setMessage(successMessage)
     } catch {
-      setMessage(failureMessage)
+      onMutationUnconfirmed?.()
+      setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
     } finally {
       saveInFlightRef.current = false
       setSaving(false)
@@ -396,7 +414,7 @@ export function RequestWaitingOnSection({
   return (
     <div
       className="mt-6 space-y-4 border-t border-gray-100 pt-5 text-sm sm:text-base text-gray-800"
-      aria-busy={saving}
+      aria-busy={mutationBusy}
     >
       <LabelValueGrid>
         <LabelValueRow
@@ -406,7 +424,7 @@ export function RequestWaitingOnSection({
               <select
                 className="w-full min-w-0 max-w-md rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-60"
                 value={value}
-                disabled={disabled || isComplete || saving}
+                disabled={disabled || isComplete || mutationBusy}
                 onChange={(e) => setValue(e.target.value)}
                 aria-label="What this request is waiting for"
               >
@@ -420,7 +438,7 @@ export function RequestWaitingOnSection({
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={disabled || isComplete || saving}
+                disabled={disabled || isComplete || mutationBusy}
                 className={`${primaryButtonMd} w-full shrink-0 justify-center sm:w-auto`}
               >
                 {saving ? 'Saving…' : 'Save'}
@@ -436,7 +454,7 @@ export function RequestWaitingOnSection({
       </p>
       <button
         type="button"
-        disabled={disabled || isComplete || saving || !value}
+        disabled={disabled || isComplete || mutationBusy || !value}
         onClick={() => void handleClear()}
         className={`${secondaryButtonMd} justify-center text-sm`}
       >

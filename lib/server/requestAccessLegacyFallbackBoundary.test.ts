@@ -27,6 +27,11 @@ describe('request access legacy fallback boundary', () => {
     expect(resolverBlock).toContain('resolveActiveStaffParishContext')
     expect(resolverBlock).toContain('isExactMembershipActiveParish(context, activeParishId)')
     expect(resolverBlock).toContain('if (options.allowPrimaryParishFallback === true)')
+    expect(resolverBlock).toContain('if (options.staffSupabase)')
+    expect(resolverBlock).toContain(
+      'resolveActiveStaffParishContext(options.staffSupabase)'
+    )
+    expect(resolverBlock).toContain('return context.ok ? context.activeParishId : null')
     expect(resolverBlock).toContain('return primaryParishId(admin)')
   })
 
@@ -48,6 +53,11 @@ describe('request access legacy fallback boundary', () => {
     expect(resolverBlock).toContain('resolveActiveStaffParishContext')
     expect(resolverBlock).toContain('isExactMembershipActiveParish(context, activeParishId)')
     expect(resolverBlock).toContain('if (options.allowPrimaryParishFallback === true)')
+    expect(resolverBlock).toContain('if (options.staffSupabase)')
+    expect(resolverBlock).toContain(
+      'resolveActiveStaffParishContext(options.staffSupabase)'
+    )
+    expect(resolverBlock).toContain('return context.ok ? context.activeParishId : null')
     expect(resolverBlock).toContain('return primaryParishId(admin)')
   })
 
@@ -62,6 +72,7 @@ describe('request access legacy fallback boundary', () => {
 
       expect(source).toContain('ACTIVE_STAFF_PARISH_COOKIE')
       expect(source).toContain('allowPrimaryParishFallback: !activeParishId')
+      expect(source).toContain('staff.supabase')
       expect(source).not.toContain(".from('parishes')")
       expect(source).not.toContain(".order('created_at', { ascending: true })")
       expect(source).not.toContain('.limit(1)')
@@ -82,5 +93,20 @@ describe('request access legacy fallback boundary', () => {
     expect(buildStatus).toContain('Request Access Legacy Fallback Boundary')
     expect(roadmap).toContain('Request Access Legacy Fallback Boundary')
     expect(ssot).toContain('Request Access Legacy Fallback Boundary')
+  })
+
+  it('documents membership-first cookie-free request access hardening', () => {
+    const doc = read('docs/REQUEST_ACCESS_MEMBERSHIP_PRIMARY_FALLBACK_HARDENING_20260720.md')
+    const buildStatus = read('docs/VINEA_BUILD_STATUS.md')
+    const roadmap = read('docs/VINEA_ROADMAP.md')
+    const ssot = read('docs/VINEA_SINGLE_SOURCE_OF_TRUTH.md')
+
+    expect(doc).toContain('# Request Access Membership-Primary Fallback Hardening')
+    expect(doc).toContain('authenticated staff membership context')
+    expect(doc).toContain('fails closed')
+    expect(doc).toContain('No migration or RLS change')
+    expect(buildStatus).toContain('membership-primary request access hardening')
+    expect(roadmap).toContain('membership-primary request access hardening')
+    expect(ssot).toContain('membership-primary request access hardening')
   })
 })

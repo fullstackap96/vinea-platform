@@ -68,16 +68,21 @@ describe('request funeral details active parish mutation route', () => {
 
   it('keeps the Request Detail funeral details save off browser-side Supabase mutations', () => {
     const source = read('app/dashboard/requests/[id]/page.tsx')
+    const helper = source.slice(
+      source.indexOf('async function runRequestTypeMutation'),
+      source.indexOf('async function saveSuggestedDates'),
+    )
     const block = source.slice(
       source.indexOf('async function saveFuneralDetails'),
-      source.indexOf('async function saveConfirmedFuneralService')
+      source.indexOf('async function saveConfirmedFuneralService'),
     )
 
-    expect(block).toContain("fetch(`/api/requests/${routeId}/funeral-details`")
-    expect(block).toContain("method: 'PATCH'")
-    expect(block).toContain("credentials: 'include'")
-    expect(block).toContain("requestDetailClientApiErrorMessage('saveFuneralDetails'")
-    expect(block).toContain("requestDetailClientFailureMessage('saveFuneralDetails')")
+    expect(block).toContain('await runRequestTypeMutation({')
+    expect(block).toContain("action: 'saveFuneralDetails'")
+    expect(block).toContain("endpoint: `/api/requests/${routeId}/funeral-details`")
+    expect(helper).toContain("method: 'PATCH'")
+    expect(helper).toContain("credentials: 'include'")
+    expect(helper).toContain('requestDetailClientApiErrorMessage(action, data?.error)')
     expect(block).not.toContain(".from('funeral_request_details')")
     expect(block).not.toContain('.upsert(')
     expect(block).not.toContain('confirmed_service_at:')

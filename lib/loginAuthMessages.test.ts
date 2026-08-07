@@ -5,7 +5,9 @@ import {
   staffLoginGenericErrorMessage,
   staffLoginNetworkErrorMessage,
   staffLoginRateLimitErrorMessage,
+  staffLoginTimeoutErrorMessage,
 } from './loginAuthMessages'
+import { ClientOperationTimeoutError } from './clientOperationDeadline'
 
 describe('safeStaffLoginErrorMessage', () => {
   it('returns a generic message for raw provider details', () => {
@@ -28,6 +30,9 @@ describe('safeStaffLoginErrorMessage', () => {
     )
     expect(safeStaffLoginErrorMessage({ message: 'Email not confirmed' })).toBe(
       staffLoginEmailConfirmationMessage,
+    )
+    expect(safeStaffLoginErrorMessage(new ClientOperationTimeoutError())).toBe(
+      staffLoginTimeoutErrorMessage,
     )
   })
 })

@@ -95,11 +95,16 @@ import {
   isGoogleOAuthReconnectError,
   userFacingGoogleCalendarErrorMessage,
 } from '@/lib/googleCalendarUserErrors'
+import {
+  GOOGLE_CALENDAR_CLIENT_CONFIRMATION_TIMEOUT_MS,
+  GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE,
+} from '@/lib/googleCalendarClientConfirmation'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { getRequestDetailSmartQuickActions } from '@/lib/requestDetailQuickActions'
 import { buildReadyToCompleteItems } from '@/lib/requestReadyToComplete'
 import { getRequestDetailPrimaryHeading } from '@/lib/requestDetailIdentity'
 import { mergeAssigneeDirectoryOptions } from '@/lib/parishAssigneeOptions'
+import { parseParishSettingsResponse } from '@/lib/parishSettingsReadModels'
 import { buildRequestHandoffBrief } from '@/lib/requestHandoffBrief'
 import { evaluateCareCadence } from '@/lib/careCadence'
 import { evaluateCommunicationCommitment } from '@/lib/communicationCommitments'
@@ -110,7 +115,22 @@ import {
   requestDetailClientApiErrorMessage,
   requestDetailClientFailureMessage,
   requestDetailClientServerActionErrorMessage,
+  type RequestDetailClientApiAction,
 } from '@/lib/requestDetailClientMessages'
+import {
+  awaitRequestDetailClientMutationConfirmation,
+  REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS,
+} from '@/lib/requestDetailClientMutationConfirmation'
+import {
+  STAFF_EMAIL_LOG_CONFIRMATION_TIMEOUT_MS,
+  STAFF_EMAIL_SEND_CONFIRMATION_TIMEOUT_MS,
+} from '@/lib/staffEmailClientConfirmation'
+import {
+  AI_CLIENT_GENERATION_CONFIRMATION_TIMEOUT_MS,
+  AI_CLIENT_GENERATION_UNCONFIRMED_MESSAGE,
+  AI_CLIENT_PERSISTENCE_CONFIRMATION_TIMEOUT_MS,
+  AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE,
+} from '@/lib/aiClientConfirmation'
 import { auditEventDetail, auditEventTitle, type AuditEventRow } from '@/lib/auditEvents'
 import {
   countIncompleteRequiredWorkflowSteps,
@@ -147,9 +167,19 @@ type GoogleCalendarMutationPayload = {
   error?: unknown
   message?: unknown
   conflicts?: GoogleCalendarConflictDto[]
+  requiresRefresh?: boolean
 }
 
 const REQUEST_DETAIL_LOAD_TIMEOUT_MS = 15_000
+const REQUEST_PARISH_DIRECTORY_LOAD_TIMEOUT_MS = 15_000
+
+function googleCalendarUncertainResultMessage(error: unknown): string {
+  if (!isGoogleOAuthReconnectError(error)) {
+    return GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE
+  }
+
+  return `${userFacingGoogleCalendarErrorMessage(error)} ${GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE}`
+}
 
 function nowDatetimeLocal() {
   const d = new Date()
@@ -189,6 +219,8 @@ export default function RequestDetailPage() {
   const [checklistUpdatingId, setChecklistUpdatingId] = useState('')
   const [checklistMessage, setChecklistMessage] = useState('')
   const checklistMutationInFlightRef = useRef(false)
+  const [workflowMutationRequiresRefresh, setWorkflowMutationRequiresRefresh] =
+    useState(false)
   const [loading, setLoading] = useState(true)
   const requestLoadAbortRef = useRef<AbortController | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
@@ -196,9 +228,13 @@ export default function RequestDetailPage() {
   const [aiSummary, setAiSummary] = useState('')
 const [replyDraft, setReplyDraft] = useState('')
 const [aiLoading, setAiLoading] = useState(false)
+const aiGenerationInFlightRef = useRef(false)
+const aiPersistenceInFlightRef = useRef(false)
 const [copyMessage, setCopyMessage] = useState('')
 const [staffNotes, setStaffNotes] = useState('')
   const [staffNotesMessage, setStaffNotesMessage] = useState('')
+  const [staffNotesSaving, setStaffNotesSaving] = useState(false)
+  const staffNotesSaveInFlightRef = useRef(false)
   const [requestNotes, setRequestNotes] = useState<
     Array<{ id: string; body: string; created_at: string }>
   >([])
@@ -209,6 +245,8 @@ const [staffNotes, setStaffNotes] = useState('')
   const [suggested3, setSuggested3] = useState('')
   const [suggestedSaving, setSuggestedSaving] = useState(false)
   const [suggestedMessage, setSuggestedMessage] = useState('')
+  const [requestTypeMutationBusy, setRequestTypeMutationBusy] = useState(false)
+  const requestTypeMutationInFlightRef = useRef(false)
 
   const [confirmedBaptismDate, setConfirmedBaptismDate] = useState('')
   const [confirmedSaving, setConfirmedSaving] = useState(false)
@@ -219,6 +257,7 @@ const [staffNotes, setStaffNotes] = useState('')
   const [commContactedAt, setCommContactedAt] = useState(() => nowDatetimeLocal())
   const [commNotes, setCommNotes] = useState('')
   const [commSaving, setCommSaving] = useState(false)
+  const communicationMutationInFlightRef = useRef(false)
   const [commMessage, setCommMessage] = useState('')
 
   const [emailSubject, setEmailSubject] = useState('')
@@ -239,6 +278,8 @@ const [staffNotes, setStaffNotes] = useState('')
   const [gcalUpdating, setGcalUpdating] = useState(false)
   const [gcalDeleting, setGcalDeleting] = useState(false)
   const googleCalendarMutationInFlightRef = useRef(false)
+  const [googleCalendarMutationRequiresRefresh, setGoogleCalendarMutationRequiresRefresh] =
+    useState(false)
   const [gcalMessage, setGcalMessage] = useState('')
   const [gcalConflicts, setGcalConflicts] = useState<
     GoogleCalendarConflictDto[]
@@ -365,24 +406,25 @@ const [staffNotes, setStaffNotes] = useState('')
     }, REQUEST_DETAIL_LOAD_TIMEOUT_MS)
 
     try {
-      await loadRequestCore(controller.signal)
+      return await loadRequestCore(controller.signal)
     } catch (error) {
       if (timedOut && requestLoadAbortRef.current === controller) {
         setErrorMessage(requestDetailClientFailureMessage('loadRequestTimeout'))
-        return
+        return false
       }
       if (
         controller.signal.aborted ||
         requestLoadAbortRef.current !== controller ||
         isRequestLoadAbort(error)
       ) {
-        return
+        return false
       }
       devDashboardConsoleError(
         'Error loading request detail',
         new Error(requestDetailClientFailureMessage('verifyAccess'), { cause: error })
       )
       setErrorMessage(requestDetailClientFailureMessage('verifyAccess'))
+      return false
     } finally {
       window.clearTimeout(timeoutId)
       if (requestLoadAbortRef.current === controller) {
@@ -402,7 +444,7 @@ const [staffNotes, setStaffNotes] = useState('')
     if (!routeId) {
       setErrorMessage('Route ID not found.')
       setLoading(false)
-      return
+      return false
     }
 
     const accessRes = await fetch(`/api/requests/${routeId}/detail-access`, {
@@ -421,7 +463,7 @@ const [staffNotes, setStaffNotes] = useState('')
         requestDetailClientApiErrorMessage('verifyAccess', accessPayloadRecord?.error),
       )
       setLoading(false)
-      return
+      return false
     }
 
     const requestData = accessData.request
@@ -430,7 +472,7 @@ const [staffNotes, setStaffNotes] = useState('')
     if (!requestData?.id) {
       setErrorMessage('Request not found.')
       setLoading(false)
-      return
+      return false
     }
 
     setRequest(requestData)
@@ -752,10 +794,11 @@ const [staffNotes, setStaffNotes] = useState('')
     const existingSacramentalRecord = requestTypeSupport.linkedSacramentalRecord
     setHasSacramentalRecord(Boolean(existingSacramentalRecord?.id))
     setLinkedSacramentalRecord(existingSacramentalRecord)
+    return true
   }
 
   async function toggleChecklistItem(itemId: string, currentValue: boolean) {
-    if (checklistMutationInFlightRef.current) return
+    if (checklistMutationInFlightRef.current || workflowMutationRequiresRefresh) return
 
     checklistMutationInFlightRef.current = true
     setChecklistUpdatingId(itemId)
@@ -766,8 +809,16 @@ const [staffNotes, setStaffNotes] = useState('')
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isComplete: !currentValue }),
+        signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS),
       })
       const data = await res.json().catch(() => ({}))
+
+      if (res.ok && data?.ok !== true) {
+        const message = requestDetailClientFailureMessage('confirmWorkflowMutation')
+        setWorkflowMutationRequiresRefresh(true)
+        setChecklistMessage(message)
+        return
+      }
 
       if (!res.ok || !data?.ok) {
         const failureMessage = requestDetailClientApiErrorMessage('updateChecklistItem', data?.error)
@@ -780,15 +831,16 @@ const [staffNotes, setStaffNotes] = useState('')
       }
 
       setChecklistMessage('Checklist item updated.')
-      try {
-        await loadRequest()
-      } catch {
+      const refreshed = await loadRequest()
+      if (!refreshed) {
+        setWorkflowMutationRequiresRefresh(true)
         setChecklistMessage(
           'Checklist item updated, but the refreshed request could not load. Refresh the page before changing another item.'
         )
       }
     } catch (error) {
-      const failureMessage = requestDetailClientFailureMessage('updateChecklistItem')
+      const failureMessage = requestDetailClientFailureMessage('confirmWorkflowMutation')
+      setWorkflowMutationRequiresRefresh(true)
       setChecklistMessage(failureMessage)
       devDashboardConsoleError(
         'Error updating checklist item',
@@ -800,7 +852,7 @@ const [staffNotes, setStaffNotes] = useState('')
     }
   }
 async function updateRequestStatus(newStatus: string) {
-  if (requestStatusInFlightRef.current) return
+  if (requestStatusInFlightRef.current || workflowMutationRequiresRefresh) return
 
   requestStatusInFlightRef.current = true
   setRequestStatusUpdating(true)
@@ -808,14 +860,23 @@ async function updateRequestStatus(newStatus: string) {
   try {
     let result: Awaited<ReturnType<typeof updateRequestStatusAction>>
     try {
-      result = await updateRequestStatusAction({
-        requestId: routeId,
-        status: newStatus,
-      })
-    } catch (error: unknown) {
-      setRequestStatusMessage(
-        requestDetailClientServerActionErrorMessage('updateStatus', error)
+      const confirmation = await awaitRequestDetailClientMutationConfirmation(
+        updateRequestStatusAction({
+          requestId: routeId,
+          status: newStatus,
+        }),
       )
+      if (!confirmation.confirmed) {
+        setWorkflowMutationRequiresRefresh(true)
+        setRequestStatusMessage(
+          requestDetailClientFailureMessage('confirmWorkflowMutation')
+        )
+        return
+      }
+      result = confirmation.value
+    } catch {
+      setWorkflowMutationRequiresRefresh(true)
+      setRequestStatusMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
       return
     }
 
@@ -826,15 +887,21 @@ async function updateRequestStatus(newStatus: string) {
       return
     }
 
-    setRequestStatusMessage('Request status updated.')
+    let refreshFailed = false
     try {
       await loadActivityEvents(routeId)
     } catch {
-      setRequestStatusMessage(
-        'Request status updated, but activity history could not refresh. Refresh the page before changing status again.'
-      )
+      refreshFailed = true
     }
-    loadRequest()
+    if (!(await loadRequest())) refreshFailed = true
+    if (refreshFailed) {
+      setWorkflowMutationRequiresRefresh(true)
+      setRequestStatusMessage(
+        'Request status updated, but the refreshed request could not fully load. Refresh the page before changing status again.'
+      )
+    } else {
+      setRequestStatusMessage('Request status updated.')
+    }
   } finally {
     requestStatusInFlightRef.current = false
     setRequestStatusUpdating(false)
@@ -845,7 +912,7 @@ async function updateWorkflowStepStatus(
   stepId: string,
   status: RequestWorkflowStepStatus
 ) {
-  if (workflowStepMutationInFlightRef.current) return
+  if (workflowStepMutationInFlightRef.current || workflowMutationRequiresRefresh) return
 
   workflowStepMutationInFlightRef.current = true
   setWorkflowStepUpdatingId(stepId)
@@ -853,15 +920,24 @@ async function updateWorkflowStepStatus(
   try {
     let result: Awaited<ReturnType<typeof updateRequestWorkflowStepStatus>>
     try {
-      result = await updateRequestWorkflowStepStatus({
-        requestId: routeId,
-        stepId,
-        status,
-      })
-    } catch (error: unknown) {
-      setWorkflowStepMessage(
-        requestDetailClientServerActionErrorMessage('updateWorkflowStep', error)
+      const confirmation = await awaitRequestDetailClientMutationConfirmation(
+        updateRequestWorkflowStepStatus({
+          requestId: routeId,
+          stepId,
+          status,
+        }),
       )
+      if (!confirmation.confirmed) {
+        setWorkflowMutationRequiresRefresh(true)
+        setWorkflowStepMessage(
+          requestDetailClientFailureMessage('confirmWorkflowMutation')
+        )
+        return
+      }
+      result = confirmation.value
+    } catch {
+      setWorkflowMutationRequiresRefresh(true)
+      setWorkflowStepMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
       return
     }
 
@@ -879,12 +955,9 @@ async function updateWorkflowStepStatus(
     } catch {
       refreshFailed = true
     }
-    try {
-      await loadRequest()
-    } catch {
-      refreshFailed = true
-    }
+    if (!(await loadRequest())) refreshFailed = true
     if (refreshFailed) {
+      setWorkflowMutationRequiresRefresh(true)
       setWorkflowStepMessage(
         'Workflow step updated, but the refreshed request could not fully load. Refresh the page before changing another step.'
       )
@@ -902,18 +975,16 @@ async function updateWaitingOn(next: string | null) {
   })
 
   if (!result.ok) {
-    throw new Error(
-      requestDetailClientServerActionErrorMessage('updateWaitingOn', result.error)
-    )
+    return {
+      ok: false as const,
+      error: requestDetailClientServerActionErrorMessage('updateWaitingOn', result.error),
+    }
   }
-  try {
-    await loadActivityEvents(routeId)
-  } catch {
-    setActivityError(
-      'The request was updated, but activity history could not refresh. Refresh the page to try again.'
-    )
+  await loadActivityEvents(routeId)
+  if (!(await loadRequest())) {
+    throw new Error('Request refresh failed after waiting-on update.')
   }
-  loadRequest()
+  return { ok: true as const }
 }
 
 function isBlank(value: unknown) {
@@ -935,8 +1006,17 @@ function hasHashOverride(): boolean {
 }
 
 async function generateSummary() {
-  if (!request || !parishioner) return
+  if (
+    !request ||
+    !parishioner ||
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
 
+  aiGenerationInFlightRef.current = true
   try {
     setAiLoading(true)
     setAiSummary('')
@@ -1025,6 +1105,7 @@ async function generateSummary() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(AI_CLIENT_GENERATION_CONFIRMATION_TIMEOUT_MS),
     })
 
     if (!res.ok) {
@@ -1033,74 +1114,126 @@ async function generateSummary() {
       return
     }
 
-    const data = await res.json()
-    const summaryText = data.summary || 'No summary returned.'
+    const data = (await res.json().catch(() => null)) as { summary?: unknown } | null
+    if (typeof data?.summary !== 'string' || !data.summary.trim()) {
+      setAiSummary(requestDetailClientFailureMessage('aiSummary'))
+      return
+    }
+    const summaryText = data.summary
 
     setAiSummary(summaryText)
 
     await saveAiSummaryToRequest(summaryText)
   } catch {
-    setAiSummary(requestDetailClientFailureMessage('aiSummary'))
+    setAiSummary(AI_CLIENT_GENERATION_UNCONFIRMED_MESSAGE)
   } finally {
+    aiGenerationInFlightRef.current = false
     setAiLoading(false)
   }
 }
 
-async function saveAiSummaryToRequest(summaryText: string): Promise<boolean> {
+async function saveAiSummaryToRequest(
+  summaryText: string
+): Promise<{ ok: true } | { ok: false; uncertain: boolean }> {
+  if (aiPersistenceInFlightRef.current || workflowMutationRequiresRefresh) {
+    return { ok: false, uncertain: false }
+  }
+
+  aiPersistenceInFlightRef.current = true
   try {
     const res = await fetch(`/api/requests/${routeId}/ai-summary`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ aiSummary: summaryText }),
+      signal: AbortSignal.timeout(AI_CLIENT_PERSISTENCE_CONFIRMATION_TIMEOUT_MS),
     })
-    const data = await res.json().catch(() => ({}))
+    const data = (await res.json().catch(() => null)) as
+      | { ok?: boolean; error?: unknown }
+      | null
 
-    if (!res.ok || !data?.ok) {
-      setAiSummary(requestDetailClientApiErrorMessage('saveAiSummary', data?.error))
-      return false
+    if (res.ok && data?.ok !== true) {
+      setWorkflowMutationRequiresRefresh(true)
+      setAiSummary(AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE)
+      return { ok: false, uncertain: true }
     }
 
-    return true
+    if (!res.ok) {
+      setAiSummary(requestDetailClientApiErrorMessage('saveAiSummary', data?.error))
+      return { ok: false, uncertain: false }
+    }
+
+    return { ok: true }
   } catch (error) {
     devDashboardConsoleError(
       'AI SUMMARY SAVE ERROR',
       new Error(requestDetailClientFailureMessage('saveAiSummary'), { cause: error })
     )
-    setAiSummary(requestDetailClientFailureMessage('saveAiSummary'))
-    return false
+    setWorkflowMutationRequiresRefresh(true)
+    setAiSummary(AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE)
+    return { ok: false, uncertain: true }
+  } finally {
+    aiPersistenceInFlightRef.current = false
   }
 }
 
-async function saveReplyDraftToRequest(replyDraftBody: string): Promise<boolean> {
+async function saveReplyDraftToRequest(
+  replyDraftBody: string
+): Promise<{ ok: true } | { ok: false; uncertain: boolean }> {
+  if (aiPersistenceInFlightRef.current || workflowMutationRequiresRefresh) {
+    return { ok: false, uncertain: false }
+  }
+
+  aiPersistenceInFlightRef.current = true
   try {
     const res = await fetch(`/api/requests/${routeId}/reply-draft`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ replyDraft: replyDraftBody }),
+      signal: AbortSignal.timeout(AI_CLIENT_PERSISTENCE_CONFIRMATION_TIMEOUT_MS),
     })
-    const data = await res.json().catch(() => ({}))
+    const data = (await res.json().catch(() => null)) as
+      | { ok?: boolean; error?: unknown }
+      | null
 
-    if (!res.ok || !data?.ok) {
-      setEmailMessage(requestDetailClientApiErrorMessage('saveReplyDraft', data?.error))
-      return false
+    if (res.ok && data?.ok !== true) {
+      setWorkflowMutationRequiresRefresh(true)
+      setEmailMessage(AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE)
+      return { ok: false, uncertain: true }
     }
 
-    return true
+    if (!res.ok) {
+      setEmailMessage(requestDetailClientApiErrorMessage('saveReplyDraft', data?.error))
+      return { ok: false, uncertain: false }
+    }
+
+    return { ok: true }
   } catch (error) {
     devDashboardConsoleError(
       'reply_draft save',
       new Error(requestDetailClientFailureMessage('saveReplyDraft'), { cause: error })
     )
-    setEmailMessage(requestDetailClientFailureMessage('saveReplyDraft'))
-    return false
+    setWorkflowMutationRequiresRefresh(true)
+    setEmailMessage(AI_CLIENT_PERSISTENCE_REFRESH_REQUIRED_MESSAGE)
+    return { ok: false, uncertain: true }
+  } finally {
+    aiPersistenceInFlightRef.current = false
   }
 }
 
 async function generateReplyDraft() {
-  if (!request || !parishioner) return
+  if (
+    !request ||
+    !parishioner ||
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
 
+  aiGenerationInFlightRef.current = true
   try {
     setAiLoading(true)
     setReplyDraft('')
@@ -1108,6 +1241,7 @@ async function generateReplyDraft() {
 
     const requestType = String(request.request_type || 'baptism')
     const replyBody: Record<string, unknown> = {
+      requestId: routeId,
       requestType,
       fullName: parishioner.full_name,
       email: parishioner.email,
@@ -1162,6 +1296,7 @@ async function generateReplyDraft() {
       },
       credentials: 'include',
       body: JSON.stringify(replyBody),
+      signal: AbortSignal.timeout(AI_CLIENT_GENERATION_CONFIRMATION_TIMEOUT_MS),
     })
 
     if (!res.ok) {
@@ -1170,8 +1305,12 @@ async function generateReplyDraft() {
       return
     }
 
-    const data = await res.json()
-    const replyText = data.reply || 'No reply returned.'
+    const data = (await res.json().catch(() => null)) as { reply?: unknown } | null
+    if (typeof data?.reply !== 'string' || !data.reply.trim()) {
+      setReplyDraft(requestDetailClientFailureMessage('aiReply'))
+      return
+    }
+    const replyText = data.reply
     const parsed = parseAiEmailDraft(replyText)
     if (parsed.hadSubjectLine) {
       setEmailSubject(parsed.subject)
@@ -1182,8 +1321,9 @@ async function generateReplyDraft() {
       await saveReplyDraftToRequest(replyText)
     }
   } catch {
-    setReplyDraft(requestDetailClientFailureMessage('aiReply'))
+    setReplyDraft(AI_CLIENT_GENERATION_UNCONFIRMED_MESSAGE)
   } finally {
+    aiGenerationInFlightRef.current = false
     setAiLoading(false)
   }
 }
@@ -1201,6 +1341,14 @@ async function copyReplyDraft() {
 }
 
 async function applyVineaEmailTemplateNow(templateId: VineaEmailTemplateId) {
+  if (
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
+
   const ctx = buildVineaEmailTemplateContext({
     parishioner,
     request,
@@ -1219,6 +1367,14 @@ async function applyVineaEmailTemplateNow(templateId: VineaEmailTemplateId) {
 }
 
 async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
+  if (
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
+
   const hasExisting =
     String(emailSubject || '').trim() || String(replyDraft || '').trim()
   if (hasExisting) {
@@ -1230,7 +1386,15 @@ async function applyVineaEmailTemplate(templateId: VineaEmailTemplateId) {
 }
 
 async function confirmVineaEmailTemplate() {
-  if (!pendingEmailTemplateId || emailTemplateApplying) return
+  if (
+    !pendingEmailTemplateId ||
+    emailTemplateApplying ||
+    aiGenerationInFlightRef.current ||
+    aiPersistenceInFlightRef.current ||
+    workflowMutationRequiresRefresh
+  ) {
+    return
+  }
   setEmailTemplateApplying(true)
   try {
     await applyVineaEmailTemplateNow(pendingEmailTemplateId)
@@ -1241,6 +1405,10 @@ async function confirmVineaEmailTemplate() {
 }
 
 async function saveStaffNotes() {
+  if (staffNotesSaveInFlightRef.current || workflowMutationRequiresRefresh) return
+
+  staffNotesSaveInFlightRef.current = true
+  setStaffNotesSaving(true)
   setStaffNotesMessage('')
   try {
     const res = await fetch(`/api/requests/${routeId}/staff-notes`, {
@@ -1248,29 +1416,111 @@ async function saveStaffNotes() {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ staffNotes }),
+      signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS),
     })
     const data = await res.json().catch(() => ({}))
 
+    if (res.ok && data?.ok !== true) {
+      setWorkflowMutationRequiresRefresh(true)
+      setStaffNotesMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+      return
+    }
     if (!res.ok || !data?.ok) {
       setStaffNotesMessage(requestDetailClientApiErrorMessage('updateStaffNotes', data?.error))
       return
     }
+    if (!(await loadRequest())) {
+      setWorkflowMutationRequiresRefresh(true)
+      setStaffNotesMessage(
+        'Staff notes were saved, but the refreshed request could not load. Refresh the page before editing them again.',
+      )
+      return
+    }
+    setStaffNotesMessage('Staff notes saved.')
   } catch (error) {
     devDashboardConsoleError(
       'staff_notes save',
-      new Error(requestDetailClientFailureMessage('updateStaffNotes'), { cause: error })
+      new Error(requestDetailClientFailureMessage('confirmWorkflowMutation'), { cause: error })
     )
-    setStaffNotesMessage(requestDetailClientFailureMessage('updateStaffNotes'))
+    setWorkflowMutationRequiresRefresh(true)
+    setStaffNotesMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
     return
+  } finally {
+    staffNotesSaveInFlightRef.current = false
+    setStaffNotesSaving(false)
   }
-
-  setStaffNotesMessage('Staff notes saved.')
-  loadRequest()
 }
 
- async function saveSuggestedDates() {
-  setSuggestedSaving(true)
-  setSuggestedMessage('')
+  async function runRequestTypeMutation({
+    action,
+    endpoint,
+    body,
+    setSaving,
+    setMessage,
+    successMessage,
+    staleMessage,
+    afterConfirmed,
+    logLabel,
+  }: {
+    action: RequestDetailClientApiAction
+    endpoint: string
+    body: Record<string, unknown>
+    setSaving: (value: boolean) => void
+    setMessage: (value: string) => void
+    successMessage: string
+    staleMessage: string
+    afterConfirmed?: () => void
+    logLabel: string
+  }) {
+    if (requestTypeMutationInFlightRef.current || workflowMutationRequiresRefresh) return
+
+    requestTypeMutationInFlightRef.current = true
+    setRequestTypeMutationBusy(true)
+    setSaving(true)
+    setMessage('')
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (res.ok && data?.ok !== true) {
+        setWorkflowMutationRequiresRefresh(true)
+        setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+        return
+      }
+      if (!res.ok || !data?.ok) {
+        setMessage(requestDetailClientApiErrorMessage(action, data?.error))
+        return
+      }
+      if (!(await loadRequest())) {
+        setWorkflowMutationRequiresRefresh(true)
+        setMessage(staleMessage)
+        return
+      }
+
+      afterConfirmed?.()
+      setMessage(successMessage)
+    } catch (error) {
+      devDashboardConsoleError(
+        logLabel,
+        new Error(requestDetailClientFailureMessage('confirmWorkflowMutation'), { cause: error })
+      )
+      setWorkflowMutationRequiresRefresh(true)
+      setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+    } finally {
+      requestTypeMutationInFlightRef.current = false
+      setRequestTypeMutationBusy(false)
+      setSaving(false)
+    }
+  }
+
+async function saveSuggestedDates() {
 
   const err1 = validateSuggestedDateNotPast(suggested1)
   const err2 = validateSuggestedDateNotPast(suggested2)
@@ -1278,117 +1528,61 @@ async function saveStaffNotes() {
   const firstError = err1 || err2 || err3
   if (firstError) {
     setSuggestedMessage(firstError)
-    setSuggestedSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/suggested-dates`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        suggestedDate1: suggested1 || null,
-        suggestedDate2: suggested2 || null,
-        suggestedDate3: suggested3 || null,
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setSuggestedMessage(requestDetailClientApiErrorMessage('saveSuggestedDates', data?.error))
-      setSuggestedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE SUGGESTED DATES ERROR',
-      new Error(requestDetailClientFailureMessage('saveSuggestedDates'), { cause: error })
-    )
-    setSuggestedMessage(requestDetailClientFailureMessage('saveSuggestedDates'))
-    setSuggestedSaving(false)
-    return
-  }
-
-  setSuggestedMessage('Suggested dates saved successfully.')
-  setSuggestedSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'saveSuggestedDates',
+    endpoint: `/api/requests/${routeId}/suggested-dates`,
+    body: {
+      suggestedDate1: suggested1 || null,
+      suggestedDate2: suggested2 || null,
+      suggestedDate3: suggested3 || null,
+    },
+    setSaving: setSuggestedSaving,
+    setMessage: setSuggestedMessage,
+    successMessage: 'Suggested dates saved successfully.',
+    staleMessage:
+      'Suggested dates were saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'SAVE SUGGESTED DATES ERROR',
+  })
 }
 
 async function saveConfirmedBaptismDate() {
-  setConfirmedSaving(true)
-  setConfirmedMessage('')
-
   const validationError = validateConfirmedDateTimeNotPast(confirmedBaptismDate)
   if (validationError) {
     setConfirmedMessage(validationError)
-    setConfirmedSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-baptism-date`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        confirmedBaptismDate: datetimeLocalToIso(confirmedBaptismDate),
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setConfirmedMessage(requestDetailClientApiErrorMessage('saveConfirmedDate', data?.error))
-      setConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE CONFIRMED BAPTISM DATE ERROR',
-      new Error(requestDetailClientFailureMessage('saveConfirmedDate'), { cause: error })
-    )
-    setConfirmedMessage(requestDetailClientFailureMessage('saveConfirmedDate'))
-    setConfirmedSaving(false)
-    return
-  }
-
-  setConfirmedMessage('Confirmed date saved successfully.')
-  setConfirmedSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'saveConfirmedDate',
+    endpoint: `/api/requests/${routeId}/confirmed-baptism-date`,
+    body: {
+      confirmedBaptismDate: datetimeLocalToIso(confirmedBaptismDate),
+    },
+    setSaving: setConfirmedSaving,
+    setMessage: setConfirmedMessage,
+    successMessage: 'Confirmed date saved successfully.',
+    staleMessage:
+      'The confirmed date was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'SAVE CONFIRMED BAPTISM DATE ERROR',
+  })
 }
 
 async function clearConfirmedBaptismDate() {
-  setConfirmedSaving(true)
-  setConfirmedMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-baptism-date`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmedBaptismDate: null }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setConfirmedMessage(requestDetailClientApiErrorMessage('clearConfirmedDate', data?.error))
-      setConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'CLEAR CONFIRMED BAPTISM DATE ERROR',
-      new Error(requestDetailClientFailureMessage('clearConfirmedDate'), { cause: error })
-    )
-    setConfirmedMessage(requestDetailClientFailureMessage('clearConfirmedDate'))
-    setConfirmedSaving(false)
-    return
-  }
-
-  setConfirmedBaptismDate('')
-  setConfirmedMessage('Confirmed date cleared.')
-  setConfirmedSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'clearConfirmedDate',
+    endpoint: `/api/requests/${routeId}/confirmed-baptism-date`,
+    body: { confirmedBaptismDate: null },
+    setSaving: setConfirmedSaving,
+    setMessage: setConfirmedMessage,
+    successMessage: 'Confirmed date cleared.',
+    staleMessage:
+      'The confirmed date was cleared, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    afterConfirmed: () => setConfirmedBaptismDate(''),
+    logLabel: 'CLEAR CONFIRMED BAPTISM DATE ERROR',
+  })
 }
 
 async function saveFuneralDetails() {
@@ -1399,133 +1593,71 @@ async function saveFuneralDetails() {
     return
   }
 
-  setFuneralSaving(true)
-  setFuneralMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/funeral-details`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        deceasedName: name,
-        familyRelationship: funeralFamilyRelationship,
-        dateOfDeath: funeralDateOfDeath,
-        funeralHomeOrLocation: funeralHome,
-        funeralDirectorContact,
-        serviceLocation: funeralServiceLocation,
-        visitationDetails: funeralVisitationDetails,
-        cemeteryOrCommittal: funeralCemeteryOrCommittal,
-        readingsMusicNotes: funeralReadingsMusicNotes,
-        obituaryProgramNotes: funeralObituaryProgramNotes,
-        postFuneralFollowUpDate: funeralPostFollowUpDate,
-        preferredServiceNotes: funeralPreferredNotes,
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setFuneralMessage(requestDetailClientApiErrorMessage('saveFuneralDetails', data?.error))
-      setFuneralSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE FUNERAL DETAILS ERROR',
-      new Error(requestDetailClientFailureMessage('saveFuneralDetails'), { cause: error })
-    )
-    setFuneralMessage(requestDetailClientFailureMessage('saveFuneralDetails'))
-    setFuneralSaving(false)
-    return
-  }
-
-  setFuneralMessage('Funeral details saved.')
-  setFuneralSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'saveFuneralDetails',
+    endpoint: `/api/requests/${routeId}/funeral-details`,
+    body: {
+      deceasedName: name,
+      familyRelationship: funeralFamilyRelationship,
+      dateOfDeath: funeralDateOfDeath,
+      funeralHomeOrLocation: funeralHome,
+      funeralDirectorContact,
+      serviceLocation: funeralServiceLocation,
+      visitationDetails: funeralVisitationDetails,
+      cemeteryOrCommittal: funeralCemeteryOrCommittal,
+      readingsMusicNotes: funeralReadingsMusicNotes,
+      obituaryProgramNotes: funeralObituaryProgramNotes,
+      postFuneralFollowUpDate: funeralPostFollowUpDate,
+      preferredServiceNotes: funeralPreferredNotes,
+    },
+    setSaving: setFuneralSaving,
+    setMessage: setFuneralMessage,
+    successMessage: 'Funeral details saved.',
+    staleMessage:
+      'The funeral details were saved, but the refreshed request could not load. Refresh the page before editing these details again.',
+    logLabel: 'SAVE FUNERAL DETAILS ERROR',
+  })
 }
 
 async function saveConfirmedFuneralService() {
   if (!request || request.request_type !== 'funeral') return
 
-  setFuneralConfirmedSaving(true)
-  setFuneralConfirmedMessage('')
-
   const validationError = validateConfirmedDateTimeNotPast(confirmedFuneralService)
   if (validationError) {
     setFuneralConfirmedMessage(validationError)
-    setFuneralConfirmedSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-funeral-service`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        confirmedServiceAt: datetimeLocalToIso(confirmedFuneralService),
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setFuneralConfirmedMessage(
-        requestDetailClientApiErrorMessage('saveFuneralService', data?.error)
-      )
-      setFuneralConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE CONFIRMED FUNERAL SERVICE ERROR',
-      new Error(requestDetailClientFailureMessage('saveFuneralService'), { cause: error })
-    )
-    setFuneralConfirmedMessage(requestDetailClientFailureMessage('saveFuneralService'))
-    setFuneralConfirmedSaving(false)
-    return
-  }
-
-  setFuneralConfirmedMessage('Confirmed service time saved.')
-  setFuneralConfirmedSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'saveFuneralService',
+    endpoint: `/api/requests/${routeId}/confirmed-funeral-service`,
+    body: {
+      confirmedServiceAt: datetimeLocalToIso(confirmedFuneralService),
+    },
+    setSaving: setFuneralConfirmedSaving,
+    setMessage: setFuneralConfirmedMessage,
+    successMessage: 'Confirmed service time saved.',
+    staleMessage:
+      'The confirmed funeral time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'SAVE CONFIRMED FUNERAL SERVICE ERROR',
+  })
 }
 
 async function clearConfirmedFuneralService() {
   if (!request || request.request_type !== 'funeral') return
 
-  setFuneralConfirmedSaving(true)
-  setFuneralConfirmedMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-funeral-service`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmedServiceAt: null }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setFuneralConfirmedMessage(
-        requestDetailClientApiErrorMessage('clearFuneralService', data?.error)
-      )
-      setFuneralConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'CLEAR CONFIRMED FUNERAL SERVICE ERROR',
-      new Error(requestDetailClientFailureMessage('clearFuneralService'), { cause: error })
-    )
-    setFuneralConfirmedMessage(requestDetailClientFailureMessage('clearFuneralService'))
-    setFuneralConfirmedSaving(false)
-    return
-  }
-
-  setConfirmedFuneralService('')
-  setFuneralConfirmedMessage('Cleared.')
-  setFuneralConfirmedSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'clearFuneralService',
+    endpoint: `/api/requests/${routeId}/confirmed-funeral-service`,
+    body: { confirmedServiceAt: null },
+    setSaving: setFuneralConfirmedSaving,
+    setMessage: setFuneralConfirmedMessage,
+    successMessage: 'Cleared.',
+    staleMessage:
+      'The confirmed funeral time was cleared, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    afterConfirmed: () => setConfirmedFuneralService(''),
+    logLabel: 'CLEAR CONFIRMED FUNERAL SERVICE ERROR',
+  })
 }
 
 async function saveWeddingDetails() {
@@ -1536,205 +1668,104 @@ async function saveWeddingDetails() {
     return
   }
 
-  setWeddingSaving(true)
-  setWeddingMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/wedding-details`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        partnerOneName: name,
-        partnerTwoName: weddingPartnerTwo,
-        proposedWeddingDate: weddingProposedDate,
-        ceremonyNotes: weddingCeremonyNotes,
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setWeddingMessage(requestDetailClientApiErrorMessage('saveWeddingDetails', data?.error))
-      setWeddingSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'SAVE WEDDING DETAILS ERROR',
-      new Error(requestDetailClientFailureMessage('saveWeddingDetails'), { cause: error })
-    )
-    setWeddingMessage(requestDetailClientFailureMessage('saveWeddingDetails'))
-    setWeddingSaving(false)
-    return
-  }
-
-  setWeddingMessage('Wedding details saved.')
-  setWeddingSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'saveWeddingDetails',
+    endpoint: `/api/requests/${routeId}/wedding-details`,
+    body: {
+      partnerOneName: name,
+      partnerTwoName: weddingPartnerTwo,
+      proposedWeddingDate: weddingProposedDate,
+      ceremonyNotes: weddingCeremonyNotes,
+    },
+    setSaving: setWeddingSaving,
+    setMessage: setWeddingMessage,
+    successMessage: 'Wedding details saved.',
+    staleMessage:
+      'The wedding details were saved, but the refreshed request could not load. Refresh the page before editing these details again.',
+    logLabel: 'SAVE WEDDING DETAILS ERROR',
+  })
 }
 
 async function saveConfirmedWeddingCeremony() {
   if (!request || request.request_type !== 'wedding') return
 
-  setWeddingConfirmedSaving(true)
-  setWeddingConfirmedMessage('')
-
   const validationError = validateConfirmedDateTimeNotPast(confirmedWeddingCeremony)
   if (validationError) {
     setWeddingConfirmedMessage(validationError)
-    setWeddingConfirmedSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-wedding-ceremony`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        confirmedCeremonyAt: datetimeLocalToIso(confirmedWeddingCeremony),
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setWeddingConfirmedMessage(
-        requestDetailClientApiErrorMessage('saveWeddingCeremony', data?.error)
-      )
-      setWeddingConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'confirmed wedding ceremony save',
-      new Error(requestDetailClientFailureMessage('saveWeddingCeremony'), { cause: error })
-    )
-    setWeddingConfirmedMessage(requestDetailClientFailureMessage('saveWeddingCeremony'))
-    setWeddingConfirmedSaving(false)
-    return
-  }
-
-  setWeddingConfirmedMessage('Confirmed ceremony time saved.')
-  setWeddingConfirmedSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'saveWeddingCeremony',
+    endpoint: `/api/requests/${routeId}/confirmed-wedding-ceremony`,
+    body: {
+      confirmedCeremonyAt: datetimeLocalToIso(confirmedWeddingCeremony),
+    },
+    setSaving: setWeddingConfirmedSaving,
+    setMessage: setWeddingConfirmedMessage,
+    successMessage: 'Confirmed ceremony time saved.',
+    staleMessage:
+      'The confirmed wedding time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'confirmed wedding ceremony save',
+  })
 }
 
 async function clearConfirmedWeddingCeremony() {
   if (!request || request.request_type !== 'wedding') return
 
-  setWeddingConfirmedSaving(true)
-  setWeddingConfirmedMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-wedding-ceremony`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmedCeremonyAt: null }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setWeddingConfirmedMessage(
-        requestDetailClientApiErrorMessage('clearWeddingCeremony', data?.error)
-      )
-      setWeddingConfirmedSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'confirmed wedding ceremony clear',
-      new Error(requestDetailClientFailureMessage('clearWeddingCeremony'), { cause: error })
-    )
-    setWeddingConfirmedMessage(requestDetailClientFailureMessage('clearWeddingCeremony'))
-    setWeddingConfirmedSaving(false)
-    return
-  }
-
-  setConfirmedWeddingCeremony('')
-  setWeddingConfirmedMessage('Cleared.')
-  setWeddingConfirmedSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'clearWeddingCeremony',
+    endpoint: `/api/requests/${routeId}/confirmed-wedding-ceremony`,
+    body: { confirmedCeremonyAt: null },
+    setSaving: setWeddingConfirmedSaving,
+    setMessage: setWeddingConfirmedMessage,
+    successMessage: 'Cleared.',
+    staleMessage:
+      'The confirmed wedding time was cleared, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    afterConfirmed: () => setConfirmedWeddingCeremony(''),
+    logLabel: 'confirmed wedding ceremony clear',
+  })
 }
 
 async function saveConfirmedOciaSession() {
   if (!request || request.request_type !== 'ocia') return
 
-  setOciaSessionSaving(true)
-  setOciaSessionMessage('')
-
   const validationError = validateConfirmedDateTimeNotPast(confirmedOciaSession)
   if (validationError) {
     setOciaSessionMessage(validationError)
-    setOciaSessionSaving(false)
     return
   }
 
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-ocia-session`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        confirmedSessionAt: datetimeLocalToIso(confirmedOciaSession),
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setOciaSessionMessage(requestDetailClientApiErrorMessage('saveOciaSession', data?.error))
-      setOciaSessionSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'confirmed OCIA session save',
-      new Error(requestDetailClientFailureMessage('saveOciaSession'), { cause: error })
-    )
-    setOciaSessionMessage(requestDetailClientFailureMessage('saveOciaSession'))
-    setOciaSessionSaving(false)
-    return
-  }
-
-  setOciaSessionMessage('Confirmed OCIA meeting time saved.')
-  setOciaSessionSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'saveOciaSession',
+    endpoint: `/api/requests/${routeId}/confirmed-ocia-session`,
+    body: {
+      confirmedSessionAt: datetimeLocalToIso(confirmedOciaSession),
+    },
+    setSaving: setOciaSessionSaving,
+    setMessage: setOciaSessionMessage,
+    successMessage: 'Confirmed OCIA meeting time saved.',
+    staleMessage:
+      'The confirmed OCIA time was saved, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    logLabel: 'confirmed OCIA session save',
+  })
 }
 
 async function clearConfirmedOciaSession() {
   if (!request || request.request_type !== 'ocia') return
 
-  setOciaSessionSaving(true)
-  setOciaSessionMessage('')
-
-  try {
-    const res = await fetch(`/api/requests/${routeId}/confirmed-ocia-session`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmedSessionAt: null }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok || !data?.ok) {
-      setOciaSessionMessage(requestDetailClientApiErrorMessage('clearOciaSession', data?.error))
-      setOciaSessionSaving(false)
-      return
-    }
-  } catch (error) {
-    devDashboardConsoleError(
-      'confirmed OCIA session clear',
-      new Error(requestDetailClientFailureMessage('clearOciaSession'), { cause: error })
-    )
-    setOciaSessionMessage(requestDetailClientFailureMessage('clearOciaSession'))
-    setOciaSessionSaving(false)
-    return
-  }
-
-  setConfirmedOciaSession('')
-  setOciaSessionMessage('Cleared.')
-  setOciaSessionSaving(false)
-  loadRequest()
+  await runRequestTypeMutation({
+    action: 'clearOciaSession',
+    endpoint: `/api/requests/${routeId}/confirmed-ocia-session`,
+    body: { confirmedSessionAt: null },
+    setSaving: setOciaSessionSaving,
+    setMessage: setOciaSessionMessage,
+    successMessage: 'Cleared.',
+    staleMessage:
+      'The confirmed OCIA time was cleared, but the refreshed request could not load. Refresh the page before editing the schedule again.',
+    afterConfirmed: () => setConfirmedOciaSession(''),
+    logLabel: 'confirmed OCIA session clear',
+  })
 }
 
 function confirmConfirmedScheduleClear() {
@@ -1754,6 +1785,9 @@ function confirmConfirmedScheduleClear() {
 }
 
 async function logCommunication() {
+  if (communicationMutationInFlightRef.current || workflowMutationRequiresRefresh) return
+
+  communicationMutationInFlightRef.current = true
   setCommSaving(true)
   setCommMessage('')
 
@@ -1761,6 +1795,7 @@ async function logCommunication() {
   if (!contactedAtIso) {
     setCommMessage('Please choose a valid contacted date/time.')
     setCommSaving(false)
+    communicationMutationInFlightRef.current = false
     return
   }
 
@@ -1774,36 +1809,49 @@ async function logCommunication() {
         method: commMethod,
         notes: commNotes,
       }),
+      signal: AbortSignal.timeout(REQUEST_DETAIL_MUTATION_CONFIRMATION_TIMEOUT_MS),
     })
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: unknown }
 
+    if (res.ok && data?.ok !== true) {
+      setWorkflowMutationRequiresRefresh(true)
+      setCommMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+      return
+    }
     if (!res.ok || !data?.ok) {
       const message = requestDetailClientApiErrorMessage('logCommunication', data?.error)
       setCommMessage(message)
-      setCommSaving(false)
       if (message === requestDetailClientFailureMessage('updateCommunicationSummary')) {
-        loadRequest()
+        setWorkflowMutationRequiresRefresh(true)
+        await loadRequest()
       }
       return
     }
+    if (!(await loadRequest())) {
+      setWorkflowMutationRequiresRefresh(true)
+      setCommMessage(
+        'Communication was logged, but the refreshed request could not load. Refresh the page before logging another touchpoint.',
+      )
+      return
+    }
+    setCommNotes('')
+    setCommMessage('Communication logged.')
   } catch (error) {
     devDashboardConsoleError(
       'LOG COMMUNICATION ERROR',
-      new Error(requestDetailClientFailureMessage('logCommunication'), { cause: error })
+      new Error(requestDetailClientFailureMessage('confirmWorkflowMutation'), { cause: error })
     )
-    setCommMessage(requestDetailClientFailureMessage('logCommunication'))
-    setCommSaving(false)
+    setWorkflowMutationRequiresRefresh(true)
+    setCommMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
     return
+  } finally {
+    communicationMutationInFlightRef.current = false
+    setCommSaving(false)
   }
-
-  setCommNotes('')
-  setCommMessage('Communication logged.')
-  setCommSaving(false)
-  loadRequest()
 }
 
 async function sendEmail() {
-  if (emailSendInFlightRef.current) return
+  if (emailSendInFlightRef.current || workflowMutationRequiresRefresh) return
 
   const to = String(parishioner?.email || '').trim()
   const subject = String(emailSubject || '').trim()
@@ -1839,6 +1887,7 @@ async function sendEmail() {
       res = await fetch('/api/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(STAFF_EMAIL_SEND_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({
           requestId: routeId,
           deliveryAttemptId: deliveryAttempt.id,
@@ -1879,6 +1928,7 @@ async function sendEmail() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(STAFF_EMAIL_LOG_CONFIRMATION_TIMEOUT_MS),
         body: JSON.stringify({
           contactedAt: contactedAtIso,
           method: 'email',
@@ -1886,6 +1936,7 @@ async function sendEmail() {
         }),
       })
     } catch {
+      setWorkflowMutationRequiresRefresh(true)
       setEmailMessage(requestDetailClientFailureMessage('logSentEmail'))
       loadRequest()
       return
@@ -1896,6 +1947,7 @@ async function sendEmail() {
       error?: unknown
     }
     if (!logRes.ok || !logData?.ok) {
+      setWorkflowMutationRequiresRefresh(true)
       const message =
         requestDetailClientApiErrorMessage('logCommunication', logData?.error) ===
         requestDetailClientFailureMessage('updateCommunicationSummary')
@@ -1924,6 +1976,10 @@ async function forceCreateGoogleCalendarEvent() {
 
 async function createGoogleCalendarEventInternal(forceCreate: boolean) {
   if (googleCalendarMutationInFlightRef.current) return
+  if (googleCalendarMutationRequiresRefresh) {
+    setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+    return
+  }
 
   const rt = String(request?.request_type || 'baptism')
   if (rt === 'funeral') {
@@ -1965,6 +2021,7 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId: routeId, forceCreate }),
+      signal: AbortSignal.timeout(GOOGLE_CALENDAR_CLIENT_CONFIRMATION_TIMEOUT_MS),
     })
 
     const payload = (await res.json().catch(() => ({}))) as GoogleCalendarMutationPayload
@@ -1978,20 +2035,27 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
       return
     }
     if (!res.ok || !payload?.ok) {
+      if (payload?.requiresRefresh) {
+        setGoogleCalendarMutationRequiresRefresh(true)
+        setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+        setGcalConflicts([])
+        return
+      }
       const err = payload?.error || `Create failed (${res.status})`
       setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
-    setGcalMessage('Calendar event saved. No conflicts found.')
     setGcalConflicts([])
-    loadRequest()
-  } catch (error: unknown) {
-    if (isGoogleOAuthReconnectError(error)) {
-      setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
-    } else {
-      setGcalMessage(requestDetailClientFailureMessage('createGoogleCalendarEvent'))
+    if (!(await loadRequest())) {
+      setGoogleCalendarMutationRequiresRefresh(true)
+      setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+      return
     }
+    setGcalMessage('Calendar event saved. No conflicts found.')
+  } catch (error: unknown) {
+    setGoogleCalendarMutationRequiresRefresh(true)
+    setGcalMessage(googleCalendarUncertainResultMessage(error))
     setGcalConflicts([])
   } finally {
     googleCalendarMutationInFlightRef.current = false
@@ -2001,6 +2065,10 @@ async function createGoogleCalendarEventInternal(forceCreate: boolean) {
 
 async function updateGoogleCalendarEvent() {
   if (googleCalendarMutationInFlightRef.current) return
+  if (googleCalendarMutationRequiresRefresh) {
+    setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+    return
+  }
 
   const rt = String(request?.request_type || 'baptism')
   if (rt === 'funeral') {
@@ -2042,6 +2110,7 @@ async function updateGoogleCalendarEvent() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId: routeId }),
+      signal: AbortSignal.timeout(GOOGLE_CALENDAR_CLIENT_CONFIRMATION_TIMEOUT_MS),
     })
 
     const payload = (await res.json().catch(() => ({}))) as GoogleCalendarMutationPayload
@@ -2055,20 +2124,27 @@ async function updateGoogleCalendarEvent() {
       return
     }
     if (!res.ok || !payload?.ok) {
+      if (payload?.requiresRefresh) {
+        setGoogleCalendarMutationRequiresRefresh(true)
+        setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+        setGcalConflicts([])
+        return
+      }
       const err = payload?.error || `Update failed (${res.status})`
       setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
-    setGcalMessage('Calendar event saved. No conflicts found.')
     setGcalConflicts([])
-    loadRequest()
-  } catch (error: unknown) {
-    if (isGoogleOAuthReconnectError(error)) {
-      setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
-    } else {
-      setGcalMessage(requestDetailClientFailureMessage('updateGoogleCalendarEvent'))
+    if (!(await loadRequest())) {
+      setGoogleCalendarMutationRequiresRefresh(true)
+      setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+      return
     }
+    setGcalMessage('Calendar event saved. No conflicts found.')
+  } catch (error: unknown) {
+    setGoogleCalendarMutationRequiresRefresh(true)
+    setGcalMessage(googleCalendarUncertainResultMessage(error))
     setGcalConflicts([])
   } finally {
     googleCalendarMutationInFlightRef.current = false
@@ -2078,6 +2154,10 @@ async function updateGoogleCalendarEvent() {
 
 async function deleteGoogleCalendarEvent() {
   if (googleCalendarMutationInFlightRef.current) return
+  if (googleCalendarMutationRequiresRefresh) {
+    setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+    return
+  }
 
   if (!request?.google_calendar_event_id) {
     setGcalMessage('No Google Calendar event is linked to this request.')
@@ -2093,23 +2173,30 @@ async function deleteGoogleCalendarEvent() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId: routeId }),
+      signal: AbortSignal.timeout(GOOGLE_CALENDAR_CLIENT_CONFIRMATION_TIMEOUT_MS),
     })
 
     const payload = (await res.json().catch(() => ({}))) as GoogleCalendarMutationPayload
     if (!res.ok || !payload?.ok) {
+      if (payload?.requiresRefresh) {
+        setGoogleCalendarMutationRequiresRefresh(true)
+        setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+        return
+      }
       const err = payload?.error || `Delete failed (${res.status})`
       setGcalMessage(userFacingGoogleCalendarErrorMessage(err))
       return
     }
 
-    setGcalMessage('Google Calendar event removed and link cleared.')
-    loadRequest()
-  } catch (error: unknown) {
-    if (isGoogleOAuthReconnectError(error)) {
-      setGcalMessage(userFacingGoogleCalendarErrorMessage(error))
-    } else {
-      setGcalMessage(requestDetailClientFailureMessage('deleteGoogleCalendarEvent'))
+    if (!(await loadRequest())) {
+      setGoogleCalendarMutationRequiresRefresh(true)
+      setGcalMessage(GOOGLE_CALENDAR_REFRESH_REQUIRED_MESSAGE)
+      return
     }
+    setGcalMessage('Google Calendar event removed and link cleared.')
+  } catch (error: unknown) {
+    setGoogleCalendarMutationRequiresRefresh(true)
+    setGcalMessage(googleCalendarUncertainResultMessage(error))
   } finally {
     googleCalendarMutationInFlightRef.current = false
     setGcalDeleting(false)
@@ -2123,6 +2210,9 @@ async function deleteGoogleCalendarEvent() {
       setEmailSubject('')
       setStaffNotesMessage('')
       setEditingIntake(false)
+      setWorkflowMutationRequiresRefresh(false)
+      setGoogleCalendarMutationRequiresRefresh(false)
+      setConfirmMarkCompleteOpen(false)
     })
     return () => {
       cancelled = true
@@ -2157,32 +2247,44 @@ async function deleteGoogleCalendarEvent() {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
+    const requestParishId = request?.parish_id ?? null
+    let readTimeoutId: number | undefined
 
     async function loadParishDirectories() {
       try {
-        const res = await fetch('/api/parish/settings', { credentials: 'include' })
+        readTimeoutId = window.setTimeout(
+          () => controller.abort(),
+          REQUEST_PARISH_DIRECTORY_LOAD_TIMEOUT_MS,
+        )
+        const res = await fetch('/api/parish/settings', {
+          credentials: 'include',
+          signal: controller.signal,
+        })
         if (!res.ok) return
-        const data = (await res.json()) as {
-          ok?: boolean
-          parish?: { staff_names?: unknown; priest_names?: unknown }
-        }
-        if (cancelled || !data?.ok || !data.parish) return
-        setParishStaffNames(
-          Array.isArray(data.parish.staff_names) ? data.parish.staff_names : []
-        )
-        setParishPriestNames(
-          Array.isArray(data.parish.priest_names) ? data.parish.priest_names : []
-        )
+        const parsed = parseParishSettingsResponse(await res.json(), requestParishId)
+        if (cancelled || !parsed) return
+        setParishStaffNames(parsed.parish.staff_names)
+        setParishPriestNames(parsed.parish.priest_names)
       } catch {
         // Directories are optional; assignment still works with preserved assignees.
+      } finally {
+        if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
       }
     }
 
-    void loadParishDirectories()
+    queueMicrotask(() => {
+      if (cancelled) return
+      setParishStaffNames([])
+      setParishPriestNames([])
+      if (requestParishId) void loadParishDirectories()
+    })
     return () => {
       cancelled = true
+      controller.abort()
+      if (readTimeoutId !== undefined) window.clearTimeout(readTimeoutId)
     }
-  }, [])
+  }, [request?.parish_id])
 
   // Derived workflow state (safe even while loading).
   const scheduleRowForProgress = useMemo(
@@ -2480,9 +2582,12 @@ async function deleteGoogleCalendarEvent() {
 
   const missingCompletionItems = completionRequirements.filter((r) => !r.ok)
   const canMarkComplete = Boolean(request) && missingCompletionItems.length === 0
+  const canConfirmMarkComplete = canMarkComplete && !workflowMutationRequiresRefresh
 
   const markCompleteDisabledReason =
-    missingCompletionItems.length === 0
+    workflowMutationRequiresRefresh
+      ? requestDetailClientFailureMessage('confirmWorkflowMutation')
+      : missingCompletionItems.length === 0
       ? ''
       : `To mark complete, review: ${missingCompletionItems
           .map((m) => m.jumpTo.replace('-', ' '))
@@ -2561,6 +2666,15 @@ async function deleteGoogleCalendarEvent() {
 
       <RequestDetailTabNav activeTab={activeTab} onTabChange={setActiveTab} />
 
+      {workflowMutationRequiresRefresh ? (
+        <div className="mt-4">
+          <InlineFormMessage
+            message={requestDetailClientFailureMessage('confirmWorkflowMutation')}
+            className="!mt-0"
+          />
+        </div>
+      ) : null}
+
       <div className="rounded-b-xl border border-gray-200 bg-white shadow-sm">
         <div
           role="tabpanel"
@@ -2593,7 +2707,12 @@ async function deleteGoogleCalendarEvent() {
 
           <RequestHandoffBriefCard brief={handoffBrief} />
 
-          <RequestCareCadenceCard cadence={careCadence} onSaved={loadRequest} />
+          <RequestCareCadenceCard
+            cadence={careCadence}
+            onSaved={loadRequest}
+            mutationRequiresRefresh={workflowMutationRequiresRefresh}
+            onMutationUnconfirmed={() => setWorkflowMutationRequiresRefresh(true)}
+          />
 
           <RequestCommunicationCommitmentCard commitment={communicationCommitment} />
 
@@ -2680,7 +2799,9 @@ async function deleteGoogleCalendarEvent() {
             request?.parishioner_id != null ? String(request.parishioner_id) : null
           }
           requestParishId={request?.parish_id != null ? String(request.parish_id) : null}
-          onLinked={loadRequest}
+          onLinked={() => {
+            void loadRequest()
+          }}
         />
 
         <RequestRelationshipSuggestions
@@ -2786,6 +2907,9 @@ async function deleteGoogleCalendarEvent() {
                   setPreferredServiceNotes={setFuneralPreferredNotes}
                   onSave={saveFuneralDetails}
                   saving={funeralSaving}
+                  mutationDisabled={
+                    requestTypeMutationBusy || workflowMutationRequiresRefresh
+                  }
                   message={funeralMessage}
                 />
               </div>
@@ -2804,6 +2928,9 @@ async function deleteGoogleCalendarEvent() {
                   setCeremonyNotes={setWeddingCeremonyNotes}
                   onSave={saveWeddingDetails}
                   saving={weddingSaving}
+                  mutationDisabled={
+                    requestTypeMutationBusy || workflowMutationRequiresRefresh
+                  }
                   message={weddingMessage}
                 />
               </div>
@@ -2826,9 +2953,15 @@ async function deleteGoogleCalendarEvent() {
                 request={request}
                 scheduleRow={scheduleRowForProgress}
                 onUpdateStatus={updateRequestStatus}
-                updating={requestStatusUpdating}
+                updating={requestStatusUpdating || workflowMutationRequiresRefresh}
               />
-              <RequestWaitingOnSection request={request} onSave={updateWaitingOn} />
+              <RequestWaitingOnSection
+                request={request}
+                disabled={workflowMutationRequiresRefresh}
+                onSave={updateWaitingOn}
+                mutationRequiresRefresh={workflowMutationRequiresRefresh}
+                onMutationUnconfirmed={() => setWorkflowMutationRequiresRefresh(true)}
+              />
             </div>
         </WorkflowSectionCard>
         </div>
@@ -2853,6 +2986,8 @@ async function deleteGoogleCalendarEvent() {
               staffOptions={staffAssigneeOptions}
               priestOptions={priestAssigneeOptions}
               onSaved={loadRequest}
+              mutationRequiresRefresh={workflowMutationRequiresRefresh}
+              onMutationUnconfirmed={() => setWorkflowMutationRequiresRefresh(true)}
             />
         </WorkflowSectionCard>
 
@@ -2871,6 +3006,8 @@ async function deleteGoogleCalendarEvent() {
                 requestId={routeId}
                 nextFollowUpDate={request?.next_follow_up_date}
                 onSaved={loadRequest}
+                mutationRequiresRefresh={workflowMutationRequiresRefresh}
+                onMutationUnconfirmed={() => setWorkflowMutationRequiresRefresh(true)}
               />
             </div>
           </div>
@@ -2892,6 +3029,7 @@ async function deleteGoogleCalendarEvent() {
                   setSuggested3={setSuggested3}
                   onSaveSuggestedDates={saveSuggestedDates}
                   saving={suggestedSaving}
+                  mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                   message={suggestedMessage}
                 />
                 <div className="mt-6 border-t border-gray-100 pt-5" />
@@ -2911,6 +3049,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedBaptismDate}
                     onClear={() => setPendingConfirmedScheduleClear('baptism')}
                     saving={confirmedSaving}
+                    mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                     message={confirmedMessage}
                   />
                 ) : isFuneral ? (
@@ -2921,6 +3060,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedFuneralService}
                     onClear={() => setPendingConfirmedScheduleClear('funeral')}
                     saving={funeralConfirmedSaving}
+                    mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                     message={funeralConfirmedMessage}
                   />
                 ) : isWedding ? (
@@ -2931,6 +3071,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedWeddingCeremony}
                     onClear={() => setPendingConfirmedScheduleClear('wedding')}
                     saving={weddingConfirmedSaving}
+                    mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                     message={weddingConfirmedMessage}
                   />
                 ) : (
@@ -2941,6 +3082,7 @@ async function deleteGoogleCalendarEvent() {
                     onSave={saveConfirmedOciaSession}
                     onClear={() => setPendingConfirmedScheduleClear('ocia')}
                     saving={ociaSessionSaving}
+                    mutationDisabled={requestTypeMutationBusy || workflowMutationRequiresRefresh}
                     message={ociaSessionMessage}
                   />
                 )}
@@ -2966,6 +3108,7 @@ async function deleteGoogleCalendarEvent() {
                     creating={gcalCreating}
                     updating={gcalUpdating}
                     deleting={gcalDeleting}
+                    mutationDisabled={googleCalendarMutationRequiresRefresh}
                     message={gcalMessage}
                     conflicts={gcalConflicts}
                   />
@@ -2985,6 +3128,7 @@ async function deleteGoogleCalendarEvent() {
                 steps={workflowSteps}
                 updatingStepId={workflowStepUpdatingId}
                 onUpdateStatus={updateWorkflowStepStatus}
+                mutationRequiresRefresh={workflowMutationRequiresRefresh}
               />
             </div>
             {workflowStepMessage ? (
@@ -3009,7 +3153,9 @@ async function deleteGoogleCalendarEvent() {
                     requestId={routeId}
                     requestType={request?.request_type}
                     checklistItems={checklistItems}
-                    onApplied={loadRequest}
+                    onApplied={() => {
+                      void loadRequest()
+                    }}
                   />
                 </div>
                 <div className="mt-4">
@@ -3017,6 +3163,7 @@ async function deleteGoogleCalendarEvent() {
                     checklistItems={checklistItems}
                     onToggleChecklistItem={toggleChecklistItem}
                     updatingItemId={checklistUpdatingId}
+                    mutationRequiresRefresh={workflowMutationRequiresRefresh}
                   />
                 </div>
                 {checklistMessage ? (
@@ -3061,6 +3208,7 @@ async function deleteGoogleCalendarEvent() {
             >
               <AiToolsSection
                 aiLoading={aiLoading}
+                mutationDisabled={workflowMutationRequiresRefresh}
                 aiSummary={aiSummary}
                 replyDraft={replyDraft}
                 copyMessage={copyMessage}
@@ -3087,6 +3235,7 @@ async function deleteGoogleCalendarEvent() {
                 onApplyTemplate={applyVineaEmailTemplate}
                 onSend={sendEmail}
                 sending={emailSending}
+                mutationDisabled={workflowMutationRequiresRefresh}
                 message={emailMessage}
               />
             </CommunicationHubSubsection>
@@ -3104,7 +3253,7 @@ async function deleteGoogleCalendarEvent() {
                 notes={commNotes}
                 setNotes={setCommNotes}
                 onLog={logCommunication}
-                saving={commSaving}
+                saving={commSaving || workflowMutationRequiresRefresh}
                 message={commMessage}
               />
             </CommunicationHubSubsection>
@@ -3132,7 +3281,13 @@ async function deleteGoogleCalendarEvent() {
           title="Internal note log"
           description="Timestamped staff-only notes — not visible to families."
         >
-          <InternalNotesSection requestId={routeId} notes={requestNotes} onAdded={loadRequest} />
+          <InternalNotesSection
+            requestId={routeId}
+            notes={requestNotes}
+            onAdded={() => {
+              void loadRequest()
+            }}
+          />
         </WorkflowSectionCard>
 
         <WorkflowSectionCard
@@ -3144,6 +3299,8 @@ async function deleteGoogleCalendarEvent() {
             staffNotes={staffNotes}
             setStaffNotes={setStaffNotes}
             onSaveStaffNotes={() => void saveStaffNotes()}
+            saving={staffNotesSaving}
+            mutationRequiresRefresh={workflowMutationRequiresRefresh}
           />
           {staffNotesMessage ? (
             <InlineFormMessage message={staffNotesMessage} className="!mt-3" />
@@ -3193,7 +3350,7 @@ async function deleteGoogleCalendarEvent() {
           <ReadyToCompleteCard
             items={readyToCompleteItems}
             isAlreadyComplete={isRequestComplete}
-            canMarkComplete={canMarkComplete}
+            canMarkComplete={canConfirmMarkComplete}
             markCompleteDisabledReason={markCompleteDisabledReason}
             onRequestMarkComplete={() => setConfirmMarkCompleteOpen(true)}
           />
@@ -3214,12 +3371,12 @@ async function deleteGoogleCalendarEvent() {
                 intake.
               </p>
             </div>
-            <div className="w-full sm:w-auto" title={!canMarkComplete ? markCompleteDisabledReason : undefined}>
+            <div className="w-full sm:w-auto" title={!canConfirmMarkComplete ? markCompleteDisabledReason : undefined}>
               <button
                 type="button"
-                disabled={!canMarkComplete}
+                disabled={!canConfirmMarkComplete}
                 onClick={() => {
-                  if (!canMarkComplete) return
+                  if (!canConfirmMarkComplete) return
                   setConfirmMarkCompleteOpen(true)
                 }}
                 className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
@@ -3294,6 +3451,7 @@ async function deleteGoogleCalendarEvent() {
         confirmLabel="Mark complete"
         onCancel={() => setConfirmMarkCompleteOpen(false)}
         onConfirm={() => {
+          if (!canConfirmMarkComplete) return
           setConfirmMarkCompleteOpen(false)
           updateRequestStatus('complete')
         }}

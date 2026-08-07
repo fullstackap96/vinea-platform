@@ -25,11 +25,15 @@ describe('Parish Settings mutation single-flight boundary', () => {
     const save = handler('async function handleSave', 'function updateSla')
     const send = handler('async function sendDailyBriefNow', 'function beginPublicRoutingMutation')
 
-    expect(save).toContain('if (parishSettingsMutationInFlightRef.current) return')
+    expect(save).toContain(
+      'if (parishSettingsMutationInFlightRef.current || parishSettingsMutationRequiresRefresh) return',
+    )
     expect(save.indexOf("parishSettingsMutationInFlightRef.current = 'settings-save'")).toBeLessThan(
       save.indexOf("fetch('/api/parish/settings'"),
     )
-    expect(send).toContain('if (parishSettingsMutationInFlightRef.current) return')
+    expect(send).toContain(
+      'if (parishSettingsMutationInFlightRef.current || parishSettingsMutationRequiresRefresh) return',
+    )
     expect(send.indexOf("parishSettingsMutationInFlightRef.current = 'daily-brief-send'")).toBeLessThan(
       send.indexOf("fetch('/api/parish/daily-brief'"),
     )
@@ -47,7 +51,10 @@ describe('Parish Settings mutation single-flight boundary', () => {
   })
 
   it('freezes the complete reviewed configuration during save or delivery', () => {
-    expect(settings).toContain('const parishSettingsBusy = saving || dailyBriefSending')
+    expect(settings).toContain('const parishSettingsBusy =')
+    expect(settings).toContain(
+      'saving || dailyBriefSending || parishSettingsMutationRequiresRefresh',
+    )
     expect(settings).toContain('aria-busy={parishSettingsBusy}')
     expect(
       settings.match(/disabled=\{parishSettingsBusy\}/g)?.length ?? 0,

@@ -20,7 +20,9 @@ describe('public intake routing Settings single-flight boundary', () => {
   it('defines one shared synchronous lock for the whole management surface', () => {
     expect(settings).toContain('const publicRoutingMutationInFlightRef = useRef(false)')
     expect(settings).toContain('function beginPublicRoutingMutation(): boolean')
-    expect(settings).toContain('if (publicRoutingMutationInFlightRef.current) return false')
+    expect(settings).toContain(
+      'if (publicRoutingMutationInFlightRef.current || publicRoutingMutationRequiresRefresh)',
+    )
     expect(settings).toContain('publicRoutingMutationInFlightRef.current = true')
     expect(settings).toContain('function finishPublicRoutingMutation()')
     expect(settings).toContain('publicRoutingMutationInFlightRef.current = false')
@@ -50,9 +52,14 @@ describe('public intake routing Settings single-flight boundary', () => {
   })
 
   it('freezes competing controls while preserving the one-time token display', () => {
-    expect(settings).toContain(
-      'publicIntakeRoutingSaving || publicRoutingDomainSaving || publicRoutingTokenSaving',
-    )
+    for (const busyState of [
+      'publicIntakeRoutingSaving',
+      'publicRoutingDomainSaving',
+      'publicRoutingTokenSaving',
+      'publicRoutingMutationRequiresRefresh',
+    ]) {
+      expect(settings).toContain(busyState)
+    }
     expect(settings).toContain('aria-busy={publicRoutingMutationBusy}')
     expect(
       settings.match(/disabled=\{publicRoutingMutationBusy\}/g)?.length ?? 0,

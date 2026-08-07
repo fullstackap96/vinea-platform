@@ -1,6 +1,25 @@
 # Parish Production Readiness
 
-Use this checklist before enabling a parish on Vinea.
+Use this checklist before enabling a parish on Vinea. It is a readiness register,
+not production approval. Current release identity and blockers live in
+[`VINEA_CURRENT_STATUS_20260807.md`](VINEA_CURRENT_STATUS_20260807.md).
+
+## Current Decision
+
+Status: `YELLOW / NO-GO FOR NEW PARISH ENABLEMENT`
+
+The following must all be complete for the exact candidate before a parish is
+enabled:
+
+- Dependency audit reports no high-severity findings.
+- Exact-head CI and protected Preview smoke pass.
+- Production schema and migration history are reconciled.
+- Membership-aware production RLS receives explicit approval and smoke evidence.
+- Production monitoring, support ownership, and rollback coverage are active.
+- Production-safe staff, parish, same-parish, and denial fixture labels are approved.
+- Controlled health and read-only staff smoke pass with redacted evidence.
+- Separately locked exports, AI, public routing, automation, and trust claims remain
+  disabled unless independently approved.
 
 ## Staff Access
 

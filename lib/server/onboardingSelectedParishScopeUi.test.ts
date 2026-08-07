@@ -9,6 +9,13 @@ const onboardingPagePath = join(
   'onboarding',
   'ParishOnboardingPage.tsx'
 )
+const onboardingServerPagePath = join(
+  process.cwd(),
+  'app',
+  'dashboard',
+  'onboarding',
+  'page.tsx'
+)
 const onboardingCardPath = join(process.cwd(), 'app', 'dashboard', 'DashboardOnboardingCard.tsx')
 const parishSettingsRoutePath = join(process.cwd(), 'app', 'api', 'parish', 'settings', 'route.ts')
 const evidencePath = join(
@@ -28,6 +35,16 @@ describe('onboarding selected parish scope UX', () => {
     expect(route).toContain('parishContext.activeParishId')
     expect(page).toContain("fetch('/api/parish/settings'")
     expect(card).toContain("fetch('/api/parish/settings'")
+  })
+
+  it('remounts the onboarding client when the server-selected parish changes', () => {
+    const serverPage = readFileSync(onboardingServerPagePath, 'utf8')
+    const page = readFileSync(onboardingPagePath, 'utf8')
+
+    expect(serverPage).toContain('loadActiveStaffParishSwitcherContext')
+    expect(serverPage).toContain("key={activeParishId ?? 'legacy-parish-context'}")
+    expect(serverPage).toContain('activeParishId={activeParishId}')
+    expect(page).toContain('if (activeParishId && nextParish.id !== activeParishId)')
   })
 
   it('shows visible display-only selected parish labels on onboarding surfaces', () => {

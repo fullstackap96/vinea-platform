@@ -45,17 +45,21 @@ describe('request confirmed OCIA session active parish mutation route', () => {
 
   it('keeps the Request Detail confirmed OCIA session save and clear off browser-side Supabase mutations', () => {
     const source = read('app/dashboard/requests/[id]/page.tsx')
+    const helper = source.slice(
+      source.indexOf('async function runRequestTypeMutation'),
+      source.indexOf('async function saveSuggestedDates'),
+    )
     const block = source.slice(
       source.indexOf('async function saveConfirmedOciaSession'),
-      source.indexOf('async function logCommunication')
+      source.indexOf('async function logCommunication'),
     )
 
-    expect(block).toContain("fetch(`/api/requests/${routeId}/confirmed-ocia-session`")
-    expect(block).toContain("method: 'PATCH'")
-    expect(block).toContain("requestDetailClientApiErrorMessage('saveOciaSession'")
-    expect(block).toContain("requestDetailClientApiErrorMessage('clearOciaSession'")
-    expect(block).toContain("requestDetailClientFailureMessage('saveOciaSession')")
-    expect(block).toContain("requestDetailClientFailureMessage('clearOciaSession')")
+    expect(block.match(/await runRequestTypeMutation\(\{/g)).toHaveLength(2)
+    expect(block).toContain("action: 'saveOciaSession'")
+    expect(block).toContain("action: 'clearOciaSession'")
+    expect(block.match(/endpoint: `\/api\/requests\/\$\{routeId\}\/confirmed-ocia-session`/g)).toHaveLength(2)
+    expect(helper).toContain("method: 'PATCH'")
+    expect(helper).toContain('requestDetailClientApiErrorMessage(action, data?.error)')
     expect(block).not.toContain('ensureOciaRequestDetailsIfMissing(supabase')
     expect(block).not.toContain(".from('ocia_request_details')")
     expect(block).not.toContain('confirmed_session_at:')

@@ -62,14 +62,14 @@ describe('Daily Brief provider reliability boundary', () => {
 
     expect(settings).toContain('const dailyBriefDeliveryAttemptRef = useRef<{')
     expect(handler).toContain(
-      'dailyBriefDeliveryAttemptRef.current?.parishId !== activeParishId',
+      'dailyBriefDeliveryAttemptRef.current?.parishId !== sendParishId',
     )
     expect(handler).toContain('id: crypto.randomUUID()')
     expect(handler).toContain("headers: { 'Content-Type': 'application/json' }")
     expect(handler).toContain('body: JSON.stringify({ deliveryAttemptId })')
     expect(handler).toContain('dailyBriefDeliveryAttemptRef.current = null')
     expect(handler.indexOf('dailyBriefDeliveryAttemptRef.current = null')).toBeGreaterThan(
-      handler.indexOf('if (!res.ok || !data?.ok)'),
+      handler.indexOf('if (!data?.ok || !providerMessageId)'),
     )
   })
 

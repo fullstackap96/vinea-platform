@@ -51,7 +51,9 @@ describe('record certificate explicit mutation method safety', () => {
     expect(button).toContain("credentials: 'include'")
     expect(button).toContain("response.headers.get('content-type') !== 'application/pdf'")
     expect(button).toContain('Preparing certificate...')
-    expect(button).toContain('Could not generate certificate. Please try again.')
+    expect(button).toContain('RECORD_CERTIFICATE_RETRYABLE_ERROR_MESSAGE')
+    expect(button).toContain('RECORD_CERTIFICATE_REFRESH_REQUIRED_MESSAGE')
+    expect(button).toContain('AbortSignal.timeout(RECORD_CERTIFICATE_CONFIRMATION_TIMEOUT_MS)')
     expect(button).not.toContain('response.json()')
   })
 

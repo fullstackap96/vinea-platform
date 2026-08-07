@@ -60,16 +60,21 @@ describe('request wedding details active parish mutation route', () => {
 
   it('keeps the Request Detail wedding details save off browser-side Supabase mutations', () => {
     const source = read('app/dashboard/requests/[id]/page.tsx')
+    const helper = source.slice(
+      source.indexOf('async function runRequestTypeMutation'),
+      source.indexOf('async function saveSuggestedDates'),
+    )
     const block = source.slice(
       source.indexOf('async function saveWeddingDetails'),
-      source.indexOf('async function saveConfirmedWeddingCeremony')
+      source.indexOf('async function saveConfirmedWeddingCeremony'),
     )
 
-    expect(block).toContain("fetch(`/api/requests/${routeId}/wedding-details`")
-    expect(block).toContain("method: 'PATCH'")
-    expect(block).toContain("credentials: 'include'")
-    expect(block).toContain("requestDetailClientApiErrorMessage('saveWeddingDetails'")
-    expect(block).toContain("requestDetailClientFailureMessage('saveWeddingDetails')")
+    expect(block).toContain('await runRequestTypeMutation({')
+    expect(block).toContain("action: 'saveWeddingDetails'")
+    expect(block).toContain("endpoint: `/api/requests/${routeId}/wedding-details`")
+    expect(helper).toContain("method: 'PATCH'")
+    expect(helper).toContain("credentials: 'include'")
+    expect(helper).toContain('requestDetailClientApiErrorMessage(action, data?.error)')
     expect(block).not.toContain(".from('wedding_request_details')")
     expect(block).not.toContain('.upsert(')
     expect(block).not.toContain('confirmed_ceremony_at:')

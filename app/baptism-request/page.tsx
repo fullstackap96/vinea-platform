@@ -89,6 +89,7 @@ export default function BaptismRequestPage() {
         aria-label="Baptism request"
         aria-busy={loading}
       >
+        <fieldset disabled={loading} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <input
           className={intakeInputClass}
           placeholder="Parent full name"
@@ -162,6 +163,7 @@ export default function BaptismRequestPage() {
         >
           {loading ? 'Submitting...' : 'Submit request'}
         </button>
+        </fieldset>
       </form>
 
       {message ? (

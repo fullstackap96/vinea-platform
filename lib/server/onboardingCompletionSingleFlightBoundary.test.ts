@@ -17,7 +17,8 @@ describe('onboarding completion single-flight boundary', () => {
     expect(start).toBeGreaterThanOrEqual(0)
     expect(end).toBeGreaterThan(start)
     expect(onboarding).toContain('const completionInFlightRef = useRef(false)')
-    expect(handler).toContain('if (completionInFlightRef.current ||')
+    expect(handler).toContain('completionInFlightRef.current ||')
+    expect(handler).toContain('completionRequiresRefresh ||')
     expect(handler.indexOf('completionInFlightRef.current = true')).toBeLessThan(
       handler.indexOf("fetch('/api/parish/settings'"),
     )
@@ -32,10 +33,11 @@ describe('onboarding completion single-flight boundary', () => {
       handlerStart,
       onboarding.indexOf('function preventNavigationWhileSaving', handlerStart),
     )
-    expect(handler).toContain('!parish || !readiness.readyToComplete')
-    expect(onboarding).toContain(
-      'disabled={!readiness.readyToComplete || readiness.onboardingComplete || saving}',
-    )
+    expect(handler).toContain('!parish ||')
+    expect(handler).toContain('!readiness.readyToComplete')
+    expect(onboarding).toContain('!readiness.readyToComplete ||')
+    expect(onboarding).toContain('readiness.onboardingComplete ||')
+    expect(onboarding).toContain('completionRequiresRefresh')
   })
 
   it('holds same-screen navigation while the completion result settles', () => {
@@ -51,7 +53,7 @@ describe('onboarding completion single-flight boundary', () => {
     expect(onboarding).toContain('onboarding_complete: true')
     expect(onboarding).toContain("setMessage('Parish onboarding marked complete.')")
     expect(onboarding).toContain('onboardingSaveErrorMessage(data?.error)')
-    expect(onboarding).toContain('onboardingSaveErrorMessage(err)')
+    expect(onboarding).toContain('ONBOARDING_COMPLETION_REFRESH_REQUIRED_MESSAGE')
   })
 
   it('documents immediate exclusion without changing go-live claims', () => {

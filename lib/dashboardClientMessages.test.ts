@@ -16,6 +16,7 @@ const actions: DashboardClientAction[] = [
   'logFollowUpContacted',
   'updateFollowUpContactedSummary',
   'markFollowUpContacted',
+  'confirmWorkHubMutation',
   'logCareTouchpoint',
   'updateFuneralCareDate',
   'updateCareRequest',

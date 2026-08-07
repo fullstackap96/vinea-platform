@@ -1,7 +1,35 @@
 export const REQUEST_DOCUMENTS_BUCKET = 'request-documents'
 export const REQUEST_DOCUMENT_MAX_FILE_BYTES = 10 * 1024 * 1024
+export const REQUEST_DOCUMENT_ACCEPT_ATTRIBUTE =
+  '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png'
+export const REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE =
+  'Upload a PDF, JPG, or PNG document.'
 export const REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE =
   'Request document storage is not configured yet. Apply the document portal migrations and storage bucket before uploading documents.'
+
+type RequestDocumentUploadType = {
+  contentType: 'application/pdf' | 'image/jpeg' | 'image/png'
+  extensions: readonly string[]
+  signature: readonly number[]
+}
+
+const REQUEST_DOCUMENT_UPLOAD_TYPES: readonly RequestDocumentUploadType[] = [
+  {
+    contentType: 'application/pdf',
+    extensions: ['pdf'],
+    signature: [0x25, 0x50, 0x44, 0x46, 0x2d],
+  },
+  {
+    contentType: 'image/jpeg',
+    extensions: ['jpg', 'jpeg'],
+    signature: [0xff, 0xd8, 0xff],
+  },
+  {
+    contentType: 'image/png',
+    extensions: ['png'],
+    signature: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  },
+]
 
 export type RequestDocumentStatus = 'pending_review' | 'approved' | 'rejected'
 
@@ -42,6 +70,38 @@ export function safeRequestDocumentFilename(value: unknown): string {
     .replace(/^\.+/, '')
     .slice(0, 140)
   return cleaned || 'document'
+}
+
+export function validateRequestDocumentUpload(input: {
+  filename: unknown
+  declaredContentType: unknown
+  bytes: Uint8Array
+}):
+  | { ok: true; contentType: RequestDocumentUploadType['contentType'] }
+  | { ok: false; error: typeof REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE } {
+  const filename = text(input.filename).replaceAll('\\', '/').split('/').pop() ?? ''
+  const extensionMatch = filename.toLowerCase().match(/\.([a-z0-9]+)$/)
+  const extension = extensionMatch?.[1] ?? ''
+  const matchedType = REQUEST_DOCUMENT_UPLOAD_TYPES.find(
+    (candidate) =>
+      candidate.extensions.includes(extension) &&
+      candidate.signature.every((byte, index) => input.bytes[index] === byte),
+  )
+
+  if (!matchedType) {
+    return { ok: false, error: REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE }
+  }
+
+  const declaredContentType = text(input.declaredContentType).toLowerCase()
+  if (
+    declaredContentType &&
+    declaredContentType !== 'application/octet-stream' &&
+    declaredContentType !== matchedType.contentType
+  ) {
+    return { ok: false, error: REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE }
+  }
+
+  return { ok: true, contentType: matchedType.contentType }
 }
 
 export function normalizeRequestDocumentStatus(value: unknown): RequestDocumentStatus {

@@ -19,13 +19,15 @@ describe('request checklist and workflow mutation single-flight boundary', () =>
     const handler = page.slice(start, end)
 
     expect(page).toContain('const checklistMutationInFlightRef = useRef(false)')
-    expect(handler).toContain('if (checklistMutationInFlightRef.current) return')
+    expect(handler).toContain(
+      'if (checklistMutationInFlightRef.current || workflowMutationRequiresRefresh) return',
+    )
     expect(handler.indexOf('checklistMutationInFlightRef.current = true')).toBeLessThan(
       handler.indexOf('fetch(`/api/requests/${routeId}/checklist-items/${itemId}`'),
     )
     expect(handler).toContain('checklistMutationInFlightRef.current = false')
     expect(handler).toContain("requestDetailClientApiErrorMessage('updateChecklistItem'")
-    expect(handler).toContain("requestDetailClientFailureMessage('updateChecklistItem')")
+    expect(handler).toContain("requestDetailClientFailureMessage('confirmWorkflowMutation')")
   })
 
   it('disables all legacy checklist toggles while showing the affected row', () => {
@@ -43,11 +45,13 @@ describe('request checklist and workflow mutation single-flight boundary', () =>
     const handler = page.slice(start, end)
 
     expect(page).toContain('const workflowStepMutationInFlightRef = useRef(false)')
-    expect(handler).toContain('if (workflowStepMutationInFlightRef.current) return')
+    expect(handler).toContain(
+      'if (workflowStepMutationInFlightRef.current || workflowMutationRequiresRefresh) return',
+    )
     expect(handler.indexOf('workflowStepMutationInFlightRef.current = true')).toBeLessThan(
       handler.indexOf('updateRequestWorkflowStepStatus({'),
     )
-    expect(handler).toContain("'updateWorkflowStep', error")
+    expect(handler).toContain("'updateWorkflowStep', result.error")
     expect(handler).toContain("'updateWorkflowStep', result.error")
     expect(handler).toContain('workflowStepMutationInFlightRef.current = false')
   })

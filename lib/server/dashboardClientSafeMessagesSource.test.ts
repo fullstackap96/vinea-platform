@@ -26,13 +26,17 @@ describe('dashboard client safe messages', () => {
       'logFollowUpContacted',
       'updateFollowUpContactedSummary',
       'markFollowUpContacted',
+      'confirmWorkHubMutation',
       'logCareTouchpoint',
       'updateFuneralCareDate',
       'updateCareRequest',
-      'saveCareTouchpoint',
     ]) {
       expect(source).toContain(`dashboardClientFailureMessage('${action}')`)
     }
+
+    expect(source).toContain(
+      "dashboardClientFailureMessage('confirmWorkHubMutation')",
+    )
   })
 
   it('does not render raw provider or database errors in dashboard row messages', () => {

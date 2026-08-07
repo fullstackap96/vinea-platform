@@ -9,6 +9,7 @@ const scriptPath = join(root, 'scripts', 'build-release-candidate-source-manifes
 type Manifest = {
   schemaVersion: number
   decision: string
+  sourceMode: 'working-tree' | 'tracked-head'
   baseCommit: string
   aggregateSha256: string
   sourceFileCount: number
@@ -23,8 +24,8 @@ type Manifest = {
   productionApproved: boolean
 }
 
-function runManifest(): Manifest {
-  const result = spawnSync(process.execPath, [scriptPath], {
+function runManifest(args: string[] = []): Manifest {
+  const result = spawnSync(process.execPath, [scriptPath, ...args], {
     cwd: root,
     encoding: 'utf8',
   })
@@ -40,11 +41,35 @@ describe('release candidate source manifest', () => {
 
     expect(first).toEqual(second)
     expect(first.decision).toBe('RELEASE_CANDIDATE_SOURCE_MANIFEST_READY')
+    expect(first.sourceMode).toBe('working-tree')
     expect(first.aggregateSha256).toMatch(/^[A-F0-9]{64}$/)
     expect(first.baseCommit).toMatch(/^[a-f0-9]{40}$/)
     expect(first.sourceFileCount).toBeGreaterThan(100)
     expect(first.trackedFileCount + first.untrackedFileCount).toBe(
       first.sourceFileCount,
+    )
+  })
+
+  it('can bind immutable committed HEAD without untracked workspace source', () => {
+    const manifest = runManifest(['--tracked-head'])
+
+    expect(manifest.decision).toBe('RELEASE_CANDIDATE_SOURCE_MANIFEST_READY')
+    expect(manifest.sourceMode).toBe('tracked-head')
+    expect(manifest.aggregateSha256).toMatch(/^[A-F0-9]{64}$/)
+    expect(manifest.trackedFileCount).toBe(manifest.sourceFileCount)
+    expect(manifest.untrackedFileCount).toBe(0)
+  })
+
+  it('rejects unknown manifest modes without producing a manifest', () => {
+    const result = spawnSync(process.execPath, [scriptPath, '--unknown-mode'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+
+    expect(result.status).toBe(1)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toContain(
+      'Usage: node scripts/build-release-candidate-source-manifest.mjs [--tracked-head]',
     )
   })
 
@@ -83,17 +108,24 @@ describe('release candidate source manifest', () => {
     expect(source).toContain('function canonicalSourceBytes(path, bytes)')
     expect(source).toContain("replaceAll('\\r\\n', '\\n')")
     expect(source).toContain('binaryExtensions.has(extname(path).toLowerCase())')
+    expect(source).toContain('const gitOutputMaxBufferBytes = 64 * 1024 * 1024')
+    expect(source).toContain("manifestArgs[0] === '--tracked-head'")
+    expect(source).toContain("spawnSync('git', ['cat-file', '--batch']")
+    expect(source).toContain('maxBuffer: gitOutputMaxBufferBytes')
   })
 
-  it('binds the current aggregate into the human-review evidence record', () => {
-    const manifest = runManifest()
+  it('binds the immutable tracked-head aggregate into the human-review evidence record', () => {
+    const manifest = runManifest(['--tracked-head'])
     const evidence = readFileSync(
       join(root, 'docs', 'RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711.md'),
       'utf8',
     )
 
+    expect(manifest.sourceMode).toBe('tracked-head')
     expect(evidence).toContain(manifest.aggregateSha256)
-    expect(evidence).toContain(`Source file count: \`${manifest.sourceFileCount}\``)
+    expect(evidence).toContain(
+      `Tracked source file count: \`${manifest.sourceFileCount}\``,
+    )
     expect(evidence).toContain('Production approval granted: `NO`')
     expect(evidence).toContain('does not replace an immutable Git commit')
   })

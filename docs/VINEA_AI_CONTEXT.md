@@ -1,6 +1,6 @@
 # Vinea AI Context
 
-Last Generated: 2026-07-08
+Last Generated: 2026-08-07
 
 Confidence Level: High for code-derived details; Medium for product roadmap; Low for unstated business facts.
 
@@ -12,7 +12,7 @@ Use the product name "Vinea Platform." The legal entity is "Vinea Technologies L
 
 ## Stack
 
-- Next.js 16.2.2 App Router.
+- Next.js 16.3.0 App Router.
 - React 19.2.4.
 - TypeScript.
 - Tailwind CSS 4.
@@ -23,6 +23,14 @@ Use the product name "Vinea Platform." The legal entity is "Vinea Technologies L
 - Vitest for tests.
 
 Important: This repo uses a Next.js version with breaking changes. Before editing Next.js code, read the relevant guide in `node_modules/next/dist/docs/`.
+
+## Current Release Boundary
+
+- Production domain: `https://vineaplatform.com`.
+- The base application is technically release-ready under the repository-owned local gate, but production rollout is not currently approved.
+- The July 15, 2026 controlled rollout stopped before promotion because an approved production-smoke session or dedicated credentials and fixture selectors were unavailable. Production remained on the approved rollback deployment.
+- A future attempt requires a newly approved exact rollout window, available named owners/channels, approved read-only fixture labels, and an authenticated production-smoke session or dedicated `PRODUCTION_SMOKE_*` values by name only.
+- Production RLS, monitoring, exports, public-intake routing, AI, reminders, certificate/correction runtime, CSP enforcement, backup/restore claims, and public trust claims remain separately gated.
 
 ## Key Routes
 
@@ -330,6 +338,8 @@ Auth/security:
 - `proxy.ts`.
 - `lib/server/requireStaff.ts`.
 - `lib/staffAuthorization.ts`.
+- `lib/supabase.ts` for the lazy browser anon client.
+- `lib/supabase/server.ts` and `lib/supabase/routeHandlerClient.ts` for server/session clients.
 - `lib/supabaseServiceServer.ts`.
 - `supabase/migrations/*staff*`.
 
@@ -364,7 +374,7 @@ Email/AI/calendar:
 
 ## Needs Verification
 
-- Production domain.
+- Next controlled production rollout window and approved smoke access.
 - Support/sales/billing contacts.
 - Pricing and packaging.
 - Formal brand colors.

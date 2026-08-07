@@ -7,6 +7,7 @@ import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import {
   formatRequestDocumentFileSize,
   normalizeRequestDocumentRow,
+  REQUEST_DOCUMENT_ACCEPT_ATTRIBUTE,
   requestDocumentStatusLabel,
   type RequestDocument,
   type RequestDocumentStatus,
@@ -18,13 +19,6 @@ import { InlineFormMessage } from '@/lib/inlineFormMessage'
 const REQUEST_DOCUMENT_READ_TIMEOUT_MS = 15_000
 const REQUEST_DOCUMENT_WRITE_TIMEOUT_MS = 20_000
 const REQUEST_DOCUMENT_UPLOAD_TIMEOUT_MS = 60_000
-
-function isRequestDocumentTimeout(error: unknown): boolean {
-  return (
-    error instanceof DOMException &&
-    (error.name === 'TimeoutError' || error.name === 'AbortError')
-  )
-}
 
 function statusClasses(status: RequestDocumentStatus): string {
   if (status === 'approved') return 'bg-emerald-50 text-emerald-800'
@@ -63,11 +57,13 @@ export function RequestDocumentsSection({
   const [downloadingId, setDownloadingId] = useState('')
   const [creatingPortalLink, setCreatingPortalLink] = useState(false)
   const [portalLink, setPortalLink] = useState('')
+  const [mutationRequiresRefresh, setMutationRequiresRefresh] = useState(false)
   const mutationInFlightRef = useRef<'upload' | 'review' | 'portal-link' | null>(null)
   const documentLoadAbortRef = useRef<AbortController | null>(null)
   const documentLoadSequenceRef = useRef(0)
 
-  const mutationBusy = uploading || Boolean(reviewingId) || creatingPortalLink
+  const mutationBusy =
+    uploading || Boolean(reviewingId) || creatingPortalLink || mutationRequiresRefresh
 
   const stepTitleById = useMemo(() => {
     const map = new Map<string, string>()
@@ -76,7 +72,7 @@ export function RequestDocumentsSection({
   }, [workflowSteps])
 
   const loadDocuments = useCallback(async (options?: { preserveMessage?: boolean }) => {
-    if (!requestId) return
+    if (!requestId) return false
 
     const loadSequence = ++documentLoadSequenceRef.current
     documentLoadAbortRef.current?.abort()
@@ -99,7 +95,7 @@ export function RequestDocumentsSection({
       })
       const payload = await response.json().catch(() => null)
       controller.signal.throwIfAborted()
-      if (!isLatestLoad()) return
+      if (!isLatestLoad()) return false
       if (!response.ok || !payload?.ok) {
         throw new Error(requestDocumentClientFailureMessage('loadDocuments', payload?.error))
       }
@@ -109,9 +105,11 @@ export function RequestDocumentsSection({
           .filter((document: RequestDocument | null): document is RequestDocument => Boolean(document))
           .filter((document: RequestDocument) => document.request_id === requestId)
       )
+      return true
     } catch (error) {
-      if (!isLatestLoad() || (controller.signal.aborted && !timedOut)) return
+      if (!isLatestLoad() || (controller.signal.aborted && !timedOut)) return false
       setMessage(requestDocumentClientFailureMessage('loadDocuments', error))
+      return false
     } finally {
       window.clearTimeout(timeoutId)
       if (documentLoadAbortRef.current === controller) {
@@ -136,7 +134,7 @@ export function RequestDocumentsSection({
 
   async function uploadDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (mutationInFlightRef.current) return
+    if (mutationInFlightRef.current || mutationRequiresRefresh) return
 
     const file = fileInputRef.current?.files?.[0]
     if (!file) {
@@ -158,21 +156,28 @@ export function RequestDocumentsSection({
         signal: AbortSignal.timeout(REQUEST_DOCUMENT_UPLOAD_TIMEOUT_MS),
       })
       const payload = await response.json().catch(() => null)
-      if (!response.ok || !payload?.ok) {
-        throw new Error(requestDocumentClientFailureMessage('uploadDocument', payload?.error))
+      if (!response.ok) {
+        setMessage(requestDocumentClientFailureMessage('uploadDocument', payload?.error))
+        return
+      }
+      if (payload?.ok !== true) {
+        setMutationRequiresRefresh(true)
+        setMessage(requestDocumentClientFailureMessage('uploadDocumentUnconfirmed'))
+        return
       }
       setDocumentType('')
       setWorkflowStepId('')
       if (fileInputRef.current) fileInputRef.current.value = ''
+      const refreshed = await loadDocuments({ preserveMessage: true })
+      if (!refreshed) {
+        setMutationRequiresRefresh(true)
+        setMessage(requestDocumentClientFailureMessage('uploadDocumentRefreshRequired'))
+        return
+      }
       setMessage('Document uploaded for staff review.')
-      await loadDocuments({ preserveMessage: true })
-    } catch (error) {
-      setMessage(
-        requestDocumentClientFailureMessage(
-          isRequestDocumentTimeout(error) ? 'uploadDocumentUnconfirmed' : 'uploadDocument',
-          error
-        )
-      )
+    } catch {
+      setMutationRequiresRefresh(true)
+      setMessage(requestDocumentClientFailureMessage('uploadDocumentUnconfirmed'))
     } finally {
       mutationInFlightRef.current = null
       setUploading(false)
@@ -180,7 +185,7 @@ export function RequestDocumentsSection({
   }
 
   async function reviewDocument(documentId: string, status: 'approved' | 'rejected') {
-    if (mutationInFlightRef.current) return
+    if (mutationInFlightRef.current || mutationRequiresRefresh) return
 
     mutationInFlightRef.current = 'review'
     setReviewingId(documentId)
@@ -193,18 +198,25 @@ export function RequestDocumentsSection({
         signal: AbortSignal.timeout(REQUEST_DOCUMENT_WRITE_TIMEOUT_MS),
       })
       const payload = await response.json().catch(() => null)
-      if (!response.ok || !payload?.ok) {
-        throw new Error(requestDocumentClientFailureMessage('reviewDocument', payload?.error))
+      if (!response.ok) {
+        setMessage(requestDocumentClientFailureMessage('reviewDocument', payload?.error))
+        return
+      }
+      if (payload?.ok !== true) {
+        setMutationRequiresRefresh(true)
+        setMessage(requestDocumentClientFailureMessage('reviewDocumentUnconfirmed'))
+        return
+      }
+      const refreshed = await loadDocuments({ preserveMessage: true })
+      if (!refreshed) {
+        setMutationRequiresRefresh(true)
+        setMessage(requestDocumentClientFailureMessage('reviewDocumentRefreshRequired'))
+        return
       }
       setMessage(status === 'approved' ? 'Document approved.' : 'Document rejected.')
-      await loadDocuments({ preserveMessage: true })
-    } catch (error) {
-      setMessage(
-        requestDocumentClientFailureMessage(
-          isRequestDocumentTimeout(error) ? 'reviewDocumentUnconfirmed' : 'reviewDocument',
-          error
-        )
-      )
+    } catch {
+      setMutationRequiresRefresh(true)
+      setMessage(requestDocumentClientFailureMessage('reviewDocumentUnconfirmed'))
     } finally {
       mutationInFlightRef.current = null
       setReviewingId('')
@@ -242,7 +254,7 @@ export function RequestDocumentsSection({
   }
 
   async function createPortalLink() {
-    if (mutationInFlightRef.current) return
+    if (mutationInFlightRef.current || mutationRequiresRefresh) return
 
     mutationInFlightRef.current = 'portal-link'
     setCreatingPortalLink(true)
@@ -253,25 +265,29 @@ export function RequestDocumentsSection({
         signal: AbortSignal.timeout(REQUEST_DOCUMENT_WRITE_TIMEOUT_MS),
       })
       const payload = await response.json().catch(() => null)
-      if (!response.ok || !payload?.ok || !payload.url) {
-        throw new Error(requestDocumentClientFailureMessage('createFamilyUploadLink', payload?.error))
+      if (!response.ok) {
+        setMessage(requestDocumentClientFailureMessage('createFamilyUploadLink', payload?.error))
+        return
+      }
+      if (payload?.ok !== true || typeof payload.url !== 'string' || !payload.url.trim()) {
+        setMutationRequiresRefresh(true)
+        setMessage(requestDocumentClientFailureMessage('createFamilyUploadLinkUnconfirmed'))
+        return
       }
       setPortalLink(payload.url)
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(payload.url)
-        setMessage('Family upload link copied. It expires in 30 days.')
+        try {
+          await navigator.clipboard.writeText(payload.url)
+          setMessage('Family upload link copied. It expires in 30 days.')
+        } catch {
+          setMessage('Family upload link created. Copy it below.')
+        }
       } else {
         setMessage('Family upload link created. Copy it below.')
       }
-    } catch (error) {
-      setMessage(
-        requestDocumentClientFailureMessage(
-          isRequestDocumentTimeout(error)
-            ? 'createFamilyUploadLinkUnconfirmed'
-            : 'createFamilyUploadLink',
-          error
-        )
-      )
+    } catch {
+      setMutationRequiresRefresh(true)
+      setMessage(requestDocumentClientFailureMessage('createFamilyUploadLinkUnconfirmed'))
     } finally {
       mutationInFlightRef.current = null
       setCreatingPortalLink(false)
@@ -296,7 +312,11 @@ export function RequestDocumentsSection({
             disabled={mutationBusy}
             className={`${secondaryButtonMd} justify-center`}
           >
-            {creatingPortalLink ? 'Creating link...' : 'Create family upload link'}
+            {creatingPortalLink
+              ? 'Creating link...'
+              : mutationRequiresRefresh
+                ? 'Refresh required'
+                : 'Create family upload link'}
           </button>
         </div>
       </div>
@@ -331,6 +351,7 @@ export function RequestDocumentsSection({
             <input
               ref={fileInputRef}
               type="file"
+              accept={REQUEST_DOCUMENT_ACCEPT_ATTRIBUTE}
               disabled={mutationBusy}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
@@ -363,7 +384,7 @@ export function RequestDocumentsSection({
           </label>
           <button type="submit" disabled={mutationBusy} className={`${primaryButtonMd} justify-center`}>
             <Upload className="h-4 w-4" aria-hidden />
-            {uploading ? 'Uploading...' : 'Upload'}
+            {uploading ? 'Uploading...' : mutationRequiresRefresh ? 'Refresh required' : 'Upload'}
           </button>
         </div>
       </form>

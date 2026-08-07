@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE } from './requestDocuments'
+import {
+  REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
+  REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE,
+} from './requestDocuments'
 import {
   requestDocumentClientFailureMessage,
   requestDocumentClientFailureMessages,
@@ -10,8 +13,10 @@ const actions: RequestDocumentClientAction[] = [
   'loadDocuments',
   'uploadDocument',
   'uploadDocumentUnconfirmed',
+  'uploadDocumentRefreshRequired',
   'reviewDocument',
   'reviewDocumentUnconfirmed',
+  'reviewDocumentRefreshRequired',
   'openDocument',
   'openDocumentPopupBlocked',
   'createFamilyUploadLink',
@@ -47,6 +52,10 @@ describe('request document client messages', () => {
     ).toBe(
       'Family document portal links are not configured yet. Apply the family portal token migration before creating upload links.'
     )
+
+    expect(
+      requestDocumentClientFailureMessage('uploadDocument', REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE),
+    ).toBe(REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE)
   })
 
   it('provides specific safe guidance when the browser blocks the document window', () => {
@@ -64,6 +73,12 @@ describe('request document client messages', () => {
     )
     expect(requestDocumentClientFailureMessage('createFamilyUploadLinkUnconfirmed')).toContain(
       'Check the Audit Log before creating another link'
+    )
+    expect(requestDocumentClientFailureMessage('uploadDocumentRefreshRequired')).toContain(
+      'could not refresh the document list'
+    )
+    expect(requestDocumentClientFailureMessage('reviewDocumentRefreshRequired')).toContain(
+      'Refresh this page'
     )
   })
 })

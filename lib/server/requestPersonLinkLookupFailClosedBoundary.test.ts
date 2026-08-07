@@ -28,7 +28,7 @@ describe('Request person-link lookup fail-closed boundary', () => {
   it('cancels stale relationship lookups and ignores their completion', () => {
     expect(source).toContain('const controller = new AbortController()')
     expect(source).toContain('signal: controller.signal')
-    expect(source).toContain('if (cancelled || controller.signal.aborted) return')
+    expect(source).toContain('if (cancelled) return')
     expect(source).toContain('controller.abort()')
   })
 

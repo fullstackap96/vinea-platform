@@ -24,6 +24,7 @@
     "check:release-handoff": "node scripts/check-release-readiness-handoff.mjs",
     "check:release-local-evidence": "node scripts/check-release-local-evidence.mjs",
     "check:release-source-manifest": "node scripts/build-release-candidate-source-manifest.mjs",
+    "check:release-source-manifest:head": "node scripts/build-release-candidate-source-manifest.mjs --tracked-head",
     "check:release-commit-scope": "node scripts/prepare-release-candidate-commit-scope.mjs",
     "stage:release-candidate": "node scripts/stage-release-candidate-scope.mjs",
     "check:release-local": "node scripts/run-release-readiness-local.mjs",
@@ -34,7 +35,7 @@
     "@supabase/supabase-js": "^2.102.1",
     "googleapis": "^171.4.0",
     "lucide-react": "^1.8.0",
-    "next": "16.2.10",
+    "next": "16.3.0",
     "openai": "^6.33.0",
     "pdf-lib": "^1.17.1",
     "react": "19.2.4",
@@ -48,12 +49,13 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.3.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.6"
   },
   "overrides": {
-    "postcss": "8.5.10"
+    "postcss": "8.5.23",
+    "sharp": "0.35.0"
   }
 }

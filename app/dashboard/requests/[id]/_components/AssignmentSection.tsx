@@ -6,7 +6,11 @@ import { assignmentDisplayLabel } from '@/lib/requestAssignment'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
 import { maybeMissingValue } from '@/lib/missingValue'
-import { requestDetailClientServerActionErrorMessage } from '@/lib/requestDetailClientMessages'
+import {
+  requestDetailClientFailureMessage,
+  requestDetailClientServerActionErrorMessage,
+} from '@/lib/requestDetailClientMessages'
+import { awaitRequestDetailClientMutationConfirmation } from '@/lib/requestDetailClientMutationConfirmation'
 import { LabelValueGrid, LabelValueRow } from './LabelValueGrid'
 
 const assignSelectClassName = 'w-full rounded border border-gray-300 bg-white p-3 text-gray-900'
@@ -19,6 +23,8 @@ export function AssignmentSection({
   staffOptions,
   priestOptions,
   onSaved,
+  mutationRequiresRefresh = false,
+  onMutationUnconfirmed,
 }: {
   requestId: string
   assignedStaffName: string | null | undefined
@@ -26,7 +32,9 @@ export function AssignmentSection({
   assignedDeaconName: string | null | undefined
   staffOptions: string[]
   priestOptions: string[]
-  onSaved: () => void
+  onSaved: () => Promise<unknown> | unknown
+  mutationRequiresRefresh?: boolean
+  onMutationUnconfirmed?: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draftStaff, setDraftStaff] = useState('')
@@ -35,6 +43,7 @@ export function AssignmentSection({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const saveInFlightRef = useRef(false)
+  const mutationBusy = saving || mutationRequiresRefresh
 
   function releaseSave() {
     saveInFlightRef.current = false
@@ -54,6 +63,7 @@ export function AssignmentSection({
   }
 
   function beginEdit() {
+    if (mutationRequiresRefresh) return
     setDraftStaff(String(assignedStaffName ?? '').trim())
     setDraftPriest(String(assignedPriestName ?? '').trim())
     setDraftDeacon(String(assignedDeaconName ?? '').trim())
@@ -68,7 +78,7 @@ export function AssignmentSection({
   }
 
   async function save() {
-    if (saveInFlightRef.current) return
+    if (saveInFlightRef.current || mutationRequiresRefresh) return
 
     saveInFlightRef.current = true
     setSaving(true)
@@ -76,14 +86,24 @@ export function AssignmentSection({
 
     let result: Awaited<ReturnType<typeof updateRequestAssignment>>
     try {
-      result = await updateRequestAssignment({
-        requestId,
-        assignedStaffName: draftStaff,
-        assignedPriestName: draftPriest,
-        assignedDeaconName: draftDeacon,
-      })
-    } catch (error: unknown) {
-      setMessage(requestDetailClientServerActionErrorMessage('updateAssignment', error))
+      const confirmation = await awaitRequestDetailClientMutationConfirmation(
+        updateRequestAssignment({
+          requestId,
+          assignedStaffName: draftStaff,
+          assignedPriestName: draftPriest,
+          assignedDeaconName: draftDeacon,
+        }),
+      )
+      if (!confirmation.confirmed) {
+        onMutationUnconfirmed?.()
+        setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+        releaseSave()
+        return
+      }
+      result = confirmation.value
+    } catch {
+      onMutationUnconfirmed?.()
+      setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
       releaseSave()
       return
     }
@@ -94,9 +114,27 @@ export function AssignmentSection({
       return
     }
 
+    try {
+      const refreshed = await onSaved()
+      if (refreshed === false) {
+        onMutationUnconfirmed?.()
+        setMessage(
+          'Assignment updated, but the refreshed request could not load. Refresh the page before changing assignment again.',
+        )
+        releaseSave()
+        return
+      }
+    } catch {
+      onMutationUnconfirmed?.()
+      setMessage(
+        'Assignment updated, but the refreshed request could not load. Refresh the page before changing assignment again.',
+      )
+      releaseSave()
+      return
+    }
+
     setEditing(false)
     releaseSave()
-    onSaved()
   }
 
   return (
@@ -106,6 +144,7 @@ export function AssignmentSection({
           <button
             type="button"
             onClick={beginEdit}
+            disabled={mutationRequiresRefresh}
             className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
           >
             Edit assignment
@@ -114,7 +153,7 @@ export function AssignmentSection({
       ) : null}
 
       {editing ? (
-        <div className="space-y-3" aria-busy={saving}>
+        <div className="space-y-3" aria-busy={mutationBusy}>
           <div>
             <label className="mb-1 block text-sm text-gray-500" htmlFor="assign-staff">
               Assigned to
@@ -123,7 +162,7 @@ export function AssignmentSection({
               id="assign-staff"
               className={assignSelectClassName}
               value={draftStaff}
-              disabled={saving}
+              disabled={mutationBusy}
               onChange={(e) => setDraftStaff(e.target.value)}
             >
               <option value="">Unassigned</option>
@@ -142,7 +181,7 @@ export function AssignmentSection({
               id="assign-priest"
               className={assignSelectClassName}
               value={draftPriest}
-              disabled={saving}
+              disabled={mutationBusy}
               onChange={(e) => setDraftPriest(e.target.value)}
             >
               <option value="">Unassigned</option>
@@ -163,7 +202,7 @@ export function AssignmentSection({
               type="text"
               autoComplete="name"
               value={draftDeacon}
-              disabled={saving}
+              disabled={mutationBusy}
               onChange={(e) => setDraftDeacon(e.target.value)}
               placeholder="Enter name or leave blank"
             />
@@ -171,7 +210,7 @@ export function AssignmentSection({
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
-              disabled={saving}
+              disabled={mutationBusy}
               onClick={save}
               className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
             >
@@ -179,7 +218,7 @@ export function AssignmentSection({
             </button>
             <button
               type="button"
-              disabled={saving}
+              disabled={mutationBusy}
               onClick={cancelEdit}
               className={`${secondaryButtonMd} w-full justify-center sm:w-auto`}
             >

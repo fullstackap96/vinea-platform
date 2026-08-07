@@ -8,10 +8,15 @@ import {
 } from './repository-secret-scan-rules.mjs'
 
 const repoRoot = process.cwd()
+const gitFileListMaxBufferBytes = 64 * 1024 * 1024
 const listedFiles = execFileSync(
   'git',
   ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
-  { cwd: repoRoot, encoding: 'utf8' },
+  {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    maxBuffer: gitFileListMaxBufferBytes,
+  },
 )
   .split('\0')
   .filter(Boolean)

@@ -45,17 +45,21 @@ describe('request confirmed funeral service active parish mutation route', () =>
 
   it('keeps the Request Detail confirmed funeral service save and clear off browser-side Supabase mutations', () => {
     const source = read('app/dashboard/requests/[id]/page.tsx')
+    const helper = source.slice(
+      source.indexOf('async function runRequestTypeMutation'),
+      source.indexOf('async function saveSuggestedDates'),
+    )
     const block = source.slice(
       source.indexOf('async function saveConfirmedFuneralService'),
-      source.indexOf('async function saveWeddingDetails')
+      source.indexOf('async function saveWeddingDetails'),
     )
 
-    expect(block).toContain("fetch(`/api/requests/${routeId}/confirmed-funeral-service`")
-    expect(block).toContain("method: 'PATCH'")
-    expect(block).toContain("requestDetailClientApiErrorMessage('saveFuneralService'")
-    expect(block).toContain("requestDetailClientApiErrorMessage('clearFuneralService'")
-    expect(block).toContain("requestDetailClientFailureMessage('saveFuneralService')")
-    expect(block).toContain("requestDetailClientFailureMessage('clearFuneralService')")
+    expect(block.match(/await runRequestTypeMutation\(\{/g)).toHaveLength(2)
+    expect(block).toContain("action: 'saveFuneralService'")
+    expect(block).toContain("action: 'clearFuneralService'")
+    expect(block.match(/endpoint: `\/api\/requests\/\$\{routeId\}\/confirmed-funeral-service`/g)).toHaveLength(2)
+    expect(helper).toContain("method: 'PATCH'")
+    expect(helper).toContain('requestDetailClientApiErrorMessage(action, data?.error)')
     expect(block).not.toContain(".from('funeral_request_details')")
     expect(block).not.toContain('confirmed_service_at:')
   })

@@ -6,6 +6,7 @@ export type RequestDetailClientAction =
   | 'loadRequestNotes'
   | 'loadWorkflowSupport'
   | 'loadRequestTypeSupport'
+  | 'confirmWorkflowMutation'
   | 'updateChecklistItem'
   | 'updateStaffNotes'
   | 'aiSummary'
@@ -47,6 +48,8 @@ const requestDetailFailureMessages: Record<RequestDetailClientAction, string> = 
   loadRequestNotes: 'Could not load request notes. Please try again.',
   loadWorkflowSupport: 'Could not load request checklist and workflow steps. Please try again.',
   loadRequestTypeSupport: 'Could not load request-specific details. Please try again.',
+  confirmWorkflowMutation:
+    'Could not confirm whether this workflow change finished. Refresh the request and review its status before trying again.',
   updateChecklistItem: 'Could not update the checklist item. Please try again.',
   updateStaffNotes: 'Could not save staff notes. Please try again.',
   aiSummary: 'Could not generate the summary right now. Please try again.',
@@ -90,7 +93,7 @@ export function requestDetailClientFailureMessage(action: RequestDetailClientAct
   return requestDetailFailureMessages[action]
 }
 
-const requestDetailAllowedApiMessages: Record<
+export type RequestDetailClientApiAction =
   | 'verifyAccess'
   | 'loadActivity'
   | 'loadCommunications'
@@ -112,9 +115,9 @@ const requestDetailAllowedApiMessages: Record<
   | 'clearWeddingCeremony'
   | 'saveOciaSession'
   | 'clearOciaSession'
-  | 'logCommunication',
-  Set<string>
-> = {
+  | 'logCommunication'
+
+const requestDetailAllowedApiMessages: Record<RequestDetailClientApiAction, Set<string>> = {
   verifyAccess: new Set([
     'Unauthorized',
     'This login is not authorized for parish staff access.',
@@ -336,29 +339,7 @@ const requestDetailAllowedApiMessages: Record<
 }
 
 export function requestDetailClientApiErrorMessage(
-  action:
-    | 'verifyAccess'
-    | 'loadActivity'
-    | 'loadCommunications'
-    | 'loadRequestNotes'
-    | 'loadWorkflowSupport'
-    | 'loadRequestTypeSupport'
-    | 'updateChecklistItem'
-    | 'updateStaffNotes'
-    | 'saveAiSummary'
-    | 'saveSuggestedDates'
-    | 'saveConfirmedDate'
-    | 'clearConfirmedDate'
-    | 'saveReplyDraft'
-    | 'saveFuneralDetails'
-    | 'saveFuneralService'
-    | 'clearFuneralService'
-    | 'saveWeddingDetails'
-    | 'saveWeddingCeremony'
-    | 'clearWeddingCeremony'
-    | 'saveOciaSession'
-    | 'clearOciaSession'
-    | 'logCommunication',
+  action: RequestDetailClientApiAction,
   error: unknown
 ): string {
   const message = typeof error === 'string' ? error.trim() : ''

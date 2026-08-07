@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE } from './requestDocuments'
+import {
+  REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
+  REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE,
+} from './requestDocuments'
 import {
   familyPortalDocumentUploadGenericMessage,
   familyPortalDocumentUploadUnconfirmedMessage,
@@ -13,6 +16,7 @@ describe('safeFamilyPortalDocumentUploadMessage', () => {
       'Choose a document request from the list.',
       'Choose a document to upload.',
       'Documents must be 10 MB or smaller.',
+      REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE,
       'Could not upload document.',
       familyPortalDocumentUploadUnconfirmedMessage,
       REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,

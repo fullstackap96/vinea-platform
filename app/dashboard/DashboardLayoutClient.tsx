@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { setActiveStaffParish } from '@/app/dashboard/parish-context/actions'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { primaryButtonMd } from '@/lib/buttonStyles'
+import { withClientOperationDeadline } from '@/lib/clientOperationDeadline'
 import {
   dashboardParishSwitcherWarningMessage,
   dashboardShellClientErrorMessage,
@@ -32,6 +33,8 @@ const NAV_ITEMS = [
   { href: '/dashboard/settings', label: 'Parish Settings', match: 'prefix' as const },
   { href: '/dashboard/admin/audit-log', label: 'Audit Log', match: 'prefix' as const, adminOnly: true },
 ]
+
+const STAFF_SIGN_OUT_CONFIRMATION_TIMEOUT_MS = 15_000
 
 function isNavActive(pathname: string, href: string, match: 'exact' | 'prefix') {
   if (match === 'exact') return pathname === href
@@ -92,7 +95,10 @@ export function DashboardLayoutClient({
     setLogoutMessage('')
     try {
       const supabase = getSupabaseBrowserClient()
-      const { error } = await supabase.auth.signOut({ scope: 'local' })
+      const { error } = await withClientOperationDeadline(
+        supabase.auth.signOut({ scope: 'local' }),
+        STAFF_SIGN_OUT_CONFIRMATION_TIMEOUT_MS,
+      )
       if (error) {
         setLogoutMessage(dashboardShellClientErrorMessage('logout', error))
         return

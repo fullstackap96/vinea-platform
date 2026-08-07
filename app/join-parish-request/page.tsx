@@ -143,6 +143,7 @@ export default function JoinParishRequestPage() {
         aria-label="Join the parish request"
         aria-busy={loading}
       >
+        <fieldset disabled={loading} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <h2 className={intakeSectionHeadingClass}>Your contact information</h2>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -324,6 +325,7 @@ export default function JoinParishRequestPage() {
         <button type="submit" disabled={loading} className={primaryButtonLg}>
           {loading ? 'Submitting...' : 'Submit request'}
         </button>
+        </fieldset>
       </form>
 
       {message ? (

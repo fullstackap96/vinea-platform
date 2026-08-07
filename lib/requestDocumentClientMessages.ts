@@ -1,11 +1,16 @@
-import { REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE } from './requestDocuments'
+import {
+  REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
+  REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE,
+} from './requestDocuments'
 
 export type RequestDocumentClientAction =
   | 'loadDocuments'
   | 'uploadDocument'
   | 'uploadDocumentUnconfirmed'
+  | 'uploadDocumentRefreshRequired'
   | 'reviewDocument'
   | 'reviewDocumentUnconfirmed'
+  | 'reviewDocumentRefreshRequired'
   | 'openDocument'
   | 'openDocumentPopupBlocked'
   | 'createFamilyUploadLink'
@@ -16,9 +21,13 @@ export const requestDocumentClientFailureMessages: Record<RequestDocumentClientA
   uploadDocument: 'Could not upload the document. Please try again.',
   uploadDocumentUnconfirmed:
     'The upload did not confirm in time. Refresh the document list before trying again so the same file is not uploaded twice.',
+  uploadDocumentRefreshRequired:
+    'The document was accepted, but Vinea could not refresh the document list. Refresh this page and review the request before uploading anything else.',
   reviewDocument: 'Could not save the document review. Please try again.',
   reviewDocumentUnconfirmed:
     'The document review did not confirm in time. Refresh the document list before saving it again.',
+  reviewDocumentRefreshRequired:
+    'The document review was accepted, but Vinea could not refresh the document list. Refresh this page before reviewing another document.',
   openDocument: 'Could not open the document securely. Please try again.',
   openDocumentPopupBlocked:
     'Your browser blocked the document window. Allow popups for Vinea and try again.',
@@ -33,6 +42,7 @@ const REQUEST_PORTAL_TOKENS_NOT_CONFIGURED_MESSAGE =
 
 const safeRequestDocumentClientMessages = new Set([
   REQUEST_DOCUMENT_STORAGE_NOT_CONFIGURED_MESSAGE,
+  REQUEST_DOCUMENT_UPLOAD_TYPE_MESSAGE,
   REQUEST_PORTAL_TOKENS_NOT_CONFIGURED_MESSAGE,
 ])
 

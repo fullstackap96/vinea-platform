@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, ClipboardList, Filter } from 'lucide-react'
@@ -33,29 +33,30 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ]
 
 type IntakeQuickTriageResult = { ok: true } | { ok: false; error: string }
+const INTAKE_TRIAGE_CONFIRMATION_TIMEOUT_MS = 60_000
+const UNCERTAIN_INTAKE_TRIAGE_MESSAGE =
+  'Could not confirm whether quick triage saved. Refresh this page and review the item before trying again.'
 
 async function postIntakeTriage(
   path: string,
   body: Record<string, unknown>,
+  signal: AbortSignal,
 ): Promise<IntakeQuickTriageResult> {
-  try {
-    const response = await fetch(path, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const payload = (await response.json().catch(() => null)) as
-      | { ok?: unknown; error?: unknown }
-      | null
+  const response = await fetch(path, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
+  const payload = (await response.json().catch(() => null)) as
+    | { ok?: unknown; error?: unknown }
+    | null
 
-    if (response.ok && payload?.ok === true) return { ok: true }
-    return {
-      ok: false,
-      error: typeof payload?.error === 'string' ? payload.error : '',
-    }
-  } catch {
-    return { ok: false, error: '' }
+  if (response.ok && payload?.ok === true) return { ok: true }
+  return {
+    ok: false,
+    error: typeof payload?.error === 'string' ? payload.error : '',
   }
 }
 
@@ -91,21 +92,38 @@ export function DashboardIntakePageClient({
   const [openItemId, setOpenItemId] = useState<string | null>(null)
   const [savingItemId, setSavingItemId] = useState<string | null>(null)
   const mutationInFlightRef = useRef(false)
+  const mutationAbortRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(true)
+  const [mutationRequiresRefresh, setMutationRequiresRefresh] = useState(false)
   const [messages, setMessages] = useState<Record<string, string>>({})
-  const mutationBusy = savingItemId !== null
+  const mutationBusy = savingItemId !== null || mutationRequiresRefresh
   const visibleItems = useMemo(() => filterItems(items, filter), [items, filter])
   const urgentCount = items.filter((item) => item.priority === 'urgent').length
   const missingCount = items.filter((item) => item.filters.includes('missing_info')).length
   const ownerCount = items.filter((item) => item.filters.includes('needs_owner')).length
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      mutationAbortRef.current?.abort()
+    }
+  }, [])
 
   function setItemMessage(itemId: string, message: string) {
     setMessages((current) => ({ ...current, [itemId]: message }))
   }
 
   async function saveRequestTriage(item: ParishIntakeQueueItem, formData: FormData) {
-    if (mutationInFlightRef.current) return
+    if (mutationInFlightRef.current || mutationRequiresRefresh) return
 
     mutationInFlightRef.current = true
+    const controller = new AbortController()
+    mutationAbortRef.current = controller
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      INTAKE_TRIAGE_CONFIRMATION_TIMEOUT_MS,
+    )
     setSavingItemId(item.id)
     setItemMessage(item.id, '')
     try {
@@ -119,7 +137,9 @@ export function DashboardIntakePageClient({
           markFirstContact: formData.get('markFirstContact') === 'on',
           doneForNow: formData.get('doneForNow') === 'on',
         },
+        controller.signal,
       )
+      if (!mountedRef.current) return
       if (!result.ok) {
         setItemMessage(
           item.id,
@@ -130,16 +150,28 @@ export function DashboardIntakePageClient({
       setItemMessage(item.id, 'Quick triage saved.')
       setOpenItemId(null)
       router.refresh()
+    } catch {
+      if (!mountedRef.current) return
+      setMutationRequiresRefresh(true)
+      setItemMessage(item.id, UNCERTAIN_INTAKE_TRIAGE_MESSAGE)
     } finally {
+      window.clearTimeout(timeoutId)
+      if (mutationAbortRef.current === controller) mutationAbortRef.current = null
       mutationInFlightRef.current = false
-      setSavingItemId(null)
+      if (mountedRef.current) setSavingItemId(null)
     }
   }
 
   async function saveMassIntentionTriage(item: ParishIntakeQueueItem, formData: FormData) {
-    if (mutationInFlightRef.current) return
+    if (mutationInFlightRef.current || mutationRequiresRefresh) return
 
     mutationInFlightRef.current = true
+    const controller = new AbortController()
+    mutationAbortRef.current = controller
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      INTAKE_TRIAGE_CONFIRMATION_TIMEOUT_MS,
+    )
     setSavingItemId(item.id)
     setItemMessage(item.id, '')
     try {
@@ -151,7 +183,9 @@ export function DashboardIntakePageClient({
           stipendReceived: formData.get('stipendReceived') === 'on',
           doneForNow: formData.get('doneForNow') === 'on',
         },
+        controller.signal,
       )
+      if (!mountedRef.current) return
       if (!result.ok) {
         setItemMessage(
           item.id,
@@ -162,9 +196,15 @@ export function DashboardIntakePageClient({
       setItemMessage(item.id, 'Mass intention triage saved.')
       setOpenItemId(null)
       router.refresh()
+    } catch {
+      if (!mountedRef.current) return
+      setMutationRequiresRefresh(true)
+      setItemMessage(item.id, UNCERTAIN_INTAKE_TRIAGE_MESSAGE)
     } finally {
+      window.clearTimeout(timeoutId)
+      if (mutationAbortRef.current === controller) mutationAbortRef.current = null
       mutationInFlightRef.current = false
-      setSavingItemId(null)
+      if (mountedRef.current) setSavingItemId(null)
     }
   }
 

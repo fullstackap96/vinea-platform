@@ -16,7 +16,8 @@ describe('demo request client safe messages', () => {
       "import { demoRequestClientErrorMessage } from '@/lib/demoRequestClientMessages'"
     )
     expect(source).toContain('setStatusMessage(demoRequestClientErrorMessage(payload?.error))')
-    expect(source).toContain('setStatusMessage(demoRequestClientErrorMessage(err))')
+    expect(source).toContain(': demoRequestClientErrorMessage(err),')
+    expect(source).toContain('? demoRequestUnconfirmedMessage')
     expect(source).not.toContain("const err = String(payload?.error || 'Unable to submit demo request.')")
     expect(source).not.toContain("err?.message || 'Unable to submit demo request. Please try again.'")
   })

@@ -74,7 +74,7 @@ describe('request communication log active parish mutation route', () => {
     expect(logBlock).toContain('method: commMethod')
     expect(logBlock).toContain('notes: commNotes')
     expect(logBlock).toContain("requestDetailClientApiErrorMessage('logCommunication'")
-    expect(logBlock).toContain("requestDetailClientFailureMessage('logCommunication')")
+    expect(logBlock).toContain("requestDetailClientFailureMessage('confirmWorkflowMutation')")
     expect(logBlock).not.toContain(".from('request_communications')")
     expect(logBlock).not.toContain(".from('requests')")
     expect(logBlock).not.toContain('.insert(')

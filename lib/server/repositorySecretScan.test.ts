@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -6,6 +9,26 @@ import {
 } from '../../scripts/repository-secret-scan-rules.mjs'
 
 describe('repository secret scan rules', () => {
+  it('keeps generated root scratch files out of release scope and supports large pending file lists', () => {
+    const gitignore = readFileSync(resolve(process.cwd(), '.gitignore'), 'utf8')
+    const eslintConfig = readFileSync(
+      resolve(process.cwd(), 'eslint.config.mjs'),
+      'utf8',
+    )
+    const scanner = readFileSync(
+      resolve(process.cwd(), 'scripts/check-repository-secrets.mjs'),
+      'utf8',
+    )
+
+    expect(gitignore).toContain('/.tmp/')
+    expect(gitignore).toContain(
+      '/docs/sales/VINEA_MAILBOX_SNAPSHOT_*.json',
+    )
+    expect(eslintConfig).toContain('".tmp/**"')
+    expect(scanner).toContain('const gitFileListMaxBufferBytes = 64 * 1024 * 1024')
+    expect(scanner).toContain('maxBuffer: gitFileListMaxBufferBytes')
+  })
+
   it('detects credential-shaped values without returning their contents', () => {
     const jwt = ['eyJ' + 'a'.repeat(24), 'b'.repeat(24), 'c'.repeat(24)].join('.')
     const openAiKey = ['sk-proj-', 'd'.repeat(32)].join('')

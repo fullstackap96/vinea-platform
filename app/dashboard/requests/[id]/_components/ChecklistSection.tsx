@@ -7,12 +7,14 @@ export function ChecklistSection({
   checklistItems,
   onToggleChecklistItem,
   updatingItemId,
+  mutationRequiresRefresh = false,
 }: {
   checklistItems: RequestChecklistItemDto[]
   onToggleChecklistItem: (itemId: string, currentValue: boolean) => Promise<void> | void
   updatingItemId: string
+  mutationRequiresRefresh?: boolean
 }) {
-  const mutationBusy = Boolean(updatingItemId)
+  const mutationBusy = Boolean(updatingItemId) || mutationRequiresRefresh
 
   return (
     <div aria-busy={mutationBusy}>

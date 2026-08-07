@@ -1,18 +1,52 @@
 # Vinea Documentation And Operations Index
 
-Last updated: 2026-07-12
+Last updated: 2026-08-07
 
 This is the front door to Vinea's repository documentation. Use it to find the source that answers a question; do not treat this index as a replacement for the linked source.
+
+Current evidence-backed release status: [Vinea Current Status](VINEA_CURRENT_STATUS_20260807.md)
+is the concise register for exact release identity, current CI/Preview evidence,
+verified Supabase state, recalculated readiness, P0 blockers, and the current
+`YELLOW` launch decision. Use it before dated build-status entries.
+
+Current exact-head publication evidence: [Release Integrity Exact-Head Preview Evidence](RELEASE_INTEGRITY_EXACT_HEAD_PREVIEW_EVIDENCE_20260807.md)
+records the leased three-commit publication, successful CI, `READY`
+non-production deployment identity, exact-deployment health, and protected
+Request Detail allow/deny smoke.
+
+Current dependency security evidence: [Dependency Security Remediation](DEPENDENCY_SECURITY_REMEDIATION_20260807.md)
+records the Next.js 16.3.0 baseline and zero-audit local evidence without granting
+publication or production approval.
+
+Current database security reconciliation: [Shared-QA Database Security Reconciliation](SHARED_QA_DATABASE_SECURITY_RECONCILIATION_20260807.md)
+classifies the advisor findings, migration-history drift, non-applied privilege
+candidate, passed disposable validation, and remaining no-go boundaries without
+authorizing a shared-QA write. The linked
+[Migration History And Schema/Policy Reconciliation Evidence](SHARED_QA_MIGRATION_HISTORY_SCHEMA_POLICY_RECONCILIATION_EVIDENCE_20260807.md)
+records the catalog match, confirmed history drift, function privilege mismatch,
+and do-not-replay decision. The
+[Shared-QA Database Security Promotion Approval Packet](SHARED_QA_DATABASE_SECURITY_PROMOTION_APPROVAL_PACKET_20260807.md)
+defines the exact history-only repair, hash-pinned privilege runner, rollback,
+smoke, and human-approval gates; shared-QA writes remain unapproved.
+
+Latest export-governance reliability evidence: [Export Audit Reviewer Dashboard Client Read Deadline Boundary](EXPORT_AUDIT_REVIEWER_DASHBOARD_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md) records the bounded protected-API read, obsolete-load cancellation, preserved read-only/no-go boundaries, and remaining non-production browser evidence.
+
+Latest Request Detail selected-parish reliability evidence: [Request Detail Parish Directory Scope Boundary](REQUEST_DETAIL_PARISH_DIRECTORY_SCOPE_BOUNDARY_20260720.md) records the bounded request-parish directory read, prior-parish reset, strict response validation, cancellation behavior, and remaining browser-evidence boundary.
+
+Latest selected-parish reliability evidence: [Daily Work Hub Workflow Settings Scope Boundary](DAILY_WORK_HUB_WORKFLOW_SETTINGS_SCOPE_BOUNDARY_20260720.md) records the bounded auxiliary settings read, safe-default reset, response-parish validation, latest-load ownership, and remaining browser-evidence boundary.
+
+Latest release-integrity evidence: [Release Source Manifest Clean-Checkout Invariant](RELEASE_SOURCE_MANIFEST_CLEAN_CHECKOUT_INVARIANT_20260720.md) records the exact-head CI failure, immutable tracked-head correction, verification boundary, and separate publication requirement.
 
 ## Start Here
 
 For a new operator, read these in order:
 
-1. [Single Source of Truth](VINEA_SINGLE_SOURCE_OF_TRUTH.md) for Vinea's mission, product model, architecture, standards, official operating stack, and production gates.
-2. [Roadmap](VINEA_ROADMAP.md) for current priorities, completed slices, future sequence, and explicit non-goals.
-3. [Build Status](VINEA_BUILD_STATUS.md) for the latest implementation record, verification, risks, and recommended next task.
-4. [Repository Audit](VINEA_REPO_AUDIT.md) for the current route, API, domain, test, documentation, and risk inventory.
-5. [README](../README.md) for setup, local development, and release-readiness commands.
+1. [Vinea Current Status](VINEA_CURRENT_STATUS_20260807.md) for exact release identity, current evidence, readiness, and P0 blockers.
+2. [Single Source of Truth](VINEA_SINGLE_SOURCE_OF_TRUTH.md) for Vinea's mission, product model, architecture, standards, official operating stack, and production gates.
+3. [Roadmap](VINEA_ROADMAP.md) for current priorities, completed slices, future sequence, and explicit non-goals.
+4. [Build Status](VINEA_BUILD_STATUS.md) for the latest implementation record, verification, risks, and recommended next task.
+5. [Repository Audit](VINEA_REPO_AUDIT.md) for the current route, API, domain, test, documentation, and risk inventory.
+6. [README](../README.md) for setup, local development, and release-readiness commands.
 
 Before implementation work, also read [Codex Autonomous Instructions](../CODEX_AUTONOMOUS_INSTRUCTIONS.md), [VAOS Run Loop](autonomous-os/RUN_LOOP.md), and [Task Selection Scorecard](autonomous-os/TASK_SELECTION_SCORECARD.md).
 
@@ -61,6 +95,7 @@ Start with these index documents instead of opening individual approval packets 
 | Area | Entry point | Current boundary |
 | --- | --- | --- |
 | Overall release review | [Production Release Readiness Handoff Index](PRODUCTION_RELEASE_READINESS_HANDOFF_INDEX_20260706.md) | Review map only; not deployment or production approval |
+| Controlled base rollout | [Controlled Production Rollout Checkpoint](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260712.md), [Human Intake Worksheet](CONTROLLED_PRODUCTION_ROLLOUT_HUMAN_INTAKE_20260714.md), and [Final Approval Prompt](CONTROLLED_PRODUCTION_ROLLOUT_FINAL_APPROVAL_PROMPT_20260714.md) | Intake checker reports `READY_FOR_EXPLICIT_APPROVAL`, but production approval remains `NO`; promotion and smoke stay blocked until the exact prompt is intentionally supplied later |
 | Release candidate technical approval | [Release Candidate Technical Approval](RELEASE_CANDIDATE_TECHNICAL_APPROVAL_20260711.md) | Approved for remote CI and isolated non-production preview validation; production remains gated |
 | All production-sensitive capabilities | [Production-Sensitive Gate Boundary Index](PRODUCTION_SENSITIVE_GATE_BOUNDARY_INDEX_20260706.md) | Capabilities remain `NO-GO` without separate explicit approval |
 | Membership-aware operational RLS | [RLS Evidence Package Index](MEMBERSHIP_AWARE_RLS_PRODUCTION_EVIDENCE_PACKAGE_INDEX_20260629.md) | Evidence package prepared; production rollout not approved |

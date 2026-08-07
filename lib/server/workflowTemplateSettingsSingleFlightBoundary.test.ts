@@ -19,7 +19,7 @@ describe('Workflow Template Settings single-flight boundary', () => {
     expect(start).toBeGreaterThanOrEqual(0)
     expect(end).toBeGreaterThan(start)
     expect(section).toContain('const saveInFlightRef = useRef<string | null>(null)')
-    expect(handler).toContain('if (saveInFlightRef.current) return')
+    expect(handler).toContain('if (saveInFlightRef.current || mutationRequiresRefresh) return')
     expect(handler.indexOf('saveInFlightRef.current = step.id')).toBeLessThan(
       handler.indexOf("fetch('/api/parish/workflow-templates'"),
     )
@@ -29,7 +29,7 @@ describe('Workflow Template Settings single-flight boundary', () => {
   })
 
   it('freezes type switching, refresh, and all reviewed step fields', () => {
-    expect(section).toContain("const saving = savingStepId !== ''")
+    expect(section).toContain("const saving = savingStepId !== '' || mutationRequiresRefresh")
     expect(section).toContain('aria-busy={loading || saving}')
     expect(section).toContain('disabled={loading || saving}')
     expect(
@@ -43,7 +43,7 @@ describe('Workflow Template Settings single-flight boundary', () => {
   it('preserves staff-visible success and safe error guidance', () => {
     expect(section).toContain("setMessage('Workflow step saved.')")
     expect(section).toContain('workflowTemplateSaveErrorMessage(data?.error)')
-    expect(section).toContain('workflowTemplateSaveErrorMessage(saveError)')
+    expect(section).toContain('setError(WORKFLOW_TEMPLATE_REFRESH_REQUIRED_MESSAGE)')
   })
 
   it('documents immediate exclusion without claiming durable idempotency', () => {

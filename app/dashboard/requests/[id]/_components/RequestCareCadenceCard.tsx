@@ -6,7 +6,11 @@ import { updateRequestNextFollowUpDate } from '../../actions'
 import { primaryButtonMd, secondaryButtonMd } from '@/lib/buttonStyles'
 import { chipBase } from '@/lib/chipStyles'
 import { InlineFormMessage } from '@/lib/inlineFormMessage'
-import { requestDetailClientServerActionErrorMessage } from '@/lib/requestDetailClientMessages'
+import {
+  requestDetailClientFailureMessage,
+  requestDetailClientServerActionErrorMessage,
+} from '@/lib/requestDetailClientMessages'
+import { awaitRequestDetailClientMutationConfirmation } from '@/lib/requestDetailClientMutationConfirmation'
 import {
   type CareCadenceEvaluation,
   type CareCadenceLevel,
@@ -43,13 +47,18 @@ function levelLabel(level: CareCadenceLevel): string {
 export function RequestCareCadenceCard({
   cadence,
   onSaved,
+  mutationRequiresRefresh = false,
+  onMutationUnconfirmed,
 }: {
   cadence: CareCadenceEvaluation | null
-  onSaved: () => void
+  onSaved: () => Promise<unknown> | unknown
+  mutationRequiresRefresh?: boolean
+  onMutationUnconfirmed?: () => void
 }) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const saveInFlightRef = useRef(false)
+  const mutationBusy = saving || mutationRequiresRefresh
 
   function releaseSave() {
     saveInFlightRef.current = false
@@ -59,7 +68,7 @@ export function RequestCareCadenceCard({
   if (!cadence) return null
 
   async function acceptSuggestedDate() {
-    if (saveInFlightRef.current || !cadence) return
+    if (saveInFlightRef.current || mutationRequiresRefresh || !cadence) return
 
     saveInFlightRef.current = true
     setSaving(true)
@@ -67,12 +76,22 @@ export function RequestCareCadenceCard({
 
     let result: Awaited<ReturnType<typeof updateRequestNextFollowUpDate>>
     try {
-      result = await updateRequestNextFollowUpDate({
-        requestId: cadence.requestId,
-        nextFollowUpDate: cadence.suggestedFollowUpDate,
-      })
-    } catch (error: unknown) {
-      setMessage(requestDetailClientServerActionErrorMessage('updateFollowUp', error))
+      const confirmation = await awaitRequestDetailClientMutationConfirmation(
+        updateRequestNextFollowUpDate({
+          requestId: cadence.requestId,
+          nextFollowUpDate: cadence.suggestedFollowUpDate,
+        }),
+      )
+      if (!confirmation.confirmed) {
+        onMutationUnconfirmed?.()
+        setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
+        releaseSave()
+        return
+      }
+      result = confirmation.value
+    } catch {
+      onMutationUnconfirmed?.()
+      setMessage(requestDetailClientFailureMessage('confirmWorkflowMutation'))
       releaseSave()
       return
     }
@@ -83,16 +102,34 @@ export function RequestCareCadenceCard({
       return
     }
 
+    try {
+      const refreshed = await onSaved()
+      if (refreshed === false) {
+        onMutationUnconfirmed?.()
+        setMessage(
+          'Follow-up updated, but the refreshed request could not load. Refresh the page before changing it again.',
+        )
+        releaseSave()
+        return
+      }
+    } catch {
+      onMutationUnconfirmed?.()
+      setMessage(
+        'Follow-up updated, but the refreshed request could not load. Refresh the page before changing it again.',
+      )
+      releaseSave()
+      return
+    }
+
     setMessage(`Follow-up set for ${cadence.suggestedFollowUpLabel}.`)
     releaseSave()
-    onSaved()
   }
 
   return (
     <section
       className="rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 via-white to-white p-5 shadow-sm sm:p-6"
       aria-labelledby="request-care-cadence-heading"
-      aria-busy={saving}
+      aria-busy={mutationBusy}
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 gap-3">
@@ -134,7 +171,7 @@ export function RequestCareCadenceCard({
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <button
           type="button"
-          disabled={saving}
+          disabled={mutationBusy}
           onClick={acceptSuggestedDate}
           className={`${primaryButtonMd} w-full justify-center sm:w-auto`}
         >
