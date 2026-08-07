@@ -834,6 +834,28 @@ The 2026-07-20 membership-primary request and document access hardening has this
 
 This identity binds the membership-first cookie-free fallback behavior and focused source/unit guards. It changes no migration or RLS policy and performs no external action. The complete 15-check local release contract passed against the runtime implementation in 329.1 seconds with 836 test files / 3,566 tests and the credential-free 56-page build. The current aggregate adds only the route call-site source guard, which passed 1 file / 5 tests after that release run. Implementation commit `ae00ccec89b24a30862dbb84c5b41c1fd6a4da8d` makes the runtime behavior immutable; source-guard commit `3d76cc7c26828294f844e903a8b04fcddddc6f90` reached non-production Vercel `READY`. Authenticated Preview health, GitHub PR checks, and production approval remain separate gates.
 
+## Dependency And Database Security P0 Identity
+
+The 2026-08-07 dependency and database-security P0 implementation has this
+immutable local identity:
+
+- Implementation commit: `eea043f68d29858761d29895313d88b8c417c281`
+- Release-source aggregate SHA-256: `B85D37B53E29CA26CD2E780AEDD0750486A44084AFB0236128336F41204F5151`
+- Tracked source file count: `1529`
+- Untracked source files: `0`
+- Production approval granted: `NO`
+
+This identity binds Next.js `16.3.0`, the clean dependency baseline, the guarded
+disposable function-privilege validator, and the still-unapproved hash-pinned
+shared-QA promotion runner. The corrected disposable validation passed with exact
+anonymous, authenticated, and service-role privilege surfaces plus transaction
+rollback. Shared-QA history repair and privilege application were not run. The
+first complete release-contract attempt failed closed on stale enabled local AI
+QA flags; the clean-child-process retry reached the test stage and correctly
+rejected this evidence file until the new aggregate was recorded. Exact-head
+publication, CI, Preview, shared-QA writes, and every production-sensitive gate
+remain separate.
+
 ## Scope
 
 The aggregate covers the current Git-tracked and non-ignored untracked release source under:
