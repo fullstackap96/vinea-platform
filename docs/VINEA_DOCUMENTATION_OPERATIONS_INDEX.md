@@ -1,8 +1,28 @@
 # Vinea Documentation And Operations Index
 
-Last updated: 2026-07-20
+Last updated: 2026-08-07
 
 This is the front door to Vinea's repository documentation. Use it to find the source that answers a question; do not treat this index as a replacement for the linked source.
+
+Current evidence-backed release status: [Vinea Current Status](VINEA_CURRENT_STATUS_20260807.md)
+is the concise register for exact release identity, current CI/Preview evidence,
+verified Supabase state, recalculated readiness, P0 blockers, and the current
+`YELLOW` launch decision. Use it before dated build-status entries.
+
+Current dependency security evidence: [Dependency Security Remediation](DEPENDENCY_SECURITY_REMEDIATION_20260807.md)
+records the Next.js 16.3.0 baseline and zero-audit local evidence without granting
+publication or production approval.
+
+Current database security reconciliation: [Shared-QA Database Security Reconciliation](SHARED_QA_DATABASE_SECURITY_RECONCILIATION_20260807.md)
+classifies the advisor findings, migration-history drift, non-applied privilege
+candidate, passed disposable validation, and remaining no-go boundaries without
+authorizing a shared-QA write. The linked
+[Migration History And Schema/Policy Reconciliation Evidence](SHARED_QA_MIGRATION_HISTORY_SCHEMA_POLICY_RECONCILIATION_EVIDENCE_20260807.md)
+records the catalog match, confirmed history drift, function privilege mismatch,
+and do-not-replay decision. The
+[Shared-QA Database Security Promotion Approval Packet](SHARED_QA_DATABASE_SECURITY_PROMOTION_APPROVAL_PACKET_20260807.md)
+defines the exact history-only repair, hash-pinned privilege runner, rollback,
+smoke, and human-approval gates; shared-QA writes remain unapproved.
 
 Latest export-governance reliability evidence: [Export Audit Reviewer Dashboard Client Read Deadline Boundary](EXPORT_AUDIT_REVIEWER_DASHBOARD_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md) records the bounded protected-API read, obsolete-load cancellation, preserved read-only/no-go boundaries, and remaining non-production browser evidence.
 
@@ -16,11 +36,12 @@ Latest release-integrity evidence: [Release Source Manifest Clean-Checkout Invar
 
 For a new operator, read these in order:
 
-1. [Single Source of Truth](VINEA_SINGLE_SOURCE_OF_TRUTH.md) for Vinea's mission, product model, architecture, standards, official operating stack, and production gates.
-2. [Roadmap](VINEA_ROADMAP.md) for current priorities, completed slices, future sequence, and explicit non-goals.
-3. [Build Status](VINEA_BUILD_STATUS.md) for the latest implementation record, verification, risks, and recommended next task.
-4. [Repository Audit](VINEA_REPO_AUDIT.md) for the current route, API, domain, test, documentation, and risk inventory.
-5. [README](../README.md) for setup, local development, and release-readiness commands.
+1. [Vinea Current Status](VINEA_CURRENT_STATUS_20260807.md) for exact release identity, current evidence, readiness, and P0 blockers.
+2. [Single Source of Truth](VINEA_SINGLE_SOURCE_OF_TRUTH.md) for Vinea's mission, product model, architecture, standards, official operating stack, and production gates.
+3. [Roadmap](VINEA_ROADMAP.md) for current priorities, completed slices, future sequence, and explicit non-goals.
+4. [Build Status](VINEA_BUILD_STATUS.md) for the latest implementation record, verification, risks, and recommended next task.
+5. [Repository Audit](VINEA_REPO_AUDIT.md) for the current route, API, domain, test, documentation, and risk inventory.
+6. [README](../README.md) for setup, local development, and release-readiness commands.
 
 Before implementation work, also read [Codex Autonomous Instructions](../CODEX_AUTONOMOUS_INSTRUCTIONS.md), [VAOS Run Loop](autonomous-os/RUN_LOOP.md), and [Task Selection Scorecard](autonomous-os/TASK_SELECTION_SCORECARD.md).
 

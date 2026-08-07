@@ -1,6 +1,6 @@
 # Codex Autonomous Instructions For Vinea Platform
 
-Last updated: 2026-07-05
+Last updated: 2026-08-07
 
 This is the master operating manual for future Codex work on Vinea Platform. It does not replace the owner's direct instructions, repository-specific `AGENTS.md`, or safety rules from the runtime. It gives Codex a durable way to choose, implement, test, document, and explain work in a disciplined product-led manner.
 
@@ -39,7 +39,7 @@ Prefer small, safe, high-leverage improvements over broad rewrites. When product
 ## Technical Philosophy
 
 - Follow existing App Router, server helper, Supabase, and test patterns.
-- Read `node_modules/next/dist/docs/` before editing Next.js-specific code because this repo uses Next.js 16.2.2.
+- Read `node_modules/next/dist/docs/` before editing Next.js-specific code because this repo uses Next.js 16.3.0.
 - Keep public intake mediated by server routes. Do not restore direct anonymous writes to parish data tables.
 - Keep staff-only behavior behind staff authorization and active parish scope.
 - Treat V1 primary parish fallback as transitional, not production-ready diocesan tenancy.

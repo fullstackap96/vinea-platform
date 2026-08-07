@@ -4,10 +4,20 @@
 
 Product naming and default site metadata live in `lib/productBranding.ts`.
 
+## Current release posture
+
+The current evidence-backed status is
+[docs/VINEA_CURRENT_STATUS_20260807.md](docs/VINEA_CURRENT_STATUS_20260807.md).
+Vinea is `YELLOW`: the core launch scope is substantially implemented and the
+current local dependency audit is clean, but shared-QA database security review, release reconciliation,
+production RLS/monitoring, and controlled production smoke remain required. Passing
+local checks or Preview smoke does not enable any production-sensitive capability.
+
 ## Documentation
 
 Start here:
 
+- [docs/VINEA_CURRENT_STATUS_20260807.md](docs/VINEA_CURRENT_STATUS_20260807.md) is the concise current release/readiness register.
 - [docs/VINEA_DOCUMENTATION_OPERATIONS_INDEX.md](docs/VINEA_DOCUMENTATION_OPERATIONS_INDEX.md) is the operator front door: source authority, VAOS guides, QA evidence, security gates, and documentation maintenance.
 - [docs/VINEA_SINGLE_SOURCE_OF_TRUTH.md](docs/VINEA_SINGLE_SOURCE_OF_TRUTH.md) is the definitive company operating manual: vision, strategy, architecture, AI model, standards, gates, and Codex instructions.
 - [docs/VINEA_ROADMAP.md](docs/VINEA_ROADMAP.md) tracks current priorities, implemented slices, future order, and explicit non-goals.

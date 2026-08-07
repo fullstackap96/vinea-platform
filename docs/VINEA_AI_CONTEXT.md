@@ -1,6 +1,6 @@
 # Vinea AI Context
 
-Last Generated: 2026-07-20
+Last Generated: 2026-08-07
 
 Confidence Level: High for code-derived details; Medium for product roadmap; Low for unstated business facts.
 
@@ -12,7 +12,7 @@ Use the product name "Vinea Platform." The legal entity is "Vinea Technologies L
 
 ## Stack
 
-- Next.js 16.2.10 App Router.
+- Next.js 16.3.0 App Router.
 - React 19.2.4.
 - TypeScript.
 - Tailwind CSS 4.

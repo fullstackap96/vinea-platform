@@ -1,5 +1,23 @@
 # Vinea Roadmap
 
+Current priority override (2026-08-07): the evidence-backed P0 sequence is defined
+in [`VINEA_CURRENT_STATUS_20260807.md`](VINEA_CURRENT_STATUS_20260807.md). The
+dependency-security P0 is complete locally on Next.js `16.3.0` with a clean npm
+audit and passing TypeScript, lint, complete tests, and production build. The next
+safe P0, disposable validation of the prepared non-applied shared-QA function
+privilege candidate, passed on 2026-08-07 with rollback restoring baseline. The
+read-only migration-history/schema-policy reconciliation also completed: all
+three target effects are present but untracked, and the membership helper retains
+the known anonymous-execute drift. The next safe P0 is a non-applied guarded
+history-repair/shared-QA privilege application plan. That package is now prepared
+with a hash-pinned fail-closed runner, exact rollback candidate, and explicit
+approval boundary; no shared-QA write was run. The next autonomous P0 is
+release-branch reconciliation and local verification. Shared-QA execution,
+exact-head publication/CI/Preview rerun, and the separately approved production
+RLS, monitoring, fixture, and controlled-smoke gates remain human-gated. Older
+`99.8% / 87.5%` estimates below are historical and are not the current launch
+decision.
+
 Latest safe export-governance reliability slice (2026-07-20): the non-production Export Audit Reviewer dashboard can no longer wait indefinitely for its protected API or keep obsolete filter requests alive. Commit `91d39c2080cddc145acae1b2ada822291c746cfe` adds a 15-second deadline plus replacement, filter-change, and unmount cancellation while preserving latest-response ownership, generic errors, and the API-only read model. Focused coverage passed `5` files / `28` tests; the complete `15 / 15` contract passed with zero secret findings, zero vulnerabilities, both TypeScript scopes, lint, `872` files / `3,735` tests, and the credential-free `56`-page build. Aggregate `713C54768F43D49AC3ADB0BF78F5AC15DD849F958014C2897078ACC83B383C3A` binds `1,521` tracked release-source files. Production dashboard exposure, exports, and monitoring remain `NO-GO`. No production-sensitive action occurred. Engineering remains estimated at `99.8%`; rollout readiness remains `87.5%`. See `docs/EXPORT_AUDIT_REVIEWER_DASHBOARD_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md`.
 
 Latest safe selected-parish reliability slice (2026-07-20): Request Detail's optional assignment directories now follow the loaded request's authoritative parish instead of a one-time unbounded browser read. Commit `ca03a7cbdbfa5042006d0d482b335f6c1a018412` adds a 15-second deadline, prior-parish reset, strict shared response parsing, response-parish agreement, and obsolete-load cancellation without changing authorization or writes. Focused and existing regression coverage passed `19` files / `89` tests; the complete `15 / 15` contract passed with zero secret findings, zero vulnerabilities, both TypeScript scopes, lint, `871` files / `3,731` tests, and the credential-free `56`-page build. Aggregate `F9383B3D44A0ABD00DBBADCACAB1C2E4FDD3FDC6C04A4AC09274B8A3D8CB8FB6` binds `1,520` tracked release-source files. Engineering remains estimated at `99.8%`; rollout readiness remains `87.5%`. Live two-parish browser evidence and exact-head publication/CI/Preview remain separate. No production-sensitive action occurred. See `docs/REQUEST_DETAIL_PARISH_DIRECTORY_SCOPE_BOUNDARY_20260720.md`.

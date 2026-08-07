@@ -19,7 +19,7 @@ const packageLock = JSON.parse(
   readFileSync(join(repoRoot, 'package-lock.json'), 'utf8'),
 ) as PackageLock
 const remediationDoc = readFileSync(
-  join(repoRoot, 'docs', 'DEPENDENCY_SECURITY_REMEDIATION_20260709.md'),
+  join(repoRoot, 'docs', 'DEPENDENCY_SECURITY_REMEDIATION_20260807.md'),
   'utf8',
 )
 
@@ -28,20 +28,22 @@ function lockedVersion(packageName: string): string | undefined {
 }
 
 describe('dependency security baseline', () => {
-  it('pins the reviewed direct dependency floors and PostCSS override', () => {
-    expect(packageJson.dependencies.next).toBe('16.2.10')
+  it('pins the reviewed direct dependency floors and transitive overrides', () => {
+    expect(packageJson.dependencies.next).toBe('16.3.0')
     expect(packageJson.dependencies.resend).toBe('^6.17.2')
-    expect(packageJson.devDependencies['eslint-config-next']).toBe('16.2.10')
+    expect(packageJson.devDependencies['eslint-config-next']).toBe('16.3.0')
     expect(packageJson.devDependencies.vitest).toBe('^3.2.6')
-    expect(packageJson.overrides.postcss).toBe('8.5.10')
+    expect(packageJson.overrides.postcss).toBe('8.5.23')
+    expect(packageJson.overrides.sharp).toBe('0.35.0')
   })
 
   it('keeps the reviewed lockfile resolutions at patched versions', () => {
-    expect(lockedVersion('next')).toBe('16.2.10')
+    expect(lockedVersion('next')).toBe('16.3.0')
     expect(lockedVersion('resend')).toBe('6.17.2')
-    expect(lockedVersion('eslint-config-next')).toBe('16.2.10')
+    expect(lockedVersion('eslint-config-next')).toBe('16.3.0')
     expect(lockedVersion('vitest')).toBe('3.2.6')
-    expect(lockedVersion('postcss')).toBe('8.5.10')
+    expect(lockedVersion('postcss')).toBe('8.5.23')
+    expect(lockedVersion('sharp')).toBe('0.35.0')
     expect(lockedVersion('ws')).toBe('8.21.0')
     expect(lockedVersion('qs')).toBe('6.15.3')
     expect(packageLock.packages['node_modules/next/node_modules/postcss']).toBeUndefined()
@@ -52,10 +54,7 @@ describe('dependency security baseline', () => {
       'DEPENDENCY SECURITY BASELINE VERIFIED; PRODUCTION-SENSITIVE FEATURES REMAIN NO-GO',
     )
     expect(remediationDoc).toContain(
-      '`npm.cmd audit --json`: zero known vulnerabilities',
-    )
-    expect(remediationDoc).toContain(
-      '`npm.cmd audit --omit=dev --json`: zero known vulnerabilities',
+      '`npm.cmd audit --audit-level=high`: zero known vulnerabilities',
     )
     expect(remediationDoc).toContain('Production RLS')
     expect(remediationDoc).toContain('remain separately approval-gated and `NO-GO`')

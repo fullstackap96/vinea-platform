@@ -1,5 +1,92 @@
 # Vinea Build Status
 
+Current shared-QA database-security promotion preparation (2026-08-07): source
+review found and corrected a disposable-validator blind spot: the original check
+proved two service RPCs remained but did not prove excess `service_role` grants
+were removed. The candidate now revokes all reviewed Data API roles first and
+regrants exactly seven authenticated helpers plus four verified service-role
+functions (two operational RPCs and two non-mutating `/api/health` probes). The
+corrected transaction/rollback run passed against only the approved reusable
+disposable target, including `serviceRoleSurfaceExact: true`; dependency hashes
+were unchanged and the target was returned to inactive. A hash-pinned shared-QA
+promotion runner, exact emergency rollback candidate, and approval packet now
+require repaired migration history, two explicit confirmations, exact host,
+transactional catalog verification, and automatic rollback on mismatch. They
+were not run. Shared-QA writes and production remain `NO-GO`. Focused security
+package coverage passes `4` files / `20` tests; both TypeScript scopes, ESLint,
+and the complete `878`-file / `3,768`-test Vitest suite pass. Repository secret
+scanning passed across `2,939` text files with zero findings, and `git diff
+--check` passed with line-ending warnings only. The current dependency tree has
+zero known npm vulnerabilities, and the Next.js 16.3.0 production build compiled
+all `56` pages successfully. Evidence:
+[`SHARED_QA_DATABASE_SECURITY_PROMOTION_APPROVAL_PACKET_20260807.md`](SHARED_QA_DATABASE_SECURITY_PROMOTION_APPROVAL_PACKET_20260807.md).
+
+Current shared-QA migration-history/schema-policy reconciliation (2026-08-07):
+read-only migration and Postgres catalog metadata confirm that the material
+effects of public-intake routing, membership-aware operational RLS, and
+`parishes` RLS are present while all three migration versions are absent from
+history. Public-intake routing and `parishes` RLS match their required catalog
+fingerprints. All 17 membership target tables have RLS enabled; all 45 expected
+authenticated policies match their scope/command fingerprints with no unexpected
+peers. The request-scope helper definition matches but anonymous execution is
+still effective, consistent with the separately validated privilege-hardening
+candidate. No repair or database write occurred. Replaying any target migration,
+migration-history repair, and shared-QA privilege application remain `NO-GO`.
+Focused reconciliation coverage passed `4` files / `22` tests; both TypeScript
+scopes, ESLint, and the complete Vitest suite pass. Repository secret scanning
+found zero findings across 2,935 text files.
+Evidence:
+[`SHARED_QA_MIGRATION_HISTORY_SCHEMA_POLICY_RECONCILIATION_EVIDENCE_20260807.md`](SHARED_QA_MIGRATION_HISTORY_SCHEMA_POLICY_RECONCILIATION_EVIDENCE_20260807.md).
+
+Current function-privilege disposable validation (2026-08-07): the guarded
+transaction-and-rollback runner completed against only the approved reusable
+disposable Supabase target. All 17 functions were present; anonymous execution
+was removed; the authenticated surface matched the seven approved staff/RLS
+helpers; the service-role surface matched exactly two operational RPCs plus two
+non-mutating schema-health probes; and the schedule trigger search path was
+fixed. Rollback restored the baseline. The temporary
+runner was removed and the project returned to its prior inactive state. Shared
+QA and production were untouched, and shared-QA application remains `NO-GO`.
+Focused evidence coverage, both TypeScript scopes, ESLint, and the complete
+Vitest suite pass. Repository secret scanning found zero findings across 2,933
+text files, and dependency restoration reported zero known vulnerabilities.
+Evidence:
+[`FUNCTION_PRIVILEGE_HARDENING_DISPOSABLE_VALIDATION_EVIDENCE_20260807.md`](FUNCTION_PRIVILEGE_HARDENING_DISPOSABLE_VALIDATION_EVIDENCE_20260807.md).
+
+Current shared-QA database-security readiness slice (2026-08-07): a read-only
+Supabase advisor/catalog review confirmed 17 reviewed functions are executable by
+both anonymous and authenticated roles, despite narrower runtime needs. A
+non-applied candidate under `docs/sql` now removes the browser-role surface,
+regrants only seven authenticated staff/RLS helpers and two service-role RPCs,
+plus the two verified service-role schema-health probes, and fixes the mutable
+search path on the schedule-validation trigger. It makes no
+table, policy, data, migration-history, or operational RLS change. Focused safety
+coverage passes `1` file / `5` tests; shared-QA application remains `NO-GO` until
+separate approval and the remaining runtime/advisor checks. A guarded
+transaction-and-rollback validator is implemented with `1` file / `5` additional
+passing tests and completed successfully in the approved disposable target.
+Evidence:
+[`SHARED_QA_DATABASE_SECURITY_RECONCILIATION_20260807.md`](SHARED_QA_DATABASE_SECURITY_RECONCILIATION_20260807.md).
+
+Current dependency-security and release-status update (2026-08-07): Next.js and
+`eslint-config-next` are now `16.3.0`, the reviewed PostCSS override is `8.5.23`,
+and Sharp is pinned at `0.35.0`. The complete-tree npm audit reports zero known
+vulnerabilities. Both TypeScript scopes, ESLint, the complete Vitest suite, and
+the Next.js 16.3.0 production build pass; the build generated all `56` pages. No
+deployment, production access, database action, or sensitive flag change occurred.
+The local remediation still requires publication, exact-head CI, and protected
+Preview verification. Evidence:
+[`DEPENDENCY_SECURITY_REMEDIATION_20260807.md`](DEPENDENCY_SECURITY_REMEDIATION_20260807.md).
+
+Current release-status audit (2026-08-07):
+[`VINEA_CURRENT_STATUS_20260807.md`](VINEA_CURRENT_STATUS_20260807.md) records the
+exact draft PR, green exact-head CI, green protected Preview read-only smoke,
+production rollback boundary, closed local dependency P0, shared-QA Supabase
+security-advisor findings, migration-history mismatch, and recalculated
+`94% / 74% / 86%` engineering, rollout, and overall readiness. This current audit
+supersedes the historical percentages in the chronological entries below. No
+production action or database mutation occurred during the audit.
+
 Latest export-governance reliability slice: immutable implementation commit `91d39c2080cddc145acae1b2ada822291c746cfe` gives the non-production Export Audit Reviewer dashboard API read a 15-second deadline and aborts obsolete work on replacement, saved-filter change, or unmount while preserving latest-response ownership and generic staff-safe errors. Focused coverage passed `5` files / `28` tests. The complete `15`-check release contract passed with zero secret findings across `2,923` text files (`500` binaries skipped), zero vulnerabilities, every evidence/gate check, both TypeScript scopes, lint, `872` test files / `3,735` tests, and the credential-free `56`-page build. Tracked-head aggregate `713C54768F43D49AC3ADB0BF78F5AC15DD849F958014C2897078ACC83B383C3A` binds `1,521` committed release-source files. The dashboard remains API-only, read-only, non-production gated, and absent from production navigation; production exports, dashboard exposure, and monitoring remain `NO-GO`. No production-sensitive action occurred. Engineering remains estimated at `99.8%`; rollout readiness remains `87.5%`. See `docs/EXPORT_AUDIT_REVIEWER_DASHBOARD_CLIENT_READ_DEADLINE_BOUNDARY_20260720.md`.
 
 Latest Request Detail selected-parish reliability slice: immutable implementation commit `ca03a7cbdbfa5042006d0d482b335f6c1a018412` gives the optional staff/priest directory read a 15-second deadline, keys it to the loaded request's authoritative parish, clears prior-parish choices before replacement, validates the returned parish id through the strict shared settings parser, and ignores aborted or stale settlement. Focused and existing regression coverage passed `19` files / `89` tests. The complete `15`-check release contract passed with zero secret findings across `2,921` text files (`500` binaries skipped), zero vulnerabilities, every evidence/gate check, both TypeScript scopes, lint, `871` test files / `3,731` tests, and the credential-free `56`-page build. Tracked-head aggregate `F9383B3D44A0ABD00DBBADCACAB1C2E4FDD3FDC6C04A4AC09274B8A3D8CB8FB6` binds `1,520` committed release-source files. Existing authorization, assignment writes, migrations, RLS, providers, and production gates remain unchanged. No production-sensitive action occurred. Engineering remains estimated at `99.8%`; rollout readiness remains `87.5%` pending exact-head publication/CI/Preview, live two-parish browser evidence, and human production gates. See `docs/REQUEST_DETAIL_PARISH_DIRECTORY_SCOPE_BOUNDARY_20260720.md`.

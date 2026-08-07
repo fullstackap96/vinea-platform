@@ -23,7 +23,7 @@ The worktree had many pre-existing uncommitted changes. This audit records curre
 
 ## Application Stack
 
-- Next.js 16.2.10 App Router.
+- Next.js 16.3.0 App Router.
 - React 19.2.4.
 - TypeScript.
 - Tailwind CSS 4.
