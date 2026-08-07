@@ -4,6 +4,33 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Merged-Main Rollout Checkpoint Identity
+
+The 2026-08-07 controlled-rollout checkpoint source is committed at
+`8af0498407e9268a9b9e3a0e5c0dd6d8ce891a91`. It binds merged `main`, the green
+approved-head CI and Preview evidence, the ready but unpromoted main artifact,
+the unchanged public-domain rollback deployment, and the continued production
+`NO-GO` boundary.
+
+- Immutable checkpoint source commit: `8af0498407e9268a9b9e3a0e5c0dd6d8ce891a91`
+- Tracked-head aggregate SHA-256: `EEB15BC5D949F34E35EB6BEEF9F8C5319FE74011712418C61CB1D4699362B710`
+- Tracked source file count: `1531`
+- Source mode: `tracked-head`
+- Production approval granted: `NO`
+
+The first exact-commit branch CI run `31217039980` failed closed only because
+this human-review evidence file did not yet contain the new immutable aggregate.
+Repository secret scanning and dependency audit passed, and the test run reached
+`879` passing files / `3,779` passing tests before the single manifest-evidence
+assertion stopped later checks. This docs-only binding correction is outside the
+release-source allowlist, so it records rather than changes the aggregate. A new
+exact-head CI run is required before publication can be considered green.
+
+This tracked-source identity does not replace an immutable Git commit and does
+not authorize deployment, alias promotion, production access, smoke testing,
+migrations, RLS changes, feature flags, record mutation, provider calls, storage,
+exports, certificate generation, or public claims.
+
 ## Post-Publication Exact-Head Preview Evidence Identity
 
 The 2026-08-07 release-integrity evidence slice records the published exact head,
