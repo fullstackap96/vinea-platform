@@ -21,6 +21,19 @@ zero known npm vulnerabilities, and the Next.js 16.3.0 production build compiled
 all `56` pages successfully. Evidence:
 [`SHARED_QA_DATABASE_SECURITY_PROMOTION_APPROVAL_PACKET_20260807.md`](SHARED_QA_DATABASE_SECURITY_PROMOTION_APPROVAL_PACKET_20260807.md).
 
+Release-branch reconciliation (2026-08-07): reviewed dependency and database
+security work is committed locally as `eea043f68d29858761d29895313d88b8c417c281`,
+with docs-only source-identity binding commit `6a4d0da3`. The remote branch was
+re-fetched and remained exactly `b63bca33469a8e9bec80eb5be3d47f9b883e8ce6`;
+draft PR `#8` remains open, draft, mergeable, and its published-head CI run
+`29819311074` remains successful. After one fail-closed run exposed stale local
+AI QA flags and a second exposed stale immutable manifest evidence, the corrected
+clean-child-process run passed the complete `15 / 15` local contract: zero secret
+findings across `2,939` text files, zero dependency vulnerabilities, every
+evidence gate, both TypeScript scopes, lint, `878` files / `3,768` tests, and the
+credential-free `56`-page build. No push, merge, deployment, Preview action,
+shared-QA write, or production action occurred.
+
 Current shared-QA migration-history/schema-policy reconciliation (2026-08-07):
 read-only migration and Postgres catalog metadata confirm that the material
 effects of public-intake routing, membership-aware operational RLS, and

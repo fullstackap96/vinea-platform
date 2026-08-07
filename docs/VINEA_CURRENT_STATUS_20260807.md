@@ -10,8 +10,12 @@ percentage estimates or dated evidence files.
 
 - Working branch: `codex/release-integrity-20260720`.
 - Published reviewed head: `b63bca33469a8e9bec80eb5be3d47f9b883e8ce6`.
-- The local working tree contains the 2026-08-07 dependency security remediation
-  and current-status reconciliation; it is not yet published or Preview-verified.
+- Local unpublished implementation commit:
+  `eea043f68d29858761d29895313d88b8c417c281`.
+- Local unpublished release-identity binding commit:
+  `6a4d0da3`.
+- The remote branch was re-fetched and remained at the published reviewed head;
+  the local security scope is not yet published or Preview-verified.
 - Draft pull request: GitHub PR `#8`, open and mergeable into `main`.
 - Exact-head CI: GitHub Actions run `29819311074` passed.
 - Exact-head Preview: Vercel deployment `dpl_7GN8YM279grMsFBHPUPi14LYkJTa` is
@@ -78,7 +82,8 @@ remains the separately documented privilege drift. Do not replay the migrations.
    function-privilege application packet. Completed locally on 2026-08-07;
    neither write is approved.
 2. Reconcile PR `#8` with the approved dependency/database-security work, then
-   rerun exact-head CI and protected Preview evidence.
+   rerun exact-head CI and protected Preview evidence. Local reconciliation and
+   all 15 local release checks are complete; publication remains unapproved.
 3. Complete production RLS, production monitoring, production-safe fixture, and
    controlled read-only smoke gates with explicit human approval.
 

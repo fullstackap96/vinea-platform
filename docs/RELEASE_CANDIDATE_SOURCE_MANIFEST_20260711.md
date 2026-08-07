@@ -852,7 +852,12 @@ anonymous, authenticated, and service-role privilege surfaces plus transaction
 rollback. Shared-QA history repair and privilege application were not run. The
 first complete release-contract attempt failed closed on stale enabled local AI
 QA flags; the clean-child-process retry reached the test stage and correctly
-rejected this evidence file until the new aggregate was recorded. Exact-head
+rejected this evidence file until the new aggregate was recorded. After the
+docs-only binding commit `6a4d0da3`, the complete clean-child-process contract
+passed all `15` checks: zero secret findings across `2,939` text files, zero
+dependency vulnerabilities, every evidence gate, both TypeScript scopes, lint,
+`878` test files / `3,768` tests, and the credential-free `56`-page build.
+Exact-head
 publication, CI, Preview, shared-QA writes, and every production-sensitive gate
 remain separate.
 
