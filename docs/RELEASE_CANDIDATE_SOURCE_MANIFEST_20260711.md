@@ -32,6 +32,32 @@ not authorize a merge, deployment, production access, migration, RLS change,
 record mutation, provider call, export, storage action, signed URL, AI call,
 communication, certificate generation, production-sensitive flag, or public claim.
 
+## Daily Dashboard Merged-Main Rollout Checkpoint Identity
+
+The 2026-08-15 docs-only checkpoint binds PR `#15`'s exact approved source and
+base, green required CI, `READY` non-production Preview, merged remote `main`,
+the automatically built but unpromoted main artifact, the unchanged public-domain
+rollback deployment, and the continued production `NO-GO` boundary.
+
+- Immutable checkpoint source commit: `f7dedff6418b28efb2cfdc67d8884c112aa539b6`
+- Tracked-head aggregate SHA-256: `553BC940A1BC4D4688E5E8F65C88F6956C3CD0844DCE30FFCE2BFAB7235097F8`
+- Tracked source file count: `1534`
+- Source mode: `tracked-head`
+- Production approval granted: `NO`
+
+Focused checkpoint/current-status coverage passed `3` files / `17` tests. The
+complete suite passed `882` files / `3,788` tests; both TypeScript scopes, lint,
+repository secret scanning, a zero-vulnerability dependency audit, and the
+local side-effect-free Next.js `16.3.0` 56-page build passed.
+This docs-only binding is outside the release-source allowlist, so it records
+rather than changes the aggregate. Remote publication and clean-checkout CI for
+the checkpoint remain separately approval-gated.
+
+This tracked-source identity does not replace an immutable Git commit and does
+not authorize deployment, alias promotion, production access or smoke,
+migrations, RLS changes, feature flags, record mutation, provider calls,
+storage, exports, certificate generation, or public claims.
+
 ## Merged-Main Rollout Checkpoint Identity
 
 The 2026-08-07 controlled-rollout checkpoint source is committed at
