@@ -7,6 +7,7 @@ import { DashboardCommandSummary } from './DashboardCommandSummary'
 import { DashboardDailyOfficeHandoffDigest } from './DashboardDailyOfficeHandoffDigest'
 import { DashboardDailyOfficeHandoffSavedViews } from './DashboardDailyOfficeHandoffSavedViews'
 import { DashboardDailyWorkHubOverview } from './DashboardDailyWorkHubOverview'
+import { DashboardHomeFocusNav } from './DashboardHomeFocusNav'
 import { DashboardOperationalIntelligenceBrief } from './DashboardOperationalIntelligenceBrief'
 import { DashboardParishHealthScore } from './DashboardParishHealthScore'
 import { DashboardWorkflowReminderPreview } from './DashboardWorkflowReminderPreview'
@@ -2191,16 +2192,24 @@ export function DashboardPageCore({
   const listLoadFailed =
     requestsFetchFailed ||
     (Boolean(requestsLoadError) && requests.length === 0 && !loading)
+  const dailyOfficeHandoffItemCount = dailyOfficeHandoffDigest.slots.reduce(
+    (total, slot) => total + slot.items.length,
+    0
+  )
 
   return (
     <main className="mx-auto min-h-full w-full max-w-6xl px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
       <header className={isHome ? 'mb-3 sm:mb-4' : 'mb-4 sm:mb-5'}>
         <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-          {isHome ? 'Home' : 'Requests'}
+          {isHome
+            ? activeParishName
+              ? `Today at ${activeParishName}`
+              : 'Today at your parish'
+            : 'Requests'}
         </h1>
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
           {isHome
-            ? 'Start with today’s priorities, then review recommended actions and your work queue.'
+            ? 'One calm view of the families, handoffs, and parish work that need you today.'
             : 'Search and filter parish requests, work the follow-up list, and browse everything in one place.'}
         </p>
         {!isHome && activeParishName ? (
@@ -2270,98 +2279,117 @@ export function DashboardPageCore({
         <>
           <DashboardOnboardingCard />
 
-          <DashboardDailyWorkHubOverview
-            overview={dailyWorkHubOverview}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
+          <DashboardHomeFocusNav
             activeParishName={activeParishName}
-          />
-
-          <DashboardDailyOfficeHandoffDigest
-            digest={dailyOfficeHandoffDigest}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-            activeParishName={activeParishName}
-          />
-
-          <DashboardDailyOfficeHandoffSavedViews
-            dailyOfficeHandoffDigest={dailyOfficeHandoffDigest}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-            activeParishName={activeParishName}
-          />
-
-          <DashboardParishHealthScore
-            health={parishHealthScore}
+            actionRequiredCount={actionRequiredCount}
+            handoffItemCount={dailyOfficeHandoffItemCount}
+            healthScore={parishHealthScore.score}
+            healthLabel={parishHealthScore.label}
+            prioritizedWorkCount={staffCommandCenter.rows.length}
             loading={loading}
             dataUnavailable={requestsFetchFailed}
           />
 
-          <DashboardWorkflowReminderPreview
-            reminders={workflowReminderPreview}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-          />
+          <div id="dashboard-focus-now" className="scroll-mt-4 space-y-3 sm:space-y-4">
+            <DashboardDailyWorkHubOverview
+              overview={dailyWorkHubOverview}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+              activeParishName={activeParishName}
+            />
 
-          <DashboardOperationalIntelligenceBrief
-            brief={operationalIntelligenceBrief}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-          />
+            <DashboardTodayView
+              careCadence={careCadence}
+              communicationCommitments={communicationCommitments}
+              staffCommandCenter={staffCommandCenter}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+              slaRules={careCadenceSlaRules}
+            />
+          </div>
 
-          <DashboardTodayView
-            careCadence={careCadence}
-            communicationCommitments={communicationCommitments}
-            staffCommandCenter={staffCommandCenter}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-            slaRules={careCadenceSlaRules}
-          />
+          <div id="dashboard-handoff" className="scroll-mt-4 space-y-3 sm:space-y-4">
+            <DashboardDailyOfficeHandoffDigest
+              digest={dailyOfficeHandoffDigest}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+              activeParishName={activeParishName}
+            />
 
-          <DashboardRoleWorkHub
-            commandCenter={staffCommandCenter}
-            activeParishId={activeParishId}
-            activeParishName={activeParishName}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-          />
+            <DashboardDailyOfficeHandoffSavedViews
+              dailyOfficeHandoffDigest={dailyOfficeHandoffDigest}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+              activeParishName={activeParishName}
+            />
+          </div>
 
-          <DashboardTodaysCareBrief
-            brief={todaysCareBrief}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-          />
+          <div id="dashboard-health" className="scroll-mt-4 space-y-3 sm:space-y-4">
+            <DashboardParishHealthScore
+              health={parishHealthScore}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+            />
 
-          <DashboardParishOpsBrief
-            brief={parishOpsBrief}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-          />
+            <DashboardWorkflowReminderPreview
+              reminders={workflowReminderPreview}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+            />
 
-          <DashboardCommandSummary
-            requests={requests}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-            metricsAt={dashboardMetricsAt}
-            compact
-          />
+            <DashboardOperationalIntelligenceBrief
+              brief={operationalIntelligenceBrief}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+            />
+          </div>
 
-          <DashboardSuggestedActions
-            actions={suggestedActions}
-            loading={loading || suggestedActionsLoading}
-            dataUnavailable={requestsFetchFailed}
-            compact
-          />
+          <div id="dashboard-team" className="scroll-mt-4 space-y-3 sm:space-y-4">
+            <DashboardRoleWorkHub
+              commandCenter={staffCommandCenter}
+              activeParishId={activeParishId}
+              activeParishName={activeParishName}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+            />
 
-          <DashboardFamilyCarePlans
-            plans={familyCarePlans}
-            loading={loading}
-            dataUnavailable={requestsFetchFailed}
-            completingPlanId={carePlanCompletingId}
-            mutationRequiresRefresh={workHubMutationRequiresRefresh}
-            messages={carePlanMessages}
-            onCompleteTouchpoint={completeCarePlanTouchpoint}
-          />
+            <DashboardTodaysCareBrief
+              brief={todaysCareBrief}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+            />
+
+            <DashboardParishOpsBrief
+              brief={parishOpsBrief}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+            />
+
+            <DashboardCommandSummary
+              requests={requests}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+              metricsAt={dashboardMetricsAt}
+              compact
+            />
+
+            <DashboardSuggestedActions
+              actions={suggestedActions}
+              loading={loading || suggestedActionsLoading}
+              dataUnavailable={requestsFetchFailed}
+              compact
+            />
+
+            <DashboardFamilyCarePlans
+              plans={familyCarePlans}
+              loading={loading}
+              dataUnavailable={requestsFetchFailed}
+              completingPlanId={carePlanCompletingId}
+              mutationRequiresRefresh={workHubMutationRequiresRefresh}
+              messages={carePlanMessages}
+              onCompleteTouchpoint={completeCarePlanTouchpoint}
+            />
+          </div>
         </>
       ) : (
         <DashboardRequestFilters

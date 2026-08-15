@@ -66,7 +66,7 @@ describe('operational intelligence continuity browser QA checklist', () => {
     expect(brief).toContain('request-to-record continuity')
     expect(brief).toContain('/dashboard/records?continuity=needs_review')
     expect(healthComponent).toContain('Parish Health Score')
-    expect(healthComponent).toContain('Signal coverage')
+    expect(healthComponent).toContain('How this score is calculated')
     expect(briefComponent).toContain('Where work is slowing down')
     expect(briefComponent).toContain('Safe-use boundaries')
     expect(recordsFilters).toContain('Needs request review')

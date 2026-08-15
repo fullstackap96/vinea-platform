@@ -1,5 +1,17 @@
 # Vinea Build Status
 
+Daily Dashboard Focus Navigation UX (2026-08-14): implemented locally. The staff Home dashboard
+now opens as a selected-parish daily workspace with four scan-friendly destinations: Focus now,
+Office handoff, Parish health, and Team queues. Immediate work appears before handoff planning and
+operational analysis; prototype-facing future-signal copy is removed from the visible UI; and
+detailed handoff/score coverage notes use optional disclosure. Existing read-only DTOs, loaders,
+active-parish authorization, APIs, writes, and production gates are unchanged. Focused coverage
+passed `7` files / `22` tests; the complete suite passed `881` files / `3,784` tests; both
+TypeScript scopes, lint, the Next.js `16.3.0` production build, and the repository secret scan
+passed. Authenticated desktop/mobile visual QA remains pending because no safe credentialed staff
+session was available locally. See
+[`DAILY_DASHBOARD_FOCUS_NAV_UX_20260814.md`](DAILY_DASHBOARD_FOCUS_NAV_UX_20260814.md).
+
 Merged-main release checkpoint (2026-08-07): PR `#8` was marked ready and merged
 only after its head remained exactly
 `c7626c460714aae8dab459a79a30ad4a62f44486`, Vinea CI run `31215092349` remained

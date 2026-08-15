@@ -183,19 +183,19 @@ export function DashboardParishHealthScore({
         ))}
       </div>
 
-      <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-white p-4">
-        <div className="flex items-center gap-2">
+      <details className="mt-4 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+        <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30">
           <Info className="h-4 w-4 text-gray-500" aria-hidden="true" />
-          <h3 className="text-sm font-semibold text-gray-950">Signal coverage</h3>
-        </div>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          How this score is calculated
+        </summary>
+        <div className="mt-3 grid gap-2 border-t border-gray-100 pt-3 sm:grid-cols-2">
           {health.coverageNotes.map((note) => (
             <div key={note.key} className="text-sm leading-relaxed text-gray-600">
               <span className="font-semibold text-gray-900">{note.label}:</span> {note.detail}
             </div>
           ))}
         </div>
-      </div>
+      </details>
     </section>
   )
 }
