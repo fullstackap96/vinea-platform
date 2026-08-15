@@ -18,8 +18,8 @@ describe('Operational Intelligence Brief source wiring', () => {
     expect(source.indexOf('<DashboardWorkflowReminderPreview')).toBeLessThan(
       source.indexOf('<DashboardOperationalIntelligenceBrief')
     )
-    expect(source.indexOf('<DashboardOperationalIntelligenceBrief')).toBeLessThan(
-      source.indexOf('<DashboardTodayView')
+    expect(source.indexOf('<DashboardTodayView')).toBeLessThan(
+      source.indexOf('<DashboardOperationalIntelligenceBrief')
     )
   })
 

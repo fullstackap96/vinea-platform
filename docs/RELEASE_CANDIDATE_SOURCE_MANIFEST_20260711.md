@@ -4,6 +4,34 @@ Completion marker: `RELEASE_CANDIDATE_SOURCE_MANIFEST_20260711`
 
 Decision: `RELEASE_CANDIDATE_SOURCE_MANIFEST_READY_FOR_IMMUTABLE_COMMIT`
 
+## Daily Dashboard UX And Dependency Advisory Identity
+
+The 2026-08-15 daily-dashboard slice adds a compact, selected-parish-aware focus
+navigation and clearer progressive disclosure for Today, Handoff, Health, and
+Team work. It also updates the transitive `nanoid` lockfile resolution from
+`3.3.17` to `3.3.18` to address `GHSA-2v37-7h3g-55p8`; no application dependency
+or production runtime gate changed.
+
+- Immutable dashboard implementation commit: `20bc5c4d7507d16ae540eb7a4f83e26933ae06b3`
+- Immutable dependency patch commit: `5ff54f57ac8ce40311a2879e453002cb455656e4`
+- Tracked-head aggregate SHA-256: `6EC2A962E3B3456692961B0365ECA9B82D95C99BC0355C36C8F47965F727BE69`
+- Tracked source file count: `1533`
+- Source mode: `tracked-head`
+- Production approval granted: `NO`
+
+Focused dashboard coverage passed `7` files / `22` tests before publication.
+Both TypeScript scopes, lint, repository secret scanning, and the credential-free
+Next.js 16.3.0 build also passed. The first complete-suite run failed closed only
+because this evidence file did not yet contain the new aggregate. This docs-only
+binding is outside the release-source allowlist, so it records rather than changes
+the aggregate. Exact-head CI, dependency audit, and protected Preview verification
+remain required before the slice may be considered reviewed.
+
+This tracked-source identity does not replace an immutable Git commit and does
+not authorize a merge, deployment, production access, migration, RLS change,
+record mutation, provider call, export, storage action, signed URL, AI call,
+communication, certificate generation, production-sensitive flag, or public claim.
+
 ## Merged-Main Rollout Checkpoint Identity
 
 The 2026-08-07 controlled-rollout checkpoint source is committed at

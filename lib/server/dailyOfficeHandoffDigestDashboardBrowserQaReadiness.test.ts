@@ -70,7 +70,7 @@ describe('daily office handoff digest dashboard browser QA readiness', () => {
     expect(readiness).toContain('app/dashboard/DashboardDailyOfficeHandoffDigest.tsx')
     expect(card).toContain('Daily office handoff')
     expect(card).toContain('Open existing queue')
-    expect(card).toContain('Read-only boundary')
+    expect(card).toContain('How this handoff stays staff-reviewed')
     expect(page).toContain('<DashboardDailyOfficeHandoffDigest')
     expect(page.indexOf('<DashboardDailyOfficeHandoffDigest')).toBeGreaterThan(
       page.indexOf('<DashboardDailyWorkHubOverview')

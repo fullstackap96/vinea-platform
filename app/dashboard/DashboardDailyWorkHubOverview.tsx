@@ -92,7 +92,7 @@ export function DashboardDailyWorkHubOverview({
 
   return (
     <section className={`${vineaSectionShellClassName} overflow-hidden`} aria-labelledby="daily-work-hub-heading">
-      <div className="rounded-xl border border-violet-100 bg-gradient-to-br from-white via-violet-50/60 to-emerald-50/70 p-4 shadow-sm sm:p-5">
+      <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <p className={`${chipBase} border-violet-200 bg-white/85 text-violet-950`}>
@@ -259,22 +259,6 @@ export function DashboardDailyWorkHubOverview({
             </Link>
           </div>
 
-          <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-white p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Next signals to bring into this hub
-            </p>
-            <div className="mt-2 space-y-2">
-              {overview.futureSignals.map((signal) => (
-                <div key={signal.key}>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {signal.label}{' '}
-                    <span className="font-medium text-gray-500">({signal.statusLabel})</span>
-                  </p>
-                  <p className="text-sm leading-snug text-gray-600">{signal.detail}</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </section>

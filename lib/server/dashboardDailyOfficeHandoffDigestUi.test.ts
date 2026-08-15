@@ -18,7 +18,7 @@ describe('dashboard daily office handoff digest UI wiring', () => {
       'Staff-reviewed only',
       'Scoped to',
       'Open existing queue',
-      'Read-only boundary',
+      'How this handoff stays staff-reviewed',
       'They point to existing review queues and do not',
       'digest.coverageNotes',
     ]) {
@@ -57,13 +57,15 @@ describe('dashboard daily office handoff digest UI wiring', () => {
     expect(source).toContain('[parishHealthScore, operationalIntelligenceBrief]')
 
     const overviewIndex = source.indexOf('<DashboardDailyWorkHubOverview')
+    const todayIndex = source.indexOf('<DashboardTodayView')
     const handoffIndex = source.indexOf('<DashboardDailyOfficeHandoffDigest')
     const healthIndex = source.indexOf('<DashboardParishHealthScore')
     const reminderIndex = source.indexOf('<DashboardWorkflowReminderPreview')
     const intelligenceIndex = source.indexOf('<DashboardOperationalIntelligenceBrief')
 
     expect(overviewIndex).toBeGreaterThan(-1)
-    expect(handoffIndex).toBeGreaterThan(overviewIndex)
+    expect(todayIndex).toBeGreaterThan(overviewIndex)
+    expect(handoffIndex).toBeGreaterThan(todayIndex)
     expect(healthIndex).toBeGreaterThan(handoffIndex)
     expect(reminderIndex).toBeGreaterThan(healthIndex)
     expect(intelligenceIndex).toBeGreaterThan(reminderIndex)

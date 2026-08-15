@@ -29,7 +29,7 @@ describe('Parish Health Score source wiring', () => {
     const roadmap = readRepoFile('docs/VINEA_ROADMAP.md')
     const ssot = readRepoFile('docs/VINEA_SINGLE_SOURCE_OF_TRUTH.md')
 
-    expect(component).toContain('Signal coverage')
+    expect(component).toContain('How this score is calculated')
     expect(component).toContain('Explainable operations health')
     expect(component).toContain('recordsContinuityEmptyState')
     expect(readRepoFile('lib/requestRecordContinuityEmptyState.ts')).toContain(

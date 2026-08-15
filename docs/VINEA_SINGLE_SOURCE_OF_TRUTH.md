@@ -6,6 +6,21 @@ concise release identity, evidence-backed readiness estimate, P0 register, and
 launch decision. It supersedes older completion percentages in this document.
 The enduring product principles and production gates below remain authoritative.
 
+Current UX boundary (2026-08-15): Daily Dashboard Focus Navigation UX reorganizes the existing
+selected-parish Home dashboard into four staff-facing destinations: Focus now, Office handoff,
+Parish health, and Team queues. Existing read-only signals are summarized without new data access;
+immediate work appears before analysis; and detailed safety/coverage notes remain available through
+native disclosure. Loaders, active-parish authorization, APIs, writes, migrations, RLS, flags,
+providers, and production-sensitive `NO-GO` gates remain authoritative and unchanged.
+Local verification passed focused coverage (`7` files / `22` tests), complete coverage (`881`
+files / `3,784` tests), both TypeScript scopes, lint, the Next.js `16.3.0` production build, and the
+repository secret scan and zero-vulnerability dependency audit. Draft PR `#15` exact head
+`063136b983c3f084f240b038664e4c5f6b8a40a1` passed GitHub Actions run `31885173869`; exact-head
+Preview deployment `dpl_7JMuGXnNECBbwbQGGtZobcb1urgE` is `READY` and non-production. Authenticated
+staff QA passed health, desktop/mobile layout, authorized parish A/B switching, all four focus
+anchors, and original-parish restoration. Human review and merge remain pending, and every
+production-sensitive `NO-GO` gate remains unchanged.
+
 Current engineering boundary (2026-07-20): commit `91d39c2080cddc145acae1b2ada822291c746cfe` closes the unbounded browser-read gap in the non-production Export Audit Reviewer dashboard. One 15-second abortable API read is current at a time; replacement, saved-filter change, and unmount invalidate unresolved work; response-body settlement observes cancellation; and existing latest-load ownership plus generic staff-safe errors remain authoritative. The dashboard remains staff-authenticated through its API, selected-parish scoped through the API, read-only, API-only, non-production gated, and absent from production navigation. Aggregate `713C54768F43D49AC3ADB0BF78F5AC15DD849F958014C2897078ACC83B383C3A` binds `1,521` committed release-source files. Focused coverage passed `5` files / `28` tests; the complete 15-check contract passed with zero secret findings, zero vulnerabilities, every safety/evidence gate, both TypeScript scopes, lint, `872` files / `3,735` tests, and the credential-free `56`-page build. Production dashboard exposure, exports, and monitoring remain `NO-GO`; no production-sensitive action occurred.
 
 Current engineering boundary (2026-07-20): commit `ca03a7cbdbfa5042006d0d482b335f6c1a018412` closes a selected-parish reliability gap in Request Detail's optional staff/priest assignment directory read. The browser clears prior-parish choices, owns one 15-second request-parish load, validates the full settings projection and returned parish id through the shared strict parser, and aborts obsolete settlement. Existing staff authentication, active-parish membership, same-parish request access, assignment writes, migrations, RLS, and production gates remain authoritative. Aggregate `F9383B3D44A0ABD00DBBADCACAB1C2E4FDD3FDC6C04A4AC09274B8A3D8CB8FB6` binds `1,520` committed release-source files. Focused and existing regression coverage passed `19` files / `89` tests; the complete 15-check contract passed with zero secret findings, zero vulnerabilities, every safety/evidence gate, both TypeScript scopes, lint, `871` files / `3,731` tests, and the credential-free `56`-page build. No production-sensitive action occurred; safe two-parish browser evidence and remote exact-head verification remain pending.

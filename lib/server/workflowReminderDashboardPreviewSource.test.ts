@@ -20,8 +20,8 @@ describe('Workflow reminder dashboard preview source wiring', () => {
     expect(dashboard.indexOf('<DashboardParishHealthScore')).toBeLessThan(
       dashboard.indexOf('<DashboardWorkflowReminderPreview')
     )
-    expect(dashboard.indexOf('<DashboardWorkflowReminderPreview')).toBeLessThan(
-      dashboard.indexOf('<DashboardTodayView')
+    expect(dashboard.indexOf('<DashboardTodayView')).toBeLessThan(
+      dashboard.indexOf('<DashboardParishHealthScore')
     )
 
     expect(component).toContain('Staff-reviewed reminder preview')
