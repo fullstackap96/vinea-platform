@@ -1,6 +1,6 @@
 # Vinea Documentation And Operations Index
 
-Last updated: 2026-08-07
+Last updated: 2026-08-15
 
 This is the front door to Vinea's repository documentation. Use it to find the source that answers a question; do not treat this index as a replacement for the linked source.
 
@@ -35,7 +35,7 @@ Latest Request Detail selected-parish reliability evidence: [Request Detail Pari
 
 Latest selected-parish reliability evidence: [Daily Work Hub Workflow Settings Scope Boundary](DAILY_WORK_HUB_WORKFLOW_SETTINGS_SCOPE_BOUNDARY_20260720.md) records the bounded auxiliary settings read, safe-default reset, response-parish validation, latest-load ownership, and remaining browser-evidence boundary.
 
-Latest release-integrity evidence: [Release Source Manifest Clean-Checkout Invariant](RELEASE_SOURCE_MANIFEST_CLEAN_CHECKOUT_INVARIANT_20260720.md) records the exact-head CI failure, immutable tracked-head correction, verification boundary, and separate publication requirement. [Controlled Production Rollout Checkpoint](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260807.md) binds merged `main`, the ready but unpromoted artifact, the unchanged public-domain rollback target, and the remaining production `NO-GO` gates.
+Latest release-integrity evidence: [Release Source Manifest Clean-Checkout Invariant](RELEASE_SOURCE_MANIFEST_CLEAN_CHECKOUT_INVARIANT_20260720.md) records the exact-head CI failure, immutable tracked-head correction, verification boundary, and separate publication requirement. [Controlled Production Rollout Checkpoint](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260815.md) binds PR `#15`'s exact merged source, green CI and non-production Preview, the ready but unpromoted main artifact, the unchanged public-domain rollback target, and the remaining production `NO-GO` gates.
 
 ## Start Here
 
@@ -95,7 +95,7 @@ Start with these index documents instead of opening individual approval packets 
 | Area | Entry point | Current boundary |
 | --- | --- | --- |
 | Overall release review | [Production Release Readiness Handoff Index](PRODUCTION_RELEASE_READINESS_HANDOFF_INDEX_20260706.md) | Review map only; not deployment or production approval |
-| Controlled base rollout | [Controlled Production Rollout Checkpoint](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260712.md), [Human Intake Worksheet](CONTROLLED_PRODUCTION_ROLLOUT_HUMAN_INTAKE_20260714.md), and [Final Approval Prompt](CONTROLLED_PRODUCTION_ROLLOUT_FINAL_APPROVAL_PROMPT_20260714.md) | Intake checker reports `READY_FOR_EXPLICIT_APPROVAL`, but production approval remains `NO`; promotion and smoke stay blocked until the exact prompt is intentionally supplied later |
+| Controlled base rollout | [Current Controlled Production Rollout Checkpoint](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260815.md), [Human Intake Worksheet](CONTROLLED_PRODUCTION_ROLLOUT_HUMAN_INTAKE_20260714.md), and [Final Approval Prompt](CONTROLLED_PRODUCTION_ROLLOUT_FINAL_APPROVAL_PROMPT_20260714.md) | The current main/artifact identity has changed since the historical intake; production approval remains `NO`, and promotion/smoke require freshly reconfirmed owners, fixtures, window, identities, and exact approval language |
 | Release candidate technical approval | [Release Candidate Technical Approval](RELEASE_CANDIDATE_TECHNICAL_APPROVAL_20260711.md) | Approved for remote CI and isolated non-production preview validation; production remains gated |
 | All production-sensitive capabilities | [Production-Sensitive Gate Boundary Index](PRODUCTION_SENSITIVE_GATE_BOUNDARY_INDEX_20260706.md) | Capabilities remain `NO-GO` without separate explicit approval |
 | Membership-aware operational RLS | [RLS Evidence Package Index](MEMBERSHIP_AWARE_RLS_PRODUCTION_EVIDENCE_PACKAGE_INDEX_20260629.md) | Evidence package prepared; production rollout not approved |
