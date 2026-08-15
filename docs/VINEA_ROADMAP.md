@@ -1,16 +1,25 @@
 # Vinea Roadmap
 
-Latest safe UX slice (2026-08-15): Daily Dashboard Focus Navigation UX is implemented and verified in non-production.
+Current release checkpoint (2026-08-15): Daily Dashboard Focus Navigation UX is merged to `main`
+at `06e1a0557297665a69b9171dfb137565597d65bf` after exact-head CI and non-production Preview
+verification. Vercel automatically built the merged artifact, but no operator deployment or alias
+promotion occurred; public domains remain on the approved rollback deployment. The next base-app
+step is a separately approved, fail-closed controlled rollout with named owners, production-safe
+read-only fixtures, exact timing, monitoring, redacted evidence, and immediate rollback criteria.
+Checkpoint validation passed `882` test files / `3,788` tests, both TypeScript scopes, lint,
+secret scanning, a zero-vulnerability dependency audit, and the 56-page production build.
+Production rollout and every separately sensitive feature gate remain `NO-GO`.
+
+Latest safe UX slice (2026-08-15): Daily Dashboard Focus Navigation UX is implemented, verified in non-production, and merged.
 The selected-parish Home dashboard now groups existing work into Focus now, Office handoff, Parish
 health, and Team queues; immediate work precedes analysis; internal roadmap copy is removed from
 the staff view; and detailed coverage notes remain available through progressive disclosure. No
 loader, API, authorization, write, migration, RLS, flag, provider, or production posture changed.
 Focused coverage passed `7` files / `22` tests; the complete suite passed `881` files / `3,784`
 tests; both TypeScript scopes, lint, production build, secret scan, and zero-vulnerability dependency
-audit passed. Draft PR `#15` exact head `063136b9` has green CI and a `READY` non-production Preview.
+audit passed. PR `#15` exact head `7c332bca` has green CI and a `READY` non-production Preview.
 Authenticated staff QA passed health, desktop/mobile layout, authorized parish A/B switching, focus
-anchors, and original-parish restoration. Human review and merge remain separate; production-sensitive
-gates remain `NO-GO`.
+anchors, and original-parish restoration. Production-sensitive gates remain `NO-GO`.
 
 Current priority override (2026-08-07): the evidence-backed P0 sequence is defined
 in [`VINEA_CURRENT_STATUS_20260807.md`](VINEA_CURRENT_STATUS_20260807.md). The

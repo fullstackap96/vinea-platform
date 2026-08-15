@@ -1,6 +1,6 @@
 # Vinea Current Status
 
-Status date: 2026-08-07
+Status date: 2026-08-15
 
 This is the concise current-state register for Vinea. Current code, exact-head CI,
 Vercel deployment metadata, and non-production Supabase evidence override older
@@ -8,26 +8,26 @@ percentage estimates or dated evidence files.
 
 ## Release Identity
 
-- GitHub PR `#8` was marked ready and merged at the exact approved source head
-  `c7626c460714aae8dab459a79a30ad4a62f44486`.
-- Remote `main` is `46190a71aa46146b4df0eb0a2e60cac8040572bd`; its parents are the
-  prior main head and the approved source head.
-- Exact-head CI: GitHub Actions run `31215092349` passed.
-- Exact-head Preview: Vercel deployment `dpl_3USyZGXXyiQ5VQCn5Qixsixixd6i` is
+- GitHub PR `#15` was marked ready and merged at the exact approved source head
+  `7c332bcae03347bf7b836adc2a697a41703484a6` and approved base
+  `af631ad17fe557ace020489ad745b93e6d2af357`.
+- Remote `main` is `06e1a0557297665a69b9171dfb137565597d65bf`; its parents are the
+  approved base and source head.
+- Exact-head CI: GitHub Actions run `31885701023` passed.
+- Exact-head Preview: Vercel deployment `dpl_FdvCXMxu6iMCxjo2N3zcJnhQ9ewX` is
   `READY`, Preview-only, and has no production target.
-- Protected Preview evidence passed deployment access, safe staff sign-in,
-  authorized Parish A selection, same-parish Request Detail access, and generic
-  cross-parish denial. Earlier published-head evidence covers Onboarding, Imports
-  history, duplicate-review pages, and Communications Center in read-only mode.
-- Authenticated `vercel curl` confirmed exact-deployment `/api/health` returned
-  `ok: true`; environment, Supabase, parish, schema, email, and Google OAuth
-  checks were all `true`.
-- The complete 15-command local release contract passed after the evidence update
-  in an isolated flag-off process: 879 test files and 3,775 tests passed, both
-  TypeScript scopes and lint passed, the dependency audit found zero known
-  vulnerabilities, and the Next.js 16.3.0 build generated 56 pages.
+- Protected Preview evidence passed `/api/health`, safe staff sign-in,
+  authorized Parish A/B switching, all four Daily Dashboard focus destinations,
+  desktop/mobile rendering, and original-parish restoration without record
+  mutation.
+- The merged UX release passed its complete 15-command local release contract in
+  an isolated flag-off process. The new docs-only rollout checkpoint then passed
+  882 test files and 3,788 tests, both TypeScript scopes, lint, repository secret
+  scanning, a zero-vulnerability dependency audit, and the Next.js 16.3.0
+  56-page build.
 - Vercel automatically built merged `main` as ready artifact
-  `dpl_EBrGS8ErXLVqctTqikUNUFh4mwj3`, but no operator promotion occurred and
+  `dpl_95SD3gCpqr3RSDiK8YesebMQyPQu`, but no operator deploy, alias promotion, or
+  production smoke occurred and
   the public production domains remain assigned to approved rollback deployment
   `dpl_FuhBvEBrbZjNzQ6dLp4qHbi5j7UW` at commit
   `c52d947b0f70ad01c8dc6920ad49979ca17d25d2`.
@@ -36,9 +36,9 @@ percentage estimates or dated evidence files.
 
 ## Current Readiness
 
-- Engineering completion estimate: `95%`.
-- Production rollout readiness estimate: `78%`.
-- Overall Vinea readiness estimate: `88%`.
+- Engineering completion estimate: `99.8%`.
+- Production rollout readiness estimate: `87.5%`.
+- Overall Vinea readiness estimate: `94%`.
 - Launch decision: `YELLOW` - complete the P0 gates before a real-parish pilot.
 
 The engineering estimate reflects implemented launch-scope workflows, safety
@@ -88,9 +88,9 @@ Remaining approval-gated P0s:
 
 1. Approve or reject the prepared hash-pinned shared-QA migration-history repair
    and function-privilege application. Neither write has been run.
-2. Complete the new fail-closed controlled rollout checkpoint for merged main;
-   the merge and ready artifact do not approve alias promotion or production
-   smoke.
+2. Complete a separately approved fail-closed production rollout for current
+   merged main; the checkpoint and ready artifact do not approve alias promotion
+   or production smoke.
 3. Complete production RLS, production monitoring, production-safe fixture, and
    controlled read-only smoke gates with their separate explicit approvals.
 
@@ -117,4 +117,4 @@ Exact-head publication and Preview evidence:
 [`RELEASE_INTEGRITY_EXACT_HEAD_PREVIEW_EVIDENCE_20260807.md`](RELEASE_INTEGRITY_EXACT_HEAD_PREVIEW_EVIDENCE_20260807.md).
 
 Merged-main rollout checkpoint:
-[`CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260807.md`](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260807.md).
+[`CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260815.md`](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260815.md).

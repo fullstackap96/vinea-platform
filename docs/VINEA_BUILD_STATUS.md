@@ -1,20 +1,32 @@
 # Vinea Build Status
 
-Daily Dashboard Focus Navigation UX (2026-08-15): implemented and verified in non-production. The staff Home dashboard
-now opens as a selected-parish daily workspace with four scan-friendly destinations: Focus now,
-Office handoff, Parish health, and Team queues. Immediate work appears before handoff planning and
-operational analysis; prototype-facing future-signal copy is removed from the visible UI; and
-detailed handoff/score coverage notes use optional disclosure. Existing read-only DTOs, loaders,
-active-parish authorization, APIs, writes, and production gates are unchanged. Focused coverage
-passed `7` files / `22` tests; the complete suite passed `881` files / `3,784` tests; both
-TypeScript scopes, lint, the Next.js `16.3.0` production build, and the repository secret scan
-passed. The transitive `nanoid` advisory was patched at `3.3.18`, and the final dependency audit
-reported zero vulnerabilities. Draft PR `#15` exact head `063136b9` passed GitHub Actions run
-`31885173869`; Vercel deployment `dpl_7JMuGXnNECBbwbQGGtZobcb1urgE` is `READY` with no production
-target. Authenticated staff desktop/mobile QA passed `/api/health`, parish A/B switching, all four
-focus anchors, responsive rendering, and original-parish restoration without record mutation. See
-[`DAILY_DASHBOARD_FOCUS_NAV_UX_20260814.md`](DAILY_DASHBOARD_FOCUS_NAV_UX_20260814.md).
-Evidence: [`DAILY_DASHBOARD_FOCUS_NAV_PREVIEW_QA_EVIDENCE_20260815.md`](DAILY_DASHBOARD_FOCUS_NAV_PREVIEW_QA_EVIDENCE_20260815.md).
+Daily Dashboard merged-main checkpoint (2026-08-15): PR `#15` was marked ready and merged only
+after its head remained exactly `7c332bcae03347bf7b836adc2a697a41703484a6`, its base remained
+`af631ad17fe557ace020489ad745b93e6d2af357`, Vinea CI run `31885701023` remained successful, and
+exact-head Preview `dpl_FdvCXMxu6iMCxjo2N3zcJnhQ9ewX` remained `READY` and non-production.
+Remote `main` is now `06e1a0557297665a69b9171dfb137565597d65bf`. Vercel's Git integration
+automatically built ready main artifact `dpl_95SD3gCpqr3RSDiK8YesebMQyPQu`; no operator deploy,
+alias promotion, or production smoke occurred. Vercel control-plane metadata still maps the public
+domains to approved rollback deployment `dpl_FuhBvEBrbZjNzQ6dLp4qHbi5j7UW`. Production data,
+migrations, RLS, flags, providers, storage, exports, and record mutations were untouched. The
+checkpoint passed focused validation (`3` files / `17` tests), the complete suite (`882` files /
+`3,788` tests), both TypeScript scopes, lint, secret scanning, a zero-vulnerability dependency
+audit, and the Next.js `16.3.0` 56-page production build. The controlled rollout remains `NO-GO`; see
+[`CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260815.md`](CONTROLLED_PRODUCTION_ROLLOUT_CHECKPOINT_20260815.md).
+
+Daily Dashboard Focus Navigation UX (2026-08-15): implemented, verified in non-production, and
+merged to `main`. The staff Home dashboard now opens as a selected-parish daily workspace with four
+scan-friendly destinations: Focus now, Office handoff, Parish health, and Team queues. Immediate
+work appears before handoff planning and operational analysis; prototype-facing future-signal copy
+is removed from the visible UI; and detailed handoff/score coverage notes use optional disclosure.
+Existing read-only DTOs, loaders, active-parish authorization, APIs, writes, and production gates
+are unchanged. Focused coverage passed `7` files / `22` tests; the complete suite passed `881` files
+/ `3,784` tests; both TypeScript scopes, lint, the Next.js `16.3.0` production build, repository
+secret scan, and zero-vulnerability dependency audit passed. Authenticated staff desktop/mobile QA
+passed `/api/health`, parish A/B switching, all four focus anchors, responsive rendering, and
+original-parish restoration without record mutation. See
+[`DAILY_DASHBOARD_FOCUS_NAV_UX_20260814.md`](DAILY_DASHBOARD_FOCUS_NAV_UX_20260814.md) and
+[`DAILY_DASHBOARD_FOCUS_NAV_PREVIEW_QA_EVIDENCE_20260815.md`](DAILY_DASHBOARD_FOCUS_NAV_PREVIEW_QA_EVIDENCE_20260815.md).
 
 Merged-main release checkpoint (2026-08-07): PR `#8` was marked ready and merged
 only after its head remained exactly
