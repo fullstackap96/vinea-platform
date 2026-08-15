@@ -1,6 +1,6 @@
 # Vinea Build Status
 
-Daily Dashboard Focus Navigation UX (2026-08-14): implemented locally. The staff Home dashboard
+Daily Dashboard Focus Navigation UX (2026-08-15): implemented and verified in non-production. The staff Home dashboard
 now opens as a selected-parish daily workspace with four scan-friendly destinations: Focus now,
 Office handoff, Parish health, and Team queues. Immediate work appears before handoff planning and
 operational analysis; prototype-facing future-signal copy is removed from the visible UI; and
@@ -8,9 +8,13 @@ detailed handoff/score coverage notes use optional disclosure. Existing read-onl
 active-parish authorization, APIs, writes, and production gates are unchanged. Focused coverage
 passed `7` files / `22` tests; the complete suite passed `881` files / `3,784` tests; both
 TypeScript scopes, lint, the Next.js `16.3.0` production build, and the repository secret scan
-passed. Authenticated desktop/mobile visual QA remains pending because no safe credentialed staff
-session was available locally. See
+passed. The transitive `nanoid` advisory was patched at `3.3.18`, and the final dependency audit
+reported zero vulnerabilities. Draft PR `#15` exact head `063136b9` passed GitHub Actions run
+`31885173869`; Vercel deployment `dpl_7JMuGXnNECBbwbQGGtZobcb1urgE` is `READY` with no production
+target. Authenticated staff desktop/mobile QA passed `/api/health`, parish A/B switching, all four
+focus anchors, responsive rendering, and original-parish restoration without record mutation. See
 [`DAILY_DASHBOARD_FOCUS_NAV_UX_20260814.md`](DAILY_DASHBOARD_FOCUS_NAV_UX_20260814.md).
+Evidence: [`DAILY_DASHBOARD_FOCUS_NAV_PREVIEW_QA_EVIDENCE_20260815.md`](DAILY_DASHBOARD_FOCUS_NAV_PREVIEW_QA_EVIDENCE_20260815.md).
 
 Merged-main release checkpoint (2026-08-07): PR `#8` was marked ready and merged
 only after its head remained exactly

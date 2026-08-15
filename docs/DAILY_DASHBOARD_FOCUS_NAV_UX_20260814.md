@@ -1,6 +1,6 @@
 # DAILY_DASHBOARD_FOCUS_NAV_UX_20260814
 
-Status: VERIFIED LOCALLY; AUTHENTICATED BROWSER QA PENDING
+Status: VERIFIED LOCALLY AND IN AUTHENTICATED NON-PRODUCTION PREVIEW
 
 ## Purpose
 
@@ -39,5 +39,11 @@ and all production-sensitive `NO-GO` boundaries remain unchanged.
 - `npm run build` passed on Next.js `16.3.0`, including all `56` static pages.
 - `npm run check:repository-secrets` passed across `2,960` scanned files with zero findings.
 - `git diff --check` passed; Windows line-ending notices are informational only.
-- Authenticated desktop/mobile visual QA remains pending because no safe credentialed staff session
-  was available locally. The application correctly redirected anonymous checks to `/login`.
+- The exact-head draft-PR deployment reached Vercel `READY`, and GitHub Actions run `31885173869`
+  passed.
+- Authenticated desktop and `390 x 844` mobile QA passed selected-parish switching, all four
+  same-page focus anchors, responsive rendering, and original-parish restoration.
+- The supported authenticated Vercel CLI path returned `/api/health` HTTP `200` with `ok: true` and
+  all six reported checks `true`.
+- Complete label-only evidence is recorded in
+  `docs/DAILY_DASHBOARD_FOCUS_NAV_PREVIEW_QA_EVIDENCE_20260815.md`.

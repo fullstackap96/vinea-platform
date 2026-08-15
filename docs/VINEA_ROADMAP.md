@@ -1,13 +1,16 @@
 # Vinea Roadmap
 
-Latest safe UX slice (2026-08-14): Daily Dashboard Focus Navigation UX is implemented locally.
+Latest safe UX slice (2026-08-15): Daily Dashboard Focus Navigation UX is implemented and verified in non-production.
 The selected-parish Home dashboard now groups existing work into Focus now, Office handoff, Parish
 health, and Team queues; immediate work precedes analysis; internal roadmap copy is removed from
 the staff view; and detailed coverage notes remain available through progressive disclosure. No
 loader, API, authorization, write, migration, RLS, flag, provider, or production posture changed.
 Focused coverage passed `7` files / `22` tests; the complete suite passed `881` files / `3,784`
-tests; both TypeScript scopes, lint, production build, and secret scan passed. Authenticated
-desktop/mobile visual QA remains pending; production-sensitive gates remain `NO-GO`.
+tests; both TypeScript scopes, lint, production build, secret scan, and zero-vulnerability dependency
+audit passed. Draft PR `#15` exact head `063136b9` has green CI and a `READY` non-production Preview.
+Authenticated staff QA passed health, desktop/mobile layout, authorized parish A/B switching, focus
+anchors, and original-parish restoration. Human review and merge remain separate; production-sensitive
+gates remain `NO-GO`.
 
 Current priority override (2026-08-07): the evidence-backed P0 sequence is defined
 in [`VINEA_CURRENT_STATUS_20260807.md`](VINEA_CURRENT_STATUS_20260807.md). The
