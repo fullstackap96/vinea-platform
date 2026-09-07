@@ -32,6 +32,7 @@ import { authorizeStaffUser } from './requireStaff'
 
 type StaffRow = {
   id: string
+  email: string
   role: string | null
   parish_id: string
 }
@@ -87,7 +88,7 @@ describe('authorizeStaffUser', () => {
 
   it('authorizes an active database staff row outside the oldest parish', async () => {
     const { admin, staffBuilder } = adminClient({
-      staffRows: [{ id: 'staff-b', role: 'staff', parish_id: 'parish-b' }],
+      staffRows: [{ id: 'staff-b', email: 'Staff@Example.com', role: 'staff', parish_id: 'parish-b' }],
     })
     createSupabaseServiceRoleClientMock.mockReturnValue(admin)
 
@@ -109,8 +110,8 @@ describe('authorizeStaffUser', () => {
   it('returns admin when any active staff row for the email is an admin row', async () => {
     const { admin } = adminClient({
       staffRows: [
-        { id: 'staff-a', role: 'staff', parish_id: 'parish-a' },
-        { id: 'staff-b', role: 'admin', parish_id: 'parish-b' },
+        { id: 'staff-a', email: 'admin@example.com', role: 'staff', parish_id: 'parish-a' },
+        { id: 'staff-b', email: 'admin@example.com', role: 'admin', parish_id: 'parish-b' },
       ],
     })
     createSupabaseServiceRoleClientMock.mockReturnValue(admin)
@@ -121,6 +122,26 @@ describe('authorizeStaffUser', () => {
       role: 'admin',
       source: 'database',
     })
+  })
+
+  it.each(['%@example.com', '_dmin@example.com', '*@example.com'])(
+    'rejects a wildcard candidate belonging to another email: %s', async (email) => {
+      const { admin } = adminClient({ staffRows: [
+        { id: 'admin', email: 'admin@example.com', role: 'admin', parish_id: 'parish-a' },
+      ] })
+      createSupabaseServiceRoleClientMock.mockReturnValue(admin)
+      await expect(authorizeStaffUser({ email } as never)).resolves.toMatchObject({ ok: false })
+    }
+  )
+
+  it('uses only exact email matches when deciding admin status', async () => {
+    const email = 'a_min@example.com'
+    const { admin } = adminClient({ staffRows: [
+      { id: 'other', email: 'admin@example.com', role: 'admin', parish_id: 'parish-a' },
+      { id: 'self', email: 'A_MIN@example.com', role: 'staff', parish_id: 'parish-a' },
+    ] })
+    createSupabaseServiceRoleClientMock.mockReturnValue(admin)
+    await expect(authorizeStaffUser({ email } as never)).resolves.toMatchObject({ ok: true, role: 'staff' })
   })
 
   it('preserves the parish-not-configured message when no parish exists', async () => {
@@ -152,7 +173,7 @@ describe('authorizeStaffUser', () => {
     const source = readFileSync(join(process.cwd(), 'lib', 'server', 'requireStaff.ts'), 'utf8')
 
     expect(source).toContain(".from('staff_users')")
-    expect(source).toContain(".select('id, role, parish_id')")
+    expect(source).toContain(".select('id, role, parish_id, email')")
     expect(source).toContain(".eq('active', true)")
     expect(source).toContain(".ilike('email', email)")
     expect(source).not.toContain(".eq('parish_id', parishId)")

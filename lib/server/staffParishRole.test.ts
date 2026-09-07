@@ -9,6 +9,7 @@ import {
 } from '@/lib/server/staffParishRole'
 
 function adminBuilder(input: {
+  email?: string
   id?: string | null
   error?: { message: string } | null
 }) {
@@ -19,7 +20,7 @@ function adminBuilder(input: {
     limit: vi.fn(() => builder),
     maybeSingle: vi.fn(() =>
       Promise.resolve({
-        data: input.id ? { id: input.id } : null,
+        data: input.id ? { id: input.id, email: input.email ?? 'ADMIN@example.com' } : null,
         error: input.error ?? null,
       })
     ),
@@ -29,6 +30,7 @@ function adminBuilder(input: {
 }
 
 function membershipRoleBuilder(input: {
+  email?: string
   role?: string | null
   error?: { message: string } | null
 }) {
@@ -39,7 +41,7 @@ function membershipRoleBuilder(input: {
     limit: vi.fn(() => builder),
     maybeSingle: vi.fn(() =>
       Promise.resolve({
-        data: input.role ? { role: input.role } : null,
+        data: input.role ? { role: input.role, email: input.email ?? 'ADMIN@example.com' } : null,
         error: input.error ?? null,
       })
     ),
@@ -94,6 +96,31 @@ describe('staff parish role', () => {
         email: 'staff@example.com',
       })
     ).rejects.toEqual({ message: 'role lookup failed' })
+  })
+
+  it.each(['%@example.com', '_dmin@example.com', '*@example.com'])(
+    'denies roles returned for another email by a wildcard: %s', async (email) => {
+      const admin = adminBuilder({ id: 'other-admin' })
+      const membership = membershipRoleBuilder({ role: 'admin' })
+      await expect(staffIsAdminForParish({ from: () => admin } as never, {
+        parishId: 'parish-b', email,
+      })).resolves.toBe(false)
+      await expect(loadAuthenticatedStaffRoleForParish({ from: () => membership } as never, {
+        parishId: 'parish-b', email,
+      })).resolves.toBeNull()
+    }
+  )
+
+  it('allows literal wildcard characters only when the returned email is identical', async () => {
+    const email = 'a_min%@example.com'
+    const admin = adminBuilder({ id: 'self', email })
+    const membership = membershipRoleBuilder({ role: 'staff', email })
+    await expect(staffIsAdminForParish({ from: () => admin } as never, {
+      parishId: 'parish-b', email,
+    })).resolves.toBe(true)
+    await expect(loadAuthenticatedStaffRoleForParish({ from: () => membership } as never, {
+      parishId: 'parish-b', email,
+    })).resolves.toBe('staff')
   })
 
   it('normalizes staff email without retaining display whitespace', () => {

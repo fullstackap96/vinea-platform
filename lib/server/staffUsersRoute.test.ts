@@ -47,7 +47,7 @@ function staffUsersAdminBuilder(options: {
     limit: vi.fn(() => builder),
     maybeSingle: vi.fn(() =>
       Promise.resolve({
-        data: options.adminId ? { id: options.adminId } : null,
+        data: options.adminId ? { id: options.adminId, email: 'admin@example.com' } : null,
         error: options.error ?? null,
       })
     ),

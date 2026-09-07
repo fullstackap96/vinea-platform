@@ -20,7 +20,7 @@ export async function staffIsAdminForParish(
 
   const { data, error } = await client
     .from('staff_users')
-    .select('id')
+    .select('id, email')
     .eq('parish_id', parishId)
     .eq('role', 'admin')
     .eq('active', true)
@@ -29,7 +29,8 @@ export async function staffIsAdminForParish(
     .maybeSingle()
 
   if (error) throw error
-  return Boolean(data?.id)
+  // Never grant a role from an ILIKE wildcard match to a different email.
+  return Boolean(data?.id) && normalizeEmail(data?.email) === email
 }
 
 export async function loadAuthenticatedStaffRoleForParish(
@@ -42,7 +43,7 @@ export async function loadAuthenticatedStaffRoleForParish(
 
   const { data, error } = await client
     .from('parish_memberships')
-    .select('role')
+    .select('role, email')
     .eq('parish_id', parishId)
     .eq('active', true)
     .ilike('email', email)
@@ -50,6 +51,7 @@ export async function loadAuthenticatedStaffRoleForParish(
     .maybeSingle()
 
   if (error) throw error
+  if (normalizeEmail(data?.email) !== email) return null
   return data?.role === 'admin' || data?.role === 'staff' ? data.role : null
 }
 

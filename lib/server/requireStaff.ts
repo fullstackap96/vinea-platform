@@ -47,7 +47,7 @@ export async function authorizeStaffUser(user: User | null | undefined): Promise
 
   const { data, error } = await admin
     .from('staff_users')
-    .select('id, role, parish_id')
+    .select('id, role, parish_id, email')
     .eq('active', true)
     .ilike('email', email)
     .limit(50)
@@ -58,8 +58,10 @@ export async function authorizeStaffUser(user: User | null | undefined): Promise
     }
     return { ok: false, error: 'Could not verify staff access.' }
   }
-  if (data?.length) {
-    const role = data.some((row) => row.role === 'admin') ? 'admin' : 'staff'
+  // ILIKE is only a candidate lookup: email characters can be SQL/PostgREST wildcards.
+  const matchingStaff = (data ?? []).filter((row) => normalizeStaffEmail(row.email) === email)
+  if (matchingStaff.length) {
+    const role = matchingStaff.some((row) => row.role === 'admin') ? 'admin' : 'staff'
     return { ok: true, email, role, source: 'database' }
   }
 
